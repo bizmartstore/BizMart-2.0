@@ -1,29 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useOneSignal } from "@/hooks/useOneSignal";
 import { Button } from "@/components/ui/button";
-
-declare global {
-  interface Window {
-    OneSignal?: any;
-  }
-}
-
-function getOneSignal() {
-  return new Promise<any>((resolve) => {
-    if (window.OneSignal && typeof window.OneSignal.login === "function") {
-      resolve(window.OneSignal);
-    } else {
-      const interval = setInterval(() => {
-        if (window.OneSignal && typeof window.OneSignal.login === "function") {
-          clearInterval(interval);
-          resolve(window.OneSignal);
-        }
-      }, 100);
-    }
-  });
-}
+import { X } from "lucide-react";
 
 export default function NotificationPromptBanner() {
   const [visible, setVisible] = useState(false);
@@ -43,12 +23,12 @@ export default function NotificationPromptBanner() {
   }, [onesignal]);
 
   const handleAllow = async () => {
-    if (!visible) return;
+    if (!onesignal) return;
     setVisible(false);
     try {
-      await promptForPush(); // This triggers the native permission prompt
+      await onesignal.promptForPushNotifications();
     } catch (e) {
-      console.error("promptForPush failed:", e);
+      console.error("promptForPushNotifications failed:", e);
     }
   };
 
@@ -67,7 +47,8 @@ export default function NotificationPromptBanner() {
           </div>
         </div>
         <Button onClick={handleAllow} className="w-full text-primary-foreground">
-          Allow        </Button>
+          Allow
+        </Button>
         <button
           onClick={() => setVisible(false)}
           className="absolute top-2 right-2 text-primary-foreground"
