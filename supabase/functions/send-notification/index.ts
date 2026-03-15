@@ -4,7 +4,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ONESIGNAL_APP_ID = "e258bceb-1fb6-4e73-b31a-a46ff1fbe152";
+const ONESIGNAL_APP_ID = "56883e62-5aae-4486-b9c3-84e5e1db41c9";
+// Use environment variable if available, otherwise use the provided key
+const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "os_v2_app_k2ed4ys2vzcinoodqts6dw2bzfrbtebv66aeobnecldt2hztvis4nzzor4vpyqiadtuoa4oknt4s5anypm5yv3ht33sss7khnezbeaa";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -12,17 +14,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
-    if (!ONESIGNAL_REST_API_KEY) {
-      console.error("[send-notification] Missing ONESIGNAL_REST_API_KEY");
-      return new Response(JSON.stringify({ error: "Missing API key" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    console.log("[send-notification] Using OneSignal App ID:", ONESIGNAL_APP_ID);
 
-    const body = await req.json();
-    const { title, message, targetRole, targetUserId } = body;
+    const { title, message, targetRole, targetUserId } = await req.json();
     console.log("[send-notification] Received:", JSON.stringify({ title, targetRole, targetUserId }));
 
     // Build OneSignal payload
