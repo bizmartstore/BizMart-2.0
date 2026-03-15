@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
-import Sonner from "@/components/ui/sonner";
+import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
@@ -10,6 +10,7 @@ import PWAInstallGate from "@/components/PWAInstallGate";
 import SplashScreen from "@/components/SplashScreen";
 import OneSignalInit from "@/components/OneSignalInit";
 import NotificationPromptBanner from "@/components/NotificationPromptBanner";
+import { AdminAutoRedirect } from "@/components/AdminAutoRedirect";
 import AdminDashboard from "@/pages/AdminDashboard";
 import BCoinsPage from "@/pages/BCoinsPage";
 import CartPage from "@/pages/CartPage";
@@ -31,7 +32,6 @@ import SellerStorePage from "@/pages/SellerStorePage";
 import SignUpPage from "@/pages/SignUpPage";
 import SellersPage from "@/pages/SellersPage";
 import StoreViewPage from "@/pages/StoreViewPage";
-import { AdminAutoRedirect } from "@/components/AdminAutoRedirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {

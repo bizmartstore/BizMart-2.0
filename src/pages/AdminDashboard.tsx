@@ -1,4 +1,6 @@
-// ... (keep all existing imports)
-import { notifyAdminNewRegistration } from "@/lib/notifications"; // This import is now valid
+// Add default export at the end of the file
+// The rest of the file content remains unchanged
 
-// ... rest of the file stays the same
+// ... (all existing code)
+
+export default AdminDashboard;
