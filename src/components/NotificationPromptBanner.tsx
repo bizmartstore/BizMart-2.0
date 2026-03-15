@@ -8,19 +8,36 @@ export default function NotificationPromptBanner() {
   const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
+    // Only run in browser
     if (typeof window === "undefined") return;
     
-    // Don't show if already granted
-    if (Notification.permission === "granted") return;
+    // Check if notifications are supported
+    if (!("Notification" in window)) return;
 
-    // Check if we have a dismiss timestamp
+    // If already granted, do not show
+    if (Notification.permission === "granted") {
+      setVisible(false);
+      return;
+    }
+
+    // Check if OneSignal is likely to be available
+    if (!window.OneSignal && !window.OneSignalDeferred) {
+      setVisible(false);
+      return;
+    }
+
+    // Check if we have a dismiss timestamp in localStorage
     const dismissedUntil = Number(localStorage.getItem("onesignal_notif_banner_dismissed") || "0");
-    if (dismissedUntil > Date.now()) return;
+    const now = Date.now();
+    if (dismissedUntil > now) {
+      setVisible(false);
+      return;
+    }
 
-    // Show after a delay
+    // Show after a short delay to avoid annoyance on first load
     const timer = setTimeout(() => {
       setVisible(true);
-    }, 4000);
+    }, 3000);
 
     return () => clearTimeout(timer);
   }, []);
@@ -40,6 +57,7 @@ export default function NotificationPromptBanner() {
 
   const handleDismiss = () => {
     setVisible(false);
+    // Dismiss for 1 day
     localStorage.setItem("onesignal_notif_banner_dismissed", (Date.now() + 24 * 60 * 60 * 1000).toString());
   };
 
