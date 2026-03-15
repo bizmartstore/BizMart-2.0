@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useOneSignal } from "@/hooks/useOneSignal";
+import { getNotificationPermission } from "@/lib/onesignal-client";
 
 export default function NotificationPromptBanner() {
   const { requestPermission, isSupported } = useOneSignal();

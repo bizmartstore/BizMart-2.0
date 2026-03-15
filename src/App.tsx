@@ -1,7 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,7 +31,7 @@ import SellerStorePage from "@/pages/SellerStorePage";
 import SignUpPage from "@/pages/SignUpPage";
 import SellersPage from "@/pages/SellersPage";
 import StoreViewPage from "@/pages/StoreViewPage";
-import AdminAutoRedirect from "@/components/AdminAutoRedirect";
+import { AdminAutoRedirect } from "@/components/AdminAutoRedirect";
 
 const queryClient = new QueryClient({
   defaultOptions: {
