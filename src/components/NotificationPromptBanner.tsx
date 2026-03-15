@@ -1,70 +1,74 @@
 import { useState, useEffect, useCallback } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { promptForPush } from "@/hooks/useOneSignal";
+import { useOneSignal } from "@/hooks/useOneSignal";
 
 export default function NotificationPromptBanner() {
+  const { requestPermission, isSupported } = useOneSignal();
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [permissionChecked, setPermissionChecked] = useState(false);
 
-  const checkPermission = useCallback(() => {
-    // Only show on devices that support notifications
-    if (!("Notification" in window)) return false;
-    return Notification.permission === "default";
-  }, []);
+  const checkPermission = useCallback(async (): Promise<boolean> => {
+    if (!isSupported) return false;
+    const permission = await getNotificationPermission();
+    return permission === "default";
+  }, [isSupported]);
 
   useEffect(() => {
-    // Initial check after short delay
-    const timer = setTimeout(() => {
-      if (checkPermission()) setVisible(true);
-    }, 4000);
+    if (!isSupported) return;
 
-    // Re-check periodically in case user dismissed the OS prompt without allowing
-    const interval = setInterval(() => {
-      if (checkPermission()) {
-        if (!dismissed) setVisible(true);
-      } else {
-        // Permission granted or permanently denied at OS level
-        setVisible(false);
+    const checkAndShow = async () => {
+      const shouldShow = await checkPermission();
+      if (shouldShow && !dismissed) {
+        // Show after 5 seconds
+        setTimeout(() => setVisible(true), 5000);
       }
-    }, 10000);
-
-    return () => {
-      clearTimeout(timer);
-      clearInterval(interval);
+      setPermissionChecked(true);
     };
-  }, [checkPermission, dismissed]);
 
-  // When permission changes (granted), hide immediately
+    checkAndShow();
+
+    // Re-check every 30 seconds
+    const interval = setInterval(checkAndShow, 30000);
+    return () => clearInterval(interval);
+  }, [checkPermission, dismissed, isSupported]);
+
+  // Hide when permission is granted/denied
   useEffect(() => {
-    if (!("Notification" in window)) return;
-    const handler = () => {
-      if (Notification.permission !== "default") {
+    if (!permissionChecked) return;
+    
+    const checkStatus = async () => {
+      const permission = await getNotificationPermission();
+      if (permission !== "default") {
         setVisible(false);
       }
     };
-    // Some browsers fire this
-    navigator.permissions?.query({ name: "notifications" as PermissionName }).then((status) => {
-      status.onchange = handler;
-    }).catch(() => {});
-  }, []);
+
+    const interval = setInterval(checkStatus, 5000);
+    return () => clearInterval(interval);
+  }, [permissionChecked]);
 
   const handleAllow = async () => {
     console.log("[NotificationPromptBanner] Allow button clicked");
     setVisible(false);
-    await promptForPush();
+    const granted = await requestPermission();
+    if (granted) {
+      console.log("[NotificationPromptBanner] Permission granted");
+    }
   };
 
   const handleDismiss = () => {
     setDismissed(true);
     setVisible(false);
-    // Re-show after 60 seconds if still not granted
-    setTimeout(() => {
-      if (checkPermission()) {
+    // Re-show after 2 minutes if still not granted
+    setTimeout(async () => {
+      const shouldShow = await checkPermission();
+      if (shouldShow) {
         setDismissed(false);
         setVisible(true);
       }
-    }, 60000);
+    }, 120000);
   };
 
   if (!visible) return null;
@@ -87,7 +91,11 @@ export default function NotificationPromptBanner() {
         >
           Allow
         </Button>
-        <button onClick={handleDismiss} className="shrink-0 opacity-70 hover:opacity-100">
+        <button 
+          onClick={handleDismiss} 
+          className="shrink-0 opacity-70 hover:opacity-100 p-1"
+          aria-label="Dismiss"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>

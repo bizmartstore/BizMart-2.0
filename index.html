@@ -7,17 +7,8 @@
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <title>BizMart - Campus Store</title>
     <meta name="description" content="Your one-stop mobile school store for students">
-    <!-- Add cache-busting parameter to force fresh OneSignal SDK -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js?t=20250308" defer></script>
-    <script>
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
-      OneSignalDeferred.push(async function(OneSignal) {
-        await OneSignal.init({
-          appId: "56883e62-5aae-4486-b9c3-84e5e1db41c9",
-          allowLocalhostAsSecureOrigin: true,
-        });
-      });
-    </script>
+    <!-- OneSignal Web SDK v2 -->
+    <script src="https://cdn.onesignal.com/sdks/web/v2/OneSignalSDK.page.js" defer></script>
     <meta name="author" content="Lovable" />
 
     <meta property="og:type" content="website" />

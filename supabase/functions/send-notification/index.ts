@@ -1,12 +1,13 @@
+/**
+ * Edge Function: Send Push Notification via OneSignal
+ * This runs server-side and uses OneSignal REST API
+ */
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
-
-const ONESIGNAL_APP_ID = "56883e62-5aae-4486-b9c3-84e5e1db41c9";
-// Use environment variable if available, otherwise use the provided key
-const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "os_v2_app_k2ed4ys2vzcinoodqts6dw2bzfrbtebv66aeobnecldt2hztvis4nzzor4vpyqiadtuoa4oknt4s5anypm5yv3ht33sss7khnezbeaa";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -14,60 +15,86 @@ Deno.serve(async (req) => {
   }
 
   try {
-    console.log("[send-notification] Using OneSignal App ID:", ONESIGNAL_APP_ID);
+    const { title, message, icon, link, type, targetRole, targetUserId } = await req.json();
 
-    const { title, message, targetRole, targetUserId } = await req.json();
-    console.log("[send-notification] Received:", JSON.stringify({ title, targetRole, targetUserId }));
+    // Get OneSignal credentials from environment
+    const oneSignalAppId = Deno.env.get("ONESIGNAL_APP_ID")!;
+    const oneSignalRestKey = Deno.env.get("ONESIGNAL_REST_API_KEY")!;
 
-    // Build OneSignal payload
-    const isAdminTarget = targetRole === "admin";
-    const payload: any = {
-      app_id: ONESIGNAL_APP_ID,
-      headings: { en: title },
-      contents: { en: message },
-      // Custom notification sound
-      android_sound: isAdminTarget ? "admin_notification" : "customer_notification",
-      ios_sound: isAdminTarget ? "admin_notification.mp3" : "customer_notification.mp3",
-      // Set the site URL for proper notification routing
-      site_url: "https://bizmart-2.vercel.app",
-    };
-
-    if (targetUserId) {
-      // Send to specific user by external_user_id
-      payload.include_aliases = { external_id: [targetUserId] };
-      payload.target_channel = "push";
-    } else if (targetRole === "admin") {
-      // Send to admins using tags
-      payload.filters = [
-        { field: "tag", key: "role", relation: "=", value: "main_admin" },
-        { operator: "OR" },
-        { field: "tag", key: "role", relation: "=", value: "member_admin" },
-      ];
-    } else {
-      // Send to all subscribers
-      payload.included_segments = ["Subscribed Users"];
+    if (!oneSignalAppId || !oneSignalRestKey) {
+      throw new Error("OneSignal credentials not configured");
     }
 
-    console.log("[send-notification] OneSignal payload:", JSON.stringify(payload));
+    // Build OneSignal payload
+    const payload: any = {
+      app_id: oneSignalAppId,
+      headings: { en: title },
+      contents: { en: message },
+      icon: icon || undefined,
+      url: link || undefined,
+      // Custom notification sound based on target
+      android_sound: targetRole === 'admin' ? 'admin_notification' : 'customer_notification',
+      ios_sound: targetRole === 'admin' ? 'admin_notification.mp3' : 'customer_notification.mp3',
+      // Data for deep linking
+      data: {
+        type,
+        link,
+      },
+    };
 
-    const response = await fetch("https://onesignal.com/api/v1/notifications", {
-      method: "POST",
+    // Target specific user by external_user_id
+    if (targetUserId) {
+      payload.include_external_user_ids = [targetUserId];
+      payload.target_channel = 'push';
+    } 
+    // Target admins by tag
+    else if (targetRole === 'admin') {
+      payload.filters = [
+        { field: 'tag', key: 'role', relation: '=', value: 'main_admin' },
+        { operator: 'OR' },
+        { field: 'tag', key: 'role', relation: '=', value: 'member_admin' },
+      ];
+    } 
+    // Broadcast to all subscribers
+    else {
+      payload.included_segments = ['Subscribed Users'];
+    }
+
+    const response = await fetch('https://onesignal.com/api/v1/notifications', {
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Authorization': `Basic ${oneSignalRestKey}`,
       },
       body: JSON.stringify(payload),
     });
 
     const data = await response.json();
-    console.log("[send-notification] OneSignal response:", JSON.stringify(data));
 
-    return new Response(JSON.stringify({ success: true, data }), {
+    if (!response.ok) {
+      console.error('[OneSignal Edge Function] Error:', data);
+      throw new Error(data.errors?.[0]?.message || 'OneSignal API error');
+    }
+
+    console.log('[OneSignal Edge Function] Success:', {
+      notificationId: data.id,
+      recipients: targetUserId ? 1 : 'all',
+      type,
+    });
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      notificationId: data.id,
+      recipients: targetUserId ? 1 : 'all',
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (error) {
-    console.error("[send-notification] Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[OneSignal Edge Function] Fatal error:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || 'Unknown error' 
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
