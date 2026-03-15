@@ -28,6 +28,8 @@ Deno.serve(async (req) => {
       // Custom notification sound
       android_sound: isAdminTarget ? "admin_notification" : "customer_notification",
       ios_sound: isAdminTarget ? "admin_notification.mp3" : "customer_notification.mp3",
+      // Set the site URL for proper notification routing
+      site_url: "https://bizmart-2.vercel.app",
     };
 
     if (targetUserId) {
