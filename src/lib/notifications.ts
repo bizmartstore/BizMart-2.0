@@ -200,6 +200,18 @@ export async function notifyAdminNewSeller(sellerName: string, storeName: string
   });
 }
 
+// Notify admin about new user registration
+export async function notifyAdminNewRegistration(firstName: string, lastName: string, email: string) {
+  await sendNotification({
+    title: "📝 New User Registration",
+    message: `${firstName} ${lastName} (${email}) created an account!`,
+    icon: "👤",
+    link: "/admin?tab=users",
+    type: "new_registration",
+    targetRole: "admin",
+  });
+}
+
 // Notify customer about BCoins earned
 export async function notifyCustomerBCoins(userId: string, amount: number, reason: string) {
   await sendNotification({
