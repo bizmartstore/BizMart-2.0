@@ -1,6 +1,6 @@
-// ... (keep all existing imports)
-import OneSignalInit from "@/components/OneSignalInit";
-// ... rest of the file
+// ... existing imports
+import NotificationPromptBanner from "@/components/NotificationPromptBanner";
+// ... rest of imports
 
 const App = () => {
   // ... existing code
@@ -12,7 +12,8 @@ const App = () => {
           <TooltipProvider>
             <PWAInstallGate>
               {!splashDone && <SplashScreen onFinished={handleSplashFinished} />}
-              <OneSignalInit /> {/* This initializes OneSignal */}
+              <OneSignalInit />
+              <NotificationPromptBanner /> {/* Add this */}
               <Toaster />
               <Sonner />
               {/* ... rest of your routes */}
