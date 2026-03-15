@@ -7,21 +7,13 @@
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <title>BizMart - Campus Store</title>
     <meta name="description" content="Your one-stop mobile school store for students">
-    <!-- Load OneSignal SDK early -->
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>
-      // Initialize OneSignal as early as possible
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
-        console.log("[OneSignal] SDK loaded and initialized");
         await OneSignal.init({
           appId: "56883e62-5aae-4486-b9c3-84e5e1db41c9",
-          // Optional: Configure notification behavior
-          allowLocalhostAsSecureOrigin: true,
-          // Debug mode for development
-          debug: true,
         });
-        console.log("[OneSignal] Init complete");
       });
     </script>
     <meta name="author" content="Lovable" />
@@ -41,16 +33,5 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <!-- Debug script to check OneSignal loading -->
-    <script>
-      // Check if OneSignal loaded after 5 seconds
-      setTimeout(() => {
-        if (!window.OneSignal) {
-          console.error("[OneSignal] SDK failed to load after 5 seconds");
-        } else {
-          console.log("[OneSignal] SDK is available:", window.OneSignal);
-        }
-      }, 5000);
-    </script>
   </body>
 </html>
