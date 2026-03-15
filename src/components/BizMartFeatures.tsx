@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShoppingBag, Store, Crown, Coins, Smartphone, Printer, GraduationCap } from "lucide-react";
+import { ShoppingBag, Store, Crown, Coins, Smartphone, Printer } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 
 const features = [
@@ -57,18 +57,10 @@ const features = [
     emoji: "🖨️",
     path: "/print-service",
   },
-  {
-    id: "learning-job",
-    label: "Learning Job",
-    desc: "Peer Tutoring",
-    icon: GraduationCap,
-    bg: "bg-gradient-to-br from-rose-500 to-pink-500",
-    emoji: "🎓",
-    path: "/learning-job",
-  },
 ];
 
-// Duplicate features for seamless infinite scrollconst duplicatedFeatures = [...features, ...features];
+// Duplicate features for seamless infinite scroll
+const duplicatedFeatures = [...features, ...features];
 
 export default function BizMartFeatures() {
   const navigate = useNavigate();
@@ -135,7 +127,8 @@ export default function BizMartFeatures() {
         onMouseLeave={handleInteractionEnd}
       >
         {duplicatedFeatures.map((f, idx) => (
-          <button            key={`${f.id}-${idx}`}
+          <button
+            key={`${f.id}-${idx}`}
             onClick={() => navigate(f.path)}
             className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-[0.93] transition-transform"
           >
