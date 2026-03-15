@@ -117,7 +117,7 @@ export async function promptForPush() {
   console.log("[NotificationPromptBanner] Allow button clicked, requesting push permission...");
   const OneSignal = await getOneSignal(10000);
   if (!OneSignal?.Notifications) {
-    console.warn("[NotificationPromptBanner] OneSignal Notifications not available. Check domain settings in dashboard.");
+    console.warn("[NotificationPromptBanner] OneSignal Notifications not available. Check domain settings in OneSignal dashboard.");
     return;
   }
   try {

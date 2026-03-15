@@ -50,7 +50,7 @@ export default function NotificationPromptBanner() {
   }, []);
 
   const handleAllow = async () => {
-    console.log("NotificationPromptBanner: Allow button clicked");
+    console.log("[NotificationPromptBanner] Allow button clicked");
     setVisible(false);
     await promptForPush();
   };
