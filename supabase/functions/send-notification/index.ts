@@ -4,9 +4,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ONESIGNAL_APP_ID = "56883e62-5aae-4486-b9c3-84e5e1db41c9";
-// Use environment variable if available, otherwise use the provided key
-const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "os_v2_app_k2ed4ys2vzcinoodqts6dw2bzfrbtebv66aeobnecldt2hztvis4nzzor4vpyqiadtuoa4oknt4s5anypm5yv3ht33sss7khnezbeaa";
+// Updated OneSignal credentials
+const ONESIGNAL_APP_ID = "617c000e-3cf8-4077-b083-9b4fea4018de";
+const ONESIGNAL_REST_API_KEY = "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akauan6dj55pkrd7357ktwi";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
-      // Custom notification sound
+      // Custom notification sound based on target
       android_sound: isAdminTarget ? "admin_notification" : "customer_notification",
       ios_sound: isAdminTarget ? "admin_notification.mp3" : "customer_notification.mp3",
     };
@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
         { field: "tag", key: "role", relation: "=", value: "member_admin" },
       ];
     } else {
-      // Send to all subscribers
+      // Send to all subscribers (for announcements)
       payload.included_segments = ["Subscribed Users"];
     }
 
