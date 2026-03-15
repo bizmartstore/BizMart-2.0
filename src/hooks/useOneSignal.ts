@@ -95,7 +95,8 @@ export function useOneSignal() {
           if (typeof OneSignal.User.removeTags === "function") {
             await OneSignal.User.removeTags(["role", "user_id", "email", "name", "admin"]);
           }
-          // Set fresh tags — include admin=true for easy targeting          if (typeof OneSignal.User.addTags === "function") {
+          // Set fresh tags — include admin=true for easy targeting
+          if (typeof OneSignal.User.addTags === "function") {
             await OneSignal.User.addTags({
               user_id: user.id,
               email: profile.email || "",
@@ -153,20 +154,12 @@ export function useOneSignal() {
 }
 
 export async function promptForPush() {
-  const OneSignal = await getOneSignal(8000);
-  if (!OneSignal) return;
+  const OneSignal = await getOneSignal(5000);
+  if (!OneSignal?.Notifications) return;
   try {
-    // Use OneSignal's HTTP prompt to show native browser permission dialog
-    await OneSignal.showHttpPrompt();
-  } catch (err) {
-    console.error("Failed to show HTTP prompt via OneSignal:", err);
-    // Fallback to Notifications.requestPermission if available
-    if (OneSignal.Notifications) {
-      try {
-        await OneSignal.Notifications.requestPermission();
-      } catch (e) {
-        console.error("Fallback requestPermission also failed:", e);
-      }
+    const permission = await OneSignal.Notifications.permission;
+    if (!permission) {
+      await OneSignal.Notifications.requestPermission();
     }
-  }
+  } catch (_) {}
 }
