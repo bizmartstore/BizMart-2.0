@@ -1,70 +1,64 @@
-import { useState, useEffect, useCallback } from "react";
-import { Bell, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { promptForPush } from "@/hooks/useOneSignal";
 
 export default function NotificationPromptBanner() {
   const [visible, setVisible] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-
-  const checkPermission = useCallback(() => {
-    // Only show on devices that support notifications
-    if (!("Notification" in window)) return false;
-    return Notification.permission === "default";
-  }, []);
+  const [isRequesting, setIsRequesting] = useState(false);
 
   useEffect(() => {
-    // Initial check after short delay
-    const timer = setTimeout(() => {
-      if (checkPermission()) setVisible(true);
-    }, 4000);
-
-    // Re-check periodically in case user dismissed the OS prompt without allowing
-    const interval = setInterval(() => {
-      if (checkPermission()) {
-        if (!dismissed) setVisible(true);
-      } else {
-        // Permission granted or permanently denied at OS level
-        setVisible(false);
-      }
-    }, 10000);
-
-    return () => {
-      clearTimeout(timer);
-      clearInterval(interval);
-    };
-  }, [checkPermission, dismissed]);
-
-  // When permission changes (granted), hide immediately
-  useEffect(() => {
+    // Only run in browser
+    if (typeof window === "undefined") return;
+    
+    // Check if notifications are supported
     if (!("Notification" in window)) return;
-    const handler = () => {
-      if (Notification.permission !== "default") {
-        setVisible(false);
-      }
-    };
-    // Some browsers fire this
-    navigator.permissions?.query({ name: "notifications" as PermissionName }).then((status) => {
-      status.onchange = handler;
-    }).catch(() => {});
+
+    // If already granted, do not show
+    if (Notification.permission === "granted") {
+      setVisible(false);
+      return;
+    }
+
+    // Check if OneSignal is likely to be available
+    if (!window.OneSignal && !window.OneSignalDeferred) {
+      setVisible(false);
+      return;
+    }
+
+    // Check if we have a dismiss timestamp in localStorage
+    const dismissedUntil = Number(localStorage.getItem("onesignal_notif_banner_dismissed") || "0");
+    const now = Date.now();
+    if (dismissedUntil > now) {
+      setVisible(false);
+      return;
+    }
+
+    // Show after a short delay to avoid annoyance on first load
+    const timer = setTimeout(() => {
+      setVisible(true);
+    }, 3000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleAllow = async () => {
-    // Hide banner first so it doesn't block the OS permission dialog
+    setIsRequesting(true);
+    try {
+      await promptForPush();
+    } catch (error) {
+      console.error("Failed to request push permission:", error);
+    }
+    setIsRequesting(false);
     setVisible(false);
-    await promptForPush();
+    // Dismiss for 1 day
+    localStorage.setItem("onesignal_notif_banner_dismissed", (Date.now() + 24 * 60 * 60 * 1000).toString());
   };
 
   const handleDismiss = () => {
-    setDismissed(true);
     setVisible(false);
-    // Re-show after 60 seconds if still not granted
-    setTimeout(() => {
-      if (checkPermission()) {
-        setDismissed(false);
-        setVisible(true);
-      }
-    }, 60000);
+    // Dismiss for 1 day
+    localStorage.setItem("onesignal_notif_banner_dismissed", (Date.now() + 24 * 60 * 60 * 1000).toString());
   };
 
   if (!visible) return null;
@@ -84,10 +78,19 @@ export default function NotificationPromptBanner() {
           variant="secondary"
           className="shrink-0 text-xs font-bold"
           onClick={handleAllow}
+          disabled={isRequesting}
         >
-          Allow
+          {isRequesting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            "Allow"
+          )}
         </Button>
-        <button onClick={handleDismiss} className="shrink-0 opacity-70 hover:opacity-100">
+        <button 
+          onClick={handleDismiss} 
+          className="shrink-0 opacity-70 hover:opacity-100"
+          disabled={isRequesting}
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
