@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -9,27 +9,58 @@ declare global {
   }
 }
 
-/**
- * Wait for OneSignal SDK to be fully initialized.
- */
+/** Wait for OneSignal SDK to be fully initialized with Notifications. */
 function getOneSignal(timeoutMs = 10000): Promise<any | null> {
   return new Promise((resolve) => {
-    if (window.OneSignal && typeof window.OneSignal.login === "function") {
-      return resolve(window.OneSignal);
-    }
-
-    const timer = setTimeout(() => resolve(null), timeoutMs);
-
-    if (window.OneSignalDeferred) {
-      window.OneSignalDeferred.push((OS: any) => {
+    const checkReady = () => {
+      if (
+        window.OneSignal &&
+        typeof window.OneSignal.Notifications?.requestPermission === "function"
+      ) {
         clearTimeout(timer);
-        resolve(OS);
-      });
-    } else {
-      clearTimeout(timer);
+        clearInterval(interval);
+        resolve(window.OneSignal);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      clearInterval(interval);
       resolve(null);
-    }
+    }, timeoutMs);
+
+    const interval = setInterval(checkReady, 100);
+    checkReady(); // check immediately
   });
+}
+
+/** Request push notification permission from the user */
+export async function promptForPush() {
+  const OneSignal = await getOneSignal(5000);
+  if (!OneSignal?.Notifications) {
+    throw new Error("OneSignal Notifications not available");
+  }
+  try {
+    const permission = OneSignal.Notifications.permission;
+    if (permission === "granted") {
+      return;
+    }
+    // Request permission with a timeout to prevent hanging
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("requestPermission timeout")), 10000)
+    );
+    const newPermission = await Promise.race([
+      OneSignal.Notifications.requestPermission(),
+      timeoutPromise,
+    ]);
+    if (newPermission === "granted") {
+      console.log("[OneSignal] Push permission granted");
+    } else {
+      console.log("[OneSignal] Push permission denied:", newPermission);
+    }
+  } catch (error) {
+    console.error("[OneSignal] Error requesting permission:", error);
+    throw error;
+  }
 }
 
 export function useOneSignal() {
@@ -37,6 +68,35 @@ export function useOneSignal() {
   const { role, loading: roleLoading } = useAdmin();
   const taggedRef = useRef<string | null>(null);
   const prevUserRef = useRef<string | null>(null);
+
+  // Initialize OneSignal on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    // If OneSignal is already initialized, skip
+    if (window.OneSignal?.isInitialized) {
+      return;
+    }
+
+    // Ensure OneSignal array exists
+    window.OneSignal = window.OneSignal || [];
+
+    // Push init if not already pushed
+    if (!window.OneSignal._initPushed) {
+      window.OneSignal._initPushed = true;
+      window.OneSignal.push(function () {
+        const appId =
+          import.meta.env.VITE_ONESIGNAL_APP_ID ||
+          "56883e62-5aae-4486-b9c3-84e5e1db41c9";
+        window.OneSignal.init({
+          appId: appId,
+          // Optional: set up notification click handler
+          // notifyButton: { autoRegister: true },
+          // ... other options
+        });
+      });
+    }
+  }, []);
 
   // Logout from OneSignal when user signs out
   useEffect(() => {
@@ -89,11 +149,18 @@ export function useOneSignal() {
       // Step 2: Remove old tags then set new ones (prevents stale role tags)
       try {
         if (OneSignal.User) {
-          const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
+          const isAdminRole =
+            effectiveRole === "main_admin" || effectiveRole === "member_admin";
 
           // Remove potentially stale tags first
           if (typeof OneSignal.User.removeTags === "function") {
-            await OneSignal.User.removeTags(["role", "user_id", "email", "name", "admin"]);
+            await OneSignal.User.removeTags([
+              "role",
+              "user_id",
+              "email",
+              "name",
+              "admin",
+            ]);
           }
           // Set fresh tags — include admin=true for easy targeting
           if (typeof OneSignal.User.addTags === "function") {
@@ -105,7 +172,9 @@ export function useOneSignal() {
               admin: isAdminRole ? "true" : "false",
             });
             taggedRef.current = `${user.id}_${effectiveRole}`;
-            console.log(`[OneSignal] Tagged user — role: ${effectiveRole}, admin: ${isAdminRole}`);
+            console.log(
+              `[OneSignal] Tagged user — role: ${effectiveRole}, admin: ${isAdminRole}`
+            );
           }
         }
       } catch (e) {
@@ -117,7 +186,8 @@ export function useOneSignal() {
         if (OneSignal.Notifications) {
           // permission is a string: "default" | "granted" | "denied"
           const perm = await OneSignal.Notifications.permission;
-          const isPushSupported = OneSignal.Notifications.isPushSupported?.() ?? true;
+          const isPushSupported =
+            OneSignal.Notifications.isPushSupported?.() ?? true;
 
           // Check if device is actually subscribed (opted-in)
           const optedIn = OneSignal.User?.PushSubscription?.optedIn ?? false;
@@ -126,20 +196,29 @@ export function useOneSignal() {
             `[OneSignal] Permission: "${perm}" | Push supported: ${isPushSupported} | OptedIn: ${optedIn} | SubscriptionId: ${subscriptionId}`
           );
 
-          // Fix: was "!perm" which is falsy for "default" strings — must check !== "granted"
+          // If not granted and push supported, request permission for admins
           if (perm !== "granted" && isPushSupported) {
             if (effectiveRole === "main_admin" || effectiveRole === "member_admin") {
-              console.log("[OneSignal] Admin detected — requesting push permission...");
+              console.log(
+                "[OneSignal] Admin detected — requesting push permission..."
+              );
               await OneSignal.Notifications.requestPermission();
               // Re-check after request
               const newPerm = await OneSignal.Notifications.permission;
-              const newOptedIn = OneSignal.User?.PushSubscription?.optedIn ?? false;
-              console.log(`[OneSignal] After request — Permission: "${newPerm}" | OptedIn: ${newOptedIn}`);
+              const newOptedIn =
+                OneSignal.User?.PushSubscription?.optedIn ?? false;
+              console.log(
+                `[OneSignal] After request — Permission: "${newPerm}" | OptedIn: ${newOptedIn}`
+              );
             }
           } else if (perm === "granted" && !optedIn) {
-            console.warn("[OneSignal] Permission granted but device NOT opted-in — push may not work!");
+            console.warn(
+              "[OneSignal] Permission granted but device NOT opted-in — push may not work!"
+            );
           } else if (perm === "granted" && optedIn) {
-            console.log("[OneSignal] Device is fully subscribed and ready to receive push.");
+            console.log(
+              "[OneSignal] Device is fully subscribed and ready to receive push."
+            );
           }
         }
       } catch (e) {
@@ -149,17 +228,8 @@ export function useOneSignal() {
 
     doTag();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [user, profile, role, roleLoading]);
-}
-
-export async function promptForPush() {
-  const OneSignal = await getOneSignal(5000);
-  if (!OneSignal?.Notifications) return;
-  try {
-    const permission = await OneSignal.Notifications.permission;
-    if (!permission) {
-      await OneSignal.Notifications.requestPermission();
-    }
-  } catch (_) {}
 }
