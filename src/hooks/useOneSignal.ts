@@ -1,165 +1,59 @@
-import { useEffect, useRef, useCallback } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { useAdmin } from "@/hooks/useAdmin";
+"use client";
+
+import { useState, useEffect, useRef } from "react";
 
 declare global {
   interface Window {
-    OneSignalDeferred?: Array<(OneSignal: any) => void>;
     OneSignal?: any;
   }
 }
 
 /**
- * Wait for OneSignal SDK to be fully initialized.
+ * Wait for OneSignal SDK to be loaded and return the client.
+ * Returns null until the SDK script has executed.
  */
-function getOneSignal(timeoutMs = 10000): Promise<any | null> {
-  return new Promise((resolve) => {
-    if (window.OneSignal && typeof window.OneSignal.login === "function") {
-      return resolve(window.OneSignal);
-    }
-
-    const timer = setTimeout(() => resolve(null), timeoutMs);
-
-    if (window.OneSignalDeferred) {
-      window.OneSignalDeferred.push((OS: any) => {
-        clearTimeout(timer);
-        resolve(OS);
-      });
-    } else {
-      clearTimeout(timer);
-      resolve(null);
-    }
-  });
-}
-
 export function useOneSignal() {
-  const { user, profile } = useAuth();
-  const { role, loading: roleLoading } = useAdmin();
-  const taggedRef = useRef<string | null>(null);
-  const prevUserRef = useRef<string | null>(null);
+  const [client, setClient] = useState<any>(null);
 
-  // Logout from OneSignal when user signs out
   useEffect(() => {
-    if (!user && prevUserRef.current) {
-      // User just logged out — clear OneSignal state
-      (async () => {
-        const OneSignal = await getOneSignal(3000);
-        if (!OneSignal) return;
-        try {
-          if (typeof OneSignal.logout === "function") {
-            await OneSignal.logout();
-            console.log("[OneSignal] logout success — device unlinked");
-          }
-        } catch (e) {
-          console.warn("[OneSignal] logout failed:", e);
-        }
-      })();
-      taggedRef.current = null;
-      prevUserRef.current = null;
-    } else if (user) {
-      prevUserRef.current = user.id;
-    }
-  }, [user]);
+    // Create the OneSignal SDK script element
+    const script = document.createElement("script");
+    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.js";
+    script.async = true;
+    document.head.appendChild(script);
 
-  // Tag user when logged in and role is resolved
-  useEffect(() => {
-    if (!user || !profile || roleLoading) return;
-
-    const effectiveRole = role || "customer";
-
-    // Don't re-tag if already tagged with same user+role
-    if (taggedRef.current === `${user.id}_${effectiveRole}`) return;
-
-    let cancelled = false;
-
-    const doTag = async () => {
-      const OneSignal = await getOneSignal();
-      if (!OneSignal || cancelled) return;
-
-      // Step 1: Login with external user ID — re-links device to this user
-      try {
-        if (typeof OneSignal.login === "function") {
-          await OneSignal.login(user.id);
-          console.log(`[OneSignal] login(${user.id}) success`);
-        }
-      } catch (e) {
-        console.warn("[OneSignal] login failed:", e);
-      }
-
-      // Step 2: Remove old tags then set new ones (prevents stale role tags)
-      try {
-        if (OneSignal.User) {
-          const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
-
-          // Remove potentially stale tags first
-          if (typeof OneSignal.User.removeTags === "function") {
-            await OneSignal.User.removeTags(["role", "user_id", "email", "name", "admin"]);
-          }
-          // Set fresh tags — include admin=true for easy targeting
-          if (typeof OneSignal.User.addTags === "function") {
-            await OneSignal.User.addTags({
-              user_id: user.id,
-              email: profile.email || "",
-              name: `${profile.first_name} ${profile.last_name}`,
-              role: effectiveRole,
-              admin: isAdminRole ? "true" : "false",
-            });
-            taggedRef.current = `${user.id}_${effectiveRole}`;
-            console.log(`[OneSignal] Tagged user — role: ${effectiveRole}, admin: ${isAdminRole}`);
-          }
-        }
-      } catch (e) {
-        console.warn("[OneSignal] tagging failed:", e);
-      }
-
-      // Step 3: Check subscription status and auto-request permission for admins
-      try {
-        if (OneSignal.Notifications) {
-          // permission is a string: "default" | "granted" | "denied"
-          const perm = await OneSignal.Notifications.permission;
-          const isPushSupported = OneSignal.Notifications.isPushSupported?.() ?? true;
-
-          // Check if device is actually subscribed (opted-in)
-          const optedIn = OneSignal.User?.PushSubscription?.optedIn ?? false;
-          const subscriptionId = OneSignal.User?.PushSubscription?.id ?? null;
-          console.log(
-            `[OneSignal] Permission: "${perm}" | Push supported: ${isPushSupported} | OptedIn: ${optedIn} | SubscriptionId: ${subscriptionId}`
-          );
-
-          // Fix: was "!perm" which is falsy for "default" strings — must check !== "granted"
-          if (perm !== "granted" && isPushSupported) {
-            if (effectiveRole === "main_admin" || effectiveRole === "member_admin") {
-              console.log("[OneSignal] Admin detected — requesting push permission...");
-              await OneSignal.Notifications.requestPermission();
-              // Re-check after request
-              const newPerm = await OneSignal.Notifications.permission;
-              const newOptedIn = OneSignal.User?.PushSubscription?.optedIn ?? false;
-              console.log(`[OneSignal] After request — Permission: "${newPerm}" | OptedIn: ${newOptedIn}`);
-            }
-          } else if (perm === "granted" && !optedIn) {
-            console.warn("[OneSignal] Permission granted but device NOT opted-in — push may not work!");
-          } else if (perm === "granted" && optedIn) {
-            console.log("[OneSignal] Device is fully subscribed and ready to receive push.");
-          }
-        }
-      } catch (e) {
-        console.warn("[OneSignal] permission check failed:", e);
+    // When the script loads, initialize OneSignal
+    script.onload = () => {
+      const os = (window as any).OneSignal;
+      if (os) {
+        setClient(os);
+        // Optional: initialise with your app ID here if you want auto-login etc.
       }
     };
 
-    doTag();
+    // Cleanup on unmount
+    return () => {
+      // No cleanup needed for the script tag
+    };
+  }, []);
 
-    return () => { cancelled = true; };
-  }, [user, profile, role, roleLoading]);
-}
-
-export async function promptForPush() {
-  const OneSignal = await getOneSignal(5000);
-  if (!OneSignal?.Notifications) return;
-  try {
-    const permission = await OneSignal.Notifications.permission;
-    if (!permission) {
-      await OneSignal.Notifications.requestPermission();
+  /**
+   * Prompt the user for notification permission and tag them based on role.
+   * This should be called after the client is ready.
+   */
+  export async function promptForPush() {
+    if (!client) {
+      console.warn("[OneSignal] SDK not ready yet");
+      return;
     }
-  } catch (_) {}
+    const permission = await Notification.requestPermission();
+    if (permission === "granted") {
+      // Tag the user with role information for admin targeting
+      const { role } = useAdmin(); // assuming you have a hook that gives role
+      const roleTag = role === "main_admin" ? "main_admin" : "member_admin";
+      await client.sendTag({ user_id: "anonymous" }, [roleTag]); // example tagging
+    }
+  }
+
+  return client;
 }
