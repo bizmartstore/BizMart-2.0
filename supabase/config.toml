@@ -1,0 +1,10 @@
+project_id = "yzlqjyurbcxzqlsypkjh"
+
+[functions.send-notification]
+verify_jwt = false
+
+[functions.cleanup-old-files]
+verify_jwt = false
+
+[functions.telegram-order-notify]
+verify_jwt = false
