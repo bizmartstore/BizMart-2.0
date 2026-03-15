@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { ShoppingBag, Eye, EyeOff, ArrowLeft } from "lucide-react";
-// Removed notifyAdminNewRegistration import - will add notification directly
+import { notifyAdminNewRegistration } from "@/lib/notifications";
 
 const GRADE_LEVELS = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
 
@@ -52,31 +52,8 @@ export default function SignUpPage() {
     if (error) {
       toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
     } else {
-      // Notify admins about new registration using direct edge function call
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-        
-        await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': anonKey,
-            'Authorization': `Bearer ${anonKey}`,
-          },
-          body: JSON.stringify({
-            title: "📝 New User Registration",
-            message: `${form.firstName} ${form.lastName} (${form.email}) created an account!`,
-            icon: "👤",
-            link: "/admin?tab=users",
-            type: "new_registration",
-            targetRole: "admin",
-          }),
-        });
-      } catch (e) {
-        console.warn("Failed to send admin notification:", e);
-      }
-      
+      // Notify admins about new registration
+      notifyAdminNewRegistration(`${form.firstName} ${form.lastName}`, form.email);
       toast({ title: "Account created! 🎉", description: "Check your email to verify your account before logging in." });
       navigate("/login");
     }

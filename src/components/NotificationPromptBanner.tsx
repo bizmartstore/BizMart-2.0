@@ -1,75 +1,70 @@
 import { useState, useEffect, useCallback } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useOneSignal } from "@/hooks/useOneSignal";
-import { getNotificationPermission } from "@/lib/onesignal-client";
+import { promptForPush } from "@/hooks/useOneSignal";
 
 export default function NotificationPromptBanner() {
-  const { requestPermission, isSupported } = useOneSignal();
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
-  const [permissionChecked, setPermissionChecked] = useState(false);
 
-  const checkPermission = useCallback(async (): Promise<boolean> => {
-    if (!isSupported) return false;
-    const permission = await getNotificationPermission();
-    return permission === "default";
-  }, [isSupported]);
+  const checkPermission = useCallback(() => {
+    // Only show on devices that support notifications
+    if (!("Notification" in window)) return false;
+    return Notification.permission === "default";
+  }, []);
 
   useEffect(() => {
-    if (!isSupported) return;
+    // Initial check after short delay
+    const timer = setTimeout(() => {
+      if (checkPermission()) setVisible(true);
+    }, 4000);
 
-    const checkAndShow = async () => {
-      const shouldShow = await checkPermission();
-      if (shouldShow && !dismissed) {
-        // Show after 5 seconds
-        setTimeout(() => setVisible(true), 5000);
+    // Re-check periodically in case user dismissed the OS prompt without allowing
+    const interval = setInterval(() => {
+      if (checkPermission()) {
+        if (!dismissed) setVisible(true);
+      } else {
+        // Permission granted or permanently denied at OS level
+        setVisible(false);
       }
-      setPermissionChecked(true);
+    }, 10000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
     };
+  }, [checkPermission, dismissed]);
 
-    checkAndShow();
-
-    // Re-check every 30 seconds
-    const interval = setInterval(checkAndShow, 30000);
-    return () => clearInterval(interval);
-  }, [checkPermission, dismissed, isSupported]);
-
-  // Hide when permission is granted/denied
+  // When permission changes (granted), hide immediately
   useEffect(() => {
-    if (!permissionChecked) return;
-    
-    const checkStatus = async () => {
-      const permission = await getNotificationPermission();
-      if (permission !== "default") {
+    if (!("Notification" in window)) return;
+    const handler = () => {
+      if (Notification.permission !== "default") {
         setVisible(false);
       }
     };
-
-    const interval = setInterval(checkStatus, 5000);
-    return () => clearInterval(interval);
-  }, [permissionChecked]);
+    // Some browsers fire this
+    navigator.permissions?.query({ name: "notifications" as PermissionName }).then((status) => {
+      status.onchange = handler;
+    }).catch(() => {});
+  }, []);
 
   const handleAllow = async () => {
-    console.log("[NotificationPromptBanner] Allow button clicked");
+    // Hide banner first so it doesn't block the OS permission dialog
     setVisible(false);
-    const granted = await requestPermission();
-    if (granted) {
-      console.log("[NotificationPromptBanner] Permission granted");
-    }
+    await promptForPush();
   };
 
   const handleDismiss = () => {
     setDismissed(true);
     setVisible(false);
-    // Re-show after 2 minutes if still not granted
-    setTimeout(async () => {
-      const shouldShow = await checkPermission();
-      if (shouldShow) {
+    // Re-show after 60 seconds if still not granted
+    setTimeout(() => {
+      if (checkPermission()) {
         setDismissed(false);
         setVisible(true);
       }
-    }, 120000);
+    }, 60000);
   };
 
   if (!visible) return null;
@@ -92,11 +87,7 @@ export default function NotificationPromptBanner() {
         >
           Allow
         </Button>
-        <button 
-          onClick={handleDismiss} 
-          className="shrink-0 opacity-70 hover:opacity-100 p-1"
-          aria-label="Dismiss"
-        >
+        <button onClick={handleDismiss} className="shrink-0 opacity-70 hover:opacity-100">
           <X className="w-4 h-4" />
         </button>
       </div>
