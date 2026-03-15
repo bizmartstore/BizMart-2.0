@@ -15,18 +15,24 @@ declare global {
 function getOneSignal(timeoutMs = 10000): Promise<any | null> {
   return new Promise((resolve) => {
     if (window.OneSignal && typeof window.OneSignal.login === "function") {
+      console.log("[OneSignal] Already available");
       return resolve(window.OneSignal);
     }
 
-    const timer = setTimeout(() => resolve(null), timeoutMs);
+    const timer = setTimeout(() => {
+      console.warn("[OneSignal] getOneSignal timeout after", timeoutMs, "ms");
+      resolve(null);
+    }, timeoutMs);
 
     if (window.OneSignalDeferred) {
       window.OneSignalDeferred.push((OS: any) => {
         clearTimeout(timer);
+        console.log("[OneSignal] getOneSignal resolved via deferred");
         resolve(OS);
       });
     } else {
       clearTimeout(timer);
+      console.warn("[OneSignal] getOneSignal: OneSignalDeferred not found");
       resolve(null);
     }
   });
@@ -126,7 +132,7 @@ export function useOneSignal() {
             `[OneSignal] Permission: "${perm}" | Push supported: ${isPushSupported} | OptedIn: ${optedIn} | SubscriptionId: ${subscriptionId}`
           );
 
-          // Fix: was "!perm" which is falsy for "default" strings — must check !== "granted"
+          // Request permission if not granted and push is supported
           if (perm !== "granted" && isPushSupported) {
             if (effectiveRole === "main_admin" || effectiveRole === "member_admin") {
               console.log("[OneSignal] Admin detected — requesting push permission...");
@@ -154,12 +160,23 @@ export function useOneSignal() {
 }
 
 export async function promptForPush() {
-  const OneSignal = await getOneSignal(5000);
-  if (!OneSignal?.Notifications) return;
+  console.log("[NotificationPromptBanner] Allow button clicked, requesting push permission...");
+  const OneSignal = await getOneSignal(10000); // Increase timeout to 10 seconds
+  if (!OneSignal?.Notifications) {
+    console.warn("[NotificationPromptBanner] OneSignal Notifications not available");
+    return;
+  }
   try {
     const permission = await OneSignal.Notifications.permission;
-    if (!permission) {
-      await OneSignal.Notifications.requestPermission();
+    console.log("[NotificationPromptBanner] OneSignal permission status:", permission);
+    if (permission === "default") {
+      console.log("[NotificationPromptBanner] Requesting OneSignal permission...");
+      const result = await OneSignal.Notifications.requestPermission();
+      console.log("[NotificationPromptBanner] Permission request result:", result);
+    } else {
+      console.log("[NotificationPromptBanner] Permission already:", permission);
     }
-  } catch (_) {}
+  } catch (error) {
+    console.error("[NotificationPromptBanner] Error requesting permission:", error);
+  }
 }

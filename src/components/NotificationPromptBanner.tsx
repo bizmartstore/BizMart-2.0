@@ -50,7 +50,7 @@ export default function NotificationPromptBanner() {
   }, []);
 
   const handleAllow = async () => {
-    // Hide banner first so it doesn't block the OS permission dialog
+    console.log("NotificationPromptBanner: Allow button clicked");
     setVisible(false);
     await promptForPush();
   };
