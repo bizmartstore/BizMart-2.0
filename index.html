@@ -7,7 +7,8 @@
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <title>BizMart - Campus Store</title>
     <meta name="description" content="Your one-stop mobile school store for students">
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <!-- Add cache-busting parameter to force fresh OneSignal SDK -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js?t=20250308" defer></script>
     <script>
       window.OneSignalDeferred = window.OneSignalDeferred || [];
       OneSignalDeferred.push(async function(OneSignal) {
