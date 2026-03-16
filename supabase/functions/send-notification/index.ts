@@ -5,7 +5,7 @@ const corsHeaders = {
 };
 
 const ONESIGNAL_APP_ID = "617c000e-3cf8-4077-b083-9b4fea4018de";
-const ONESIGNAL_REST_API_KEY = "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akuan6dj55pkrd7357ktwi";
+const ONESIGNAL_REST_API_KEY = "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akauan6dj55pkrd7357ktwi";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -22,7 +22,6 @@ Deno.serve(async (req) => {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
-      // Different sounds for admin vs customer
       android_sound: isAdminTarget ? "admin_notification" : "customer_notification",
       ios_sound: isAdminTarget ? "admin_notification.mp3" : "customer_notification.mp3",
     };
@@ -31,14 +30,14 @@ Deno.serve(async (req) => {
       // Send to a specific user (customer or admin)
       payload.include_external_user_ids = [targetUserId];
     } else if (targetRole === "admin") {
-      // Send to all admins using tags
+      // Send to all admins
       payload.filters = [
         { field: "tag", key: "role", relation: "=", value: "main_admin" },
         { operator: "OR" },
         { field: "tag", key: "role", relation: "=", value: "member_admin" },
       ];
     } else {
-      // Send to all subscribed customers (broadcast)
+      // Send to all subscribed customers
       payload.included_segments = ["Subscribed Users"];
     }
 
