@@ -35,6 +35,7 @@ export function useOneSignal() {
   const taggedRef = useRef<string | null>(null);
   const prevUserRef = useRef<string | null>(null);
 
+  // Logout on user change
   useEffect(() => {
     if (!user && prevUserRef.current) {
       (async () => {
@@ -56,45 +57,46 @@ export function useOneSignal() {
     }
   }, [user]);
 
+  // Tag and request permission
   useEffect(() => {
     if (!user || !profile || roleLoading) return;
-
     const effectiveRole = role || "customer";
     if (taggedRef.current === `${user.id}_${effectiveRole}`) return;
 
     let cancelled = false;
 
     const doTag = async () => {
-      const OneSignal = await getOneSignal();
-      if (!OneSignal || cancelled) return;
-
       try {
-        // Ensure we are logged in with the Supabase UID
+        const OneSignal = await getOneSignal(5000);
+        if (!OneSignal || cancelled) return;
+
+        // Safe login
         if (typeof OneSignal.login === "function") {
-          await OneSignal.login(user.id);
-          console.log(`[OneSignal] login(${user.id}) success`);
-        }
-
-        if (OneSignal.User) {
-          const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
-
-          // Set tags for targeting
-          if (typeof OneSignal.User.addTags === "function") {
-            await OneSignal.User.addTags({
-              user_id: user.id,
-              email: profile.email || "",
-              name: `${profile.first_name} ${profile.last_name}`,
-              role: effectiveRole,
-              admin: isAdminRole ? "true" : "false",
-            });
-            taggedRef.current = `${user.id}_${effectiveRole}`;
-            console.log(`[OneSignal] Tagged user as ${effectiveRole}`);
+          try {
+            await OneSignal.login(user.id);
+            console.log(`[OneSignal] login(${user.id}) success`);
+          } catch (loginErr) {
+            console.warn("[OneSignal] login failed:", loginErr);
           }
         }
 
-        // Auto-request for everyone if they haven't decided yet
+        // Safe tagging
+        if (OneSignal.User?.addTags) {
+          const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
+          await OneSignal.User.addTags({
+            user_id: user.id,
+            email: profile.email || "",
+            name: `${profile.first_name} ${profile.last_name}`,
+            role: effectiveRole,
+            admin: isAdminRole ? "true" : "false",
+          });
+          taggedRef.current = `${user.id}_${effectiveRole}`;
+          console.log(`[OneSignal] Tagged user as ${effectiveRole}`);
+        }
+
+        // Request permission safely
         if (OneSignal.Notifications) {
-          const perm = await OneSignal.Notifications.permission;
+          const perm = OneSignal.Notifications.permission; // don't await
           if (perm === "default") {
             console.log("[OneSignal] Requesting permission...");
             await OneSignal.Notifications.requestPermission();
@@ -108,12 +110,4 @@ export function useOneSignal() {
     doTag();
     return () => { cancelled = true; };
   }, [user, profile, role, roleLoading]);
-}
-
-export async function promptForPush() {
-  const OneSignal = await getOneSignal(5000);
-  if (!OneSignal?.Notifications) return;
-  try {
-    await OneSignal.Notifications.requestPermission();
-  } catch (_) {}
 }
