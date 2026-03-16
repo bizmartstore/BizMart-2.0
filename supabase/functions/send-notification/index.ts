@@ -17,6 +17,7 @@ Deno.serve(async (req) => {
     console.log(`[send-notification] Sending: "${title}" to ${targetUserId || targetRole || 'all'}`);
 
     const isAdminTarget = targetRole === "admin";
+
     const payload: any = {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
@@ -26,17 +27,17 @@ Deno.serve(async (req) => {
     };
 
     if (targetUserId) {
-      // Use both modern aliases and legacy external_user_ids for maximum compatibility
-      payload.include_aliases = { external_id: [targetUserId] };
+      // Send to a specific user (customer or admin)
       payload.include_external_user_ids = [targetUserId];
-      payload.target_channel = "push";
     } else if (targetRole === "admin") {
+      // Send to all admins
       payload.filters = [
         { field: "tag", key: "role", relation: "=", value: "main_admin" },
         { operator: "OR" },
         { field: "tag", key: "role", relation: "=", value: "member_admin" },
       ];
     } else {
+      // Send to all subscribed customers
       payload.included_segments = ["Subscribed Users"];
     }
 
@@ -50,13 +51,13 @@ Deno.serve(async (req) => {
     });
 
     const data = await response.json();
-    console.log("[send-notification] OneSignal response:", JSON.stringify(data));
+    console.log("[send-notification] OneSignal response:", data);
 
     return new Response(JSON.stringify({ success: true, data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[send-notification] Error:", error.message);
+    console.error("[send-notification] Error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
