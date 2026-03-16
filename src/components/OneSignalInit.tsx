@@ -5,7 +5,8 @@ export default function OneSignalInit() {
   const { initOneSignal } = useOneSignal();
 
   useEffect(() => {
-    // Initialize OneSignal on mount    initOneSignal();
+    // Initialize OneSignal on mount
+    initOneSignal();
   }, [initOneSignal]);
 
   return null;
