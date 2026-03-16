@@ -1,8 +1,13 @@
+import { useEffect } from "react";
 import { useOneSignal } from "@/hooks/useOneSignal";
-import NotificationPromptBanner from "./NotificationPromptBanner";
 
 export default function OneSignalInit() {
-  useOneSignal();
+  const { initOneSignal } = useOneSignal();
 
-  return <NotificationPromptBanner />;
+  useEffect(() => {
+    // Initialize OneSignal on mount
+    initOneSignal();
+  }, [initOneSignal]);
+
+  return null;
 }
