@@ -1,1 +1,13 @@
-importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
+import { useEffect } from "react";
+import { useOneSignal } from "@/hooks/useOneSignal";
+
+export default function OneSignalInit() {
+  const { initOneSignal } = useOneSignal();
+
+  useEffect(() => {
+    // Initialize OneSignal on mount
+    initOneSignal();
+  }, [initOneSignal]);
+
+  return null;
+}
