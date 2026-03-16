@@ -1,3 +1,4 @@
+/* Updated notifications.ts with proper awaiting and targeting */
 import { supabase } from "@/integrations/supabase/client";
 
 interface NotifyParams {
@@ -8,16 +9,12 @@ interface NotifyParams {
   type: string;
   targetRole?: "admin" | null;
   targetUserId?: string | null;
-}
+};
 
-/**
- * Send a push notification via the edge function AND log it to notification_logs.
- */
 export async function sendNotification(params: NotifyParams) {
   const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
 
-  // Log to notification_logs table
-  try {
+  // Log to notification_logs table  try {
     await (supabase as any).from("notification_logs").insert({
       type,
       title,
