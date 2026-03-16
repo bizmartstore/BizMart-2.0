@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Download, Smartphone, Share, Plus, CheckCircle, MoreVertical } from "lucide-react";
 import bizMartLogo from "@/assets/bizmart-install-logo.png";
 
@@ -43,7 +43,9 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
       return;
     }
     const handler = (e: Event) => {
+      // Prevent the default browser install prompt
       e.preventDefault();
+      // Save the event for later use
       setDeferredPrompt(e);
       setPromptReady(true);
     };
@@ -58,23 +60,32 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
   }, []);
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
-      setInstalling(true);
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") setInstalled(true);
-      } catch (err) {
-        console.warn("Install prompt failed:", err);
-        // Show manual guide as fallback
+    if (!deferredPrompt) {
+      // No prompt available, show manual guide
+      setShowManualGuide(true);
+      return;
+    }
+
+    setInstalling(true);
+    try {
+      // Show the install prompt
+      deferredPrompt.prompt();
+      // Wait for the user to respond
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") {
+        setInstalled(true);
+      } else {
+        // User dismissed, show manual guide as fallback
         setShowManualGuide(true);
       }
+    } catch (err) {
+      console.warn("Install prompt failed:", err);
+      setShowManualGuide(true);
+    } finally {
+      // Clear the saved prompt
       setDeferredPrompt(null);
       setPromptReady(false);
       setInstalling(false);
-    } else {
-      // No deferred prompt available - show manual guide
-      setShowManualGuide(true);
     }
   };
 
@@ -164,7 +175,7 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
             {!showManualGuide && (
               <button
                 onClick={handleInstall}
-                disabled={installing}
+                disabled={installing || !promptReady}
                 className="w-full flex items-center justify-center gap-2.5 bg-primary text-primary-foreground font-bold text-sm py-4 px-6 rounded-2xl shadow-lg active:scale-[0.97] transition-all disabled:opacity-60"
               >
                 {installing ? (
@@ -254,7 +265,6 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
               </div>
             )}
           </>
-        )}
 
         <p className="text-[10px] text-muted-foreground mt-6">
           🔒 No app store needed · Free · Lightweight
