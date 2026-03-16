@@ -12,10 +12,15 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      // Important: disable SW generation so OneSignal can handle push
-      injectRegister: "auto", // auto-inject registration for manifest
-      strategies: "generateSW", // still needed for manifest installability
-      workbox: false, // disables Workbox SW generation
+      registerType: "autoUpdate",
+      injectRegister: "auto",
+      strategies: "generateSW",
+      workbox: {
+        // Disable OneSignal-specific routes to avoid conflicts
+        navigateFallback: null,
+        // Don't precache the OneSignal files
+        exclude: [/\.map$/, /OneSignalSDK.*\.js$/],
+      },
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",

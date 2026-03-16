@@ -22,6 +22,7 @@ Deno.serve(async (req) => {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
+      // Different sounds for admin vs customer
       android_sound: isAdminTarget ? "admin_notification" : "customer_notification",
       ios_sound: isAdminTarget ? "admin_notification.mp3" : "customer_notification.mp3",
     };
@@ -30,14 +31,14 @@ Deno.serve(async (req) => {
       // Send to a specific user (customer or admin)
       payload.include_external_user_ids = [targetUserId];
     } else if (targetRole === "admin") {
-      // Send to all admins
+      // Send to all admins using tags
       payload.filters = [
         { field: "tag", key: "role", relation: "=", value: "main_admin" },
         { operator: "OR" },
         { field: "tag", key: "role", relation: "=", value: "member_admin" },
       ];
     } else {
-      // Send to all subscribed customers
+      // Send to all subscribed customers (broadcast)
       payload.included_segments = ["Subscribed Users"];
     }
 

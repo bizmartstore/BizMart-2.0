@@ -18,7 +18,7 @@ export async function sendNotification(params: NotifyParams) {
 
   // Log to notification_logs table
   try {
-    await (supabase as any).from("notification_logs").insert({
+    const { error } = await (supabase as any).from("notification_logs").insert({
       type,
       title,
       message,
@@ -27,6 +27,10 @@ export async function sendNotification(params: NotifyParams) {
       target_role: targetRole || null,
       target_user_id: targetUserId || null,
     });
+
+    if (error) {
+      console.error("Failed to log notification:", error);
+    }
   } catch (e) {
     console.warn("Failed to log notification:", e);
   }
@@ -55,7 +59,7 @@ export async function sendNotification(params: NotifyParams) {
   }
 }
 
-/** Notify admins about a new GCash transaction */
+// ... rest of the functions remain the same
 export async function notifyAdminGCash(type: "cash_in" | "cash_out", studentName: string, amount: number) {
   const label = type === "cash_in" ? "Cash In" : "Cash Out";
   return sendNotification({
@@ -68,7 +72,6 @@ export async function notifyAdminGCash(type: "cash_in" | "cash_out", studentName
   });
 }
 
-/** Notify admins about new club member */
 export async function notifyAdminNewMember(memberName: string) {
   return sendNotification({
     title: "👑 New BizMart Club Member",
@@ -80,7 +83,6 @@ export async function notifyAdminNewMember(memberName: string) {
   });
 }
 
-/** Notify admins about BCoins redemption */
 export async function notifyAdminRedemption(studentName: string, amount: number) {
   return sendNotification({
     title: "🎁 BCoins Redemption Request",
@@ -92,7 +94,6 @@ export async function notifyAdminRedemption(studentName: string, amount: number)
   });
 }
 
-/** Notify customer about order status */
 export async function notifyCustomerOrder(userId: string, status: "placed" | "ready" | "completed") {
   const messages = {
     placed: "Your order has been successfully placed. ✅",
@@ -109,7 +110,6 @@ export async function notifyCustomerOrder(userId: string, status: "placed" | "re
   });
 }
 
-/** Notify customer about BCoins earned */
 export async function notifyCustomerBCoins(userId: string, amount: number, reason: string) {
   return sendNotification({
     title: "🪙 BCoins Earned!",
@@ -121,7 +121,6 @@ export async function notifyCustomerBCoins(userId: string, amount: number, reaso
   });
 }
 
-/** Notify customer about GCash transaction completed */
 export async function notifyCustomerGCashComplete(userId: string, type: "cash_in" | "cash_out", amount: number, status: string) {
   const label = type === "cash_in" ? "Cash In" : "Cash Out";
   return sendNotification({
@@ -134,7 +133,6 @@ export async function notifyCustomerGCashComplete(userId: string, type: "cash_in
   });
 }
 
-/** Notify admins about new user registration */
 export async function notifyAdminNewRegistration(studentName: string, email: string) {
   return sendNotification({
     title: "🎓 New Student Registered",
@@ -146,7 +144,6 @@ export async function notifyAdminNewRegistration(studentName: string, email: str
   });
 }
 
-/** Notify customer about BCoins redemption status */
 export async function notifyCustomerRedemptionStatus(userId: string, amount: number, status: string) {
   return sendNotification({
     title: `🎁 Redemption ${status === "completed" ? "Approved" : "Rejected"}`,
@@ -158,7 +155,6 @@ export async function notifyCustomerRedemptionStatus(userId: string, amount: num
   });
 }
 
-/** Notify admins about new print order */
 export async function notifyAdminNewPrintOrder(studentName: string, fileName: string, cost: number) {
   return sendNotification({
     title: "🖨️ New Print Request",
@@ -170,7 +166,6 @@ export async function notifyAdminNewPrintOrder(studentName: string, fileName: st
   });
 }
 
-/** Notify user about a new message */
 export async function notifyNewMessage(recipientUserId: string, senderName: string, preview: string) {
   return sendNotification({
     title: `💬 New message from ${senderName}`,
@@ -182,7 +177,6 @@ export async function notifyNewMessage(recipientUserId: string, senderName: stri
   });
 }
 
-/** Notify all users about a new announcement */
 export async function notifyAnnouncement(title: string, message: string) {
   return sendNotification({
     title: `📢 ${title}`,
@@ -193,7 +187,6 @@ export async function notifyAnnouncement(title: string, message: string) {
   });
 }
 
-/** Notify customer about print order approval/rejection/cancel/confirmation */
 export async function notifyCustomerPrintStatus(userId: string, fileName: string, status: string) {
   const titles: Record<string, string> = {
     approved: "🖨️ Print Order Approved",
@@ -217,7 +210,6 @@ export async function notifyCustomerPrintStatus(userId: string, fileName: string
   });
 }
 
-/** Notify customer about order approval/rejection */
 export async function notifyCustomerOrderApproval(userId: string, orderId: string, status: string) {
   const messages: Record<string, string> = {
     approved: "Your order has been approved and is being prepared! ✅",
@@ -234,7 +226,6 @@ export async function notifyCustomerOrderApproval(userId: string, orderId: strin
   });
 }
 
-/** Notify about out-of-stock product */
 export async function notifyOutOfStock(productName: string) {
   return sendNotification({
     title: "⚠️ Product Out of Stock",

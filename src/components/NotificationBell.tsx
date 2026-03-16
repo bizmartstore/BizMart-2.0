@@ -7,12 +7,9 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { toast } from "@/hooks/use-toast";
 import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
 
-/** Extract a code from notification message (looks for patterns like "code: XXXXX" or "🎟️ XXXXX") */
 function extractCode(message: string): string | null {
-  // Match "code: ABC123" or "code: ABC-123"
   const codeMatch = message.match(/code:\s*(?:🎟️\s*)?([A-Za-z0-9_-]{4,20})/i);
   if (codeMatch) return codeMatch[1];
-  // Match "🎟️ ABC123"
   const ticketMatch = message.match(/🎟️\s*([A-Za-z0-9_-]{4,20})/);
   if (ticketMatch) return ticketMatch[1];
   return null;
@@ -37,11 +34,9 @@ export default function NotificationBell() {
   const load = useCallback(async () => {
     if (!user) return;
 
-    // Use the ref so realtime callbacks always use the latest isAdmin value
     const adminNow = isAdminRef.current;
 
-    // Only show notifications targeted to THIS specific user, or broadcast (no target)
-    // Admin-targeted notifications only show for admins
+    // Build query based on user role
     let query = (supabase as any)
       .from("notification_logs")
       .select("*")
@@ -62,48 +57,88 @@ export default function NotificationBell() {
 
     const { data, error } = await query;
     
-    if (error) console.error("NotificationBell load error:", error);
+    if (error) {
+      console.error("NotificationBell load error:", error);
+      return;
+    }
+    
     setNotifications(data || []);
 
+    // Count unread (since last visit)
     const lastSeen = localStorage.getItem(`notif_seen_${user.id}`) || "2000-01-01";
     const count = (data || []).filter((n: any) => new Date(n.created_at) > new Date(lastSeen)).length;
     setUnreadCount(count);
   }, [user]);
 
-  // Reload when user or admin status changes (including when role finishes loading)
+  // Load notifications when user or admin status changes
   useEffect(() => {
     if (!user || adminLoading) return;
     load();
   }, [user, isAdmin, adminLoading, load]);
 
-  // Single persistent realtime channel — uses ref so callback always has latest admin status
+  // Realtime subscription
   useEffect(() => {
     if (!user) return;
+    
     const channel = supabase
       .channel(`user-notifications-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, (payload: any) => {
-        load();
-        // Play notification sound based on role
-        const row = payload?.new;
-        if (row) {
-          const isForAdmin = row.target_role === "admin";
-          const isForThisUser = row.target_user_id === user.id;
-          const isBroadcast = !row.target_user_id && !row.target_role;
-          
-          if (isAdminRef.current && isForAdmin) {
-            playAdminNotificationSound();
-          } else if (isForThisUser || isBroadcast) {
-            playCustomerNotificationSound();
+      .on(
+        "postgres_changes",
+        { 
+          event: "INSERT", 
+          schema: "public", 
+          table: "notification_logs",
+          filter: `target_user_id=eq.${user.id}`
+        },
+        (payload: any) => {
+          load();
+          // Play notification sound
+          const row = payload?.new;
+          if (row) {
+            const isForAdmin = row.target_role === "admin";
+            const isForThisUser = row.target_user_id === user.id;
+            const isBroadcast = !row.target_user_id && !row.target_role;
+            
+            if (isAdminRef.current && isForAdmin) {
+              playAdminNotificationSound();
+            } else if (isForThisUser || isBroadcast) {
+              playCustomerNotificationSound();
+            }
           }
         }
-      })
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Also listen for broadcast notifications (no target)
+    const broadcastChannel = supabase
+      .channel(`broadcast-notifications-${user.id}`)
+      .on(
+        "postgres_changes",
+        { 
+          event: "INSERT", 
+          schema: "public", 
+          table: "notification_logs",
+          filter: `target_user_id.is.null AND target_role.is.null`
+        },
+        (payload: any) => {
+          load();
+          playCustomerNotificationSound();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(broadcastChannel);
+    };
   }, [user, load]);
 
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -118,7 +153,6 @@ export default function NotificationBell() {
   };
 
   const handleClick = (n: any) => {
-    // Don't navigate if they clicked the copy button
     setOpen(false);
     if (n.link) navigate(n.link);
   };
@@ -131,7 +165,6 @@ export default function NotificationBell() {
       toast({ title: "Code copied! 📋", description: code });
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
-      // Fallback for older browsers
       const textarea = document.createElement("textarea");
       textarea.value = code;
       document.body.appendChild(textarea);
@@ -146,7 +179,11 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button onClick={handleOpen} className="p-1.5 relative">
+      <button 
+        onClick={handleOpen} 
+        className="p-1.5 relative"
+        aria-label="Notifications"
+      >
         <Bell className="h-5 w-5 text-secondary-foreground" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
@@ -156,33 +193,51 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-72 max-h-80 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
-          <div className="px-3 py-2 border-b border-border bg-muted/50">
+        <div className="absolute right-0 top-10 w-80 max-h-96 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
+          <div className="px-3 py-2 border-b border-border bg-muted/50 flex items-center justify-between">
             <span className="font-bold text-xs">Notifications</span>
+            <button 
+              onClick={() => {
+                setOpen(false);
+                if (user) {
+                  localStorage.setItem(`notif_seen_${user.id}`, new Date().toISOString());
+                  setUnreadCount(0);
+                }
+              }}
+              className="text-[10px] text-primary font-semibold"
+            >
+              Mark all read
+            </button>
           </div>
-          <div className="overflow-y-auto max-h-64">
+          <div className="overflow-y-auto max-h-80">
             {notifications.length === 0 ? (
               <p className="text-center text-xs text-muted-foreground py-6">No notifications</p>
             ) : (
               notifications.map((n) => {
                 const code = extractCode(n.message || "");
                 const isCopied = copiedId === n.id;
+                const isRead = user && new Date(n.created_at) <= new Date(localStorage.getItem(`notif_seen_${user.id}`) || "2000-01-01");
 
                 return (
                   <button
                     key={n.id}
                     onClick={() => handleClick(n)}
-                    className="w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/50 transition-colors"
+                    className={`w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/50 transition-colors ${!isRead ? "bg-primary/5" : ""}`}
                   >
                     <div className="flex items-start gap-2">
                       <span className="text-sm flex-shrink-0">{n.icon || "🔔"}</span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[11px] font-bold text-foreground truncate">{n.title}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="text-[11px] font-bold text-foreground truncate">{n.title}</p>
+                          {!isRead && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                          )}
+                        </div>
                         <p className="text-[10px] text-muted-foreground line-clamp-3">{n.message}</p>
 
                         {code && (
                           <div
-                            className="mt-1.5 flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-lg px-2 py-1.5"
+                            className="mt-1.5 flex items-center gap-1.5 bg-primary/10 border border-primary/20 rounded-lg px-2 py-1.5 cursor-pointer hover:bg-primary/15 transition-colors"
                             onClick={(e) => handleCopyCode(e, code, n.id)}
                           >
                             <span className="text-[11px] font-mono font-bold text-primary tracking-wider flex-1">
