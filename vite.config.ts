@@ -1,51 +1,60 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import { VitePWA } from "vite-plugin-pwa";
-import path from "path";
+import { useEffect, useState } from "react";
+import NotificationPromptBanner from "./NotificationPromptBanner";
 
-export default defineConfig(({ mode }) => ({
-  server: {
-    host: "::",
-    port: 8080,
-    hmr: { overlay: false },
-  },
-  plugins: [
-    react(),
-    VitePWA({
-      // Important: disable SW generation so OneSignal can handle push
-      injectRegister: "auto", // auto-inject registration for manifest
-      strategies: "generateSW", // still needed for manifest installability
-      workbox: false, // disables Workbox SW generation
-      manifest: {
-        name: "BizMart Store",
-        short_name: "BizMart",
-        description: "Your Online School Store App",
-        theme_color: "#e8612d",
-        background_color: "#ffffff",
-        display: "standalone",
-        start_url: "/",
-        icons: [
-          {
-            src: "/pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable",
-          },
-        ],
-      },
-    }),
-  ],
-  resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
-  },
-}));
+export default function OneSignalInit() {
+  const [oneSignalReady, setOneSignalReady] = useState(false);
+
+  useEffect(() => {
+    async function cleanupOldWorkers() {
+      if (!("serviceWorker" in navigator)) return;
+
+      const regs = await navigator.serviceWorker.getRegistrations();
+      for (const reg of regs) {
+        const urls = [
+          reg.active?.scriptURL,
+          reg.waiting?.scriptURL,
+          reg.installing?.scriptURL,
+        ].filter(Boolean) as string[];
+
+        if (urls.some((url) => url.includes("/sw.js"))) {
+          await reg.unregister();
+          console.log("Old service worker unregistered:", urls);
+        }
+      }
+    }
+
+    async function initOneSignal() {
+      try {
+        await cleanupOldWorkers();
+
+        if (!("OneSignal" in window)) {
+          console.warn("OneSignal SDK not loaded yet");
+          return;
+        }
+
+        // prevent multiple initializations
+        if ((window as any)._oneSignalInitialized) return;
+        (window as any)._oneSignalInitialized = true;
+
+        const OneSignal = window.OneSignal || [];
+        OneSignal.push(() => {
+          OneSignal.init({
+            appId: "617c000e-3cf8-4077-b083-9b4fea4018de",
+            allowLocalhostAsSecureOrigin: true,
+            notifyButton: { enable: true },
+            serviceWorkerPath: "/OneSignalSDKWorker.js",
+            serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
+          });
+
+          setOneSignalReady(true);
+        });
+      } catch (err) {
+        console.error("OneSignal initialization failed:", err);
+      }
+    }
+
+    initOneSignal();
+  }, []);
+
+  return oneSignalReady ? <NotificationPromptBanner /> : null;
+}
