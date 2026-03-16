@@ -60,8 +60,7 @@ export default function OneSignalInit() {
             }
           }, 100);
 
-          // Timeout after 10 seconds
-          setTimeout(() => {
+          // Timeout after 10 seconds          setTimeout(() => {
             clearInterval(checkInterval);
             console.warn("OneSignal SDK not loaded after 10 seconds");
           }, 10000);
@@ -105,14 +104,13 @@ export default function OneSignalInit() {
                 console.log(`OneSignal: Set External ID to ${user.id}`);
               }).catch((err: any) => {
                 console.warn("OneSignal login failed:", err);
-              });
+              }
             }
 
             if (mounted) setOneSignalReady(true);
           } catch (err) {
             console.error("OneSignal init error:", err);
-            if (mounted) setOneSignalReady(true); // Still mark as ready to show app
-          }
+            if (mounted) setOneSignalReady(true); // Still mark as ready to show app          }
         });
       } catch (err) {
         console.error("OneSignal setup failed:", err);

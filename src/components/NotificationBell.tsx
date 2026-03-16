@@ -44,8 +44,7 @@ export default function NotificationBell() {
       .limit(50);
 
     if (adminNow) {
-      // Admins see: their own targeted, broadcast, and admin-role targeted
-      query = query.or(
+      // Admins see: their own targeted, broadcast, and admin-role targeted      query = query.or(
         `target_user_id.eq.${user.id},and(target_user_id.is.null,target_role.is.null),target_role.eq.admin,target_role.eq.main_admin,target_role.eq.member_admin`
       );
     } else {
@@ -56,8 +55,7 @@ export default function NotificationBell() {
     }
 
     const { data, error } = await query;
-    
-    if (error) {
+        if (error) {
       console.error("NotificationBell load error:", error);
       return;
     }
@@ -86,8 +84,7 @@ export default function NotificationBell() {
         "postgres_changes",
         { 
           event: "INSERT", 
-          schema: "public", 
-          table: "notification_logs",
+          schema: "public",           table: "notification_logs",
           filter: `target_user_id=eq.${user.id}`
         },
         (payload: any) => {
