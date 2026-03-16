@@ -9,7 +9,6 @@ export default function OneSignalInit() {
       if (!("serviceWorker" in navigator)) return;
 
       const regs = await navigator.serviceWorker.getRegistrations();
-
       for (const reg of regs) {
         const urls = [
           reg.active?.scriptURL,
@@ -17,9 +16,7 @@ export default function OneSignalInit() {
           reg.installing?.scriptURL,
         ].filter(Boolean) as string[];
 
-        const hasOldSw = urls.some((url) => url.includes("/sw.js"));
-
-        if (hasOldSw) {
+        if (urls.some((url) => url.includes("/sw.js"))) {
           await reg.unregister();
           console.log("Old service worker unregistered:", urls);
         }
@@ -34,6 +31,10 @@ export default function OneSignalInit() {
           console.warn("OneSignal SDK not loaded yet");
           return;
         }
+
+        // prevent multiple initializations
+        if ((window as any)._oneSignalInitialized) return;
+        (window as any)._oneSignalInitialized = true;
 
         const OneSignal = window.OneSignal || [];
         OneSignal.push(() => {
