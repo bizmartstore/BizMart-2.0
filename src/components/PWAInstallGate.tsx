@@ -16,11 +16,12 @@ function isIOS(): boolean {
 
 function isInAppBrowser(): boolean {
   const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
-  return /FBAN|FBAV|FB_IAB|FBIOS|FB4A|Messenger|Instagram|Line|MicroMessenger|Snapchat|TikTok/i.test(ua);
+  return /FBAN|FBAV|FB_IAB|FB4A|FB4M|Messenger|Instagram|Line|MicroMessenger|Snapchat|TikTok/i.test(ua);
 }
 
-function isAndroid(): boolean {
-  return /Android/i.test(navigator.userAgent);
+function isInAppBrowser(): boolean {
+  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
+  return /FBAN|FBAV|FB_IAB|FB4A|FB4M|Messenger|Instagram|Line|MicroMessenger|Snapchat|TikTok/i.test(ua);
 }
 
 export default function PWAInstallGate({ children }: { children: React.ReactNode }) {
@@ -35,12 +36,11 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
   useEffect(() => {
     if (isStandalone()) {
       setInstalled(true);
-      return;
+    } else {
+      setInstalled(false);
     }
-    setInstalled(false);
     if (isInAppBrowser()) {
       setInAppBrowser(true);
-      return;
     }
     const handler = (e: Event) => {
       e.preventDefault();
@@ -97,11 +97,8 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
 
   if (installed) return <>{children}</>;
 
-  const showIOSGuide = showManualGuide && isIOS();
-  const showAndroidGuide = showManualGuide && !isIOS();
-
   return (
-    <div className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center px-6 text-center overflow-y-auto">
+    <div className="fixed inset-0 z-[9999] bg-background flex flex-col items-center justify-center overflow-y-auto">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-20 -right-20 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-20 -left-20 w-64 h-64 bg-accent/20 rounded-full blur-3xl" />
@@ -117,12 +114,12 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
         {inAppBrowser ? (
           <div className="w-full space-y-4">
             <p className="text-sm text-muted-foreground leading-relaxed">
-              To install BizMart, you need to open it in <strong className="text-foreground">Google Chrome</strong> or <strong className="text-foreground">Safari</strong>.
+              To install BizMart, open this site in <strong className="text-foreground">Chrome</strong> or <strong className="text-foreground">Safari</strong> and tap "Add to Home Screen" from the browser menu.
             </p>
 
             <button
               onClick={handleCopyAndInstall}
-              className="w-full flex items-center justify-center gap-2.5 bg-primary text-primary-foreground font-bold text-sm py-4 px-6 rounded-2xl shadow-lg active:scale-[0.97] transition-all"
+              className="w-full flex items-center justify-center gap-2.5 bg-primary text-primary-foreground font-bold text-sm py-4 px-6 rounded-2xl shadow-lg active:scale-[0.97] transition-all disabled:opacity-60"
             >
               {copied ? (
                 <>
@@ -132,22 +129,9 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
               ) : (
                 <>
                   <Download className="h-5 w-5" />
-                  Install App
-                </>
+                  Install App                </>
               )}
             </button>
-
-            {copied && (
-              <div className="w-full bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4 text-left space-y-2 animate-in fade-in slide-in-from-top-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                  <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Link copied to clipboard! ✅</p>
-                </div>
-                <p className="text-[11px] text-emerald-600 dark:text-emerald-400 leading-relaxed">
-                  Now open <strong>Google Chrome</strong> or <strong>Safari</strong>, paste the link in the address bar, and tap <strong>"Install App"</strong> to add BizMart to your home screen.
-                </p>
-              </div>
-            )}
 
             {!copied && (
               <p className="text-[10px] text-muted-foreground">
@@ -158,26 +142,10 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
         ) : (
           <>
             <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-              Install BizMart on your device for the best shopping experience. It's fast, works offline, and feels like a real app!
+              To install BizMart, open this site in <strong className="text-foreground">Chrome</strong> or <strong className="text-foreground">Safari</strong> and tap "Add to Home Screen" from the browser menu.
             </p>
 
             {!showManualGuide && (
-              <button
-                onClick={handleInstall}
-                disabled={installing}
-                className="w-full flex items-center justify-center gap-2.5 bg-primary text-primary-foreground font-bold text-sm py-4 px-6 rounded-2xl shadow-lg active:scale-[0.97] transition-all disabled:opacity-60"
-              >
-                {installing ? (
-                  <div className="h-5 w-5 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Download className="h-5 w-5" />
-                )}
-                {installing ? "Installing..." : "Install App"}
-              </button>
-            )}
-
-            {/* iOS Manual Guide */}
-            {showIOSGuide && (
               <div className="w-full bg-card border border-border rounded-2xl p-5 text-left space-y-4">
                 <p className="font-bold text-sm text-foreground">How to install on iPhone/iPad:</p>
                 <div className="space-y-3">
@@ -212,8 +180,7 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
               </div>
             )}
 
-            {/* Android Manual Guide */}
-            {showAndroidGuide && (
+            {showManualGuide && (
               <div className="w-full bg-card border border-border rounded-2xl p-5 text-left space-y-4">
                 <p className="font-bold text-sm text-foreground">How to install on Android:</p>
                 <div className="space-y-3">
@@ -223,7 +190,7 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
                     </div>
                     <div>
                       <p className="text-xs font-bold text-foreground">Step 1</p>
-                      <p className="text-[11px] text-muted-foreground">Tap the <strong>⋮ menu</strong> (three dots) at the top-right of Chrome</p>
+                      <p className="text-[11px] text-muted-foreground">Tap the <strong>⋮ menu</strong> at the top-right of Chrome</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -232,7 +199,7 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
                     </div>
                     <div>
                       <p className="text-xs font-bold text-foreground">Step 2</p>
-                      <p className="text-[11px] text-muted-foreground">Tap <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong></p>
+                      <p className="text-[11px] text-muted-foreground">Tap <strong>"Add to Home screen"</strong></p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -241,19 +208,20 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
                     </div>
                     <div>
                       <p className="text-xs font-bold text-foreground">Step 3</p>
-                      <p className="text-[11px] text-muted-foreground">Tap <strong>"Install"</strong> — BizMart will appear on your home screen!</p>
+                      <p className="text-[11px] text-muted-foreground">Tap <strong>"Add"</strong> — BizMart will appear on your home screen!</p>
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowManualGuide(false)}
-                  className="w-full text-xs text-primary font-bold py-2"
-                >
-                  ← Try automatic install again
-                </button>
               </div>
             )}
-          </>
+
+            <button
+              onClick={() => setShowManualGuide(false)}
+              className="w-full text-xs text-primary font-bold py-2"
+            >
+              ← Try automatic install again
+            </button>
+          </div>
         )}
 
         <p className="text-[10px] text-muted-foreground mt-6">
