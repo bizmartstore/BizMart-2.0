@@ -19,19 +19,11 @@ function isInAppBrowser(): boolean {
   return /FBAN|FBAV|FB_IAB|FB4A|FB4M|Messenger|Instagram|Line|MicroMessenger|Snapchat|TikTok/i.test(ua);
 }
 
-function isInAppBrowser(): boolean {
-  const ua = navigator.userAgent || navigator.vendor || (window as any).opera || "";
-  return /FBAN|FBAV|FB_IAB|FB4A|FB4M|Messenger|Instagram|Line|MicroMessenger|Snapchat|TikTok/i.test(ua);
-}
-
 export default function PWAInstallGate({ children }: { children: React.ReactNode }) {
   const [installed, setInstalled] = useState(true);
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [installing, setInstalling] = useState(false);
   const [showManualGuide, setShowManualGuide] = useState(false);
   const [inAppBrowser, setInAppBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [promptReady, setPromptReady] = useState(false);
 
   useEffect(() => {
     if (isStandalone()) {
@@ -42,41 +34,7 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
     if (isInAppBrowser()) {
       setInAppBrowser(true);
     }
-    const handler = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setPromptReady(true);
-    };
-    window.addEventListener("beforeinstallprompt", handler);
-    window.addEventListener("appinstalled", () => {
-      setInstalled(true);
-      setDeferredPrompt(null);
-      // Clear dismissed announcement so it shows fresh after install
-      localStorage.removeItem('dismissed_announcement');
-    });
-    return () => { window.removeEventListener("beforeinstallprompt", handler); };
   }, []);
-
-  const handleInstall = async () => {
-    if (deferredPrompt) {
-      setInstalling(true);
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === "accepted") setInstalled(true);
-      } catch (err) {
-        console.warn("Install prompt failed:", err);
-        // Show manual guide as fallback
-        setShowManualGuide(true);
-      }
-      setDeferredPrompt(null);
-      setPromptReady(false);
-      setInstalling(false);
-    } else {
-      // No deferred prompt available - show manual guide
-      setShowManualGuide(true);
-    }
-  };
 
   const handleCopyAndInstall = async () => {
     try {
@@ -129,7 +87,8 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
               ) : (
                 <>
                   <Download className="h-5 w-5" />
-                  Install App                </>
+                  Install App
+                </>
               )}
             </button>
 
