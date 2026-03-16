@@ -12,12 +12,11 @@ interface NotifyParams {
 
 /**
  * Send a push notification via the edge function AND log it to notification_logs.
- * Uses direct fetch instead of supabase.functions.invoke so it works even without a session.
  */
 export async function sendNotification(params: NotifyParams) {
   const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
 
-  // Log to notification_logs table (best effort — may fail if no session)
+  // Log to notification_logs table
   try {
     await (supabase as any).from("notification_logs").insert({
       type,
@@ -32,8 +31,7 @@ export async function sendNotification(params: NotifyParams) {
     console.warn("Failed to log notification:", e);
   }
 
-  // Call edge function directly via fetch (not supabase.functions.invoke)
-  // This works even without an active session since verify_jwt = false
+  // Call edge function directly via fetch
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
@@ -50,15 +48,17 @@ export async function sendNotification(params: NotifyParams) {
 
     const data = await res.json();
     console.log("[sendNotification] Edge function response:", data);
+    return data;
   } catch (e) {
     console.warn("Failed to send push notification:", e);
+    return null;
   }
 }
 
 /** Notify admins about a new GCash transaction */
-export function notifyAdminGCash(type: "cash_in" | "cash_out", studentName: string, amount: number) {
+export async function notifyAdminGCash(type: "cash_in" | "cash_out", studentName: string, amount: number) {
   const label = type === "cash_in" ? "Cash In" : "Cash Out";
-  sendNotification({
+  return sendNotification({
     title: `💰 New GCash ${label}`,
     message: `${studentName} requested ₱${amount} ${label}`,
     icon: "💰",
@@ -69,8 +69,8 @@ export function notifyAdminGCash(type: "cash_in" | "cash_out", studentName: stri
 }
 
 /** Notify admins about new club member */
-export function notifyAdminNewMember(memberName: string) {
-  sendNotification({
+export async function notifyAdminNewMember(memberName: string) {
+  return sendNotification({
     title: "👑 New BizMart Club Member",
     message: `${memberName} has joined BizMart Club!`,
     icon: "👑",
@@ -81,8 +81,8 @@ export function notifyAdminNewMember(memberName: string) {
 }
 
 /** Notify admins about BCoins redemption */
-export function notifyAdminRedemption(studentName: string, amount: number) {
-  sendNotification({
+export async function notifyAdminRedemption(studentName: string, amount: number) {
+  return sendNotification({
     title: "🎁 BCoins Redemption Request",
     message: `${studentName} wants to redeem ₱${amount} GCash`,
     icon: "🎁",
@@ -93,13 +93,13 @@ export function notifyAdminRedemption(studentName: string, amount: number) {
 }
 
 /** Notify customer about order status */
-export function notifyCustomerOrder(userId: string, status: "placed" | "ready" | "completed") {
+export async function notifyCustomerOrder(userId: string, status: "placed" | "ready" | "completed") {
   const messages = {
     placed: "Your order has been successfully placed. ✅",
     ready: "Your order is ready for pickup! 📦",
     completed: "Your order is completed. Thank you! 🎉",
   };
-  sendNotification({
+  return sendNotification({
     title: `🛒 Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
     message: messages[status],
     icon: "🛒",
@@ -110,8 +110,8 @@ export function notifyCustomerOrder(userId: string, status: "placed" | "ready" |
 }
 
 /** Notify customer about BCoins earned */
-export function notifyCustomerBCoins(userId: string, amount: number, reason: string) {
-  sendNotification({
+export async function notifyCustomerBCoins(userId: string, amount: number, reason: string) {
+  return sendNotification({
     title: "🪙 BCoins Earned!",
     message: `You earned ${amount.toFixed(1)} BCoins from ${reason}`,
     icon: "🪙",
@@ -122,9 +122,9 @@ export function notifyCustomerBCoins(userId: string, amount: number, reason: str
 }
 
 /** Notify customer about GCash transaction completed */
-export function notifyCustomerGCashComplete(userId: string, type: "cash_in" | "cash_out", amount: number, status: string) {
+export async function notifyCustomerGCashComplete(userId: string, type: "cash_in" | "cash_out", amount: number, status: string) {
   const label = type === "cash_in" ? "Cash In" : "Cash Out";
-  sendNotification({
+  return sendNotification({
     title: `💰 GCash ${label} ${status === "completed" ? "Completed" : "Rejected"}`,
     message: `Your ₱${amount} ${label} has been ${status}.`,
     icon: "💰",
@@ -135,8 +135,8 @@ export function notifyCustomerGCashComplete(userId: string, type: "cash_in" | "c
 }
 
 /** Notify admins about new user registration */
-export function notifyAdminNewRegistration(studentName: string, email: string) {
-  sendNotification({
+export async function notifyAdminNewRegistration(studentName: string, email: string) {
+  return sendNotification({
     title: "🎓 New Student Registered",
     message: `${studentName} (${email}) just created an account!`,
     icon: "🎓",
@@ -147,8 +147,8 @@ export function notifyAdminNewRegistration(studentName: string, email: string) {
 }
 
 /** Notify customer about BCoins redemption status */
-export function notifyCustomerRedemptionStatus(userId: string, amount: number, status: string) {
-  sendNotification({
+export async function notifyCustomerRedemptionStatus(userId: string, amount: number, status: string) {
+  return sendNotification({
     title: `🎁 Redemption ${status === "completed" ? "Approved" : "Rejected"}`,
     message: `Your ₱${amount} GCash redemption has been ${status}.`,
     icon: "🎁",
@@ -159,8 +159,8 @@ export function notifyCustomerRedemptionStatus(userId: string, amount: number, s
 }
 
 /** Notify admins about new print order */
-export function notifyAdminNewPrintOrder(studentName: string, fileName: string, cost: number) {
-  sendNotification({
+export async function notifyAdminNewPrintOrder(studentName: string, fileName: string, cost: number) {
+  return sendNotification({
     title: "🖨️ New Print Request",
     message: `${studentName} submitted a print request "${fileName}" — ₱${cost.toFixed(2)}`,
     icon: "🖨️",
@@ -171,8 +171,8 @@ export function notifyAdminNewPrintOrder(studentName: string, fileName: string, 
 }
 
 /** Notify user about a new message */
-export function notifyNewMessage(recipientUserId: string, senderName: string, preview: string) {
-  sendNotification({
+export async function notifyNewMessage(recipientUserId: string, senderName: string, preview: string) {
+  return sendNotification({
     title: `💬 New message from ${senderName}`,
     message: preview.length > 80 ? preview.slice(0, 80) + "…" : preview,
     icon: "💬",
@@ -183,8 +183,8 @@ export function notifyNewMessage(recipientUserId: string, senderName: string, pr
 }
 
 /** Notify all users about a new announcement */
-export function notifyAnnouncement(title: string, message: string) {
-  sendNotification({
+export async function notifyAnnouncement(title: string, message: string) {
+  return sendNotification({
     title: `📢 ${title}`,
     message,
     icon: "📢",
@@ -194,7 +194,7 @@ export function notifyAnnouncement(title: string, message: string) {
 }
 
 /** Notify customer about print order approval/rejection/cancel/confirmation */
-export function notifyCustomerPrintStatus(userId: string, fileName: string, status: string) {
+export async function notifyCustomerPrintStatus(userId: string, fileName: string, status: string) {
   const titles: Record<string, string> = {
     approved: "🖨️ Print Order Approved",
     rejected: "❌ Print Order Rejected",
@@ -207,7 +207,7 @@ export function notifyCustomerPrintStatus(userId: string, fileName: string, stat
     canceled: "🚫",
     confirmed: "✅",
   };
-  sendNotification({
+  return sendNotification({
     title: titles[status] || `🖨️ Print Order ${status}`,
     message: `Your print order "${fileName}" has been ${status}.`,
     icon: icons[status] || "🖨️",
@@ -218,13 +218,13 @@ export function notifyCustomerPrintStatus(userId: string, fileName: string, stat
 }
 
 /** Notify customer about order approval/rejection */
-export function notifyCustomerOrderApproval(userId: string, orderId: string, status: string) {
+export async function notifyCustomerOrderApproval(userId: string, orderId: string, status: string) {
   const messages: Record<string, string> = {
     approved: "Your order has been approved and is being prepared! ✅",
     rejected: "Your order has been rejected. ❌",
     completed: "Your order is completed. Thank you! 🎉",
   };
-  sendNotification({
+  return sendNotification({
     title: `🛒 Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
     message: messages[status] || `Your order status changed to ${status}.`,
     icon: "🛒",
@@ -235,8 +235,8 @@ export function notifyCustomerOrderApproval(userId: string, orderId: string, sta
 }
 
 /** Notify about out-of-stock product */
-export function notifyOutOfStock(productName: string) {
-  sendNotification({
+export async function notifyOutOfStock(productName: string) {
+  return sendNotification({
     title: "⚠️ Product Out of Stock",
     message: `"${productName}" is now out of stock! Please restock.`,
     icon: "⚠️",

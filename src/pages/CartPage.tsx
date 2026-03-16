@@ -42,7 +42,6 @@ export default function CartPage() {
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
 
-    // Validate time is at least 10 min ahead
     const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
     const minDT = new Date();
     minDT.setMinutes(minDT.getMinutes() + 10);
@@ -53,7 +52,6 @@ export default function CartPage() {
 
     setCheckingOut(true);
     try {
-      // Check stock availability for all items
       const productIds = items.map(i => i.id);
       const { data: productData } = await (supabase as any).from('products').select('id, stock, name').in('id', productIds);
       
@@ -102,35 +100,31 @@ export default function CartPage() {
 
       if (error) throw error;
 
-      // Stock deduction is now handled only when admin approves the order
-      // to keep inventory accounting accurate and avoid premature stock changes.
-
-      // Notify admin
+      // Notify admin and customer - AWAIT these so they complete before navigation
       const buyerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       const typeLabel = deliveryType === "delivery" ? "🚚 Delivery" : "📦 Pickup";
-      sendNotification({
-        title: "🛒 New Purchase Order",
-        message: `${buyerName} placed a ${typeLabel} order for ₱${grandTotal.toLocaleString()} (${items.length} items) — ${pickupDate} ${pickupTime}`,
-        icon: "🛒",
-        link: "/admin?tab=orders",
-        type: "new_order",
-        targetRole: "admin",
-      });
-
-      // Notify customer
-      notifyCustomerOrder(user.id, "placed");
-
-      // Send Telegram notification
-      sendTelegramOrderNotify("pending", {
-        id: "new",
-        items: orderItems,
-        customer_name: customerName,
-        customer_grade_level: profile?.grade_level || "",
-        customer_section: profile?.section || "",
-        customer_contact: profile?.email || "",
-        total: grandTotal,
-        delivery_type: deliveryType,
-      });
+      
+      await Promise.all([
+        sendNotification({
+          title: "🛒 New Purchase Order",
+          message: `${buyerName} placed a ${typeLabel} order for ₱${grandTotal.toLocaleString()} (${items.length} items)`,
+          icon: "🛒",
+          link: "/admin?tab=orders",
+          type: "new_order",
+          targetRole: "admin",
+        }),
+        notifyCustomerOrder(user.id, "placed"),
+        sendTelegramOrderNotify("pending", {
+          id: "new",
+          items: orderItems,
+          customer_name: customerName,
+          customer_grade_level: profile?.grade_level || "",
+          customer_section: profile?.section || "",
+          customer_contact: profile?.email || "",
+          total: grandTotal,
+          delivery_type: deliveryType,
+        })
+      ]);
 
       clearCart();
       toast.success("Order placed! Waiting for admin approval.");
@@ -215,7 +209,6 @@ export default function CartPage() {
         ))}
       </div>
 
-      {/* Delivery / Pickup Selection */}
       <div className="mx-3 mt-3 bg-card rounded-xl border border-border p-3 space-y-3">
         <p className="text-xs font-bold text-foreground">Fulfillment Method</p>
         <div className="grid grid-cols-2 gap-2">
@@ -241,7 +234,6 @@ export default function CartPage() {
           </button>
         </div>
 
-        {/* Date & Time */}
         <div className="grid grid-cols-2 gap-2">
           <div>
             <Label className="text-[10px] font-bold flex items-center gap-1 mb-1">
@@ -270,7 +262,6 @@ export default function CartPage() {
         <p className="text-[9px] text-muted-foreground">⏰ Must be at least 10 minutes from now</p>
       </div>
 
-      {/* BCoins preview */}
       <div className="mx-3 mt-2 bg-accent rounded-xl p-3 border border-primary/20">
         <p className="text-[11px] text-accent-foreground font-semibold">
           🪙 You'll earn <strong className="text-primary">{(totalPrice * 0.10).toFixed(1)} BCoins</strong> from this purchase!
@@ -283,7 +274,6 @@ export default function CartPage() {
         </div>
       )}
 
-      {/* Checkout Bar */}
       <div className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 shadow-lg">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] text-muted-foreground">Subtotal</span>
