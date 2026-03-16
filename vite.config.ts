@@ -15,13 +15,14 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      registerType: "autoUpdate", // Automatically update the PWA without user prompt
+      registerType: "prompt",
       includeAssets: ["favicon.ico", "placeholder.svg"],
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
-        // Removed importScripts here to avoid conflict with OneSignal worker
-        // OneSignal runs in its own SW: OneSignalSDKWorker.js / OneSignalSDKUpdaterWorker.js
-        globIgnores: ["**/OneSignalSDK*"], // Don't precache OneSignal worker files
+        // Import OneSignal SW into the Workbox SW so both coexist
+        importScripts: ["https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js"],
+        // Don't precache OneSignal worker files
+        globIgnores: ["**/OneSignalSDK*"],
       },
       manifest: {
         name: "BizMart - Campus Store",
