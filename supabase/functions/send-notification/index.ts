@@ -4,8 +4,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const ONESIGNAL_APP_ID = "617c000e-3cf8-4077-b083-9b4fea4018de";
-const ONESIGNAL_REST_API_KEY = "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akauan6dj55pkrd7357ktwi";
+const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID") || "617c000e-3cf8-4077-b083-9b4fea4018de";
+const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akauan6dj55pkrd7357ktwi";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
