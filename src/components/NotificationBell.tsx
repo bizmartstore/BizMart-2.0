@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,22 +35,13 @@ export default function NotificationBell() {
   }, [user, load]);
 
   useEffect(() => {
-    const channel = supabase
-      .channel(`user-notifications-${user?.id}`)
+    const channel = supabase      .channel(`user-notifications-${user?.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, () => {
         load();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, load]);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
 
   const handleOpen = () => {
     setOpen(!open);
@@ -73,11 +64,11 @@ export default function NotificationBell() {
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
-        )}
+        </span>
       </button>
 
-      {open && (        <div className="absolute right-0 top-10 w-72 max-h-80 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">
-          <div className="px-3 py-2 border-b border-border bg-muted/50">
+      {open && (
+        <div className="absolute right-0 top-10 w-72 max-h-80 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50">          <div className="px-3 py-2 border-b border-border bg-muted/50">
             <span className="font-bold text-xs">Notifications</span>
           </div>
           <div className="overflow-y-auto max-h-64">
@@ -86,11 +77,9 @@ export default function NotificationBell() {
             ) : (
               notifications.map((n) => (
                 <button
-                  key={n.id}
-                  onClick={() => handleClick(n)}
+                  key={n.id}                  onClick={() => handleClick(n)}
                   className="w-full text-left px-3 py-2.5 border-b border-border/50 hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-start gap-2">
+                >                  <div className="flex items-start gap-2">
                     <span className="text-sm flex-shrink-0">{n.icon || "🔔"}</span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[11px] font-bold text-foreground truncate">{n.title}</p>
@@ -99,11 +88,13 @@ export default function NotificationBell() {
                         {new Date(n.created_at).toLocaleString()}
                       </p>
                     </div>
-                  </div>                </button>
+                  </div>
+                </button>
               </div>
             </div>
           )}
         </div>
       )}
-    </div>  );
+    </div>
+  );
 }
