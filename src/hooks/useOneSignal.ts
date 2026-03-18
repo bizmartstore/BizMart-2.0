@@ -4,20 +4,19 @@ import { useAdmin } from "@/hooks/useAdmin";
 
 declare global {
   interface Window {
-    OneSignal?: any;
     OneSignalDeferred?: Array<(OneSignal: any) => void>;
+    OneSignal?: any;
   }
 }
 
 function getOneSignal(timeoutMs = 10000): Promise<any | null> {
   return new Promise((resolve) => {
-    if (window.OneSignal && typeof window.OneSignal.push === "function") {
-      console.warn("[OneSignal] SDK already initialized");
-      resolve(window.OneSignal);
-      return;
+    if (window.OneSignal && typeof window.OneSignal.login === "function") {
+      return resolve(window.OneSignal);
     }
 
     const timer = setTimeout(() => resolve(null), timeoutMs);
+
     if (window.OneSignalDeferred) {
       window.OneSignalDeferred.push((OS: any) => {
         clearTimeout(timer);
@@ -54,8 +53,6 @@ export function useOneSignal() {
       prevUserRef.current = null;
     } else if (user) {
       prevUserRef.current = user.id;
-    } else {
-      prevUserRef.current = null;
     }
   }, [user]);
 
@@ -72,14 +69,16 @@ export function useOneSignal() {
       if (!OneSignal || cancelled) return;
 
       try {
-        if (typeof OneSignal.push === "function") {
-          await OneSignal.push();
-          console.log("[OneSignal] push method called");
+        // Ensure we are logged in with the Supabase UID
+        if (typeof OneSignal.login === "function") {
+          await OneSignal.login(user.id);
+          console.log(`[OneSignal] login(${user.id}) success`);
         }
 
         if (OneSignal.User) {
           const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
-          
+
+          // Set tags for targeting
           if (typeof OneSignal.User.addTags === "function") {
             await OneSignal.User.addTags({
               user_id: user.id,
@@ -93,6 +92,7 @@ export function useOneSignal() {
           }
         }
 
+        // Auto-request for everyone if they haven't decided yet
         if (OneSignal.Notifications) {
           const perm = await OneSignal.Notifications.permission;
           if (perm === "default") {
