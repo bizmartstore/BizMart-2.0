@@ -27,30 +27,30 @@ export default function OneSignalInit() {
     }
 
     async function initOneSignal() {
-      try {
-        await cleanupOldWorkers();
-
-        if (!("OneSignal" in window)) {
-          console.warn("OneSignal SDK not loaded yet");
-          return;
+          try {
+            await cleanupOldWorkers();
+    
+            if (!("OneSignal" in window)) {
+              console.warn("OneSignal SDK not loaded yet");
+              return;
+            }
+    
+            const OneSignal = window.OneSignal || [];
+            OneSignal.push(() => {
+              OneSignal.init({
+                appId: "56883e62-5aae-4486-b9c3-84e5e1db41c9",
+                allowLocalhostAsSecureOrigin: true,
+                notifyButton: { enable: true },
+                serviceWorkerPath: "/OneSignalSDKWorker.js",
+                serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
+              });
+    
+              setOneSignalReady(true);
+            });
+          } catch (err) {
+            console.error("OneSignal initialization failed:", err);
+          }
         }
-
-        const OneSignal = window.OneSignal || [];
-        OneSignal.push(() => {
-          OneSignal.init({
-            appId: "617c000e-3cf8-4077-b083-9b4fea4018de",
-            allowLocalhostAsSecureOrigin: true,
-            notifyButton: { enable: true },
-            serviceWorkerPath: "/OneSignalSDKWorker.js",
-            serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
-          });
-
-          setOneSignalReady(true);
-        });
-      } catch (err) {
-        console.error("OneSignal initialization failed:", err);
-      }
-    }
 
     initOneSignal();
   }, []);
