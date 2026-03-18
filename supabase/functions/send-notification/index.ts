@@ -2,10 +2,8 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "X-OneSignal-REST-API-Key": "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akuan6dj55pkrd7357ktwi",
 };
-
-const ONESIGNAL_APP_ID = "617c000e-3cf8-4077-b083-9b4fea4018de";
-const ONESIGNAL_REST_API_KEY = "os_v2_app_mf6aadr47bahpmedtnh6uqay3ziy7ejsjkhuoqvfptmr5jpl7gn7tcpggghrajuavbspczopmapnzfi2akauan6dj55pkrd7357ktwi";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -19,7 +17,7 @@ Deno.serve(async (req) => {
     const isAdminTarget = targetRole === "admin";
 
     const payload: any = {
-      app_id: ONESIGNAL_APP_ID,
+      app_id: "617c000e-3cf8-4077-b083-9b4fea4018de",
       headings: { en: title },
       contents: { en: message },
       android_sound: isAdminTarget ? "admin_notification" : "customer_notification",
@@ -45,7 +43,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
+        Authorization: `Basic ${corsHeaders["X-OneSignal-REST-API-Key"]}`,
       },
       body: JSON.stringify(payload),
     });
