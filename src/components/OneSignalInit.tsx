@@ -38,7 +38,7 @@ export default function OneSignalInit() {
         const OneSignal = window.OneSignal || [];
         OneSignal.push(() => {
           OneSignal.init({
-            appId: "617c000e-3cf8-4077-b083-9b4fea4018de",
+            appId: "56883e62-5aae-4486-b9c3-84e5e1db41c9",
             allowLocalhostAsSecureOrigin: true,
             notifyButton: { enable: true },
             serviceWorkerPath: "/OneSignalSDKWorker.js",
