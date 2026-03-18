@@ -1,7 +1,6 @@
 import { Search, ShoppingCart, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
-import NotificationBell from "@/components/NotificationBell";
 import { useEffect, useState } from "react";
 
 const LOGO_URL = "https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png";
@@ -48,7 +47,6 @@ export default function TopBar() {
           </span>
         )}
       </button>
-      <NotificationBell />
     </div>
   );
 }

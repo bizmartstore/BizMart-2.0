@@ -11,12 +11,12 @@ interface NotifyParams {
 }
 
 /**
- * Send a push notification via the edge function AND log it to notification_logs.
+ * Log notification to the notification_logs table only.
+ * No external push service (OneSignal) is used.
  */
 export async function sendNotification(params: NotifyParams) {
   const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
 
-  // Log to notification_logs table
   try {
     await (supabase as any).from("notification_logs").insert({
       type,
@@ -27,31 +27,10 @@ export async function sendNotification(params: NotifyParams) {
       target_role: targetRole || null,
       target_user_id: targetUserId || null,
     });
+    return { success: true };
   } catch (e) {
     console.warn("Failed to log notification:", e);
-  }
-
-  // Call edge function directly via fetch
-  try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-
-    const res = await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "apikey": anonKey,
-        "Authorization": `Bearer ${anonKey}`,
-      },
-      body: JSON.stringify({ title, message, icon, link, type, targetRole, targetUserId }),
-    });
-
-    const data = await res.json();
-    console.log("[sendNotification] Edge function response:", data);
-    return data;
-  } catch (e) {
-    console.warn("Failed to send push notification:", e);
-    return null;
+    return { success: false, error: e };
   }
 }
 

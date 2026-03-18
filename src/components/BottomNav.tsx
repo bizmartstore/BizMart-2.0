@@ -69,12 +69,12 @@ export default function BottomNav() {
                   {tab.icon}
                 </span>
                 {tab.path === "/cart" && totalItems > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-extrabold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm">
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[9px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm">
                     {totalItems}
                   </span>
                 )}
                 {tab.path === "/messages" && unreadMessages > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] font-extrabold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm animate-pulse">
+                  <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm animate-pulse">
                     {unreadMessages > 9 ? "9+" : unreadMessages}
                   </span>
                 )}
