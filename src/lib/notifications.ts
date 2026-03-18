@@ -1,7 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-interface NotifyParams {
-  title: string;
+interface NotifyParams {  title: string;
   message: string;
   icon?: string;
   link?: string;
@@ -11,11 +10,9 @@ interface NotifyParams {
 }
 
 /**
- * Log notification to the notification_logs table only.
- * No external push service (OneSignal) is used.
+ * Log notification to the notification_logs table only. * No external push service (OneSignal) is used.
  */
-export async function sendNotification(params: NotifyParams) {
-  const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
+export async function sendNotification(params: NotifyParams) {  const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
 
   try {
     await (supabase as any).from("notification_logs").insert({
@@ -26,8 +23,7 @@ export async function sendNotification(params: NotifyParams) {
       link,
       target_role: targetRole || null,
       target_user_id: targetUserId || null,
-    });
-    return { success: true };
+    });    return { success: true };
   } catch (e) {
     console.warn("Failed to log notification:", e);
     return { success: false, error: e };
@@ -43,12 +39,10 @@ export async function notifyAdminGCash(type: "cash_in" | "cash_out", studentName
     icon: "💰",
     link: "/admin?tab=gcash",
     type: `gcash_${type}`,
-    targetRole: "admin",
-  });
+    targetRole: "admin",  });
 }
 
-/** Notify admins about new club member */
-export async function notifyAdminNewMember(memberName: string) {
+/** Notify admins about new club member */export async function notifyAdminNewMember(memberName: string) {
   return sendNotification({
     title: "👑 New BizMart Club Member",
     message: `${memberName} has joined BizMart Club!`,
@@ -62,24 +56,20 @@ export async function notifyAdminNewMember(memberName: string) {
 /** Notify admins about BCoins redemption */
 export async function notifyAdminRedemption(studentName: string, amount: number) {
   return sendNotification({
-    title: "🎁 BCoins Redemption Request",
-    message: `${studentName} wants to redeem ₱${amount} GCash`,
+    title: "🎁 BCoins Redemption Request",    message: `${studentName} wants to redeem ₱${amount} GCash`,
     icon: "🎁",
     link: "/admin?tab=bcoins",
     type: "bcoins_redemption",
     targetRole: "admin",
-  });
-}
+  });}
 
 /** Notify customer about order status */
 export async function notifyCustomerOrder(userId: string, status: "placed" | "ready" | "completed") {
   const messages = {
     placed: "Your order has been successfully placed. ✅",
     ready: "Your order is ready for pickup! 📦",
-    completed: "Your order is completed. Thank you! 🎉",
-  };
-  return sendNotification({
-    title: `🛒 Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
+    completed: "Your order is completed. Thank you! 🎉",  };
+  return sendNotification({    title: `🛒 Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
     message: messages[status],
     icon: "🛒",
     link: "/profile",
@@ -90,8 +80,7 @@ export async function notifyCustomerOrder(userId: string, status: "placed" | "re
 
 /** Notify customer about BCoins earned */
 export async function notifyCustomerBCoins(userId: string, amount: number, reason: string) {
-  return sendNotification({
-    title: "🪙 BCoins Earned!",
+  return sendNotification({    title: "🪙 BCoins Earned!",
     message: `You earned ${amount.toFixed(1)} BCoins from ${reason}`,
     icon: "🪙",
     link: "/bcoins",
@@ -101,10 +90,8 @@ export async function notifyCustomerBCoins(userId: string, amount: number, reaso
 }
 
 /** Notify customer about GCash transaction completed */
-export async function notifyCustomerGCashComplete(userId: string, type: "cash_in" | "cash_out", amount: number, status: string) {
-  const label = type === "cash_in" ? "Cash In" : "Cash Out";
-  return sendNotification({
-    title: `💰 GCash ${label} ${status === "completed" ? "Completed" : "Rejected"}`,
+export async function notifyCustomerGCashComplete(userId: string, type: "cash_in" | "cash_out", amount: number, status: string) {  const label = type === "cash_in" ? "Cash In" : "Cash Out";
+  return sendNotification({    title: `💰 GCash ${label} ${status === "completed" ? "Completed" : "Rejected"}`,
     message: `Your ₱${amount} ${label} has been ${status}.`,
     icon: "💰",
     link: "/gcash",
@@ -137,8 +124,7 @@ export async function notifyCustomerRedemptionStatus(userId: string, amount: num
   });
 }
 
-/** Notify admins about new print order */
-export async function notifyAdminNewPrintOrder(studentName: string, fileName: string, cost: number) {
+/** Notify admins about new print order */export async function notifyAdminNewPrintOrder(studentName: string, fileName: string, cost: number) {
   return sendNotification({
     title: "🖨️ New Print Request",
     message: `${studentName} submitted a print request "${fileName}" — ₱${cost.toFixed(2)}`,
@@ -154,8 +140,7 @@ export async function notifyNewMessage(recipientUserId: string, senderName: stri
   return sendNotification({
     title: `💬 New message from ${senderName}`,
     message: preview.length > 80 ? preview.slice(0, 80) + "…" : preview,
-    icon: "💬",
-    link: "/messages",
+    icon: "💬",    link: "/messages",
     type: "new_message",
     targetUserId: recipientUserId,
   });
@@ -165,8 +150,7 @@ export async function notifyNewMessage(recipientUserId: string, senderName: stri
 export async function notifyAnnouncement(title: string, message: string) {
   return sendNotification({
     title: `📢 ${title}`,
-    message,
-    icon: "📢",
+    message,    icon: "📢",
     link: "/",
     type: "announcement",
   });
@@ -198,8 +182,7 @@ export async function notifyCustomerPrintStatus(userId: string, fileName: string
 
 /** Notify customer about order approval/rejection */
 export async function notifyCustomerOrderApproval(userId: string, orderId: string, status: string) {
-  const messages: Record<string, string> = {
-    approved: "Your order has been approved and is being prepared! ✅",
+  const messages: Record<string, string> = {    approved: "Your order has been approved and is being prepared! ✅",
     rejected: "Your order has been rejected. ❌",
     completed: "Your order is completed. Thank you! 🎉",
   };
@@ -211,8 +194,7 @@ export async function notifyCustomerOrderApproval(userId: string, orderId: strin
     type: `order_${status}`,
     targetUserId: userId,
   });
-}
-
+}
 /** Notify about out-of-stock product */
 export async function notifyOutOfStock(productName: string) {
   return sendNotification({

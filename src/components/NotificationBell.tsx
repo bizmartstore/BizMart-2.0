@@ -2,8 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Bell } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { toast } from "@/hooks/use-toast";
+import { useNavigate } from "react-router-dom";import { toast } from "@/hooks/use-toast";
 
 export default function NotificationBell() {
   const { user } = useAuth();
@@ -28,8 +27,7 @@ export default function NotificationBell() {
     const count = (data || []).filter((n: any) => new Date(n.created_at) > new Date(lastSeen)).length;
     setUnreadCount(count);
   }, [user]);
-
-  useEffect(() => {
+  useEffect(() => {
     if (!user) return;
     load();
   }, [user, load]);
@@ -46,8 +44,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);    };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
@@ -71,8 +68,7 @@ export default function NotificationBell() {
         <Bell className="h-5 w-5 text-secondary-foreground" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
+            {unreadCount > 9 ? "9+" : unreadCount}          </span>
         )}
       </button>
 
@@ -99,8 +95,7 @@ export default function NotificationBell() {
                       <p className="text-[9px] text-muted-foreground mt-0.5">
                         {new Date(n.created_at).toLocaleString()}
                       </p>
-                    </div>
-                  </div>
+                    </div>                  </div>
                 </button>
               ))
             )}
