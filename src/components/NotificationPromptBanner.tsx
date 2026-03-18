@@ -8,19 +8,23 @@ export default function NotificationPromptBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   const checkPermission = useCallback(() => {
+    // Only show on devices that support notifications
     if (!("Notification" in window)) return false;
     return Notification.permission === "default";
   }, []);
 
   useEffect(() => {
+    // Initial check after short delay
     const timer = setTimeout(() => {
       if (checkPermission()) setVisible(true);
     }, 4000);
 
+    // Re-check periodically in case user dismissed the OS prompt without allowing
     const interval = setInterval(() => {
       if (checkPermission()) {
         if (!dismissed) setVisible(true);
       } else {
+        // Permission granted or permanently denied at OS level
         setVisible(false);
       }
     }, 10000);
@@ -39,12 +43,14 @@ export default function NotificationPromptBanner() {
         setVisible(false);
       }
     };
+    // Some browsers fire this
     navigator.permissions?.query({ name: "notifications" as PermissionName }).then((status) => {
       status.onchange = handler;
     }).catch(() => {});
   }, []);
 
   const handleAllow = async () => {
+    // Hide banner first so it doesn't block the OS permission dialog
     setVisible(false);
     await promptForPush();
   };
@@ -52,6 +58,7 @@ export default function NotificationPromptBanner() {
   const handleDismiss = () => {
     setDismissed(true);
     setVisible(false);
+    // Re-show after 60 seconds if still not granted
     setTimeout(() => {
       if (checkPermission()) {
         setDismissed(false);
@@ -65,14 +72,12 @@ export default function NotificationPromptBanner() {
   return (
     <div className="fixed top-0 left-0 right-0 z-[100] animate-in slide-in-from-top duration-300">
       <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-lg">
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <span className="text-lg">🔔</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold">Enable Notifications</p>
-            <p className="text-[10px] text-primary-foreground opacity-80">Get updates on orders, messages & promos!</p>
-          </div>
+        <div className="bg-primary-foreground/20 rounded-full p-2 shrink-0">
+          <Bell className="w-5 h-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold">Enable Notifications</p>
+          <p className="text-xs opacity-90">Get updates on orders, messages & promos!</p>
         </div>
         <Button
           size="sm"
