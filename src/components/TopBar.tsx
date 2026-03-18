@@ -1,6 +1,7 @@
 import { Search, ShoppingCart, Moon, Sun } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
+import NotificationBell from "@/components/NotificationBell";
 import { useEffect, useState } from "react";
 
 const LOGO_URL = "https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png";
@@ -25,7 +26,8 @@ export default function TopBar() {
       localStorage.setItem("theme", "light");
     }
   }, [dark]);
-  return (
+
+  return (
     <div className="sticky top-0 z-40 bg-secondary px-3 py-2 flex items-center gap-2 shadow-md">
       <img src={LOGO_URL} alt="BizMart" className="h-8 rounded-lg object-contain cursor-pointer" onClick={() => navigate("/")} />
       <div
@@ -33,7 +35,8 @@ export default function TopBar() {
         className="flex-1 flex items-center gap-2 bg-secondary-foreground/10 rounded-full px-3 py-2 cursor-pointer"
       >
         <Search className="h-4 w-4 text-secondary-foreground/60" />
-        <span className="text-xs text-secondary-foreground/60">Search in BizMart...</span>      </div>
+        <span className="text-xs text-secondary-foreground/60">Search in BizMart...</span>
+      </div>
       <button onClick={() => setDark(!dark)} className="p-1.5">
         {dark ? <Sun className="h-5 w-5 text-yellow-400" /> : <Moon className="h-5 w-5 text-secondary-foreground" />}
       </button>
@@ -44,5 +47,8 @@ export default function TopBar() {
             {totalItems}
           </span>
         )}
-      </button>    </div>
-  );}
+      </button>
+      <NotificationBell />
+    </div>
+  );
+}
