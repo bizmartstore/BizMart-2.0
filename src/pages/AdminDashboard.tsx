@@ -26,17 +26,12 @@ function OverviewTab({ role }: { role: string }) {
   const isMainAdmin = role === 'main_admin';
   const [storeOpen, setStoreOpen] = useState(true);
   const [closeMsg, setCloseMsg] = useState("Store is currently closed.");
-  const [pushEnabled, setPushEnabled] = useState(true);
   const [stats, setStats] = useState({ products: 0, users: 0, pendingGcash: 0, activeMembers: 0, totalCommission: 0, memberAdminOrderCommission: 0, printRevenue: 0, printCommission: 0, posSales: 0, posMainAdmin: 0, posMemberAdmin: 0, posSeller: 0 });
 
   useEffect(() => {
     (supabase as any).from('app_settings').select('*').eq('key', 'store_status').single()
       .then(({ data }: any) => {
         if (data) { setStoreOpen(data.value.is_open); setCloseMsg(data.value.close_message || ''); }
-      });
-    (supabase as any).from('app_settings').select('*').eq('key', 'admin_push_enabled').maybeSingle()
-      .then(({ data }: any) => {
-        if (data) setPushEnabled(data.value?.enabled !== false);
       });
     Promise.all([
       (supabase as any).from('products').select('id', { count: 'exact', head: true }),
@@ -65,28 +60,18 @@ function OverviewTab({ role }: { role: string }) {
       value: { is_open: open, close_message: closeMsg }, updated_at: new Date().toISOString()
     }).eq('key', 'store_status');
     
-    // Push notification to all customers
-    const { sendNotification } = await import("@/lib/notifications");
-    sendNotification({
+    // Log notification to database (no push)
+    await (supabase as any).from("notification_logs").insert({
+      type: "store_status",
       title: open ? "🟢 BizMart Store is Now OPEN!" : "🔴 BizMart Store is Now CLOSED",
       message: open ? "The store is open! Browse and place your orders now. 🛍️" : (closeMsg || "The store is currently closed. Stay tuned!"),
       icon: open ? "🟢" : "🔴",
       link: "/",
-      type: "store_status",
+      target_role: null,
+      target_user_id: null,
     });
     
     toast.success(open ? 'Store opened!' : 'Store closed!');
-  };
-
-  const togglePush = async (enabled: boolean) => {
-    setPushEnabled(enabled);
-    const { data: existing } = await (supabase as any).from('app_settings').select('*').eq('key', 'admin_push_enabled').maybeSingle();
-    if (existing) {
-      await (supabase as any).from('app_settings').update({ value: { enabled }, updated_at: new Date().toISOString() }).eq('key', 'admin_push_enabled');
-    } else {
-      await (supabase as any).from('app_settings').insert({ key: 'admin_push_enabled', value: { enabled } });
-    }
-    toast.success(enabled ? 'Push notifications enabled!' : 'Push notifications disabled!');
   };
 
   const memberAdminPrintEarnings = stats.printRevenue - stats.printCommission;
@@ -113,19 +98,6 @@ function OverviewTab({ role }: { role: string }) {
             }).eq('key', 'store_status');
           }}
         />
-      </div>
-
-      <div className="bg-card rounded-xl p-4 border border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Bell className="h-4 w-4 text-primary" />
-            <div>
-              <span className="font-bold text-sm">Push Notifications</span>
-              <p className="text-[10px] text-muted-foreground">Receive order alerts even when app is closed</p>
-            </div>
-          </div>
-          <Switch checked={pushEnabled} onCheckedChange={togglePush} />
-        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -228,8 +200,16 @@ function AnnouncementsTab() {
   const add = async () => {
     if (!title.trim() || !message.trim()) return;
     await (supabase as any).from('announcements').insert({ title: title.trim(), message: message.trim(), created_by: user?.id, is_active: true });
-    // Push notification to all users
-    notifyAnnouncement(title.trim(), message.trim());
+    // Log notification to database (no push)
+    await (supabase as any).from("notification_logs").insert({
+      type: "announcement",
+      title: `📢 ${title.trim()}`,
+      message: message.trim(),
+      icon: "📢",
+      link: "/",
+      target_role: null,
+      target_user_id: null,
+    });
     setTitle(""); setMessage(""); setShowAdd(false); load();
     toast.success("Announcement published!");
   };
@@ -711,6 +691,7 @@ function BCoinsTab() {
     (supabase as any).from('bcoins_wallets').select('*').order('balance', { ascending: false }).limit(50)
       .then(({ data }: any) => setWallets(data || []));
   };
+
   useEffect(load, []);
 
   const addToPool = async () => {
@@ -890,15 +871,15 @@ function UsersTab() {
         <div className="bg-card rounded-xl p-4 border border-border space-y-2">
           <h3 className="font-bold text-sm flex items-center gap-2"><UserPlus className="h-4 w-4 text-primary" />Create New Account</h3>
           <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-[10px]">First Name *</Label><Input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Juan" className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Last Name *</Label><Input value={form.last_name} onChange={e => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Dela Cruz" className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">First Name *</Label><Input value={form.first_name} onChange={(e) => setForm(f => ({ ...f, first_name: e.target.value }))} placeholder="Juan" className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Last Name *</Label><Input value={form.last_name} onChange={(e) => setForm(f => ({ ...f, last_name: e.target.value }))} placeholder="Dela Cruz" className="text-xs h-8" /></div>
           </div>
-          <div><Label className="text-[10px]">Email *</Label><Input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@gmail.com" className="text-xs h-8" /></div>
-          <div><Label className="text-[10px]">Password *</Label><Input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Min 6 characters" className="text-xs h-8" /></div>
+          <div><Label className="text-[10px]">Email *</Label><Input type="email" value={form.email} onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))} placeholder="email@gmail.com" className="text-xs h-8" /></div>
+          <div><Label className="text-[10px]">Password *</Label><Input type="password" value={form.password} onChange={(e) => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Min 6 characters" className="text-xs h-8" /></div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-[10px]">School</Label><Input value={form.school} onChange={e => setForm(f => ({ ...f, school: e.target.value }))} placeholder="School" className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Grade</Label><Input value={form.grade_level} onChange={e => setForm(f => ({ ...f, grade_level: e.target.value }))} placeholder="Grade" className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Section</Label><Input value={form.section} onChange={e => setForm(f => ({ ...f, section: e.target.value }))} placeholder="Section" className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">School</Label><Input value={form.school} onChange={(e) => setForm(f => ({ ...f, school: e.target.value }))} placeholder="School" className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Grade</Label><Input value={form.grade_level} onChange={(e) => setForm(f => ({ ...f, grade_level: e.target.value }))} placeholder="Grade" className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Section</Label><Input value={form.section} onChange={(e) => setForm(f => ({ ...f, section: e.target.value }))} placeholder="Section" className="text-xs h-8" /></div>
           </div>
           <div>
             <Label className="text-[10px]">Role</Label>
@@ -948,15 +929,12 @@ function NotificationsTab() {
   };
   useEffect(load, []);
 
-  // Realtime updates with admin sound
+  // Realtime updates
   useEffect(() => {
     const channel = supabase
       .channel("admin-notifications")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, async () => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, () => {
         load();
-        // Play admin notification sound
-        const { playAdminNotificationSound } = await import("@/lib/notificationSound");
-        playAdminNotificationSound();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -1191,131 +1169,6 @@ function OrdersTab({ role }: { role: string }) {
         );
       })}
       {orders.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No orders yet</p>}
-    </div>
-  );
-}
-
-/* ─── Sellers Tab ─── */
-function SellersTab() {
-  const [applications, setApplications] = useState<any[]>([]);
-  const [sellerCodes, setSellerCodes] = useState<any[]>([]);
-  const [sellers, setSellers] = useState<any[]>([]);
-  const [newCode, setNewCode] = useState("");
-  const [maxSellers, setMaxSellers] = useState(5);
-
-  const load = () => {
-    (supabase as any).from('seller_applications').select('*').order('created_at', { ascending: false }).then(({ data }: any) => setApplications(data || []));
-    (supabase as any).from('seller_codes').select('*').order('created_at', { ascending: false }).then(({ data }: any) => setSellerCodes(data || []));
-    (supabase as any).from('seller_profiles').select('*').order('created_at', { ascending: false }).then(({ data }: any) => setSellers(data || []));
-    (supabase as any).from('app_settings').select('*').eq('key', 'max_sellers').maybeSingle().then(({ data }: any) => {
-      if (data?.value?.max) setMaxSellers(data.value.max);
-    });
-  };
-  useEffect(load, []);
-
-  const updateApp = async (id: string, status: string) => {
-    await (supabase as any).from('seller_applications').update({ status, updated_at: new Date().toISOString() }).eq('id', id);
-    load(); toast.success(`Application ${status}`);
-  };
-
-  const addSellerCode = async () => {
-    if (!newCode.trim()) return;
-    await (supabase as any).from('seller_codes').insert({ code: newCode.trim().toUpperCase() });
-    setNewCode(""); load(); toast.success("Seller code added!");
-  };
-
-  const generateSellerCodes = async () => {
-    const batch = Array.from({ length: 3 }, () => `SELL-${Math.random().toString(36).substring(2, 8).toUpperCase()}`);
-    await (supabase as any).from('seller_codes').insert(batch.map(c => ({ code: c })));
-    load(); toast.success("3 seller codes generated!");
-  };
-
-  const saveMaxSellers = async () => {
-    const { data: existing } = await (supabase as any).from('app_settings').select('*').eq('key', 'max_sellers').maybeSingle();
-    if (existing) {
-      await (supabase as any).from('app_settings').update({ value: { max: maxSellers } }).eq('key', 'max_sellers');
-    } else {
-      await (supabase as any).from('app_settings').insert({ key: 'max_sellers', value: { max: maxSellers } });
-    }
-    toast.success("Max sellers updated!");
-  };
-
-  const toggleSeller = async (id: string, active: boolean) => {
-    await (supabase as any).from('seller_profiles').update({ is_active: !active }).eq('id', id);
-    load();
-  };
-
-  return (
-    <div className="space-y-3 pb-6">
-      <div className="bg-card rounded-xl p-3 border border-border flex items-center gap-2">
-        <Label className="text-xs font-bold whitespace-nowrap">Max Sellers</Label>
-        <Input type="number" value={maxSellers} onChange={(e) => setMaxSellers(Number(e.target.value))} className="w-20 text-sm" />
-        <Button onClick={saveMaxSellers} size="sm">Save</Button>
-        <span className="text-[10px] text-muted-foreground">{sellers.length} active</span>
-      </div>
-      <div className="bg-card rounded-xl p-3 border border-border space-y-2">
-        <span className="font-bold text-sm">Seller Codes</span>
-        <div className="flex gap-2">
-          <Input value={newCode} onChange={(e) => setNewCode(e.target.value.toUpperCase())} placeholder="Enter code" className="text-sm" />
-          <Button onClick={addSellerCode} size="sm">Add</Button>
-        </div>
-        <Button onClick={generateSellerCodes} size="sm" variant="outline" className="w-full gap-1"><Plus className="h-3 w-3" />Generate 3 Codes</Button>
-        <div className="max-h-32 overflow-y-auto space-y-1 mt-1">
-          {sellerCodes.map(c => (
-            <div key={c.id} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-1.5 text-xs">
-              <span className="font-mono font-bold">{c.code}</span>
-              <span className={c.is_used ? 'text-muted-foreground' : 'text-[hsl(var(--success))] font-bold'}>{c.is_used ? 'Used' : 'Available'}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className="font-bold text-sm">Applications ({applications.length})</span>
-        <div className="mt-1 space-y-2">
-          {applications.map(a => (
-            <div key={a.id} className="bg-card rounded-xl p-3 border border-border">
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs">{a.full_name}</span>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                  a.status === 'approved' ? 'bg-success/20 text-[hsl(var(--success))]' :
-                  a.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
-                  'bg-warning/20 text-warning'
-                }`}>{a.status}</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground">Business: {a.business_type}</p>
-              <p className="text-[10px] text-muted-foreground">Products: {a.products_to_sell}</p>
-              <p className="text-[10px] text-muted-foreground">Reason: {a.reason}</p>
-              {a.status === 'pending' && (
-                <div className="flex gap-2 mt-2">
-                  <Button size="sm" className="h-7 text-[11px] gap-1" onClick={() => updateApp(a.id, 'approved')}>
-                    <Check className="h-3 w-3" />Approve
-                  </Button>
-                  <Button size="sm" variant="destructive" className="h-7 text-[11px] gap-1" onClick={() => updateApp(a.id, 'rejected')}>
-                    <X className="h-3 w-3" />Reject
-                  </Button>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-      <div>
-        <span className="font-bold text-sm">Active Sellers ({sellers.length})</span>
-        <div className="mt-1 space-y-1">
-          {sellers.map(s => (
-            <div key={s.id} className="bg-card rounded-lg px-3 py-2 border border-border flex items-center gap-2">
-              <Store className="h-4 w-4 text-primary flex-shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold truncate">{s.store_name || 'Unnamed'}</p>
-                <p className="text-[10px] text-muted-foreground">{s.location || 'No location'}</p>
-              </div>
-              <button onClick={() => toggleSeller(s.id, s.is_active)} className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${s.is_active ? 'bg-success/20 text-[hsl(var(--success))]' : 'bg-muted text-muted-foreground'}`}>
-                {s.is_active ? 'ON' : 'OFF'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
