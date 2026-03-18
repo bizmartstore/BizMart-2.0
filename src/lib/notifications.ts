@@ -10,9 +10,6 @@ interface NotifyParams {
   targetUserId?: string | null;
 }
 
-/**
- * Send a push notification via the edge function AND log it to notification_logs.
- */
 export async function sendNotification(params: NotifyParams) {
   const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
 
@@ -49,8 +46,8 @@ export async function sendNotification(params: NotifyParams) {
     const data = await res.json();
     console.log("[sendNotification] Edge function response:", data);
     return data;
-  } catch (e) {
-    console.warn("Failed to send push notification:", e);
+  } catch (error) {
+    console.warn("Failed to send push notification:", error);
     return null;
   }
 }
@@ -134,30 +131,6 @@ export async function notifyCustomerGCashComplete(userId: string, type: "cash_in
   });
 }
 
-/** Notify admins about new user registration */
-export async function notifyAdminNewRegistration(studentName: string, email: string) {
-  return sendNotification({
-    title: "🎓 New Student Registered",
-    message: `${studentName} (${email}) just created an account!`,
-    icon: "🎓",
-    link: "/admin?tab=users",
-    type: "new_registration",
-    targetRole: "admin",
-  });
-}
-
-/** Notify customer about BCoins redemption status */
-export async function notifyCustomerRedemptionStatus(userId: string, amount: number, status: string) {
-  return sendNotification({
-    title: `🎁 Redemption ${status === "completed" ? "Approved" : "Rejected"}`,
-    message: `Your ₱${amount} GCash redemption has been ${status}.`,
-    icon: "🎁",
-    link: "/bcoins",
-    type: "redemption_status",
-    targetUserId: userId,
-  });
-}
-
 /** Notify admins about new print order */
 export async function notifyAdminNewPrintOrder(studentName: string, fileName: string, cost: number) {
   return sendNotification({
@@ -167,29 +140,6 @@ export async function notifyAdminNewPrintOrder(studentName: string, fileName: st
     link: "/admin?tab=print",
     type: "new_print_order",
     targetRole: "admin",
-  });
-}
-
-/** Notify user about a new message */
-export async function notifyNewMessage(recipientUserId: string, senderName: string, preview: string) {
-  return sendNotification({
-    title: `💬 New message from ${senderName}`,
-    message: preview.length > 80 ? preview.slice(0, 80) + "…" : preview,
-    icon: "💬",
-    link: "/messages",
-    type: "new_message",
-    targetUserId: recipientUserId,
-  });
-}
-
-/** Notify all users about a new announcement */
-export async function notifyAnnouncement(title: string, message: string) {
-  return sendNotification({
-    title: `📢 ${title}`,
-    message,
-    icon: "📢",
-    link: "/",
-    type: "announcement",
   });
 }
 

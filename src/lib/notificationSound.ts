@@ -18,14 +18,22 @@ export function playCustomerNotificationSound() {
   try {
     const audio = getCustomerAudio();
     audio.currentTime = 0;
-    audio.play().catch(() => {});
-  } catch {}
+    audio.play().catch(() => {
+      console.warn("[NotificationSound] Failed to play customer sound");
+    });
+  } catch (e) {
+    console.warn("[NotificationSound] Error playing customer sound", e);
+  }
 }
 
 export function playAdminNotificationSound() {
   try {
     const audio = getAdminAudio();
     audio.currentTime = 0;
-    audio.play().catch(() => {});
-  } catch {}
+    audio.play().catch(() => {
+      console.warn("[NotificationSound] Failed to play admin sound");
+    });
+  } catch (e) {
+    console.warn("[NotificationSound] Error playing admin sound", e);
+  }
 }
