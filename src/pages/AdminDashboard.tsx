@@ -638,3 +638,79 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+// Helper components for AdminDashboard
+function OrdersTab({ role }: { role: string }) {
+  const [orders, setOrders] = useState<any[]>([]);
+  useEffect(() => {
+    (supabase as any).from('orders').select('*').order('created_at', { ascending: false }).limit(50)
+      .then(({ data }: any) => setOrders(data || []));
+  }, []);
+  return (
+    <div className="space-y-2 pb-6">
+      {orders.map(o => (
+        <div key={o.id} className="bg-card border border-border rounded-xl p-3">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-xs font-bold">Order #{o.id.slice(0,8)}</span>
+            <span className="text-xs font-extrabold text-primary">₱{o.total}</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground">{o.customer_name} • {o.status}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PrintOrdersTab({ role }: { role: string }) {
+  const [orders, setOrders] = useState<any[]>([]);
+  useEffect(() => {
+    (supabase as any).from('print_orders').select('*').order('created_at', { ascending: false }).limit(50)
+      .then(({ data }: any) => setOrders(data || []));
+  }, []);
+  return (
+    <div className="space-y-2 pb-6">
+      {orders.map(o => (
+        <div key={o.id} className="bg-card border border-border rounded-xl p-3">
+          <p className="text-xs font-bold">{o.file_name}</p>
+          <p className="text-[10px] text-muted-foreground">₱{o.cost} • {o.status}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SellersTab() {
+  const [sellers, setSellers] = useState<any[]>([]);
+  useEffect(() => {
+    (supabase as any).from('seller_profiles').select('*').order('created_at', { ascending: false })
+      .then(({ data }: any) => setSellers(data || []));
+  }, []);
+  return (
+    <div className="space-y-2 pb-6">
+      {sellers.map(s => (
+        <div key={s.id} className="bg-card border border-border rounded-xl p-3">
+          <p className="text-xs font-bold">{s.store_name}</p>
+          <p className="text-[10px] text-muted-foreground">{s.location}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NotificationsTab() {
+  const [logs, setLogs] = useState<any[]>([]);
+  useEffect(() => {
+    (supabase as any).from('notification_logs').select('*').order('created_at', { ascending: false }).limit(50)
+      .then(({ data }: any) => setLogs(data || []));
+  }, []);
+  return (
+    <div className="space-y-2 pb-6">
+      {logs.map(l => (
+        <div key={l.id} className="bg-card border border-border rounded-xl p-3">
+          <p className="text-xs font-bold">{l.title}</p>
+          <p className="text-[10px] text-muted-foreground">{l.message}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
