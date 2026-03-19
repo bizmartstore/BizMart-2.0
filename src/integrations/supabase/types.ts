@@ -1,10 +1,9 @@
 export type Json =
   | string
-  | number
-  | boolean
+  | number  | boolean
   | null
   | { [key: string]: Json | undefined }
-  | Json[]
+  | Json[];
 
 export type Database = {
   public: {
@@ -20,24 +19,20 @@ export type Database = {
           grade_level: string | null
           section: string | null
           avatar_url: string | null
-          created_at: string
-          updated_at: string
+          created_at: string          updated_at: string
         }
         Insert: {
           user_id: string
           first_name: string
-          last_name: string
-          email: string
+          last_name: string          email: string
           school?: string | null
-          grade_level?: string | null
-          section?: string | null
+          grade_level?: string | null          section?: string | null
           avatar_url?: string | null
         }
         Update: {
           first_name?: string
           last_name?: string
-          school?: string | null
-          grade_level?: string | null
+          school?: string | null          grade_level?: string | null
           section?: string | null
           avatar_url?: string | null
         }
@@ -58,10 +53,8 @@ export type Database = {
         }
         Insert: {
           client_id: string
-          title: string
-          category: string
-          description: string
-          location: string
+          title: string          category: string
+          description: string          location: string
           hourly_rate: number
           status?: string
         }
@@ -74,15 +67,13 @@ export type Database = {
         Row: {
           id: string
           user_id: string
-          status: string
-          bio: string | null
+          status: string          bio: string | null
           subjects: string[] | null
           experience: string | null
           academic_strengths: string | null
           rating: number
           completed_sessions: number
-          created_at: string
-        }
+          created_at: string        }
         Insert: {
           user_id: string
           status?: string
@@ -92,15 +83,12 @@ export type Database = {
           academic_strengths?: string | null
         }
         Update: {
-          status?: string
-          bio?: string | null
+          status?: string          bio?: string | null
           subjects?: string[] | null
-          rating?: number
-          completed_sessions?: number
+          rating?: number          completed_sessions?: number
         }
       }
-      -- ... other tables follow same pattern
-    }
+      -- ... other tables follow same pattern    }
     Functions: {
       get_user_role: {
         Args: { _user_id: string }

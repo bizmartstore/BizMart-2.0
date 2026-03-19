@@ -30,14 +30,12 @@ export default function NotificationBell() {
       const newUnread = notifs.filter((n: any) => !n.is_read && n.user_id === user.id).length;
       setUnreadCount(newUnread);
       
-      // Play sound if there's a new unread notification
       if (newUnread > 0 && notifs.length > 0) {
         const latest = notifs[0];
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
           
-          // Determine if this is an admin notification or customer notification
-          const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
+          const isAdmin = profile?.role && (profile as any).role === 'main_admin' || (profile as any).role === 'member_admin';
           if (isAdmin) {
             playAdminNotificationSound();
           } else {
@@ -53,40 +51,18 @@ export default function NotificationBell() {
   useEffect(() => {
     loadNotifications();
     
-    // Real-time subscription for new notifications
     if (!user) return;
-    
-    const channel = supabase
+        const channel = supabase
       .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notification_logs",
-          filter: `user_id=eq.${user.id} OR target_role=is.not.null`
-        },
-        () => {
-          loadNotifications();
-        }
+        { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id} OR target_role=is.not.null` },
+        () => { loadNotifications(); }
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
+    return () => { supabase.removeChannel(channel); };
   }, [user, loadNotifications]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
   const markAllAsRead = async () => {
     if (!user) return;
@@ -130,8 +106,7 @@ export default function NotificationBell() {
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
+            {unreadCount > 9 ? "9+" : unreadCount}          </span>
         )}
       </button>
 
@@ -145,8 +120,7 @@ export default function NotificationBell() {
                 className="text-[10px] text-primary font-bold hover:underline"
               >
                 Mark all read
-              </button>
-            )}
+              </button>            )}
           </div>
           <div className="overflow-y-auto max-h-[340px]">
             {notifications.length === 0 ? (
@@ -159,13 +133,12 @@ export default function NotificationBell() {
                 <button
                   key={n.id}
                   onClick={() => handleNotifClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors flex gap-3 hover:bg-muted/50 ${
+                  className={`w-full text-left px-4 py-2 rounded-lg text-xs transition-colors ${
                     n.is_read ? 'opacity-60' : 'bg-primary/5'
                   }`}
                 >
                   <span className="text-xl shrink-0">{n.icon || "🔔"}</span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
+                  <div className="flex-1 min-w-0">                    <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
                     <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
                     <p className="text-[8px] text-muted-foreground mt-1 uppercase font-medium">
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -175,7 +148,7 @@ export default function NotificationBell() {
                     <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />
                   )}
                 </button>
-              ))
+              </div>
             )}
           </div>
         </div>
