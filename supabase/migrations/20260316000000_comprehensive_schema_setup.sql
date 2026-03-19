@@ -15,8 +15,7 @@ CREATE TABLE IF NOT EXISTS public.notification_logs (
 );
 
 -- ============================================
--- 2. FIX RLS POLICIES FOR notification_logs
--- ============================================
+-- 2. FIX RLS POLICIES FOR notification_logs-- ============================================
 ALTER TABLE public.notification_logs ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies to avoid conflicts
@@ -68,14 +67,10 @@ ADD CONSTRAINT print_orders_user_id_fkey
 FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
 
 -- job_postings to profiles (client)
-ALTER TABLE public.job_postings 
-DROP CONSTRAINT IF EXISTS job_postings_client_id_fkey,
-ADD CONSTRAINT job_postings_client_id_fkey 
-FOREIGN KEY (client_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
+ALTER TABLE public.job_postings DROP CONSTRAINT IF EXISTS job_postings_client_id_fkey,
+ADD CONSTRAINT job_postings_client_id_fkey FOREIGN KEY (client_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
 
--- freelancer_profiles to profiles
-ALTER TABLE public.freelancer_profiles 
-DROP CONSTRAINT IF EXISTS freelancer_profiles_user_id_fkey,
+-- freelancer_profiles to profilesALTER TABLE public.freelancer_profiles DROP CONSTRAINT IF EXISTS freelancer_profiles_user_id_fkey,
 ADD CONSTRAINT freelancer_profiles_user_id_fkey 
 FOREIGN KEY (user_id) REFERENCES public.profiles(user_id) ON DELETE CASCADE;
 
@@ -116,8 +111,7 @@ USING (auth.uid() = user_id);
 
 -- Allow service role to manage roles (for admin functions)
 CREATE POLICY "Service role can manage roles" 
-ON public.user_roles FOR ALL 
-USING (auth.role() = 'service_role');
+ON public.user_roles FOR ALL USING (auth.role() = 'service_role');
 
 -- ============================================
 -- 6. CREATE app_settings TABLE (if missing)
@@ -149,14 +143,12 @@ VALUES
   ('store_status', '{"is_open": true, "close_message": "Store is currently closed."}')
 ON CONFLICT (key) DO NOTHING;
 
-INSERT INTO public.app_settings (key, value) 
-VALUES 
+INSERT INTO public.app_settings (key, value) VALUES 
   ('gcash_service_fee', '{"amount": 10}')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.app_settings (key, value) 
-VALUES 
-  ('flash_sale_state', '{"ends_at": null, "product_ids": []}')
+VALUES   ('flash_sale_state', '{"ends_at": null, "product_ids": []}')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================
