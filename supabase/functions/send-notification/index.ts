@@ -1,28 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
-
-const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
-const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID") || "";
 const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID") || "";
 const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "";
 
-if (!TELEGRAM_BOT_TOKEN) {
-  throw new Error("TELEGRAM_BOT_TOKEN not configured");
-}
-if (!TELEGRAM_CHAT_ID) {
-  throw new Error("TELEGRAM_CHAT_ID not configured");
-}
-if (!ONESIGNAL_APP_ID) {
-  throw new Error("ONESIGNAL_APP_ID not configured");
-}
-if (!ONESIGNAL_REST_API_KEY) {
-  throw new Error("ONESIGNAL_REST_API_KEY not configured");
-}
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -30,69 +14,103 @@ serve(async (req) => {
   }
 
   try {
-    const { title, message, type, userId, targetRole, link, icon = "🔔" } = await req.json();
+    const { title, message, targetUserId, targetRole, link, icon = "🔔" } = await req.json();
 
-    // Validate required fields
     if (!title || !message) {
-      throw new Error("Missing title or message");
+      throw new Error("Missing required fields: title and message");
     }
 
-    // Build payload for OneSignal    const oneSignalPayload: any = {
+    // 1. Log to database first (best effort, don't fail if this errors)
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = await import("https://esm.sh/@supabase/supabase-js@2");
+      const client = new supabase.createClient(supabaseUrl, supabaseKey);
+      
+      await client.from("notification_logs").insert({
+        user_id: targetUserId || null,
+        target_role: targetRole || null,
+        title,
+        message,
+        type: "system",
+        link,
+        icon,
+      });
+    } catch (dbError) {
+      console.error("[Notification] DB log failed:", dbError);
+      // Continue with push notification even if DB log fails
+    }
+
+    // 2. Prepare OneSignal payload
+    const payload: any = {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
-      data: { type, link, icon },
+      data: { 
+        link,
+        type: "notification",
+        timestamp: new Date().toISOString()
+      },
+      // Android/iOS specific
+      android_channel_id: "bizmart-notifications",
+      android_priority: 10,
+      ios_sound: "default",
+      ios_badgeType: "Increase",
+      ios_badgeCount: 1,
     };
 
-    // Targeting Logic
-    if (userId) {
-      // Target specific user by their Supabase ID
-      oneSignalPayload.include_external_user_ids = [userId];
-    } else if (targetRole === "admin") {
-      // Target users tagged as admins
-      oneSignalPayload.filters = [
-        { field: "tag", key: "role", relation: "regex", value: "admin" }
+    // 3. Targeting Logic
+    if (targetUserId) {
+      // Target specific user by their Supabase ID (external_user_id)
+      payload.include_external_user_ids = [targetUserId];
+    } else if (targetRole) {
+      // Target users with specific role tag
+      payload.filters = [
+        { field: "tag", key: "role", relation: "==", value: targetRole }
       ];
     } else {
-      // Broadcast to all
-      oneSignalPayload.included_segments = ["Subscribed Users"];
+      // Broadcast to all subscribed users
+      payload.included_segments = ["Subscribed Users"];
     }
 
-    // Send to OneSignal
-    const oneSignalResponse = await fetch("https://api.onesignal.com/notifications", {
+    // 4. Send to OneSignal
+    const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`,
       },
-      body: JSON.stringify(oneSignalPayload),
+      body: JSON.stringify(payload),
     });
 
-    const oneSignalResult = await oneSignalResponse.json();
-    console.log("[OneSignal] Response:", oneSignalResult);
+    const result = await response.json();
+    
+    if (!response.ok) {
+      console.error("[OneSignal Error]", result);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: result.errors || result.message || "OneSignal API error",
+        details: result 
+      }), { 
+        status: response.status, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
 
-    // Also send to Telegram
-    const tgPayload = {
-      chat_id: TELEGRAM_CHAT_ID,
-      text: `🚨 ${type.toUpperCase()} Notification\n${title}\n${message}`,
-      parse_mode: "HTML",
-    };
-
-    const tgResponse = await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(tgPayload),
-    });
-
-    const tgResult = await tgResponse.json();
-    console.log("[Telegram] Response:", tgResult);
-
-    return new Response(JSON.stringify({ success: true, oneSignalResult, tgResult }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      result: result,
+      recipients: targetUserId ? 1 : "all"
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (error: any) {
-    console.error("[Notification Function] Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+
+  } catch (error) {
+    console.error("[Send Notification] Error:", error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message || "Unknown error" 
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

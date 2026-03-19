@@ -7,7 +7,7 @@ import { useAuth } from "@/context/AuthContext";
  * Redirects authenticated admin users to /admin if they land on customer pages.
  * Place this inside BrowserRouter.
  */
-export function AdminAutoRedirect() {
+export default function AdminAutoRedirect() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useAdmin();
   const navigate = useNavigate();
