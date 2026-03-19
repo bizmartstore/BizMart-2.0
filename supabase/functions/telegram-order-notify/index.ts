@@ -5,23 +5,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN") || "";
+const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID") || "";
+
+if (!TELEGRAM_BOT_TOKEN) {
+  throw new Error("TELEGRAM_BOT_TOKEN not configured");
+}
+if (!TELEGRAM_CHAT_ID) {
+  throw new Error("TELEGRAM_CHAT_ID not configured");
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
-    const TELEGRAM_CHAT_ID = Deno.env.get("TELEGRAM_CHAT_ID");
-
-    if (!TELEGRAM_BOT_TOKEN) throw new Error("TELEGRAM_BOT_TOKEN not configured");
-    if (!TELEGRAM_CHAT_ID) throw new Error("TELEGRAM_CHAT_ID not configured");
-
     const { status, order } = await req.json();
 
     const items = order.items || [];
     const productNames = items.map((i: any) => i.name).join(", ") || "N/A";
-    const totalQty = items.reduce((s: number, i: any) => s + (i.quantity || 1), 0);
+    const totalQty = items.reduce((s: number, i: any) => s + (i.quantity || 0), 0);
     const method = order.delivery_type === "delivery" ? "🚚 Delivery" : "📦 Pickup";
     const orderId = order.id?.slice(0, 8) || "N/A";
     const buyerName = order.customer_name || "Customer";
@@ -84,13 +88,10 @@ ${method}
       message = `❌ *ORDER REJECTED*
 
 📦 Product: ${productNames}
-👤 Buyer: ${buyerName}
 🆔 Order ID: #${orderId}
 
 ${method}
-❌ Status: Order Rejected
-
-🕐 ${now}`;
+❌ Status: Order Rejected🕐 ${now}`;
     } else {
       message = `📋 Order #${orderId} status changed to: ${status}\n🕐 ${now}`;
     }
