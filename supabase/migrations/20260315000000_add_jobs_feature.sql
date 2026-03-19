@@ -1,3 +1,10 @@
+-- Drop existing if any to ensure clean state
+DROP TABLE IF EXISTS public.job_reviews CASCADE;
+DROP TABLE IF EXISTS public.job_sessions CASCADE;
+DROP TABLE IF EXISTS public.job_bids CASCADE;
+DROP TABLE IF EXISTS public.job_postings CASCADE;
+DROP TABLE IF EXISTS public.freelancer_profiles CASCADE;
+
 -- Freelancer Profiles
 CREATE TABLE public.freelancer_profiles (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -72,7 +79,7 @@ ALTER TABLE public.job_bids ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.job_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.job_reviews ENABLE ROW LEVEL SECURITY;
 
--- Policies (Simplified for this implementation)
+-- Policies
 CREATE POLICY "Public profiles are viewable by everyone" ON public.freelancer_profiles FOR SELECT USING (true);
 CREATE POLICY "Users can create their own profile" ON public.freelancer_profiles FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can update their own profile" ON public.freelancer_profiles FOR UPDATE USING (auth.uid() = user_id);
