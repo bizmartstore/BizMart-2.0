@@ -9,6 +9,14 @@ export function useAdmin() {
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
+    
+    // Superuser override for the owner
+    if (user.email === 'sheethappenswithjaa@gmail.com') {
+      setRole('main_admin');
+      setLoading(false);
+      return;
+    }
+
     (supabase as any).rpc('get_user_role', { _user_id: user.id })
       .then(({ data }: any) => {
         setRole(data);

@@ -513,7 +513,7 @@ function ProductsTab() {
     };
     if (editId) {
       const { id, ...updatePayload } = payload;
-      await (supabase as any).from('products').update(updatePayload).eq('id', editId);
+      await (supabase as any).from('products').update(updatePayload).eq(id, editId);
     } else {
       await (supabase as any).from('products').insert(payload);
     }
@@ -563,6 +563,14 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!user) { navigate("/login"); return; }
+    
+    // Superuser override
+    if (user.email === 'sheethappenswithjaa@gmail.com') {
+      setRole('main_admin');
+      setLoading(false);
+      return;
+    }
+
     (supabase as any).rpc('get_user_role', { _user_id: user.id })
       .then(({ data, error }: any) => {
         if (!data || error) { navigate("/"); return; }
@@ -589,7 +597,6 @@ export default function AdminDashboard() {
     { value: "announcements", label: "Announce", icon: Megaphone, show: true },
     { value: "news", label: "News", icon: Megaphone, show: true },
     { value: "gcash", label: "GCash", icon: Smartphone, show: true },
-    { value: "bcoins", label: "BCoins", icon: Coins, show: isMainAdmin },
     { value: "club", label: "Club", icon: Crown, show: true },
     { value: "products", label: "Products", icon: Package, show: isMainAdmin },
   ].filter(t => t.show);

@@ -21,11 +21,18 @@ export default function LoginPage() {
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+    
     if (error) {
       toast({ title: "Login failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Welcome back! 🎉" });
       if (data.user) {
+        // Check for superuser email or database role
+        if (data.user.email === 'sheethappenswithjaa@gmail.com') {
+          navigate("/admin");
+          return;
+        }
+
         const { data: roleData } = await (supabase as any).rpc('get_user_role', { _user_id: data.user.id });
         if (roleData === 'main_admin' || roleData === 'member_admin') {
           navigate("/admin");
@@ -38,13 +45,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <div className="bg-secondary px-6 pt-12 pb-10 rounded-b-[2rem] text-center">
         <img src={LOGO_URL} alt="BizMart" className="h-14 mx-auto mb-2" />
         <p className="text-secondary-foreground/70 text-sm">Your campus store, anytime!</p>
       </div>
 
-      {/* Form */}
       <div className="flex-1 px-5 pt-8">
         <h2 className="text-xl font-extrabold text-foreground mb-1">Welcome Back!</h2>
         <p className="text-sm text-muted-foreground mb-6">Log in to continue shopping</p>
