@@ -40,9 +40,13 @@ function OverviewTab({ role }: { role: string }) {
   const [stats, setStats] = useState({ products: 0, users: 0, pendingGcash: 0, activeMembers: 0, totalCommission: 0, memberAdminOrderCommission: 0, printRevenue: 0, printCommission: 0, posSales: 0, posMainAdmin: 0, posMemberAdmin: 0, posSeller: 0 });
 
   const loadStats = useCallback(() => {
-    (supabase as any).from('app_settings').select('*').eq('key', 'store_status').single()
+    // Use maybeSingle to avoid 406 errors if settings are missing
+    (supabase as any).from('app_settings').select('*').eq('key', 'store_status').maybeSingle()
       .then(({ data }: any) => {
-        if (data) { setStoreOpen(data.value.is_open); setCloseMsg(data.value.close_message || ''); }
+        if (data && data.value) { 
+          setStoreOpen(data.value.is_open ?? true); 
+          setCloseMsg(data.value.close_message || ''); 
+        }
       });
     
     getPushStatus().then(setPushStatus);
@@ -54,16 +58,19 @@ function OverviewTab({ role }: { role: string }) {
       (supabase as any).from('club_memberships').select('id', { count: 'exact', head: true }).eq('status', 'active'),
       (supabase as any).from('orders').select('admin_commission, member_admin_commission, seller_earnings').in('status', ['approved', 'completed']),
       (supabase as any).from('print_orders').select('cost, maintenance_fee').eq('status', 'confirmed'),
-      (supabase as any).from('pos_sales').select('total, main_admin_commission, member_admin_earnings, seller_earnings'),
+      (supabase as any).from('pos_sales').select('*'),
     ]).then(([p, u, g, m, o, pr, pos]: any[]) => {
       const totalCommission = (o.data || []).reduce((sum: number, r: any) => sum + Number(r.admin_commission || 0), 0);
       const memberAdminOrderCommission = (o.data || []).reduce((sum: number, r: any) => sum + Number(r.member_admin_commission || 0), 0);
       const printRevenue = (pr.data || []).reduce((sum: number, r: any) => sum + Number(r.cost || 0), 0);
       const printCommission = (pr.data || []).reduce((sum: number, r: any) => sum + Number(r.maintenance_fee || 0), 0);
-      const posSales = (pos.data || []).reduce((s: number, r: any) => s + Number(r.total || 0), 0);
-      const posMainAdmin = (pos.data || []).reduce((s: number, r: any) => s + Number(r.main_admin_commission || 0), 0);
-      const posMemberAdmin = (pos.data || []).reduce((s: number, r: any) => s + Number(r.member_admin_earnings || 0), 0);
-      const posSeller = (pos.data || []).reduce((s: number, r: any) => s + Number(r.seller_earnings || 0), 0);
+      
+      const posData = pos.data || [];
+      const posSales = posData.reduce((s: number, r: any) => s + Number(r.total || 0), 0);
+      const posMainAdmin = posData.reduce((s: number, r: any) => s + Number(r.main_admin_commission || 0), 0);
+      const posMemberAdmin = posData.reduce((s: number, r: any) => s + Number(r.member_admin_earnings || 0), 0);
+      const posSeller = posData.reduce((s: number, r: any) => s + Number(r.seller_earnings || 0), 0);
+      
       setStats({ products: p.count || 0, users: u.count || 0, pendingGcash: g.count || 0, activeMembers: m.count || 0, totalCommission, memberAdminOrderCommission, printRevenue, printCommission, posSales, posMainAdmin, posMemberAdmin, posSeller });
     });
   }, []);
@@ -72,9 +79,11 @@ function OverviewTab({ role }: { role: string }) {
 
   const saveStore = async (open: boolean) => {
     setStoreOpen(open);
-    await (supabase as any).from('app_settings').update({
-      value: { is_open: open, close_message: closeMsg }, updated_at: new Date().toISOString()
-    }).eq('key', 'store_status');
+    await (supabase as any).from('app_settings').upsert({
+      key: 'store_status',
+      value: { is_open: open, close_message: closeMsg }, 
+      updated_at: new Date().toISOString()
+    });
     
     notifyAnnouncement(open ? "🟢 Store is OPEN!" : "🔴 Store is CLOSED", open ? "The store is open! Browse and place your orders now. 🛍️" : (closeMsg || "The store is currently closed. Stay tuned!"));
     toast.success(open ? 'Store opened!' : 'Store closed!');
@@ -92,11 +101,13 @@ function OverviewTab({ role }: { role: string }) {
           <Bell className="h-4 w-4 text-primary" />
           <span className="font-bold text-sm">Push Notification Status</span>
         </div>
-        {pushStatus ? (
+        {pushStatus && typeof pushStatus === 'object' ? (
           <div className="space-y-1.5">
             <div className="flex justify-between text-[10px]">
               <span className="text-muted-foreground">Permission:</span>
-              <span className={`font-bold ${pushStatus.permission === 'granted' ? 'text-success' : 'text-destructive'}`}>{pushStatus.permission.toUpperCase()}</span>
+              <span className={`font-bold ${pushStatus.permission === 'granted' ? 'text-success' : 'text-destructive'}`}>
+                {String(pushStatus.permission || 'UNKNOWN').toUpperCase()}
+              </span>
             </div>
             <div className="flex justify-between text-[10px]">
               <span className="text-muted-foreground">Subscribed:</span>
@@ -104,7 +115,7 @@ function OverviewTab({ role }: { role: string }) {
             </div>
             <div className="flex justify-between text-[10px]">
               <span className="text-muted-foreground">Linked to ID:</span>
-              <span className="font-mono text-[9px]">{pushStatus.externalId || 'NOT LINKED'}</span>
+              <span className="font-mono text-[9px] truncate ml-2">{pushStatus.externalId || 'NOT LINKED'}</span>
             </div>
             {!pushStatus.isReady && (
               <p className="text-[9px] text-destructive font-bold mt-1">⚠️ Your device is not ready for alerts. Tap the bell icon or re-install the app.</p>
@@ -128,9 +139,10 @@ function OverviewTab({ role }: { role: string }) {
         </div>
         <Input value={closeMsg} onChange={(e) => setCloseMsg(e.target.value)} placeholder="Close message..." className="text-xs"
           onBlur={() => {
-            (supabase as any).from('app_settings').update({
+            (supabase as any).from('app_settings').upsert({
+              key: 'store_status',
               value: { is_open: storeOpen, close_message: closeMsg }
-            }).eq('key', 'store_status');
+            });
           }}
         />
       </div>
@@ -608,8 +620,8 @@ function GCashTab() {
   const load = useCallback(() => {
     (supabase as any).from('gcash_transactions').select('*').order('created_at', { ascending: false }).limit(50)
       .then(({ data }: any) => setTransactions(data || []));
-    (supabase as any).from('app_settings').select('*').eq('key', 'gcash_service_fee').single()
-      .then(({ data }: any) => { if (data) setFee(data.value.amount); });
+    (supabase as any).from('app_settings').select('*').eq('key', 'gcash_service_fee').maybeSingle()
+      .then(({ data }: any) => { if (data && data.value) setFee(data.value.amount); });
   }, []);
 
   useEffect(load, [load]);
@@ -624,7 +636,10 @@ function GCashTab() {
   };
 
   const saveFee = async () => {
-    await (supabase as any).from('app_settings').update({ value: { amount: fee } }).eq('key', 'gcash_service_fee');
+    await (supabase as any).from('app_settings').upsert({ 
+      key: 'gcash_service_fee',
+      value: { amount: fee } 
+    });
     toast.success("Service fee updated!");
   };
 

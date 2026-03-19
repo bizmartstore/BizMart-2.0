@@ -8,44 +8,28 @@ export default function OneSignalInit() {
 
   useEffect(() => {
     if (initAttempted.current || !appId) return;
-    initAttempted.current = true;
-
+    
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
-      
+      // CRITICAL: Check if already initialized to prevent the "SDK already initialized" error
       if (OneSignal.initialized) {
+        console.log("[OneSignal] Already initialized, skipping...");
         setIsReady(true);
         return;
       }
 
       try {
+        initAttempted.current = true;
         await OneSignal.init({
           appId: appId,
           allowLocalhostAsSecureOrigin: true,
-          // Use absolute path to ensure it works from any sub-page
           serviceWorkerPath: "/sw.js", 
           serviceWorkerParam: { scope: "/" },
           notifyButton: { enable: false },
         });
 
-        const permission = OneSignal.Notifications.permission;
-        const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
-        
-        // Repair logic: If permission is granted but subscription is missing, force a re-opt-in
-        if (permission === "granted" && !isOptedIn) {
-          console.log("[OneSignal] Repairing mobile subscription...");
-          await OneSignal.User.PushSubscription.optIn();
-        }
-
         setIsReady(true);
-
-        // Auto-prompt for desktop only (mobile requires the banner click)
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        if (permission === "default" && !isMobile) {
-          setTimeout(() => {
-            OneSignal.Slivedown.promptPush().catch(() => {});
-          }, 5000);
-        }
+        console.log("[OneSignal] Initialized successfully");
       } catch (error) {
         console.error("[OneSignal] Init Error:", error);
       }
