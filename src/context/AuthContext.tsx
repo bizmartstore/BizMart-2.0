@@ -31,21 +31,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
-    setProfile(data);
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      setProfile(data);
+    } catch (err) {
+      console.error("[AuthContext] Profile fetch error:", err);
+      setProfile(null);
+    }
   };
 
   useEffect(() => {
+    // Check if we need to clear session due to project change
+    const currentProjectUrl = import.meta.env.VITE_SUPABASE_URL;
+    const lastProjectUrl = localStorage.getItem("last_supabase_url");
+
+    if (lastProjectUrl && lastProjectUrl !== currentProjectUrl) {
+      console.warn("[AuthContext] Supabase project changed! Clearing old session...");
+      supabase.auth.signOut();
+      localStorage.clear();
+      localStorage.setItem("last_supabase_url", currentProjectUrl);
+      window.location.reload();
+      return;
+    }
+    localStorage.setItem("last_supabase_url", currentProjectUrl);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
+        
         if (session?.user) {
-          setTimeout(() => fetchProfile(session.user.id), 0);
+          fetchProfile(session.user.id);
         } else {
           setProfile(null);
         }
@@ -53,7 +76,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error("[AuthContext] Session error:", error);
+        supabase.auth.signOut();
+      }
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -70,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    localStorage.removeItem("supabase.auth.token");
   };
 
   return (

@@ -10,15 +10,12 @@ interface NotifyParams {
   targetUserId?: string | null;
 }
 
-/**
- * Send a push notification via the edge function AND log it to notification_logs.
- */
 export async function sendNotification(params: NotifyParams) {
   const { title, message, icon = "🔔", link = "/", type, targetRole, targetUserId } = params;
 
-  // Log to notification_logs table
+  // 1. Log to database
   try {
-    await (supabase as any).from("notification_logs").insert({
+    const { error } = await (supabase as any).from("notification_logs").insert({
       type,
       title,
       message,
@@ -27,14 +24,20 @@ export async function sendNotification(params: NotifyParams) {
       target_role: targetRole || null,
       target_user_id: targetUserId || null,
     });
+    if (error) throw error;
   } catch (e) {
-    console.warn("Failed to log notification:", e);
+    console.warn("[Notifications] Failed to log to DB:", e);
   }
 
-  // Call edge function directly via fetch
+  // 2. Trigger Push via Edge Function
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
     const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+    if (!supabaseUrl || !anonKey) {
+      console.error("[Notifications] Missing Supabase credentials for push!");
+      return null;
+    }
 
     const res = await fetch(`${supabaseUrl}/functions/v1/send-notification`, {
       method: "POST",
@@ -47,13 +50,15 @@ export async function sendNotification(params: NotifyParams) {
     });
 
     const data = await res.json();
-    console.log("[sendNotification] Edge function response:", data);
+    console.log("[Notifications] Push response:", data);
     return data;
   } catch (e) {
-    console.warn("Failed to send push notification:", e);
+    console.warn("[Notifications] Push trigger failed:", e);
     return null;
   }
 }
+
+// ... (rest of the helper functions remain the same as they use sendNotification)
 
 /** Notify admins about a new GCash transaction */
 export async function notifyAdminGCash(type: "cash_in" | "cash_out", studentName: string, amount: number) {
