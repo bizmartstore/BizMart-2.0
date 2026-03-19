@@ -1,10 +1,7 @@
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-
 export function useAppSettings() {
   const [storeOpen, setStoreOpen] = useState(true);
   const [closeMessage, setCloseMessage] = useState("");
-  const [gcashFee, setGcashFee] = useState(10);
+  const [gcashFee, setGcashFee] = useState(10); // Changed from gcacheFee to gcashFee
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -17,11 +14,11 @@ export function useAppSettings() {
             setStoreOpen(storeStatus.value.is_open ?? true);
             setCloseMessage(storeStatus.value.close_message || '');
           }
-          if (fee && fee.value) setGcashFee(fee.value.amount ?? 10);
+          if (fee && fee.value) setGcashFee(fee.value.amount ?? 10); // Updated here
         }
         setLoading(false);
       });
   }, []);
 
-  return { storeOpen, closeMessage, gcacheFee: gcashFee, loading };
+  return { storeOpen, closeMessage, gcashFee, loading }; // Updated return
 }
