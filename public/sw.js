@@ -1,8 +1,14 @@
 /**
- * Unified Service Worker
- * This file handles both PWA logic and OneSignal push notifications.
- * Importing the OneSignal SDK worker here prevents 'message' event warnings.
+ * Unified Service Worker for BizMart
+ * This file must be at the root /sw.js
  */
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
-// Custom PWA logic (caching, etc.) can be added here if needed
+// The browser requires this file to be present and valid for PWA installation
+self.addEventListener('install', () => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});

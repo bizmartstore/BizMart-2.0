@@ -1,28 +1,19 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotificationPromptBanner() {
   const [visible, setVisible] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-
-  const checkStatus = useCallback(async () => {
-    const OneSignal = (window as any).OneSignal;
-    if (!OneSignal) return false;
-    
-    // Only show if the user hasn't made a choice yet (permission is 'default')
-    const permission = OneSignal.Notifications.permission;
-    return permission === "default";
-  }, []);
 
   useEffect(() => {
-    // Delay showing the banner so it's not the first thing they see
-    const timer = setTimeout(async () => {
-      if (await checkStatus()) setVisible(true);
-    }, 4000);
-
+    const timer = setTimeout(() => {
+      const OneSignal = (window as any).OneSignal;
+      if (OneSignal && OneSignal.Notifications.permission === "default") {
+        setVisible(true);
+      }
+    }, 3000);
     return () => clearTimeout(timer);
-  }, [checkStatus]);
+  }, []);
 
   const handleAllow = async () => {
     setVisible(false);
@@ -30,44 +21,30 @@ export default function NotificationPromptBanner() {
     if (!OneSignal) return;
 
     try {
-      console.log("[OneSignal] User clicked Allow. Triggering prompt...");
-      // This click satisfies the "User Gesture" requirement for mobile browsers
+      // This click is the 'User Gesture' required by mobile browsers
       await OneSignal.Slidedown.promptPush();
     } catch (e) {
-      console.error("[OneSignal] Prompt failed:", e);
-      // Fallback to native prompt if slidedown fails
+      // Fallback to native if slidedown is blocked
       await OneSignal.Notifications.requestPermission();
     }
   };
 
-  const handleDismiss = () => {
-    setDismissed(true);
-    setVisible(false);
-  };
-
-  if (!visible || dismissed) return null;
+  if (!visible) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] animate-in slide-in-from-top duration-300">
-      <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center gap-3 shadow-lg">
-        <div className="bg-primary-foreground/20 rounded-full p-2 shrink-0">
+    <div className="fixed top-0 left-0 right-0 z-[1000] p-3 animate-in slide-in-from-top duration-500">
+      <div className="bg-primary text-primary-foreground rounded-2xl shadow-2xl flex items-center gap-3 px-4 py-3 border border-white/20">
+        <div className="bg-white/20 p-2 rounded-full">
           <Bell className="w-5 h-5" />
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold">Enable Notifications</p>
-          <p className="text-xs opacity-90">Get updates on orders, messages & promos!</p>
+        <div className="flex-1">
+          <p className="text-xs font-bold leading-tight">Enable Notifications</p>
+          <p className="text-[10px] opacity-80">Get alerts for orders and messages!</p>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          className="shrink-0 text-xs font-bold"
-          onClick={handleAllow}
-        >
+        <Button size="sm" variant="secondary" className="h-8 text-[10px] font-bold px-4" onClick={handleAllow}>
           Allow
         </Button>
-        <button onClick={handleDismiss} className="shrink-0 opacity-70 hover:opacity-100">
-          <X className="w-4 h-4" />
-        </button>
+        <button onClick={() => setVisible(false)} className="p-1 opacity-50"><X className="w-4 h-4" /></button>
       </div>
     </div>
   );

@@ -12,10 +12,10 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      // Important: disable SW generation so OneSignal can handle push
-      injectRegister: "auto", // auto-inject registration for manifest
-      strategies: "generateSW", // still needed for manifest installability
-      workbox: false, // disables Workbox SW generation
+      // We disable automatic SW generation so OneSignal can own the /sw.js file
+      injectRegister: "auto", 
+      strategies: "generateSW", 
+      workbox: false, // This is the key: stop Workbox from hijacking the worker
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",
@@ -34,12 +34,6 @@ export default defineConfig(({ mode }) => ({
             src: "/pwa-512x512.png",
             sizes: "512x512",
             type: "image/png",
-          },
-          {
-            src: "/pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "any maskable",
           },
         ],
       },

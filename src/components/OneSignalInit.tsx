@@ -1,61 +1,47 @@
 import { useEffect, useRef, useState } from "react";
 import NotificationPromptBanner from "./NotificationPromptBanner";
 
-/**
- * OneSignalInit handles the push notification lifecycle.
- * Optimized for mobile by using a custom banner to satisfy user gesture requirements.
- */
 export default function OneSignalInit() {
   const [isReady, setIsReady] = useState(false);
   const initAttempted = useRef(false);
   const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
   useEffect(() => {
-    // 1. Prevent multiple initialization attempts (Strict Mode safe)
     if (initAttempted.current || !appId) return;
     initAttempted.current = true;
 
-    // 2. Queue initialization in the deferred array
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
       
-      // 3. Check if already initialized to prevent "SDK already initialized" error
       if (OneSignal.initialized) {
-        console.log("[OneSignal] SDK already initialized, skipping...");
         setIsReady(true);
         return;
       }
-
-      console.log("[OneSignal] Initializing with App ID:", appId);
 
       try {
         await OneSignal.init({
           appId: appId,
           allowLocalhostAsSecureOrigin: true,
-          // 4. Use unified service worker to prevent registration conflicts
-          serviceWorkerPath: "/sw.js",
+          // Force the specific unified worker path
+          serviceWorkerPath: "sw.js", 
           serviceWorkerParam: { scope: "/" },
-          notifyButton: { enable: false }, // We use our own custom banner for mobile
+          notifyButton: { enable: false },
         });
 
-        console.log("[OneSignal] Initialized successfully.");
-        
-        // 5. Sync subscription status
+        // Check current state
         const permission = OneSignal.Notifications.permission;
         const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
         
-        // 6. Fix "Unsubscribed" state if browser permission is already granted
-        // This happens if the user is in the browser DB but not the OneSignal DB
+        // Fix for Mobile PWA: If permission is granted but OneSignal is 'unsubscribed',
+        // it usually means the service worker registration was lost. Force opt-in.
         if (permission === "granted" && !isOptedIn) {
-          console.log("[OneSignal] Permission granted but user unsubscribed. Re-syncing...");
+          console.log("[OneSignal] Re-syncing mobile subscription...");
           await OneSignal.User.PushSubscription.optIn();
         }
 
-        // 7. Signal that the SDK is ready so the Prompt Banner can show up
         setIsReady(true);
 
-        // 8. Auto-prompt with Slidedown on Desktop only
-        // Mobile is better handled by the user clicking the banner (User Gesture)
+        // Desktop auto-prompt
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (permission === "default" && !isMobile) {
           setTimeout(() => {
@@ -63,11 +49,10 @@ export default function OneSignalInit() {
           }, 5000);
         }
       } catch (error) {
-        console.error("[OneSignal] Initialization error:", error);
+        console.error("[OneSignal] Init Error:", error);
       }
     });
   }, [appId]);
 
-  // The banner provides the "User Gesture" (click) needed to trigger prompts on mobile
   return isReady ? <NotificationPromptBanner /> : null;
 }
