@@ -35,7 +35,7 @@ export default function OneSignalInit() {
           // 4. Use unified service worker to prevent registration conflicts
           serviceWorkerPath: "/sw.js",
           serviceWorkerParam: { scope: "/" },
-          notifyButton: { enable: false }, // We use our own custom banner for better mobile support
+          notifyButton: { enable: false }, // We use our own custom banner for mobile
         });
 
         console.log("[OneSignal] Initialized successfully.");
@@ -44,11 +44,8 @@ export default function OneSignalInit() {
         const permission = OneSignal.Notifications.permission;
         const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
         
-        console.log("[OneSignal] Permission:", permission);
-        console.log("[OneSignal] Subscribed:", isOptedIn);
-
         // 6. Fix "Unsubscribed" state if browser permission is already granted
-        // This is crucial for users who might have been dropped from the OneSignal database
+        // This happens if the user is in the browser DB but not the OneSignal DB
         if (permission === "granted" && !isOptedIn) {
           console.log("[OneSignal] Permission granted but user unsubscribed. Re-syncing...");
           await OneSignal.User.PushSubscription.optIn();
@@ -57,14 +54,13 @@ export default function OneSignalInit() {
         // 7. Signal that the SDK is ready so the Prompt Banner can show up
         setIsReady(true);
 
-        // 8. Optional: Auto-prompt with Slidedown on Desktop only
-        // Mobile is better handled by the user clicking the banner
+        // 8. Auto-prompt with Slidedown on Desktop only
+        // Mobile is better handled by the user clicking the banner (User Gesture)
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (permission === "default" && !isMobile) {
           setTimeout(() => {
-            console.log("[OneSignal] Auto-triggering slidedown for desktop...");
             OneSignal.Slidedown.promptPush().catch(() => {});
-          }, 10000);
+          }, 5000);
         }
       } catch (error) {
         console.error("[OneSignal] Initialization error:", error);

@@ -10,7 +10,7 @@ export default function NotificationPromptBanner() {
     const OneSignal = (window as any).OneSignal;
     if (!OneSignal) return false;
     
-    // Only show if the user hasn't made a choice yet
+    // Only show if the user hasn't made a choice yet (permission is 'default')
     const permission = OneSignal.Notifications.permission;
     return permission === "default";
   }, []);

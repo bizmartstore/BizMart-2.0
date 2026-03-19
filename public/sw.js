@@ -5,4 +5,4 @@
  */
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
-// Custom PWA logic can be added here if needed
+// Custom PWA logic (caching, etc.) can be added here if needed
