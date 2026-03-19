@@ -318,283 +318,6 @@ function PrintOrdersTab() {
   );
 }
 
-/* ─── Products Tab ─── */
-function ProductsTab() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ 
-    id: '', 
-    name: '', 
-    price: 0, 
-    original_price: '', 
-    image: '', 
-    category: '', 
-    rating: 4.5, 
-    sold: 0, 
-    stock: 0, 
-    description: '', 
-    is_flash_sale: false 
-  });
-
-  const load = useCallback(() => {
-    (supabase as any).from('products').select('*').order('created_at', { ascending: false }).then(({ data }: any) => setProducts(data || []));
-  }, []);
-
-  useEffect(load, [load]);
-
-  const syncDefaults = async () => {
-    setSyncing(true);
-    try {
-      const { error } = await (supabase as any).from('products').upsert(
-        defaultProducts.map(p => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          original_price: p.originalPrice || null,
-          image: p.image,
-          category: p.category,
-          rating: p.rating,
-          sold: p.sold,
-          stock: p.stock || 50,
-          description: p.description,
-          is_flash_sale: p.isFlashSale || false,
-          is_active: true
-        }))
-      );
-      if (error) throw error;
-      toast.success("Default products synced to database!");
-      load();
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-    setSyncing(false);
-  };
-
-  const save = async () => {
-    if (!form.name.trim()) {
-      toast.error("Product name is required");
-      return;
-    }
-    const payload = {
-      name: form.name.trim(),
-      price: form.price,
-      original_price: form.original_price ? Number(form.original_price) : null,
-      image: form.image.trim(),
-      category: form.category.trim(),
-      rating: form.rating,
-      sold: form.sold,
-      stock: form.stock,
-      description: form.description.trim(),
-      is_flash_sale: form.is_flash_sale,
-      is_active: true
-    };
-    try {
-      if (editId) {
-        await (supabase as any).from('products').update(payload).eq('id', editId);
-      } else {
-        await (supabase as any).from('products').insert({ ...payload, id: `p-${Date.now()}` });
-      }
-      resetForm(); 
-      setShowForm(false); 
-      setEditId(null); 
-      load();
-      toast.success("Product saved!");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save product");
-    }
-  };
-
-  const resetForm = () => setForm({ 
-    id: '', 
-    name: '', 
-    price: 0, 
-    original_price: '', 
-    image: '', 
-    category: '', 
-    rating: 4.5, 
-    sold: 0, 
-    stock: 0, 
-    description: '', 
-    is_flash_sale: false 
-  });
-
-  const edit = (p: any) => { 
-    setForm({ 
-      ...p, 
-      original_price: p.original_price || '' 
-    }); 
-    setEditId(p.id); 
-    setShowForm(true); 
-  };
-
-  const remove = async (id: string) => { 
-    await (supabase as any).from('products').delete().eq('id', id); 
-    load(); 
-    toast.success("Deleted"); 
-  };
-
-  return (
-    <div className="space-y-3 pb-6">
-      <div className="flex gap-2">
-        <Button 
-          onClick={() => { 
-            resetForm(); 
-            setEditId(null); 
-            setShowForm(!showForm); 
-          }} 
-          size="sm" 
-          className="flex-1 gap-1"
-        >
-          <Plus className="h-3 w-3" />
-          {showForm ? 'Cancel' : 'Add Product'}
-        </Button>
-        <Button 
-          onClick={syncDefaults} 
-          disabled={syncing} 
-          variant="outline" 
-          size="sm" 
-          className="flex-1 gap-1"
-        >
-          <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
-          Sync Defaults
-        </Button>
-      </div>
-      
-      {showForm && (
-        <div className="bg-card rounded-xl p-3 border border-border space-y-2">
-          <div>
-            <Label className="text-[10px]">Product Name *</Label>
-            <Input 
-              value={form.name} 
-              onChange={e => setForm({...form, name: e.target.value})} 
-              placeholder="e.g. Premium Spiral Notebook" 
-              className="text-xs h-8" 
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[10px]">Price ₱ *</Label>
-              <Input 
-                type="number" 
-                value={form.price} 
-                onChange={e => setForm({...form, price: Number(e.target.value)})} 
-                placeholder="0.00" 
-                className="text-xs h-8" 
-              />
-            </div>
-            <div>
-              <Label className="text-[10px]">Stock *</Label>
-              <Input 
-                type="number" 
-                value={form.stock} 
-                onChange={e => setForm({...form, stock: Number(e.target.value)})} 
-                placeholder="0" 
-                className="text-xs h-8" 
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-[10px]">Original Price (optional)</Label>
-              <Input 
-                type="number" 
-                value={form.original_price} 
-                onChange={e => setForm({...form, original_price: e.target.value})} 
-                placeholder="0.00" 
-                className="text-xs h-8" 
-              />
-            </div>
-            <div>
-              <Label className="text-[10px]">Category</Label>
-              <Input 
-                value={form.category} 
-                onChange={e => setForm({...form, category: e.target.value})} 
-                placeholder="e.g. notebooks" 
-                className="text-xs h-8" 
-              />
-            </div>
-          </div>
-          <div>
-            <Label className="text-[10px]">Image URL</Label>
-            <Input 
-              value={form.image} 
-              onChange={e => setForm({...form, image: e.target.value})} 
-              placeholder="https://..." 
-              className="text-xs h-8" 
-            />
-          </div>
-          <div>
-            <Label className="text-[10px]">Description</Label>
-            <Textarea 
-              value={form.description} 
-              onChange={e => setForm({...form, description: e.target.value})} 
-              placeholder="Product description..." 
-              className="text-xs" 
-              rows={2} 
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              checked={form.is_flash_sale} 
-              onChange={e => setForm({...form, is_flash_sale: e.target.checked})}
-              className="h-3 w-3"
-            />
-            <Label className="text-[10px]">Flash Sale</Label>
-          </div>
-          <Button onClick={save} size="sm" className="w-full">
-            {editId ? 'Update Product' : 'Add Product'}
-          </Button>
-        </div>
-      )}
-      
-      <div className="space-y-2">
-        <h3 className="font-bold text-sm">Products ({products.length})</h3>
-        {products.map(p => (
-          <div key={p.id} className="bg-card rounded-lg p-2 border border-border flex items-center gap-2">
-            {p.image && (
-              <img 
-                src={p.image} 
-                className="h-10 w-10 rounded object-cover flex-shrink-0" 
-                alt="" 
-              />
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate">{p.name}</p>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] text-primary font-bold">₱{Number(p.price).toFixed(2)}</span>
-                {p.original_price && (
-                  <span className="text-[9px] text-muted-foreground line-through">₱{Number(p.original_price).toFixed(2)}</span>
-                )}
-                <span className="text-[9px] text-muted-foreground">Stock: {p.stock}</span>
-              </div>
-            </div>
-            <div className="flex gap-1 flex-shrink-0">
-              <button 
-                onClick={() => edit(p)} 
-                className="p-1 text-primary hover:bg-primary/10 rounded"
-              >
-                <Edit2 className="h-3 w-3" />
-              </button>
-              <button 
-                onClick={() => remove(p.id)} 
-                className="p-1 text-destructive hover:bg-destructive/10 rounded"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
-          </div>
-        ))}
-        {products.length === 0 && (
-          <p className="text-center text-xs text-muted-foreground py-6">No products yet. Click "Sync Defaults" to add sample products.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /* ─── Main Admin Dashboard ─── */
 export default function AdminDashboard() {
   const { user, signOut } = useAuth();
@@ -604,41 +327,24 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { 
-      navigate("/login"); 
-      return; 
-    }
+    if (!user) { navigate("/login"); return; }
     
-    // Superuser override
     if (user.email === 'sheethappenswithjaa@gmail.com') {
       setRole('main_admin');
       setLoading(false);
       return;
     }
 
-    // Check user role from database
     (supabase as any).rpc('get_user_role', { _user_id: user.id })
       .then(({ data, error }: any) => {
-        if (!data || error) { 
-          navigate("/"); 
-          return; 
-        }
+        if (!data || error) { navigate("/"); return; }
         setRole(data);
         setLoading(false);
       });
   }, [user, navigate]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-  
-  if (!role) {
-    return null;
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  if (!role) return null;
 
   const isMainAdmin = role === 'main_admin';
   const initialTab = searchParams.get("tab") || "overview";
@@ -661,28 +367,13 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-background">
       <div className="sticky top-0 z-40 bg-secondary text-secondary-foreground px-4 py-3 flex items-center justify-between shadow-md">
         <div className="flex items-center gap-2">
-          <button 
-            onClick={() => navigate("/")} 
-            className="p-0.5 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
+          <button onClick={() => navigate("/")} className="p-0.5"><ArrowLeft className="h-5 w-5" /></button>
           <Shield className="h-5 w-5" />
           <span className="font-extrabold text-sm">BizMart Admin</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] bg-secondary-foreground/20 px-2 py-0.5 rounded-full font-bold">
-            {isMainAdmin ? 'Main Admin' : 'Member Admin'}
-          </span>
-          <button 
-            onClick={async () => { 
-              await signOut(); 
-              navigate("/login"); 
-            }} 
-            className="p-1.5 hover:bg-white/10 rounded-full transition-colors"
-          >
-            <LogOut className="h-4 w-4" />
-          </button>
+          <span className="text-[10px] bg-secondary-foreground/20 px-2 py-0.5 rounded-full font-bold">{isMainAdmin ? 'Main Admin' : 'Member'}</span>
+          <button onClick={async () => { await signOut(); navigate("/login"); }} className="p-1.5 hover:bg-white/10 rounded-full"><LogOut className="h-4 w-4" /></button>
         </div>
       </div>
 
@@ -690,51 +381,24 @@ export default function AdminDashboard() {
         <div className="px-3 overflow-x-auto scrollbar-hide">
           <TabsList className="inline-flex gap-1 bg-transparent h-auto p-0 mb-3 pr-6">
             {tabs.map(t => (
-              <TabsTrigger 
-                key={t.value} 
-                value={t.value} 
-                className="flex-shrink-0 whitespace-nowrap text-[11px] px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full border border-border"
-              >
-                <t.icon className="h-3 w-3 mr-1" />
-                {t.label}
+              <TabsTrigger key={t.value} value={t.value} className="flex-shrink-0 whitespace-nowrap text-[11px] px-3 py-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground rounded-full border border-border">
+                <t.icon className="h-3 w-3 mr-1" />{t.label}
               </TabsTrigger>
             ))}
           </TabsList>
         </div>
         <div className="px-3">
-          <TabsContent value="overview">
-            <OverviewTab role={role!} />
-          </TabsContent>
-          <TabsContent value="pos">
-            <POSTab role={role!} onSaleComplete={() => {}} />
-          </TabsContent>
-          <TabsContent value="orders">
-            <OrdersTab />
-          </TabsContent>
-          <TabsContent value="print">
-            <PrintOrdersTab />
-          </TabsContent>
-          <TabsContent value="jobs">
-            <AdminJobsTab />
-          </TabsContent>
-          <TabsContent value="messages">
-            <AdminMessagesTab />
-          </TabsContent>
-          <TabsContent value="codes">
-            <CodesTab role={role!} />
-          </TabsContent>
-          <TabsContent value="gcash">
-            <GCashTab />
-          </TabsContent>
-          <TabsContent value="club">
-            <ClubTab />
-          </TabsContent>
-          <TabsContent value="news">
-            <NewsTab />
-          </TabsContent>
-          <TabsContent value="products">
-            <ProductsTab />
-          </TabsContent>
+          <TabsContent value="overview"><OverviewTab role={role!} /></TabsContent>
+          <TabsContent value="pos"><POSTab role={role!} onSaleComplete={() => {}} /></TabsContent>
+          <TabsContent value="orders"><OrdersTab /></TabsContent>
+          <TabsContent value="print"><PrintOrdersTab /></TabsContent>
+          <TabsContent value="jobs"><AdminJobsTab /></TabsContent>
+          <TabsContent value="messages"><AdminMessagesTab /></TabsContent>
+          <TabsContent value="codes"><CodesTab role={role!} /></TabsContent>
+          <TabsContent value="gcash"><GCashTab /></TabsContent>
+          <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="news"><NewsTab /></TabsContent>
+          <TabsContent value="products"><ProductsTab /></TabsContent>
         </div>
       </Tabs>
     </div>
@@ -837,8 +501,7 @@ function GCashTab() {
     if (tx) {
       notifyCustomerGCashComplete(tx.user_id, tx.type, tx.amount, status);
     }
-    load(); 
-    toast.success(`Transaction ${status}`);
+    load(); toast.success(`Transaction ${status}`);
   };
 
   const saveFee = async () => {
@@ -853,45 +516,27 @@ function GCashTab() {
     <div className="space-y-3 pb-6">
       <div className="bg-card rounded-xl p-3 border border-border flex items-center gap-2">
         <Label className="text-xs font-bold whitespace-nowrap">Service Fee ₱</Label>
-        <Input 
-          type="number" 
-          value={fee} 
-          onChange={(e) => setFee(Number(e.target.value))} 
-          className="w-20 text-sm" 
-        />
+        <Input type="number" value={fee} onChange={(e) => setFee(Number(e.target.value))} className="w-20 text-sm" />
         <Button onClick={saveFee} size="sm">Save</Button>
       </div>
       {transactions.map(tx => (
         <div key={tx.id} className="bg-card rounded-xl p-3 border border-border">
           <div className="flex items-center justify-between mb-1">
-            <span className="font-bold text-xs">
-              {tx.type === 'cash_in' ? '💰 Cash In' : '💸 Cash Out'} — ₱{tx.amount}
-            </span>
+            <span className="font-bold text-xs">{tx.type === 'cash_in' ? '💰 Cash In' : '💸 Cash Out'} — ₱{tx.amount}</span>
             <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
               tx.status === 'pending' ? 'bg-warning/20 text-warning' :
               tx.status === 'completed' ? 'bg-success/20 text-[hsl(var(--success))]' :
               'bg-destructive/20 text-destructive'
-            }`}>
-              {tx.status}
-            </span>
+            }`}>{tx.status}</span>
           </div>
           <p className="text-[10px] text-muted-foreground">Ref: {tx.reference_number} | GCash: {tx.gcash_number}</p>
           {tx.status === 'pending' && (
             <div className="flex gap-2 mt-2">
-              <Button 
-                size="sm" 
-                className="h-7 text-[11px] gap-1" 
-                onClick={() => updateStatus(tx.id, 'completed')}
-              >
-                <Check className="h-3 w-3" /> Approve
+              <Button size="sm" className="h-7 text-[11px] gap-1" onClick={() => updateStatus(tx.id, 'completed')}>
+                <Check className="h-3 w-3" />Approve
               </Button>
-              <Button 
-                size="sm" 
-                variant="destructive" 
-                className="h-7 text-[11px] gap-1" 
-                onClick={() => updateStatus(tx.id, 'rejected')}
-              >
-                <X className="h-3 w-3" /> Reject
+              <Button size="sm" variant="destructive" className="h-7 text-[11px] gap-1" onClick={() => updateStatus(tx.id, 'rejected')}>
+                <X className="h-3 w-3" />Reject
               </Button>
             </div>
           )}
@@ -929,9 +574,7 @@ function ClubTab() {
           return (
             <div key={m.id} className="bg-card rounded-xl p-3 border border-border">
               <div className="flex items-center justify-between mb-1">
-                <span className="font-bold text-xs">
-                  {prof ? `${prof.first_name} ${prof.last_name}` : 'Unknown'}
-                </span>
+                <span className="font-bold text-xs">{prof ? `${prof.first_name} ${prof.last_name}` : 'Unknown'}</span>
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.membership_type === 'premium' ? 'bg-warning/20 text-warning' : 'bg-primary/20 text-primary'}`}>
                   {m.membership_type === 'premium' ? '⭐ Premium' : 'Standard'}
                 </span>
