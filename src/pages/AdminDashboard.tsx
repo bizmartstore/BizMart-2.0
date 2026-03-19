@@ -7,8 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Users, Package, ShoppingCart, Printer, MessageCircle, 
-  Crown, Coins, Settings, BarChart3, Bell, RefreshCw 
+  Users, Package, ShoppingCart, Printer, MessageCircle,   Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase 
 } from "lucide-react";
 import { toast } from "sonner";
 import OverviewTab from "@/components/admin/OverviewTab";
