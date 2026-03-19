@@ -4,8 +4,8 @@
  */
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
-// Basic PWA requirements - must be top-level
-self.addEventListener('install', (event) => {
+// Basic PWA requirements
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 

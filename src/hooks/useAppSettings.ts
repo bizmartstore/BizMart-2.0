@@ -13,15 +13,15 @@ export function useAppSettings() {
         if (data) {
           const storeStatus = data.find((s: any) => s.key === 'store_status');
           const fee = data.find((s: any) => s.key === 'gcash_service_fee');
-          if (storeStatus && storeStatus.value) {
-            setStoreOpen(storeStatus.value.is_open ?? true);
+          if (storeStatus) {
+            setStoreOpen(storeStatus.value.is_open);
             setCloseMessage(storeStatus.value.close_message || '');
           }
-          if (fee && fee.value) setGcashFee(fee.value.amount ?? 10);
+          if (fee) setGcashFee(fee.value.amount);
         }
         setLoading(false);
       });
   }, []);
 
-  return { storeOpen, closeMessage, gcacheFee: gcashFee, loading };
+  return { storeOpen, closeMessage, gcashFee, loading };
 }

@@ -3,131 +3,56 @@ import { Bell, Check, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
 
 export default function NotificationBell() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const lastNotificationId = useRef<string | null>(null);
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
-    try {
-      const { data } = await (supabase as any)
-        .from("notification_logs")
-        .select("*")
-        .or(`user_id.eq.${user.id},target_role.is.not.null`)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      
-      const notifs = data || [];
-      setNotifications(notifs);
-      
-      const newUnread = notifs.filter((n: any) => !n.is_read && n.user_id === user.id).length;
-      setUnreadCount(newUnread);
-      
-      // Play sound if there's a new unread notification
-      if (newUnread > 0 && notifs.length > 0) {
-        const latest = notifs[0];
-        if (latest.id !== lastNotificationId.current) {
-          lastNotificationId.current = latest.id;
-          
-          // Determine if this is an admin notification or customer notification
-          const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
-          if (isAdmin) {
-            playAdminNotificationSound();
-          } else {
-            playCustomerNotificationSound();
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Failed to load notifications:", error);
-    }
-  }, [user, profile]);
+    const { data } = await (supabase as any)
+      .from("notification_logs")
+      .select("*")
+      .or(`user_id.eq.${user.id},target_role.eq.admin`)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    
+    setNotifications(data || []);
+    setUnreadCount((data || []).filter((n: any) => !n.is_read).length);
+  }, [user]);
 
   useEffect(() => {
     loadNotifications();
-    
-    // Real-time subscription for new notifications
-    if (!user) return;
-    
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notification_logs",
-          filter: `user_id=eq.${user.id} OR target_role=is.not.null`
-        },
-        () => {
-          loadNotifications();
-        }
-      )
+    // Real-time subscription
+    const channel = supabase.channel("notif-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, () => loadNotifications())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, loadNotifications]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+    return () => { supabase.removeChannel(channel); };
+  }, [loadNotifications]);
 
   const markAllAsRead = async () => {
     if (!user) return;
-    try {
-      await (supabase as any)
-        .from("notification_logs")
-        .update({ is_read: true })
-        .eq("user_id", user.id)
-        .eq("is_read", false);
-      loadNotifications();
-    } catch (error) {
-      console.error("Failed to mark notifications as read:", error);
-    }
+    await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    loadNotifications();
   };
 
   const handleNotifClick = async (n: any) => {
     setOpen(false);
     if (!n.is_read) {
-      try {
-        await (supabase as any)
-          .from("notification_logs")
-          .update({ is_read: true })
-          .eq("id", n.id);
-        loadNotifications();
-      } catch (error) {
-        console.error("Failed to mark notification as read:", error);
-      }
+      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("id", n.id);
+      loadNotifications();
     }
-    if (n.link) {
-      navigate(n.link);
-    }
+    if (n.link) navigate(n.link);
   };
 
   return (
     <div className="relative" ref={ref}>
-      <button 
-        onClick={() => setOpen(!open)} 
-        className="p-1.5 relative hover:bg-muted rounded-full transition-colors"
-        aria-label="Notifications"
-      >
-        <Bell className="h-5 w-5" />
+      <button onClick={() => setOpen(!open)} className="p-1.5 relative">
+        <Bell className="h-5 w-5 text-secondary-foreground" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
             {unreadCount > 9 ? "9+" : unreadCount}
@@ -136,17 +61,10 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
+        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 duration-200">
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
-            {unreadCount > 0 && (
-              <button 
-                onClick={markAllAsRead} 
-                className="text-[10px] text-primary font-bold hover:underline"
-              >
-                Mark all read
-              </button>
-            )}
+            <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">Mark all read</button>
           </div>
           <div className="overflow-y-auto max-h-[340px]">
             {notifications.length === 0 ? (
@@ -159,9 +77,7 @@ export default function NotificationBell() {
                 <button
                   key={n.id}
                   onClick={() => handleNotifClick(n)}
-                  className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors flex gap-3 hover:bg-muted/50 ${
-                    n.is_read ? 'opacity-60' : 'bg-primary/5'
-                  }`}
+                  className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors flex gap-3 ${n.is_read ? 'opacity-60' : 'bg-primary/5'}`}
                 >
                   <span className="text-xl shrink-0">{n.icon || "🔔"}</span>
                   <div className="min-w-0 flex-1">
@@ -171,9 +87,7 @@ export default function NotificationBell() {
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                   </div>
-                  {!n.is_read && (
-                    <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />
-                  )}
+                  {!n.is_read && <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />}
                 </button>
               ))
             )}
