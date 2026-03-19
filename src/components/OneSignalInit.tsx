@@ -43,7 +43,7 @@ export default function OneSignalInit() {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (permission === "default" && !isMobile) {
           setTimeout(() => {
-            OneSignal.Slidedown.promptPush().catch(() => {});
+            OneSignal.Slivedown.promptPush().catch(() => {});
           }, 5000);
         }
       } catch (error) {

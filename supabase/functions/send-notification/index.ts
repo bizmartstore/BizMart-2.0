@@ -18,25 +18,22 @@ serve(async (req) => {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
-      url: link, // Deep link for when the user clicks the notification
-      data: { link }, // Extra data for app logic
+      url: link,
+      data: { link },
       android_accent_color: "FFE8612D",
       small_icon: "ic_stat_onesignal_default",
     };
 
     // Targeting Logic
     if (targetUserId) {
-      // Target specific user (requires OneSignal.login(userId) in frontend)
       payload.include_external_user_ids = [targetUserId];
     } else if (targetRole === "admin") {
-      // Target all admins using OneSignal Tags
       payload.filters = [
         { field: "tag", key: "role", relation: "=", value: "main_admin" },
         { operator: "OR" },
         { field: "tag", key: "role", relation: "=", value: "member_admin" }
       ];
     } else {
-      // Broadcast to everyone
       payload.included_segments = ["Subscribed Users"];
     }
 

@@ -3,11 +3,9 @@ import { Bell, Check, Trash2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useAdmin } from "@/hooks/useAdmin";
 
 export default function NotificationBell() {
   const { user } = useAuth();
-  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -16,26 +14,20 @@ export default function NotificationBell() {
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
-
-    let query = (supabase as any)
+    const { data } = await (supabase as any)
       .from("notification_logs")
       .select("*")
+      .or(`user_id.eq.${user.id},target_role.eq.admin`)
       .order("created_at", { ascending: false })
       .limit(20);
-
-    if (isAdmin) {
-      query = query.or(`user_id.eq.${user.id},target_role.eq.admin,and(user_id.is.null,target_role.is.null)`);
-    } else {
-      query = query.or(`user_id.eq.${user.id},and(user_id.is.null,target_role.is.null)`);
-    }
-
-    const { data } = await query;
+    
     setNotifications(data || []);
     setUnreadCount((data || []).filter((n: any) => !n.is_read).length);
-  }, [user, isAdmin]);
+  }, [user]);
 
   useEffect(() => {
     loadNotifications();
+    // Real-time subscription
     const channel = supabase.channel("notif-realtime")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, () => loadNotifications())
       .subscribe();
@@ -44,18 +36,7 @@ export default function NotificationBell() {
 
   const markAllAsRead = async () => {
     if (!user) return;
-    
-    // Fix: Target both personal and admin-role notifications
-    let query = (supabase as any).from("notification_logs").update({ is_read: true }).eq("is_read", false);
-    
-    if (isAdmin) {
-      query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
-    } else {
-      query = query.eq("user_id", user.id);
-    }
-
-    const { error } = await query;
-    if (error) console.error("Mark read failed:", error);
+    await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
     loadNotifications();
   };
 
