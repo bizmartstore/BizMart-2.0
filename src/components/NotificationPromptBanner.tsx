@@ -1,31 +1,43 @@
 import { useState, useEffect, useCallback } from "react";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { promptForPush } from "@/hooks/useOneSignal";
 
 export default function NotificationPromptBanner() {
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  const checkPermission = useCallback(async () => {
+  const checkStatus = useCallback(async () => {
     const OneSignal = (window as any).OneSignal;
     if (!OneSignal) return false;
     
-    const permission = await OneSignal.Notifications.permission;
+    // Only show if the user hasn't made a choice yet
+    const permission = OneSignal.Notifications.permission;
     return permission === "default";
   }, []);
 
   useEffect(() => {
+    // Delay showing the banner so it's not the first thing they see
     const timer = setTimeout(async () => {
-      if (await checkPermission()) setVisible(true);
+      if (await checkStatus()) setVisible(true);
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, [checkPermission]);
+  }, [checkStatus]);
 
   const handleAllow = async () => {
     setVisible(false);
-    await promptForPush();
+    const OneSignal = (window as any).OneSignal;
+    if (!OneSignal) return;
+
+    try {
+      console.log("[OneSignal] User clicked Allow. Triggering prompt...");
+      // This click satisfies the "User Gesture" requirement for mobile browsers
+      await OneSignal.Slidedown.promptPush();
+    } catch (e) {
+      console.error("[OneSignal] Prompt failed:", e);
+      // Fallback to native prompt if slidedown fails
+      await OneSignal.Notifications.requestPermission();
+    }
   };
 
   const handleDismiss = () => {
