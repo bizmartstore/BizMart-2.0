@@ -13,4 +13,5 @@ import { Textarea } from "@/components/ui/textarea";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 export default function JobDetailPage() {
-  // ... existing code unchanged except imports
+  // ... rest of the component code remains unchanged
+}

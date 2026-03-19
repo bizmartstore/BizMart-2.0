@@ -35,7 +35,7 @@ export default function NotificationBell() {
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
           
-          const isAdmin = profile?.role && (profile as any).role === 'main_admin' || (profile as any).role === 'member_admin';
+          const isAdmin = (profile as any)?.role === 'main_admin' || (profile as any)?.role === 'member_admin';
           if (isAdmin) {
             playAdminNotificationSound();
           } else {
@@ -52,7 +52,7 @@ export default function NotificationBell() {
     loadNotifications();
     
     if (!user) return;
-        const channel = supabase
+    const channel = supabase
       .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
@@ -106,7 +106,8 @@ export default function NotificationBell() {
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
-            {unreadCount > 9 ? "9+" : unreadCount}          </span>
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
         )}
       </button>
 
@@ -120,7 +121,8 @@ export default function NotificationBell() {
                 className="text-[10px] text-primary font-bold hover:underline"
               >
                 Mark all read
-              </button>            )}
+              </button>
+            )}
           </div>
           <div className="overflow-y-auto max-h-[340px]">
             {notifications.length === 0 ? (
@@ -138,7 +140,8 @@ export default function NotificationBell() {
                   }`}
                 >
                   <span className="text-xl shrink-0">{n.icon || "🔔"}</span>
-                  <div className="flex-1 min-w-0">                    <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
                     <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
                     <p className="text-[8px] text-muted-foreground mt-1 uppercase font-medium">
                       {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -148,7 +151,7 @@ export default function NotificationBell() {
                     <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />
                   )}
                 </button>
-              </div>
+              ))
             )}
           </div>
         </div>

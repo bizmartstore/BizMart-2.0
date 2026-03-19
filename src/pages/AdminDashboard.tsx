@@ -1,6 +1,5 @@
 // ... existing code
-      // Remove or comment out the problematic line
+      // Remove the problematic line that calls undefined function
       // notifyCustomerGCashComplete(tx.user_id, tx.type, tx.amount, status);
-      // Replace with proper handling if needed
-      // For now, just load again
+      // Instead, just reload the sales data
       loadSales();
