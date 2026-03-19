@@ -21,42 +21,58 @@ export function useOneSignal() {
     const syncKey = `${user.id}_${effectiveRole}`;
     if (syncRef.current === syncKey) return;
 
-    window.OneSignalDeferred = window.OneSignalDeferred || [];
-    window.OneSignalDeferred.push(async (OneSignal: any) => {
-      try {
-        // 1. Ensure user is logged in to OneSignal with their Supabase ID
-        await OneSignal.login(user.id);
-        
-        // 2. Set tags for targeting (Admin vs Customer)
-        const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
-        await OneSignal.User.addTags({
-          user_id: user.id,
-          role: effectiveRole,
-          admin: isAdminRole ? "true" : "false",
-          email: profile.email || "",
-        });
-
-        syncRef.current = syncKey;
-        console.log(`[OneSignal] Synced: ${user.id} as ${effectiveRole}`);
-      } catch (e) {
-        console.error("[OneSignal] Sync Error:", e);
+    // Wait for OneSignal to be ready
+    const waitForOneSignal = setInterval(() => {
+      if (window.OneSignal && window.OneSignal.initialized) {
+        clearInterval(waitForOneSignal);
+        syncUserTags(effectiveRole);
       }
-    });
+    }, 100);
+
+    // Timeout after 5 seconds
+    setTimeout(() => {
+      clearInterval(waitForOneSignal);
+    }, 5000);
+
+    function syncUserTags(role: string) {
+      const OneSignal = window.OneSignal;
+      if (!OneSignal) return;
+
+      const isAdmin = role === "main_admin" || role === "member_admin";
+      
+      OneSignal.User.addTags({
+        user_id: user.id,
+        role: role,
+        admin: isAdmin ? "true" : "false",
+        email: profile.email || "",
+        grade_level: profile.grade_level || "",
+        section: profile.section || "",
+      }).then(() => {
+        console.log(`[OneSignal] Tags synced for ${user.id} as ${role}`);
+        syncRef.current = syncKey;
+      }).catch((error: any) => {
+        console.error("[OneSignal] Tag sync failed:", error);
+      });
+    }
   }, [user, profile, role, roleLoading]);
 }
 
 export async function getPushStatus() {
   const OneSignal = (window as any).OneSignal;
-  if (!OneSignal) return "SDK Not Loaded";
+  if (!OneSignal) return { status: "SDK not loaded" };
   
-  const permission = OneSignal.Notifications.permission;
-  const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
-  const externalId = await OneSignal.User.externalId;
-  
-  return {
-    permission,
-    isOptedIn,
-    externalId,
-    isReady: permission === "granted" && isOptedIn && !!externalId
-  };
+  try {
+    const permission = await OneSignal.Notifications.getPermission();
+    const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
+    const externalId = await OneSignal.User.externalId;
+    
+    return {
+      permission,
+      isOptedIn,
+      externalId,
+      isReady: permission === "granted" && isOptedIn && !!externalId
+    };
+  } catch (e) {
+    return { status: "error", error: e.message };
+  }
 }

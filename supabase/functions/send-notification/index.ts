@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
-const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
+const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID") || "";
+const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,35 +9,72 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
-    const { title, message, targetUserId, targetRole, link, icon } = await req.json();
+    const { title, message, targetUserId, targetRole, link, icon = "🔔" } = await req.json();
 
+    if (!title || !message) {
+      throw new Error("Missing required fields: title and message");
+    }
+
+    // 1. Log to database first (best effort, don't fail if this errors)
+    try {
+      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+      const supabase = await import("https://esm.sh/@supabase/supabase-js@2");
+      const client = new supabase.createClient(supabaseUrl, supabaseKey);
+      
+      await client.from("notification_logs").insert({
+        user_id: targetUserId || null,
+        target_role: targetRole || null,
+        title,
+        message,
+        type: "system",
+        link,
+        icon,
+      });
+    } catch (dbError) {
+      console.error("[Notification] DB log failed:", dbError);
+      // Continue with push notification even if DB log fails
+    }
+
+    // 2. Prepare OneSignal payload
     const payload: any = {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
-      url: link,
-      data: { link },
-      android_accent_color: "FFE8612D",
-      small_icon: "ic_stat_onesignal_default",
+      data: { 
+        link,
+        type: "notification",
+        timestamp: new Date().toISOString()
+      },
+      // Android/iOS specific
+      android_channel_id: "bizmart-notifications",
+      android_priority: 10,
+      ios_sound: "default",
+      ios_badgeType: "Increase",
+      ios_badgeCount: 1,
     };
 
-    // Targeting Logic
+    // 3. Targeting Logic
     if (targetUserId) {
+      // Target specific user by their Supabase ID (external_user_id)
       payload.include_external_user_ids = [targetUserId];
-    } else if (targetRole === "admin") {
+    } else if (targetRole) {
+      // Target users with specific role tag
       payload.filters = [
-        { field: "tag", key: "role", relation: "=", value: "main_admin" },
-        { operator: "OR" },
-        { field: "tag", key: "role", relation: "=", value: "member_admin" }
+        { field: "tag", key: "role", relation: "==", value: targetRole }
       ];
     } else {
+      // Broadcast to all subscribed users
       payload.included_segments = ["Subscribed Users"];
     }
 
-    const response = await fetch("https://onesignal.com/api/v1/notifications", {
+    // 4. Send to OneSignal
+    const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -47,14 +84,35 @@ serve(async (req) => {
     });
 
     const result = await response.json();
-    return new Response(JSON.stringify(result), {
+    
+    if (!response.ok) {
+      console.error("[OneSignal Error]", result);
+      return new Response(JSON.stringify({ 
+        success: false, 
+        error: result.errors || result.message || "OneSignal API error",
+        details: result 
+      }), { 
+        status: response.status, 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      });
+    }
+
+    return new Response(JSON.stringify({ 
+      success: true, 
+      result: result,
+      recipients: targetUserId ? 1 : "all"
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
     });
+
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    console.error("[Send Notification] Error:", error);
+    return new Response(JSON.stringify({ 
+      success: false, 
+      error: error.message || "Unknown error" 
+    }), {
       status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
