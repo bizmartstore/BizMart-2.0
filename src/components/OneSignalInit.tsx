@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import NotificationPromptBanner from "./NotificationPromptBanner";
 
 /**
- * OneSignalInit Component
- * Handles the lifecycle of OneSignal push notifications in a React environment.
+ * OneSignalInit handles the push notification lifecycle.
+ * It ensures the SDK is initialized exactly once and manages service worker paths.
  */
 export default function OneSignalInit() {
   const [isReady, setIsReady] = useState(false);
@@ -11,44 +11,50 @@ export default function OneSignalInit() {
   const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
   useEffect(() => {
-    // 1. Prevent multiple initializations in React Strict Mode
+    // 1. Prevent multiple initialization attempts (Strict Mode safe)
     if (initAttempted.current || !appId) return;
     initAttempted.current = true;
 
-    // 2. Use the deferred array to ensure commands run after SDK loads
+    // 3. Push initialization logic to the deferred queue
     window.OneSignalDeferred = window.OneSignalDeferred || [];
-    
     window.OneSignalDeferred.push(async (OneSignal: any) => {
-      console.log("[OneSignal] SDK detected, starting initialization...");
+      
+      // 4. Check if already initialized to prevent "SDK already initialized" error
+      if (OneSignal.initialized) {
+        console.log("[OneSignal] SDK already initialized, skipping...");
+        setIsReady(true);
+        return;
+      }
+
+      console.log("[OneSignal] Initializing with App ID:", appId);
 
       try {
-        // 3. Initialize with custom service worker path to avoid conflicts
         await OneSignal.init({
           appId: appId,
           allowLocalhostAsSecureOrigin: true,
-          serviceWorkerPath: "/sw.js", // Points to our unified worker
+          // 5. Point to our unified service worker to avoid conflicts
+          serviceWorkerPath: "/sw.js",
           serviceWorkerParam: { scope: "/" },
-          notifyButton: { enable: false }, // We use our own custom UI
+          notifyButton: { enable: false }, // Using custom UI instead
         });
 
         console.log("[OneSignal] Initialized successfully.");
         setIsReady(true);
 
-        // 4. Check current permission and subscription status
+        // 6. Sync subscription status
         const permission = OneSignal.Notifications.permission;
         const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
         
         console.log("[OneSignal] Permission:", permission);
         console.log("[OneSignal] Subscribed:", isOptedIn);
 
-        // 5. Handle "Unsubscribed" state if permission was already granted
-        // This fixes cases where the user allowed notifications but the SDK lost the subscription
+        // 7. Fix "Unsubscribed" state if browser permission is already granted
         if (permission === "granted" && !isOptedIn) {
-          console.log("[OneSignal] Permission granted but not opted in. Syncing...");
+          console.log("[OneSignal] Permission granted but user unsubscribed. Re-syncing...");
           await OneSignal.User.PushSubscription.optIn();
         }
 
-        // 6. Auto-show slidedown prompt for new users after a delay
+        // 8. Auto-prompt for new users after a short delay
         if (permission === "default") {
           setTimeout(() => {
             console.log("[OneSignal] Triggering slidedown prompt...");
@@ -63,6 +69,6 @@ export default function OneSignalInit() {
     });
   }, [appId]);
 
-  // Only show the custom prompt banner once the SDK is actually ready
+  // Only show the custom prompt banner once the SDK is ready
   return isReady ? <NotificationPromptBanner /> : null;
 }

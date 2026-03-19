@@ -1,8 +1,8 @@
 /**
- * OneSignal Service Worker Integration
- * This file must be in the public folder.
- * It imports the OneSignal SDK worker logic directly.
+ * Unified Service Worker
+ * This file handles both PWA logic and OneSignal push notifications.
+ * Importing the OneSignal SDK worker here prevents 'message' event warnings.
  */
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
-// Add any custom PWA caching or background logic below if needed
+// Custom PWA logic can be added here if needed
