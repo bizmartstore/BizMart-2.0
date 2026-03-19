@@ -18,56 +18,63 @@ export default function OneSignalInit() {
 
     async function initOneSignal() {
       try {
-        // 1. Check for IndexedDB (required by OneSignal)
-        if (!window.indexedDB) {
-          console.warn("[OneSignal] IndexedDB is unavailable. Notifications may not work in this environment.");
-        }
-
         if (!("OneSignal" in window)) {
-          console.warn("[OneSignal] SDK script not found in window.");
+          console.warn("[OneSignal] SDK not found.");
           return;
         }
 
         const OneSignal = (window as any).OneSignal || [];
-        
+
         OneSignal.push(async () => {
-          // 2. Prevent double initialization
-          if (OneSignal.initialized) {
-            console.log("[OneSignal] SDK already initialized, skipping init.");
+          if (window.OneSignalInitialized) {
+            console.log("[OneSignal] Already initialized.");
             setOneSignalReady(true);
             return;
           }
 
-          console.log("[OneSignal] Starting initialization with ID:", appId);
-          
+          console.log("[OneSignal] Initializing with App ID:", appId);
+
           await OneSignal.init({
             appId: appId,
             allowLocalhostAsSecureOrigin: true,
             notifyButton: { enable: false },
-            serviceWorkerPath: "/OneSignalSDKWorker.js",
-            serviceWorkerUpdaterPath: "/OneSignalSDKUpdaterWorker.js",
+
+            // ✅ USE YOUR EXISTING SERVICE WORKER
+            serviceWorkerPath: "/sw.js",
+            serviceWorkerParam: { scope: "/" },
           });
-          
+
           window.OneSignalInitialized = true;
-          console.log("[OneSignal] Initialized successfully.");
           setOneSignalReady(true);
 
-          // 3. Check permission and log status
-          const permission = await OneSignal.Notifications.permission;
-          console.log("[OneSignal] Current permission status:", permission);
-          
-          // 4. Auto-trigger slidedown after a delay if permission is default
+          console.log("[OneSignal] Initialized successfully.");
+
+          // ✅ CHECK PERMISSION
+          const permission = OneSignal.Notifications.permission;
+          console.log("[OneSignal] Permission:", permission);
+
+          // ✅ CHECK SUBSCRIPTION
+          const isSubscribed = await OneSignal.User.PushSubscription.optedIn;
+          console.log("[OneSignal] Subscribed:", isSubscribed);
+
+          // 🔥 AUTO PROMPT ONLY IF NOT DECIDED
           if (permission === "default") {
             setTimeout(() => {
-              console.log("[OneSignal] Triggering automatic slidedown prompt...");
-              OneSignal.Slidedown.promptPush().catch((e: any) => 
-                console.warn("[OneSignal] Slidedown prompt failed:", e)
-              );
-            }, 8000);
+              console.log("[OneSignal] Showing prompt...");
+              OneSignal.Slidedown.promptPush().catch((err: any) => {
+                console.warn("[OneSignal] Prompt error:", err);
+              });
+            }, 5000);
+          }
+
+          // 🔥 FORCE RESUBSCRIBE IF UNSUBSCRIBED
+          if (!isSubscribed && permission === "granted") {
+            console.log("[OneSignal] Re-subscribing user...");
+            await OneSignal.User.PushSubscription.optIn();
           }
         });
       } catch (err) {
-        console.error("[OneSignal] Initialization error:", err);
+        console.error("[OneSignal] Init error:", err);
       }
     }
 
