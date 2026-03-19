@@ -9,115 +9,54 @@ declare global {
   }
 }
 
-function getOneSignal(timeoutMs = 10000): Promise<any | null> {
-  return new Promise((resolve) => {
-    if (window.OneSignal && window.OneSignal.initialized) {
-      return resolve(window.OneSignal);
-    }
-
-    const timer = setTimeout(() => resolve(null), timeoutMs);
-
-    if (window.OneSignalDeferred) {
-      window.OneSignalDeferred.push((OS: any) => {
-        clearTimeout(timer);
-        resolve(OS);
-      });
-    } else {
-      // If OneSignal is already on window but not initialized, wait for it
-      const checkInterval = setInterval(() => {
-        if (window.OneSignal && window.OneSignal.initialized) {
-          clearInterval(checkInterval);
-          clearTimeout(timer);
-          resolve(window.OneSignal);
-        }
-      }, 100);
-    }
-  });
-}
-
 export function useOneSignal() {
   const { user, profile } = useAuth();
   const { role, loading: roleLoading } = useAdmin();
-  const taggedRef = useRef<string | null>(null);
-  const prevUserRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (!user && prevUserRef.current) {
-      (async () => {
-        const OneSignal = await getOneSignal(3000);
-        if (!OneSignal) return;
-        try {
-          await OneSignal.logout();
-          console.log("[OneSignal] User logged out");
-        } catch (e) {
-          console.warn("[OneSignal] Logout failed:", e);
-        }
-      })();
-      taggedRef.current = null;
-      prevUserRef.current = null;
-    } else if (user) {
-      prevUserRef.current = user.id;
-    }
-  }, [user]);
+  const syncRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!user || !profile || roleLoading) return;
 
     const effectiveRole = role || "customer";
-    if (taggedRef.current === `${user.id}_${effectiveRole}`) return;
+    const syncKey = `${user.id}_${effectiveRole}`;
+    if (syncRef.current === syncKey) return;
 
-    let cancelled = false;
-
-    const doTag = async () => {
-      const OneSignal = await getOneSignal();
-      if (!OneSignal || cancelled) return;
-
+    window.OneSignalDeferred = window.OneSignalDeferred || [];
+    window.OneSignalDeferred.push(async (OneSignal: any) => {
       try {
-        // Modern SDK login
+        // 1. Ensure user is logged in to OneSignal with their Supabase ID
         await OneSignal.login(user.id);
-        console.log(`[OneSignal] Logged in as: ${user.id}`);
-
+        
+        // 2. Set tags for targeting (Admin vs Customer)
         const isAdminRole = effectiveRole === "main_admin" || effectiveRole === "member_admin";
-
-        // Set tags for targeting
         await OneSignal.User.addTags({
           user_id: user.id,
-          email: profile.email || "",
-          name: `${profile.first_name} ${profile.last_name}`,
           role: effectiveRole,
           admin: isAdminRole ? "true" : "false",
+          email: profile.email || "",
         });
-        
-        taggedRef.current = `${user.id}_${effectiveRole}`;
-        console.log(`[OneSignal] User tagged as ${effectiveRole}`);
-      } catch (e) {
-        console.warn("[OneSignal] Tagging failed:", e);
-      }
-    };
 
-    doTag();
-    return () => { cancelled = true; };
+        syncRef.current = syncKey;
+        console.log(`[OneSignal] Synced: ${user.id} as ${effectiveRole}`);
+      } catch (e) {
+        console.error("[OneSignal] Sync Error:", e);
+      }
+    });
   }, [user, profile, role, roleLoading]);
 }
 
-export async function promptForPush() {
+export async function getPushStatus() {
   const OneSignal = (window as any).OneSignal;
-  if (!OneSignal) {
-    console.warn("[OneSignal] Cannot prompt: SDK not found on window.");
-    return;
-  }
+  if (!OneSignal) return "SDK Not Loaded";
   
-  try {
-    console.log("[OneSignal] Manually triggering slidedown prompt...");
-    // Try slidedown first as it's less intrusive and works better on mobile
-    await OneSignal.Slidedown.promptPush();
-  } catch (e) {
-    console.error("[OneSignal] Manual prompt failed:", e);
-    // Fallback to native browser prompt
-    try {
-      await OneSignal.Notifications.requestPermission();
-    } catch (err) {
-      console.error("[OneSignal] Native fallback failed:", err);
-    }
-  }
+  const permission = OneSignal.Notifications.permission;
+  const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
+  const externalId = await OneSignal.User.externalId;
+  
+  return {
+    permission,
+    isOptedIn,
+    externalId,
+    isReady: permission === "granted" && isOptedIn && !!externalId
+  };
 }

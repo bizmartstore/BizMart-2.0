@@ -29,13 +29,14 @@ import {
 } from "@/lib/notifications";
 import { sendTelegramOrderNotify } from "@/lib/telegramNotify";
 import { products as defaultProducts } from "@/data/products";
+import { getPushStatus } from "@/hooks/useOneSignal";
 
 /* ─── Overview Tab ─── */
 function OverviewTab({ role }: { role: string }) {
   const isMainAdmin = role === 'main_admin';
   const [storeOpen, setStoreOpen] = useState(true);
   const [closeMsg, setCloseMsg] = useState("Store is currently closed.");
-  const [pushEnabled, setPushEnabled] = useState(true);
+  const [pushStatus, setPushStatus] = useState<any>(null);
   const [stats, setStats] = useState({ products: 0, users: 0, pendingGcash: 0, activeMembers: 0, totalCommission: 0, memberAdminOrderCommission: 0, printRevenue: 0, printCommission: 0, posSales: 0, posMainAdmin: 0, posMemberAdmin: 0, posSeller: 0 });
 
   const loadStats = useCallback(() => {
@@ -43,10 +44,9 @@ function OverviewTab({ role }: { role: string }) {
       .then(({ data }: any) => {
         if (data) { setStoreOpen(data.value.is_open); setCloseMsg(data.value.close_message || ''); }
       });
-    (supabase as any).from('app_settings').select('*').eq('key', 'admin_push_enabled').maybeSingle()
-      .then(({ data }: any) => {
-        if (data) setPushEnabled(data.value?.enabled !== false);
-      });
+    
+    getPushStatus().then(setPushStatus);
+
     Promise.all([
       (supabase as any).from('products').select('id', { count: 'exact', head: true }),
       (supabase as any).from('profiles').select('id', { count: 'exact', head: true }),
@@ -86,6 +86,35 @@ function OverviewTab({ role }: { role: string }) {
 
   return (
     <div className="space-y-3 pb-6">
+      {/* Push Diagnostic Card */}
+      <div className="bg-card rounded-xl p-4 border border-border">
+        <div className="flex items-center gap-2 mb-2">
+          <Bell className="h-4 w-4 text-primary" />
+          <span className="font-bold text-sm">Push Notification Status</span>
+        </div>
+        {pushStatus ? (
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-[10px]">
+              <span className="text-muted-foreground">Permission:</span>
+              <span className={`font-bold ${pushStatus.permission === 'granted' ? 'text-success' : 'text-destructive'}`}>{pushStatus.permission.toUpperCase()}</span>
+            </div>
+            <div className="flex justify-between text-[10px]">
+              <span className="text-muted-foreground">Subscribed:</span>
+              <span className={`font-bold ${pushStatus.isOptedIn ? 'text-success' : 'text-destructive'}`}>{pushStatus.isOptedIn ? 'YES' : 'NO'}</span>
+            </div>
+            <div className="flex justify-between text-[10px]">
+              <span className="text-muted-foreground">Linked to ID:</span>
+              <span className="font-mono text-[9px]">{pushStatus.externalId || 'NOT LINKED'}</span>
+            </div>
+            {!pushStatus.isReady && (
+              <p className="text-[9px] text-destructive font-bold mt-1">⚠️ Your device is not ready for alerts. Tap the bell icon or re-install the app.</p>
+            )}
+          </div>
+        ) : (
+          <p className="text-[10px] text-muted-foreground">Checking status...</p>
+        )}
+      </div>
+
       <div className="bg-card rounded-xl p-4 border border-border">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">

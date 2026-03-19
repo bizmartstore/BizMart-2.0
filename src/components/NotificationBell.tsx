@@ -23,7 +23,6 @@ export default function NotificationBell() {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    // Filter based on user or admin role
     if (isAdmin) {
       query = query.or(`user_id.eq.${user.id},target_role.eq.admin,and(user_id.is.null,target_role.is.null)`);
     } else {
@@ -37,21 +36,26 @@ export default function NotificationBell() {
 
   useEffect(() => {
     loadNotifications();
-
-    // Realtime listener
-    const channel = supabase
-      .channel("schema-db-changes")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, () => {
-        loadNotifications();
-      })
+    const channel = supabase.channel("notif-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs" }, () => loadNotifications())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [loadNotifications]);
 
   const markAllAsRead = async () => {
     if (!user) return;
-    await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    
+    // Fix: Target both personal and admin-role notifications
+    let query = (supabase as any).from("notification_logs").update({ is_read: true }).eq("is_read", false);
+    
+    if (isAdmin) {
+      query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+    } else {
+      query = query.eq("user_id", user.id);
+    }
+
+    const { error } = await query;
+    if (error) console.error("Mark read failed:", error);
     loadNotifications();
   };
 
