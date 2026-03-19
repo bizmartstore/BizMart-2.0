@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import {
   ArrowLeft, Plus, Trash2, Check, X, Shield, Crown, Megaphone,
-  Package, Users, Image, Tag, Smartphone, Store, LogOut, Edit2, Coins, Bell, ShoppingCart, Printer, Settings, UserPlus, Receipt, Download, MessageCircle
+  Package, Users, Image, Tag, Smartphone, Store, LogOut, Edit2, Coins, Bell, ShoppingCart, Printer, Settings, UserPlus, Receipt, Download, MessageCircle, Briefcase
 } from "lucide-react";
 import POSTab from "@/components/admin/POSTab";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -207,6 +207,89 @@ function OverviewTab({ role }: { role: string }) {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ─── Jobs Tab ─── */
+function AdminJobsTab() {
+  const [applications, setApplications] = useState<any[]>([]);
+  const [activeJobs, setActiveJobs] = useState<any[]>([]);
+
+  const load = async () => {
+    const { data: apps } = await (supabase as any)
+      .from("freelancer_profiles")
+      .select("*, profile:profiles!freelancer_profiles_user_id_fkey(*)")
+      .order("created_at", { ascending: false });
+    setApplications(apps || []);
+
+    const { data: jobs } = await (supabase as any)
+      .from("job_postings")
+      .select("*, client:profiles!job_postings_client_id_fkey(*)")
+      .neq("status", "completed")
+      .order("created_at", { ascending: false });
+    setActiveJobs(jobs || []);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const updateApp = async (id: string, status: string) => {
+    await (supabase as any).from("freelancer_profiles").update({ status }).eq("id", id);
+    load();
+    toast.success(`Application ${status}`);
+  };
+
+  return (
+    <div className="space-y-6 pb-6">
+      <div>
+        <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+          <Users className="h-4 w-4 text-primary" /> Freelancer Applications
+        </h3>
+        <div className="space-y-2">
+          {applications.filter(a => a.status === 'pending').map(app => (
+            <div key={app.id} className="bg-card border border-border rounded-xl p-3">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <p className="text-xs font-bold">{app.profile?.first_name} {app.profile?.last_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{app.profile?.email}</p>
+                </div>
+                <div className="flex gap-1">
+                  <Button size="sm" className="h-7 text-[10px]" onClick={() => updateApp(app.id, 'approved')}>Approve</Button>
+                  <Button size="sm" variant="destructive" className="h-7 text-[10px]" onClick={() => updateApp(app.id, 'rejected')}>Reject</Button>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground line-clamp-2"><strong>Strengths:</strong> {app.academic_strengths}</p>
+              <p className="text-[10px] text-muted-foreground mt-1"><strong>Subjects:</strong> {app.subjects?.join(", ")}</p>
+            </div>
+          ))}
+          {applications.filter(a => a.status === 'pending').length === 0 && (
+            <p className="text-center text-xs text-muted-foreground py-4">No pending applications</p>
+          )}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+          <Briefcase className="h-4 w-4 text-primary" /> Active Job Offers
+        </h3>
+        <div className="space-y-2">
+          {activeJobs.map(job => (
+            <div key={job.id} className="bg-card border border-border rounded-xl p-3">
+              <div className="flex justify-between items-center mb-1">
+                <span className="text-xs font-bold truncate max-w-[150px]">{job.title}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  job.status === 'open' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'
+                }`}>{job.status.toUpperCase()}</span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">Client: {job.client?.first_name} {job.client?.last_name}</p>
+              <p className="text-[10px] text-muted-foreground">Rate: ₱{job.hourly_rate}/hr | Category: {job.category}</p>
+            </div>
+          ))}
+          {activeJobs.length === 0 && (
+            <p className="text-center text-xs text-muted-foreground py-4">No active jobs</p>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1522,6 +1605,7 @@ export default function AdminDashboard() {
     { value: "pos", label: "POS", icon: Receipt, show: true },
     { value: "orders", label: "Orders", icon: ShoppingCart, show: true },
     { value: "print", label: "Print", icon: Printer, show: true },
+    { value: "jobs", label: "Jobs", icon: Briefcase, show: true },
     { value: "messages", label: "Messages", icon: MessageCircle, show: true },
     { value: "codes", label: "Codes", icon: Tag, show: true },
     { value: "sellers", label: "Sellers", icon: Settings, show: isMainAdmin },
@@ -1575,6 +1659,7 @@ export default function AdminDashboard() {
         <TabsContent value="pos"><POSTab role={role!} /></TabsContent>
         <TabsContent value="orders"><OrdersTab role={role!} /></TabsContent>
         <TabsContent value="print"><PrintOrdersTab role={role!} /></TabsContent>
+        <TabsContent value="jobs"><AdminJobsTab /></TabsContent>
         <TabsContent value="messages"><AdminMessagesTab /></TabsContent>
         <TabsContent value="codes"><CodesTab role={role!} /></TabsContent>
         {isMainAdmin && <TabsContent value="sellers"><SellersTab /></TabsContent>}

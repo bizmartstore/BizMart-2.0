@@ -29,6 +29,10 @@ import AdminDashboard from "./pages/AdminDashboard";
 import OrdersPage from "./pages/OrdersPage";
 import PrintServicePage from "./pages/PrintServicePage";
 import MessagesPage from "./pages/MessagesPage";
+import JobsPage from "./pages/JobsPage";
+import JobPostPage from "./pages/JobPostPage";
+import JobDetailPage from "./pages/JobDetailPage";
+import FreelancerApplyPage from "./pages/FreelancerApplyPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -69,6 +73,10 @@ const App = () => {
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/print-service" element={<PrintServicePage />} />
                 <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/jobs" element={<JobsPage />} />
+                <Route path="/jobs/post" element={<JobPostPage />} />
+                <Route path="/jobs/:id" element={<JobDetailPage />} />
+                <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>
