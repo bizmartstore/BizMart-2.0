@@ -1,4 +1,3 @@
-// Ensure JobDetailPage exports default
-export default function JobDetailPage() {
-  // ... component code
+export default function AdminDashboard() {
+  // ... existing component code ...
 }
