@@ -12,7 +12,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { title, message, targetUserId, targetRole, link, icon } = await req.json();
+    const { title, message, targetUserId, targetRole, link } = await req.json();
+
+    if (!title || !message) {
+      throw new Error("Missing title or message");
+    }
 
     const payload: any = {
       app_id: ONESIGNAL_APP_ID,
@@ -20,24 +24,23 @@ serve(async (req) => {
       contents: { en: message },
       url: link,
       data: { link },
-      android_accent_color: "FFE8612D",
-      small_icon: "ic_stat_onesignal_default",
     };
 
     // Targeting Logic
     if (targetUserId) {
+      // Target specific user by their Supabase ID
       payload.include_external_user_ids = [targetUserId];
     } else if (targetRole === "admin") {
+      // Target users tagged as admins
       payload.filters = [
-        { field: "tag", key: "role", relation: "=", value: "main_admin" },
-        { operator: "OR" },
-        { field: "tag", key: "role", relation: "=", value: "member_admin" }
+        { field: "tag", key: "role", relation: "regex", value: "admin" }
       ];
     } else {
+      // Broadcast to all
       payload.included_segments = ["Subscribed Users"];
     }
 
-    const response = await fetch("https://onesignal.com/api/v1/notifications", {
+    const response = await fetch("https://api.onesignal.com/notifications", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -47,9 +50,14 @@ serve(async (req) => {
     });
 
     const result = await response.json();
-    return new Response(JSON.stringify(result), {
+    
+    if (!response.ok) {
+      console.error("[OneSignal Error]", result);
+      return new Response(JSON.stringify(result), { status: response.status, headers: corsHeaders });
+    }
+
+    return new Response(JSON.stringify({ success: true, result }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: error.message }), {

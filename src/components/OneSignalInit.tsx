@@ -7,11 +7,12 @@ export default function OneSignalInit() {
   const appId = import.meta.env.VITE_ONESIGNAL_APP_ID;
 
   useEffect(() => {
+    // 1. Prevent multiple attempts in the same session
     if (initAttempted.current || !appId) return;
     
     window.OneSignalDeferred = window.OneSignalDeferred || [];
     window.OneSignalDeferred.push(async (OneSignal: any) => {
-      // CRITICAL: Check if already initialized to prevent the "SDK already initialized" error
+      // 2. Check if OneSignal is already active globally
       if (OneSignal.initialized) {
         console.log("[OneSignal] Already initialized, skipping...");
         setIsReady(true);

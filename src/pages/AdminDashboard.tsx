@@ -18,14 +18,10 @@ import CodesTab from "@/components/admin/CodesTab";
 import NewsTab from "@/components/admin/NewsTab";
 import AdminMessagesTab from "@/components/admin/AdminMessagesTab";
 import { 
-  notifyCustomerGCashComplete, 
-  notifyCustomerRedemptionStatus, 
-  notifyCustomerOrder, 
-  notifyCustomerBCoins, 
-  notifyAnnouncement, 
-  notifyCustomerPrintStatus, 
-  notifyCustomerOrderApproval,
-  notifyOrderUpdate
+  notifyOrderUpdate,
+  notifyCustomerBCoins,
+  notifyAnnouncement,
+  notifyCustomerPrintStatus
 } from "@/lib/notifications";
 import { sendTelegramOrderNotify } from "@/lib/telegramNotify";
 import { products as defaultProducts } from "@/data/products";
@@ -40,7 +36,6 @@ function OverviewTab({ role }: { role: string }) {
   const [stats, setStats] = useState({ products: 0, users: 0, pendingGcash: 0, activeMembers: 0, totalCommission: 0, memberAdminOrderCommission: 0, printRevenue: 0, printCommission: 0, posSales: 0, posMainAdmin: 0, posMemberAdmin: 0, posSeller: 0 });
 
   const loadStats = useCallback(() => {
-    // Use maybeSingle to avoid 406 errors if settings are missing
     (supabase as any).from('app_settings').select('*').eq('key', 'store_status').maybeSingle()
       .then(({ data }: any) => {
         if (data && data.value) { 
@@ -95,7 +90,6 @@ function OverviewTab({ role }: { role: string }) {
 
   return (
     <div className="space-y-3 pb-6">
-      {/* Push Diagnostic Card */}
       <div className="bg-card rounded-xl p-4 border border-border">
         <div className="flex items-center gap-2 mb-2">
           <Bell className="h-4 w-4 text-primary" />
@@ -112,10 +106,6 @@ function OverviewTab({ role }: { role: string }) {
             <div className="flex justify-between text-[10px]">
               <span className="text-muted-foreground">Subscribed:</span>
               <span className={`font-bold ${pushStatus.isOptedIn ? 'text-success' : 'text-destructive'}`}>{pushStatus.isOptedIn ? 'YES' : 'NO'}</span>
-            </div>
-            <div className="flex justify-between text-[10px]">
-              <span className="text-muted-foreground">Linked to ID:</span>
-              <span className="font-mono text-[9px] truncate ml-2">{pushStatus.externalId || 'NOT LINKED'}</span>
             </div>
             {!pushStatus.isReady && (
               <p className="text-[9px] text-destructive font-bold mt-1">⚠️ Your device is not ready for alerts. Tap the bell icon or re-install the app.</p>
@@ -137,14 +127,7 @@ function OverviewTab({ role }: { role: string }) {
           </div>
           <Switch checked={storeOpen} onCheckedChange={saveStore} />
         </div>
-        <Input value={closeMsg} onChange={(e) => setCloseMsg(e.target.value)} placeholder="Close message..." className="text-xs"
-          onBlur={() => {
-            (supabase as any).from('app_settings').upsert({
-              key: 'store_status',
-              value: { is_open: storeOpen, close_message: closeMsg }
-            });
-          }}
-        />
+        <Input value={closeMsg} onChange={(e) => setCloseMsg(e.target.value)} placeholder="Close message..." className="text-xs" />
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -210,7 +193,6 @@ function OrdersTab() {
     sendTelegramOrderNotify(status, order);
     
     if (status === 'completed') {
-      // Award BCoins
       const { data: wallet } = await (supabase as any).from('bcoins_wallets').select('*').eq('user_id', order.user_id).maybeSingle();
       const amount = Number(order.bcoins_earned || 0);
       if (wallet) {
@@ -267,7 +249,6 @@ function OrdersTab() {
           </div>
         </div>
       ))}
-      {orders.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
     </div>
   );
 }
@@ -279,7 +260,12 @@ function PrintOrdersTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await (supabase as any).from('print_orders').select('*, profile:profiles!print_orders_user_id_fkey(*)').order('created_at', { ascending: false }).limit(50);
+    // FIX: Using the explicit relationship name defined in SQL
+    const { data } = await (supabase as any)
+      .from('print_orders')
+      .select('*, profile:profiles!print_orders_user_id_fkey(*)')
+      .order('created_at', { ascending: false })
+      .limit(50);
     setOrders(data || []);
     setLoading(false);
   }, []);
@@ -328,116 +314,6 @@ function PrintOrdersTab() {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-/* ─── Products Tab ─── */
-function ProductsTab() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [showForm, setShowForm] = useState(false);
-  const [syncing, setSyncing] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [form, setForm] = useState({ id: '', name: '', price: 0, original_price: '', image: '', category: '', rating: 4.5, sold: 0, stock: 0, description: '', is_flash_sale: false });
-
-  const load = useCallback(() => {
-    (supabase as any).from('products').select('*').order('created_at', { ascending: false }).then(({ data }: any) => setProducts(data || []));
-  }, []);
-
-  useEffect(load, [load]);
-
-  const syncDefaults = async () => {
-    setSyncing(true);
-    try {
-      const { error } = await (supabase as any).from('products').upsert(
-        defaultProducts.map(p => ({
-          id: p.id,
-          name: p.name,
-          price: p.price,
-          original_price: p.originalPrice || null,
-          image: p.image,
-          category: p.category,
-          rating: p.rating,
-          sold: p.sold,
-          stock: p.stock || 50,
-          description: p.description,
-          is_flash_sale: p.isFlashSale || false,
-          is_active: true
-        }))
-      );
-      if (error) throw error;
-      toast.success("Default products synced to database!");
-      load();
-    } catch (e: any) {
-      toast.error(e.message);
-    }
-    setSyncing(false);
-  };
-
-  const save = async () => {
-    if (!form.name.trim()) return;
-    const payload = {
-      name: form.name.trim(),
-      price: form.price,
-      original_price: form.original_price ? Number(form.original_price) : null,
-      image: form.image.trim(),
-      category: form.category.trim(),
-      rating: form.rating,
-      sold: form.sold,
-      stock: form.stock,
-      description: form.description.trim(),
-      is_flash_sale: form.is_flash_sale,
-      is_active: true
-    };
-    if (editId) {
-      await (supabase as any).from('products').update(payload).eq('id', editId);
-    } else {
-      await (supabase as any).from('products').insert({ ...payload, id: `p-${Date.now()}` });
-    }
-    resetForm(); setShowForm(false); setEditId(null); load();
-    toast.success("Saved!");
-  };
-
-  const resetForm = () => setForm({ id: '', name: '', price: 0, original_price: '', image: '', category: '', rating: 4.5, sold: 0, stock: 0, description: '', is_flash_sale: false });
-  const edit = (p: any) => { setForm({ ...p, original_price: p.original_price || '' }); setEditId(p.id); setShowForm(true); };
-  const remove = async (id: string) => { await (supabase as any).from('products').delete().eq('id', id); load(); toast.success("Deleted"); };
-
-  return (
-    <div className="space-y-3 pb-6">
-      <div className="flex gap-2">
-        <Button onClick={() => { resetForm(); setEditId(null); setShowForm(!showForm); }} size="sm" className="flex-1 gap-1">
-          <Plus className="h-3 w-3" />{showForm ? 'Cancel' : 'Add Product'}
-        </Button>
-        <Button onClick={syncDefaults} disabled={syncing} variant="outline" size="sm" className="flex-1 gap-1">
-          <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} /> Sync Defaults
-        </Button>
-      </div>
-      {showForm && (
-        <div className="bg-card rounded-xl p-3 border border-border space-y-2">
-          <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="Name" className="text-xs h-8" />
-          <div className="grid grid-cols-2 gap-2">
-            <Input type="number" value={form.price} onChange={e => setForm({...form, price: Number(e.target.value)})} placeholder="Price" className="text-xs h-8" />
-            <Input type="number" value={form.stock} onChange={e => setForm({...form, stock: Number(e.target.value)})} placeholder="Stock" className="text-xs h-8" />
-          </div>
-          <Input value={form.image} onChange={e => setForm({...form, image: e.target.value})} placeholder="Image URL" className="text-xs h-8" />
-          <Input value={form.category} onChange={e => setForm({...form, category: e.target.value})} placeholder="Category" className="text-xs h-8" />
-          <Textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} placeholder="Description" className="text-xs" rows={2} />
-          <Button onClick={save} size="sm" className="w-full">Save Product</Button>
-        </div>
-      )}
-      <div className="grid grid-cols-1 gap-2">
-        {products.map(p => (
-          <div key={p.id} className="bg-card rounded-lg p-2 border border-border flex items-center gap-2">
-            <img src={p.image} className="h-10 w-10 rounded object-cover" alt="" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate">{p.name}</p>
-              <p className="text-[10px] text-muted-foreground">₱{p.price} · Stock: {p.stock}</p>
-            </div>
-            <button onClick={() => edit(p)} className="p-1 text-primary"><Edit2 className="h-3 w-3" /></button>
-            <button onClick={() => remove(p.id)} className="p-1 text-destructive"><Trash2 className="h-3 w-3" /></button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
@@ -580,9 +456,6 @@ function AdminJobsTab() {
               <p className="text-[10px] text-muted-foreground mt-1"><strong>Subjects:</strong> {app.subjects?.join(", ")}</p>
             </div>
           ))}
-          {applications.filter(a => a.status === 'pending').length === 0 && (
-            <p className="text-center text-xs text-muted-foreground py-4">No pending applications</p>
-          )}
         </div>
       </div>
 
@@ -600,12 +473,8 @@ function AdminJobsTab() {
                 }`}>{job.status.toUpperCase()}</span>
               </div>
               <p className="text-[10px] text-muted-foreground">Client: {job.client?.first_name} {job.client?.last_name}</p>
-              <p className="text-[10px] text-muted-foreground">Rate: ₱{job.hourly_rate}/hr | Category: {job.category}</p>
             </div>
           ))}
-          {activeJobs.length === 0 && (
-            <p className="text-center text-xs text-muted-foreground py-4">No active jobs</p>
-          )}
         </div>
       </div>
     </div>
