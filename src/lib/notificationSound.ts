@@ -5,18 +5,12 @@ let customerAudio: HTMLAudioElement | null = null;
 let adminAudio: HTMLAudioElement | null = null;
 
 function getCustomerAudio() {
-  if (!customerAudio) {
-    customerAudio = new Audio(CUSTOMER_SOUND_URL);
-    customerAudio.volume = 0.5;
-  }
+  if (!customerAudio) customerAudio = new Audio(CUSTOMER_SOUND_URL);
   return customerAudio;
 }
 
 function getAdminAudio() {
-  if (!adminAudio) {
-    adminAudio = new Audio(ADMIN_SOUND_URL);
-    adminAudio.volume = 0.7;
-  }
+  if (!adminAudio) adminAudio = new Audio(ADMIN_SOUND_URL);
   return adminAudio;
 }
 
@@ -25,9 +19,7 @@ export function playCustomerNotificationSound() {
     const audio = getCustomerAudio();
     audio.currentTime = 0;
     audio.play().catch(() => {});
-  } catch (e) {
-    console.warn("Failed to play customer notification sound:", e);
-  }
+  } catch {}
 }
 
 export function playAdminNotificationSound() {
@@ -35,7 +27,5 @@ export function playAdminNotificationSound() {
     const audio = getAdminAudio();
     audio.currentTime = 0;
     audio.play().catch(() => {});
-  } catch (e) {
-    console.warn("Failed to play admin notification sound:", e);
-  }
+  } catch {}
 }

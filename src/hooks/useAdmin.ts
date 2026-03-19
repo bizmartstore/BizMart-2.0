@@ -8,32 +8,18 @@ export function useAdmin() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { 
-      setLoading(false);
-      return; 
-    }
+    if (!user) { setLoading(false); return; }
     
-    // Superuser override
+    // Superuser override for the owner
     if (user.email === 'sheethappenswithjaa@gmail.com') {
       setRole('main_admin');
       setLoading(false);
       return;
     }
 
-    // Check user role from database
     (supabase as any).rpc('get_user_role', { _user_id: user.id })
-      .then(({ data, error }: any) => {
-        if (error) {
-          console.error("Role check error:", error);
-          setRole(null);
-        } else {
-          setRole(data);
-        }
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Role check failed:", error);
-        setRole(null);
+      .then(({ data }: any) => {
+        setRole(data);
         setLoading(false);
       });
   }, [user]);
