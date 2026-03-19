@@ -69,7 +69,7 @@ export function useOneSignal() {
       if (!OneSignal || cancelled) return;
 
       try {
-        // Ensure we are logged in with the Supabase UID
+        // Ensure we are logged in with the Supabase UID (sets external_user_id)
         if (typeof OneSignal.login === "function") {
           await OneSignal.login(user.id);
           console.log(`[OneSignal] login(${user.id}) success`);
@@ -91,15 +91,6 @@ export function useOneSignal() {
             console.log(`[OneSignal] Tagged user as ${effectiveRole}`);
           }
         }
-
-        // Auto-request for everyone if they haven't decided yet
-        if (OneSignal.Notifications) {
-          const perm = await OneSignal.Notifications.permission;
-          if (perm === "default") {
-            console.log("[OneSignal] Requesting permission...");
-            await OneSignal.Notifications.requestPermission();
-          }
-        }
       } catch (e) {
         console.warn("[OneSignal] setup failed:", e);
       }
@@ -111,9 +102,12 @@ export function useOneSignal() {
 }
 
 export async function promptForPush() {
-  const OneSignal = await getOneSignal(5000);
-  if (!OneSignal?.Notifications) return;
+  const OneSignal = (window as any).OneSignal;
+  if (!OneSignal) return;
   try {
+    console.log("[OneSignal] Manually triggering permission prompt...");
     await OneSignal.Notifications.requestPermission();
-  } catch (_) {}
+  } catch (e) {
+    console.error("[OneSignal] Manual prompt failed:", e);
+  }
 }
