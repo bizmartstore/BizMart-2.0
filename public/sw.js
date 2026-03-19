@@ -4,7 +4,7 @@
  */
 importScripts("https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js");
 
-// The browser requires this file to be present and valid for PWA installation
+// Basic PWA requirements
 self.addEventListener('install', () => {
   self.skipWaiting();
 });

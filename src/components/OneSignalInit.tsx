@@ -22,26 +22,24 @@ export default function OneSignalInit() {
         await OneSignal.init({
           appId: appId,
           allowLocalhostAsSecureOrigin: true,
-          // Force the specific unified worker path
-          serviceWorkerPath: "sw.js", 
+          // Use absolute path to ensure it works from any sub-page
+          serviceWorkerPath: "/sw.js", 
           serviceWorkerParam: { scope: "/" },
           notifyButton: { enable: false },
         });
 
-        // Check current state
         const permission = OneSignal.Notifications.permission;
         const isOptedIn = await OneSignal.User.PushSubscription.optedIn;
         
-        // Fix for Mobile PWA: If permission is granted but OneSignal is 'unsubscribed',
-        // it usually means the service worker registration was lost. Force opt-in.
+        // Repair logic: If permission is granted but subscription is missing, force a re-opt-in
         if (permission === "granted" && !isOptedIn) {
-          console.log("[OneSignal] Re-syncing mobile subscription...");
+          console.log("[OneSignal] Repairing mobile subscription...");
           await OneSignal.User.PushSubscription.optIn();
         }
 
         setIsReady(true);
 
-        // Desktop auto-prompt
+        // Auto-prompt for desktop only (mobile requires the banner click)
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         if (permission === "default" && !isMobile) {
           setTimeout(() => {

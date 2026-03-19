@@ -12,10 +12,10 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      // We disable automatic SW generation so OneSignal can own the /sw.js file
-      injectRegister: "auto", 
+      // CRITICAL: Disable automatic registration. OneSignal will handle this.
+      injectRegister: false, 
       strategies: "generateSW", 
-      workbox: false, // This is the key: stop Workbox from hijacking the worker
+      workbox: false, 
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",
