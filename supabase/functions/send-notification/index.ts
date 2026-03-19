@@ -1,77 +1,63 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID");
+const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ✅ USE ENV VARIABLES (NO HARDCODED KEYS)
-const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID")!;
-const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY")!;
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { title, message, targetRole, targetUserId } = await req.json();
-
-    console.log(
-      `[send-notification] Sending: "${title}" to ${
-        targetUserId || targetRole || "all"
-      }`
-    );
-
-    const isAdminTarget = targetRole === "admin";
+    const { title, message, targetUserId, targetRole, link, icon } = await req.json();
 
     const payload: any = {
       app_id: ONESIGNAL_APP_ID,
       headings: { en: title },
       contents: { en: message },
-      android_sound: isAdminTarget
-        ? "admin_notification"
-        : "customer_notification",
-      ios_sound: isAdminTarget
-        ? "admin_notification.mp3"
-        : "customer_notification.mp3",
+      url: link, // Deep link for when the user clicks the notification
+      data: { link }, // Extra data for app logic
+      android_accent_color: "FFE8612D",
+      small_icon: "ic_stat_onesignal_default",
     };
 
+    // Targeting Logic
     if (targetUserId) {
+      // Target specific user (requires OneSignal.login(userId) in frontend)
       payload.include_external_user_ids = [targetUserId];
     } else if (targetRole === "admin") {
+      // Target all admins using OneSignal Tags
       payload.filters = [
         { field: "tag", key: "role", relation: "=", value: "main_admin" },
         { operator: "OR" },
-        { field: "tag", key: "role", relation: "=", value: "member_admin" },
+        { field: "tag", key: "role", relation: "=", value: "member_admin" }
       ];
     } else {
+      // Broadcast to everyone
       payload.included_segments = ["Subscribed Users"];
     }
 
-    const response = await fetch(
-      "https://onesignal.com/api/v1/notifications",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
-        },
-        body: JSON.stringify(payload),
-      }
-    );
-
-    const data = await response.json();
-    console.log("[send-notification] OneSignal response:", data);
-
-    return new Response(JSON.stringify({ success: true, data }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const response = await fetch("https://onesignal.com/api/v1/notifications", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
     });
-  } catch (error: any) {
-    console.error("[send-notification] Error:", error);
 
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+    const result = await response.json();
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({ error: error.message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
     });
   }
 });
