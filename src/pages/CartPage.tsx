@@ -78,7 +78,7 @@ export default function CartPage() {
       }));
 
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
-      const { error } = await (supabase as any)
+      const { data: insertedOrder, error } = await (supabase as any)
         .from("orders")
         .insert({
           user_id: user.id,
@@ -96,7 +96,10 @@ export default function CartPage() {
           customer_section: profile?.section || "",
           customer_grade_level: profile?.grade_level || "",
           customer_contact: profile?.email || "",
-        });
+          customer_name: customerName,
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
@@ -115,7 +118,7 @@ export default function CartPage() {
         }),
         notifyCustomerOrder(user.id, "placed"),
         sendTelegramOrderNotify("pending", {
-          id: "new",
+          id: insertedOrder.id,
           items: orderItems,
           customer_name: customerName,
           customer_grade_level: profile?.grade_level || "",
@@ -216,7 +219,7 @@ export default function CartPage() {
             onClick={() => setDeliveryType("pickup")}
             className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${
               deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
-            }`}
+            }`}  
           >
             <MapPin className={`h-5 w-5 ${deliveryType === "pickup" ? "text-primary" : "text-muted-foreground"}`} />
             <span className={`text-xs font-bold ${deliveryType === "pickup" ? "text-primary" : "text-muted-foreground"}`}>Pickup</span>
@@ -226,7 +229,7 @@ export default function CartPage() {
             onClick={() => setDeliveryType("delivery")}
             className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${
               deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
-            }`}
+            }`}  
           >
             <Truck className={`h-5 w-5 ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
             <span className={`text-xs font-bold ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`}>Delivery</span>
@@ -295,7 +298,7 @@ export default function CartPage() {
             disabled={!storeOpen || checkingOut}
             className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all ${
               storeOpen ? 'bg-primary text-primary-foreground shadow-md active:scale-95' : 'bg-muted text-muted-foreground'
-            }`}
+            }`}  
           >
             {checkingOut ? "Placing Order..." : "Confirm Order"}
           </button>
