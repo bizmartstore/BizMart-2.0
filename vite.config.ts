@@ -12,10 +12,10 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      // CRITICAL: Disable automatic registration. OneSignal will handle this.
-      injectRegister: false, 
-      strategies: "generateSW", 
-      workbox: false, 
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.js",
+      injectRegister: "inline",
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",
