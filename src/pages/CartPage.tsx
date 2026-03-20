@@ -96,7 +96,6 @@ export default function CartPage() {
           customer_section: profile?.section || "",
           customer_grade_level: profile?.grade_level || "",
           customer_contact: profile?.email || "",
-          customer_name: customerName,
         })
         .select()
         .single();
