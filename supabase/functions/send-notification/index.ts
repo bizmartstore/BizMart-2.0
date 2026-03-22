@@ -1,7 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const ONESIGNAL_APP_ID = Deno.env.get("ONESIGNAL_APP_ID") || "";
-const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY") || "";
+const ONESIGNAL_APP_ID = "56883e62-5aae-4486-b9c3-84e5e1db41c9";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,103 +13,90 @@ serve(async (req) => {
   }
 
   try {
-    const { title, message, targetUserId, targetRole, link, icon = "🔔" } = await req.json();
-
-    if (!title || !message) {
-      throw new Error("Missing required fields: title and message");
+    const ONESIGNAL_REST_API_KEY = Deno.env.get("ONESIGNAL_REST_API_KEY");
+    if (!ONESIGNAL_REST_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Missing ONESIGNAL_REST_API_KEY" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // 1. Log to database first (best effort, don't fail if this errors)
-    try {
-      const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-      const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-      const supabase = await import("https://esm.sh/@supabase/supabase-js@2");
-      const client = new supabase.createClient(supabaseUrl, supabaseKey);
-      
-      await client.from("notification_logs").insert({
-        user_id: targetUserId || null,
-        target_role: targetRole || null,
-        title,
-        message,
-        type: "system",
-        link,
-        icon,
-      });
-    } catch (dbError) {
-      console.error("[Notification] DB log failed:", dbError);
-      // Continue with push notification even if DB log fails
+    const body = await req.json();
+    const { title, message, targetRole, targetUserId } = body;
+
+    const isAdmin = targetRole === "admin";
+
+    // Safety: Ensure external_user_id is provided for single-user notification
+    if (!isAdmin && targetUserId?.trim() === "") {
+      return new Response(
+        JSON.stringify({ error: "targetUserId is required for customer notifications" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // 2. Prepare OneSignal payload
+    // Build payload
     const payload: any = {
       app_id: ONESIGNAL_APP_ID,
-      headings: { en: title },
-      contents: { en: message },
-      data: { 
-        link,
-        type: "notification",
-        timestamp: new Date().toISOString()
-      },
-      // Android/iOS specific
+      headings: { en: title || (isAdmin ? "Admin Notification" : "Customer Notification") },
+      contents: { en: message || "You have a new notification" },
+      android_sound: isAdmin ? "admin_notification" : "customer_notification",
+      ios_sound: isAdmin ? "admin_notification" : "customer_notification", // Removed .mp3 extension for iOS
       android_channel_id: "bizmart-notifications",
-      android_priority: 10,
-      ios_sound: "default",
-      ios_badgeType: "Increase",
-      ios_badgeCount: 1,
     };
 
-    // 3. Targeting Logic
+    // --- Targeting ---
     if (targetUserId) {
-      // Target specific user by their Supabase ID (external_user_id)
+      // Send ONLY to this user
       payload.include_external_user_ids = [targetUserId];
-    } else if (targetRole) {
-      // Target users with specific role tag
+      console.log(`[send-notification] Sending to user: ${targetUserId}`);
+    } else if (isAdmin) {
+      // Send to all admins via role tags
       payload.filters = [
-        { field: "tag", key: "role", relation: "==", value: targetRole }
+        { field: "tag", key: "role", relation: "=", value: "main_admin" },
+        { operator: "OR" },
+        { field: "tag", key: "role", relation: "=", value: "member_admin" },
       ];
+      console.log("[send-notification] Sending to admins via tags");
     } else {
-      // Broadcast to all subscribed users
+      // Safety fallback: send to all subscribers (optional)
       payload.included_segments = ["Subscribed Users"];
+      console.log("[send-notification] Sending to all subscribers");
     }
 
-    // 4. Send to OneSignal
-    const response = await fetch("https://api.onesignal.com/notifications", {
+    console.log("[send-notification] Payload:", JSON.stringify(payload, null, 2));
+
+    // Send notification
+    const response = await fetch("https://onesignal.com/api/v1/notifications", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`,
+        Authorization: `Basic ${ONESIGNAL_REST_API_KEY}`,
       },
       body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
-    
-    if (!response.ok) {
-      console.error("[OneSignal Error]", result);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: result.errors || result.message || "OneSignal API error",
-        details: result 
-      }), { 
-        status: response.status, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
-      });
+    const data = await response.json();
+
+    // Check for OneSignal errors: if no id, then error
+    if (!data.id) {
+      const errorMsg = data.errors ? data.errors.join(', ') : 'OneSignal returned no notification ID';
+      console.error("[send-notification] OneSignal error:", errorMsg);
+      return new Response(
+        JSON.stringify({ success: false, error: errorMsg }),
+        { 
+          status: 500, 
+          headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        }
+      );
     }
 
-    return new Response(JSON.stringify({ 
-      success: true, 
-      result: result,
-      recipients: targetUserId ? 1 : "all"
-    }), {
+    console.log("[send-notification] OneSignal success:", data);
+    return new Response(JSON.stringify({ success: true, data }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-
   } catch (error) {
-    console.error("[Send Notification] Error:", error);
-    return new Response(JSON.stringify({ 
-      success: false, 
-      error: error.message || "Unknown error" 
-    }), {
+    console.error("[send-notification] Error:", error);
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
