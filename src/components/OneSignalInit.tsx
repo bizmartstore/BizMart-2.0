@@ -1,49 +1,88 @@
-import { useEffect, useRef, useState } from "react";
-import { useAuth } from "../context/AuthContext"; // adjust path to your auth context
+import { useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext";
+
+declare global {
+  interface Window {
+    OneSignal: any;
+  }
+}
 
 export default function OneSignalInit() {
-  const { user } = useAuth(); // assume user object has id and role
-  const [isReady, setIsReady] = useState(false);
-  const initAttempted = useRef(false);
+  const { user } = useAuth();
+  const initialized = useRef(false);
 
+  // ✅ LOAD + INIT ONCE
   useEffect(() => {
-    if (initAttempted.current) return;
-    initAttempted.current = true;
+    if (initialized.current) return;
+    initialized.current = true;
 
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
+
     script.onload = () => {
       console.log("[OneSignal] SDK loaded");
-      setIsReady(true);
+
+      window.OneSignal = window.OneSignal || [];
+
+      window.OneSignal.push(async () => {
+        try {
+          await window.OneSignal.init({
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+            allowLocalhostAsSecureOrigin: true,
+          });
+
+          console.log("[OneSignal] Initialized");
+
+          // ✅ Ask permission if not subscribed
+          const optedIn =
+            await window.OneSignal.User.PushSubscription.getOptedIn();
+
+          if (!optedIn) {
+            console.log("[OneSignal] Showing prompt...");
+            await window.OneSignal.showSlidedownPrompt();
+          }
+
+        } catch (err) {
+          console.error("[OneSignal] Init error:", err);
+        }
+      });
     };
-    script.onerror = () => console.error("[OneSignal] SDK load error");
+
     document.head.appendChild(script);
   }, []);
 
+  // ✅ LOGIN USER (SEPARATE EFFECT)
   useEffect(() => {
-    if (!isReady || !window.OneSignal) return;
+    if (!user?.id || !window.OneSignal) return;
 
-    const OneSignal = window.OneSignal || [];
+    window.OneSignal.push(async () => {
+      try {
+        // ✅ Ensure user is subscribed first
+        const optedIn =
+          await window.OneSignal.User.PushSubscription.getOptedIn();
 
-    OneSignal.init({
-      appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-      allowLocalhostAsSecureOrigin: true,
-      autoSubscribe: false,
+        if (!optedIn) {
+          console.log("[OneSignal] Not subscribed yet, skipping login");
+          return;
+        }
+
+        // ✅ NEW METHOD (v16)
+        await window.OneSignal.login(user.id.toString());
+
+        console.log("[OneSignal] External ID set:", user.id);
+
+        // ✅ TAGS
+        if (user.role === "admin") {
+          await window.OneSignal.User.addTag("role", "admin");
+          console.log("[OneSignal] Admin tag set");
+        }
+
+      } catch (err) {
+        console.error("[OneSignal] Login error:", err);
+      }
     });
-
-    // Only set external user ID after login
-    if (user?.id) {
-      OneSignal.setExternalUserId(user.id);
-      console.log("[OneSignal] External user ID set:", user.id);
-    }
-
-    // Set admin tag if user is admin
-    if (user?.role === "admin") {
-      OneSignal.sendTags({ role: user.role });
-      console.log("[OneSignal] Admin tag set:", user.role);
-    }
-  }, [isReady, user]);
+  }, [user]);
 
   return null;
 }
