@@ -18,6 +18,8 @@ interface NotifyParams {
 export async function triggerNotification(params: NotifyParams) {
   const { title, message, type, userId, targetRole, link, icon = "🔔" } = params;
 
+  console.log(`[Notification] Triggering: ${title}`, { userId, targetRole, type });
+
   // 1. Log to Database (best effort - don't block if this fails)
   try {
     await (supabase as any).from("notification_logs").insert({
@@ -29,6 +31,7 @@ export async function triggerNotification(params: NotifyParams) {
       link,
       icon,
     });
+    console.log("[Notification] DB log successful");
   } catch (dbError) {
     console.error("[Notification] DB log failed:", dbError);
     // Continue with push notification even if DB log fails
@@ -88,10 +91,13 @@ async function fallbackOneSignalPush(
 
     if (userId) {
       payload.include_external_user_ids = [userId];
+      console.log(`[OneSignal Fallback] Targeting user ID: ${userId}`);
     } else if (targetRole) {
       payload.filters = [{ field: "tag", key: "role", relation: "==", value: targetRole }];
+      console.log(`[OneSignal Fallback] Targeting role: ${targetRole}`);
     } else {
       payload.included_segments = ["Subscribed Users"];
+      console.log("[OneSignal Fallback] Targeting all subscribers");
     }
 
     const response = await fetch("https://api.onesignal.com/notifications", {
@@ -103,8 +109,12 @@ async function fallbackOneSignalPush(
       body: JSON.stringify(payload),
     });
 
+    const result = await response.json();
+    
     if (!response.ok) {
-      console.error("[OneSignal Fallback] Failed:", await response.json());
+      console.error("[OneSignal Fallback] Failed:", result);
+    } else {
+      console.log("[OneSignal Fallback] Success:", result);
     }
   } catch (e) {
     console.error("[OneSignal Fallback] Error:", e);

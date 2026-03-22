@@ -46,6 +46,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Fetch user role
+  const fetchUserRole = async (userId: string) => {
+    try {
+      const { data } = await (supabase as any).rpc('get_user_role', { _user_id: userId });
+      return data;
+    } catch (err) {
+      console.error("[AuthContext] Role fetch error:", err);
+      return null;
+    }
+  };
+
   useEffect(() => {
     // Check if we need to clear session due to project change
     const currentProjectUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -68,7 +79,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          fetchProfile(session.user.id);
+          // Fetch profile and role in parallel
+          await Promise.all([
+            fetchProfile(session.user.id),
+            fetchUserRole(session.user.id).then(role => {
+              // Attach role to user object for OneSignal
+              if (session.user && role) {
+                session.user.role = role;
+              }
+            })
+          ]);
         } else {
           setProfile(null);
         }
@@ -84,7 +104,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        Promise.all([
+          fetchProfile(session.user.id),
+          fetchUserRole(session.user.id).then(role => {
+            if (session.user && role) {
+              session.user.role = role;
+            }
+          })
+        ]);
       }
       setLoading(false);
     });

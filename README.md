@@ -60,6 +60,33 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## OneSignal Push Notifications Setup
+
+This project uses OneSignal Web SDK v16 for push notifications.
+
+### Environment Variables
+
+Set these in your `.env` file:
+
+```
+VITE_ONESIGNAL_APP_ID=your_app_id
+VITE_ONESIGNAL_REST_API_KEY=your_rest_api_key
+```
+
+### Configuration
+
+- OneSignal is initialized once on app load via `OneSignalProvider`
+- External ID is set using `OneSignal.login(user.id)` after authentication
+- Service worker conflicts are resolved by disabling Vite PWA service worker
+- Push notifications target users via `include_external_user_ids`
+
+### Troubleshooting
+
+1. **"No recipients" error**: Ensure user has logged in and External ID is set in OneSignal dashboard
+2. **SDK already initialized**: Only one instance of OneSignalProvider should exist
+3. **Service worker conflicts**: Vite PWA service worker is disabled; OneSignal handles its own SW
+4. **Mobile push not working**: Ensure PWA is installed and HTTPS is used
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
