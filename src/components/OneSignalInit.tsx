@@ -15,14 +15,15 @@ export default function OneSignalInit() {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
-    // Load SDK
+    // Load OneSignal SDK
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
+
     script.onload = () => {
       console.log("[OneSignal] SDK loaded");
 
-      // Ensure OneSignal exists and use push queue
+      // Ensure OneSignal exists and push commands
       window.OneSignal = window.OneSignal || [];
       window.OneSignal.push(() => {
         try {
@@ -30,21 +31,30 @@ export default function OneSignalInit() {
           window.OneSignal.init({
             appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
             allowLocalhostAsSecureOrigin: true,
-            autoRegister: false,
+            autoRegister: false, // prevent auto-subscribe
           });
 
           console.log("[OneSignal] SDK initialized");
 
-          // Set external user ID for this logged-in user
-          if (user?.id) {
-            window.OneSignal.setExternalUserId(
-              user.id.toString(),
-              () => console.log("[OneSignal] ExternalUserId set:", user.id),
-              (err: any) => console.error("[OneSignal] Failed to set ExternalUserId:", err)
-            );
-          }
+          // Prompt user to subscribe if not already
+          window.OneSignal.isPushNotificationsEnabled((enabled: boolean) => {
+            if (!enabled) {
+              window.OneSignal.showSlidedownPrompt(); // Show subscription prompt
+            }
+          });
 
-          // If user is admin, set a tag
+          // Set external user ID **after subscription**
+          window.OneSignal.on("subscriptionChange", (isSubscribed: boolean) => {
+            if (isSubscribed && user?.id) {
+              window.OneSignal.setExternalUserId(
+                user.id.toString(),
+                () => console.log("[OneSignal] ExternalUserId set:", user.id),
+                (err: any) => console.error("[OneSignal] Failed to set ExternalUserId:", err)
+              );
+            }
+          });
+
+          // Set admin tag immediately if user is admin
           if (user?.role === "admin") {
             window.OneSignal.sendTags(
               { role: user.role },
