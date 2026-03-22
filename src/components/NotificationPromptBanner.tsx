@@ -7,17 +7,8 @@ export default function NotificationPromptBanner() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Check if OneSignal is available and permission is default
-      if (window.OneSignal) {
-        window.OneSignal.User.PushSubscription.getOptedIn()
-          .then((isSubscribed: boolean) => {
-            if (!isSubscribed) {
-              setVisible(true);
-            }
-          })
-          .catch(() => setVisible(true));
-      } else {
-        // Fallback: show banner after 3 seconds if OneSignal not ready
+      const OneSignal = (window as any).OneSignal;
+      if (OneSignal && OneSignal.Notifications.permission === "default") {
         setVisible(true);
       }
     }, 3000);
@@ -26,12 +17,15 @@ export default function NotificationPromptBanner() {
 
   const handleAllow = async () => {
     setVisible(false);
-    if (window.OneSignal) {
-      try {
-        await window.OneSignal.showSlidedownPrompt();
-      } catch (e) {
-        console.warn("OneSignal prompt failed:", e);
-      }
+    const OneSignal = (window as any).OneSignal;
+    if (!OneSignal) return;
+
+    try {
+      // This click is the 'User Gesture' required by mobile browsers
+      await OneSignal.Slidedown.promptPush();
+    } catch (e) {
+      // Fallback to native if slidedown is blocked
+      await OneSignal.Notifications.requestPermission();
     }
   };
 

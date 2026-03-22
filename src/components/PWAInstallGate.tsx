@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Download, Smartphone, Share, Plus, CheckCircle, MoreVertical } from "lucide-react";
 import bizMartLogo from "@/assets/bizmart-install-logo.png";
 
@@ -19,6 +19,10 @@ function isInAppBrowser(): boolean {
   return /FBAN|FBAV|FB_IAB|FBIOS|FB4A|Messenger|Instagram|Line|MicroMessenger|Snapchat|TikTok/i.test(ua);
 }
 
+function isAndroid(): boolean {
+  return /Android/i.test(navigator.userAgent);
+}
+
 export default function PWAInstallGate({ children }: { children: React.ReactNode }) {
   const [installed, setInstalled] = useState(true);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -26,72 +30,51 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
   const [showManualGuide, setShowManualGuide] = useState(false);
   const [inAppBrowser, setInAppBrowser] = useState(false);
   const [copied, setCopied] = useState(false);
-  const promptCalledRef = useRef(false);
+  const [promptReady, setPromptReady] = useState(false);
 
   useEffect(() => {
     if (isStandalone()) {
-      console.log("[PWA] App is running in standalone mode");
       setInstalled(true);
       return;
     }
     setInstalled(false);
-    
     if (isInAppBrowser()) {
-      console.log("[PWA] Running in in-app browser, showing manual guide");
       setInAppBrowser(true);
       return;
     }
-
     const handler = (e: Event) => {
       e.preventDefault();
-      console.log("[PWA] beforeinstallprompt event captured");
-      setDeferredPrompt(e as any);
-      promptCalledRef.current = false;
+      setDeferredPrompt(e);
+      setPromptReady(true);
     };
-
     window.addEventListener("beforeinstallprompt", handler);
-    
-    const appInstalledHandler = () => {
-      console.log("[PWA] App installed event received");
+    window.addEventListener("appinstalled", () => {
       setInstalled(true);
       setDeferredPrompt(null);
+      // Clear dismissed announcement so it shows fresh after install
       localStorage.removeItem('dismissed_announcement');
-    };
-    window.addEventListener("appinstalled", appInstalledHandler);
-
-    return () => {
-      window.removeEventListener("beforeinstallprompt", handler);
-      window.removeEventListener("appinstalled", appInstalledHandler);
-    };
+    });
+    return () => { window.removeEventListener("beforeinstallprompt", handler); };
   }, []);
 
   const handleInstall = async () => {
-    if (!deferredPrompt || promptCalledRef.current) {
-      console.log("[PWA] No deferred prompt or already called, showing manual guide");
-      setShowManualGuide(true);
-      return;
-    }
-
-    promptCalledRef.current = true;
-    setInstalling(true);
-    
-    try {
-      console.log("[PWA] Calling prompt() on deferredPrompt");
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`[PWA] User choice: ${outcome}`);
-      if (outcome === "accepted") {
-        setInstalled(true);
-      } else {
-        // User dismissed, show manual guide after a delay
-        setTimeout(() => setShowManualGuide(true), 1000);
+    if (deferredPrompt) {
+      setInstalling(true);
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === "accepted") setInstalled(true);
+      } catch (err) {
+        console.warn("Install prompt failed:", err);
+        // Show manual guide as fallback
+        setShowManualGuide(true);
       }
-    } catch (err) {
-      console.error("[PWA] Install prompt failed:", err);
-      setShowManualGuide(true);
-    } finally {
       setDeferredPrompt(null);
+      setPromptReady(false);
       setInstalling(false);
+    } else {
+      // No deferred prompt available - show manual guide
+      setShowManualGuide(true);
     }
   };
 
@@ -181,7 +164,7 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
             {!showManualGuide && (
               <button
                 onClick={handleInstall}
-                disabled={installing || !deferredPrompt}
+                disabled={installing}
                 className="w-full flex items-center justify-center gap-2.5 bg-primary text-primary-foreground font-bold text-sm py-4 px-6 rounded-2xl shadow-lg active:scale-[0.97] transition-all disabled:opacity-60"
               >
                 {installing ? (
@@ -226,12 +209,6 @@ export default function PWAInstallGate({ children }: { children: React.ReactNode
                     </div>
                   </div>
                 </div>
-                <button
-                  onClick={() => setShowManualGuide(false)}
-                  className="w-full text-xs text-primary font-bold py-2"
-                >
-                  ← Try automatic install again
-                </button>
               </div>
             )}
 

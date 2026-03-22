@@ -5,9 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="theme-color" content="#e8612d" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
-    <link rel="manifest" href="/manifest.json" />
     <title>BizMart - Campus Store</title>
     
+    <!-- 1. Load OneSignal SDK with defer to prevent blocking -->
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+    <script>
+      // 2. Initialize the deferred array to queue commands safely
+      window.OneSignalDeferred = window.OneSignalDeferred || [];
+    </script>
+
     <meta name="author" content="Lovable" />
     <meta property="og:type" content="website" />
     <meta property="og:title" content="BizMart - Campus Store">

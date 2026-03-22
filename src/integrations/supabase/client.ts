@@ -1,15 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-// Use import.meta.env with fallback to prevent Invalid supabaseUrl errors
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://default-project.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.error('[Supabase] Missing required environment variables. Using placeholder values.');
+  console.error("Supabase environment variables are missing! Check your .env file or Vercel settings.");
 }
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL || '', SUPABASE_PUBLISHABLE_KEY || '', {
   auth: {
     storage: localStorage,
     persistSession: true,

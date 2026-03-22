@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWAInstallGate from "@/components/PWAInstallGate";
-import OneSignalProvider from "@/components/OneSignalProvider";
+import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 
 // Import all pages
@@ -36,6 +36,7 @@ import NotFound from "@/pages/NotFound";
 
 // Import components
 import SplashScreen from "@/components/SplashScreen";
+import OneSignalInit from "@/components/OneSignalInit";
 
 const queryClient = new QueryClient();
 
@@ -53,7 +54,8 @@ function App() {
           <TooltipProvider>
             <PWAInstallGate>
               {!splashDone && <SplashScreen onFinished={handleSplashFinished} />}
-              <OneSignalProvider />
+              <OneSignalInit />
+              <PWARegister />
               <Toaster />
               <Sonner />
               <BrowserRouter>
