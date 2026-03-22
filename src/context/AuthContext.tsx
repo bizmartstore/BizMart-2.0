@@ -12,7 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
-  role: string;
+  role: string; // ✅ role field (default "customer")
 }
 
 interface AuthContextType {
