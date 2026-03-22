@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { useAuth } from "../context/AuthContext"; // adjust path to your auth context
+import { useAuth } from "@/context/AuthContext";
 
 export default function OneSignalInit() {
-  const { user } = useAuth(); // assume user object has id and role
+  const { user } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const initAttempted = useRef(false);
+  const oneSignalInitialized = useRef(false);
 
+  // Load OneSignal script
   useEffect(() => {
     if (initAttempted.current) return;
     initAttempted.current = true;
@@ -21,29 +23,56 @@ export default function OneSignalInit() {
     document.head.appendChild(script);
   }, []);
 
-  useEffect(() => {
+  // Initialize OneSignal and set user data when ready  useEffect(() => {
     if (!isReady || !window.OneSignal) return;
 
-    const OneSignal = window.OneSignal || [];
+    // Initialize only once
+    if (oneSignalInitialized.current) return;
+    oneSignalInitialized.current = true;
 
-    OneSignal.init({
+    window.OneSignal.init({
       appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
       allowLocalhostAsSecureOrigin: true,
       autoSubscribe: false,
     });
 
-    // Only set external user ID after login
+    // Set external user ID if available
     if (user?.id) {
-      OneSignal.setExternalUserId(user.id);
-      console.log("[OneSignal] External user ID set:", user.id);
+      window.OneSignal.setExternalUserId(user.id);
+      console.log(`[OneSignal] External user ID set: ${user.id}`);
     }
 
     // Set admin tag if user is admin
     if (user?.role === "admin") {
-      OneSignal.sendTags({ role: user.role });
-      console.log("[OneSignal] Admin tag set:", user.role);
+      window.OneSignal.sendTags({ role: user.role });
+      console.log(`[OneSignal] Admin tag set: ${user.role}`);
     }
   }, [isReady, user]);
+
+  // Update external user ID and tags when user changes (after initialization)
+  useEffect(() => {
+    if (!isReady || !window.OneSignal || !oneSignalInitialized.current) return;
+
+    // Update external user ID
+    if (user?.id) {
+      window.OneSignal.setExternalUserId(user.id);
+      console.log(`[OneSignal] External user ID updated: ${user.id}`);
+    } else {
+      // If no user, remove external user ID
+      window.OneSignal.removeExternalUserId();
+      console.log("[OneSignal] External user ID removed");
+    }
+
+    // Update admin tag
+    if (user?.role === "admin") {
+      window.OneSignal.sendTags({ role: user.role });
+      console.log(`[OneSignal] Admin tag updated: ${user.role}`);
+    } else {
+      // Remove admin tag if not admin
+      window.OneSignal.sendTags({ role: "" });
+      console.log("[OneSignal] Admin tag removed");
+    }
+  }, [user]);
 
   return null;
 }
