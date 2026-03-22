@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 
+// Declare OneSignal interface
+declare global {
+  interface Window {
+    OneSignal: any;
+  }
+}
+
 export default function OneSignalInit() {
   const { user } = useAuth();
   const [isReady, setIsReady] = useState(false);
@@ -59,7 +66,8 @@ export default function OneSignalInit() {
       console.log("[OneSignal] External user ID removed");
     }
 
-    // Update admin tag    if (user?.role === "admin") {
+    // Update admin tag
+    if (user?.role === "admin") {
       window.OneSignal.sendTags({ role: user.role });
       console.log(`[OneSignal] Admin tag updated: ${user.role}`);
     } else {
