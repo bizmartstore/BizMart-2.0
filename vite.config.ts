@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "path";
 
-export default defineConfig(({ mode }) => ({
+export default defineConfig(() => ({
   server: {
     host: "::",
     port: 8080,
@@ -12,10 +12,9 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     VitePWA({
-      strategies: "injectManifest",
-      srcDir: "src",
-      filename: "sw.js",
+      registerType: "autoUpdate",
       injectRegister: "inline",
+      strategies: "generateSW",
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",
@@ -40,9 +39,8 @@ export default defineConfig(({ mode }) => ({
     }),
   ],
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
-  },
-  optimizeDeps: {
-    include: ["workbox-window"],
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
   },
 }));
