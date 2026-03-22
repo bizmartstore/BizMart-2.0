@@ -27,4 +27,6 @@ export default function OneSignalInit() {
       autoSubscribe: false,
     });
   }, [isReady]);
+
+  return null;
 }
