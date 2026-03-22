@@ -23,7 +23,8 @@ export default function OneSignalInit() {
     document.head.appendChild(script);
   }, []);
 
-  // Initialize OneSignal and set user data when ready  useEffect(() => {
+  // Initialize OneSignal and set user data when ready
+  useEffect(() => {
     if (!isReady || !window.OneSignal) return;
 
     // Initialize only once
