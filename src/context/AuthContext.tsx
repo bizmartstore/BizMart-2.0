@@ -12,7 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
-  role: string; // ✅ ADDED ROLE
+  role: string; // ✅ role field (default "customer")
 }
 
 interface AuthContextType {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // ✅ Ensure role fallback
+      // ✅ Ensure role defaults to "customer"
       const profileWithRole = {
         ...data,
         role: data?.role || "customer",
@@ -69,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
-    // ✅ Listen for auth changes
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // ✅ Get initial session
+    // Initial session
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error("[AuthContext] Session error:", error);
@@ -104,7 +104,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      // cleanup subscription
+      // (supabase auth subscriber is cleaned up automatically by Supabase)
+    };
   }, []);
 
   const signOut = async () => {

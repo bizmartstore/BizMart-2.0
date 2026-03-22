@@ -1,30 +1,19 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+
+declare global {
+  interface Window {
+    OneSignal: any;
+  }
+}
 
 /**
- * OneSignalInit – Place this component at the top level of your app
- * (e.g. inside <AuthProvider> before any routing) so it runs once
- * for the whole application.
- *
- * What it does:
- * 1️⃣ Loads the OneSignal SDK exactly once.
- * 2️⃣ Waits until the SDK reports that the internal user object is ready.
- * 3️⃣ Checks the subscription status on **both** desktop and mobile.
- * 4️⃣ Calls `OneSignal.login(userId)` for **every** authenticated user,
- *    even if they haven’t clicked “Allow” yet (push will work only after
- *    they grant permission).
- * 5️⃣ Prompts users who are not subscribed with the Slidedown prompt.
- * 6️⃣ Assigns role tags (`admin`, `user`) based on the Supabase user object.
- * 7️⃣ Exposes debugging logs: subscription state, OneSignal player‑ID,
- *    External ID, and role tags.
- *
- * Usage:
- *   <AuthProvider>
- *     <OneSignalInit />
- *     {/* the rest of your app */}</AuthProvider>
+ * OneSignalInit – Handles the OneSignal SDK lifecycle.
+ * Must be placed inside <AuthProvider> so that a user is available.
  */
 export default function OneSignalInit() {
-  const { user } = useAuth(); // Supabase user object (null when not signed‑in)
+  const { user, profile } = useAuth();
   const [isInitialized, setIsInitialized] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [playerId, setPlayerId] = useState<string | null>(null);
@@ -33,39 +22,34 @@ export default function OneSignalInit() {
   const scriptLoadedRef = useRef(false);
   const loginAttemptedRef = useRef(false);
 
-  /** --------------------------------------------------------------
-   * 1️⃣ Load the OneSignal SDK script exactly once
-   * -------------------------------------------------------------- */
+  // --------------------------------------------------------------
+  // 1️⃣ Load the OneSignal SDK script exactly once
+  // --------------------------------------------------------------
   const loadSDK = useCallback(() => {
-    if (scriptLoadedRef.current) return Promise.resolve();
+    if (scriptLoadedRef.current) return;
+    const script = document.createElement("script");
+    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
+    script.async = true;
 
-    return new Promise<void>((resolve, reject) => {
-      const script = document.createElement("script");
-      script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-      script.async = true;
-
-      script.onload = () => {
-        scriptLoadedRef.current = true;
-        console.log("[OneSignal] SDK script loaded");
-        resolve();
-      };
-      script.onerror = () => {
-        console.error("[OneSignal] Failed to load SDK");
-        reject(new Error("OneSignal SDK load error"));
-      };
-      document.head.appendChild(script);
-    });
+    script.onload = () => {
+      scriptLoadedRef.current = true;
+      console.log("[OneSignal] SDK script loaded");
+    };
+    script.onerror = () => {
+      console.error("[OneSignal] Failed to load SDK");
+    };
+    document.head.appendChild(script);
   }, []);
 
-  /** --------------------------------------------------------------
-   * 2️⃣ Initialise OneSignal – runs only once
-   * -------------------------------------------------------------- */
+  // --------------------------------------------------------------
+  // 2️⃣ Initialise OneSignal – runs only once
+  // --------------------------------------------------------------
   const initializeOneSignal = useCallback(async () => {
     if (initializedRef.current) return;
     initializedRef.current = true;
 
     try {
-      // Wait for the global `OneSignal` object to exist
+      // Wait for the global `OneSignal` object
       const waitForOneSignal = () =>
         new Promise<void>((resolve) => {
           const check = () => {
@@ -75,18 +59,15 @@ export default function OneSignalInit() {
               requestAnimationFrame(check);
             }
           };
-          check();
-        });
+        check();
+      });
 
       await waitForOneSignal();
 
-      // -----------------------------------------------------------------
-      // Core OneSignal configuration
-      // -----------------------------------------------------------------
       await window.OneSignal.init({
         appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
         allowLocalhostAsSecureOrigin: true,
-        autoSubscribe: false, // we will handle subscription manually
+        autoSubscribe: false,
         promptOptions: {
           actionMessage: "Enable notifications to receive order updates",
           acceptButtonText: "Allow",
@@ -94,73 +75,29 @@ export default function OneSignalInit() {
         },
       });
 
-      console.log("[OneSignal] Initialized");
+      console.log("[OneSignal] SDK initialized");
 
-      // -----------------------------------------------------------------
-      // 3️⃣ Check subscription status (desktop auto‑subscribed users are
-      //    reported as subscribed by the SDK)
-      // -----------------------------------------------------------------
-      const optedIn = await window.OneSignal.User.PushSubscription.getOptedIn();
-      setIsSubscribed(optedIn);
-      console.log("[OneSignal] Subscription status:", optedIn ? "subscribed" : "not subscribed");
-
-      // -----------------------------------------------------------------      // 4️⃣ Get the player ID – useful for debugging / fallback sends
-      // -----------------------------------------------------------------
-      try {
-        const pid = await window.OneSignal.User.PushSubscription.getId();
-        setPlayerId(pid);
-        console.log("[OneSignal] Player ID:", pid || "null");
-      } catch (e) {
-        console.warn("[OneSignal] Could not fetch player ID:", e);
-      }
-
-      // -----------------------------------------------------------------
-      // 5️⃣ If the user is **not** subscribed, show the prompt.
-      //    This works on both desktop and mobile.
-      // -----------------------------------------------------------------
-      if (!optedIn && !hasPrompted) {
-        console.log("[OneSignal] User not subscribed – showing prompt");
-        try {
-          await window.OneSignal.showSlidedownPrompt();
-          setHasPrompted(true);
-          // Re‑check subscription after the user interacts with the prompt
-          const newlySubscribed = await window.OneSignal.User.PushSubscription.getOptedIn();
-          setIsSubscribed(newlySubscribed);
-          console.log("[OneSignal] Subscription updated after prompt:", newlySubscribed);
-        } catch (e) {
-          console.warn("[OneSignal] Prompt failed or was dismissed:", e);
-        }
-      }
-
-      // -----------------------------------------------------------------
-      // 6️⃣ **Always** set the External ID – this is safe even if the
-      //    user isn’t subscribed yet.  It enables your Edge Function to
-      //    target the user via `include_external_user_ids`.
-      // -----------------------------------------------------------------
+      // -------------------------------------------------------------
+      // 3️⃣ Set the External ID (always safe, even if not subscribed)
+      // -------------------------------------------------------------
       if (user?.id) {
         await window.OneSignal.login(user.id.toString());
-        console.log(`[OneSignal] External ID set to ${user.id}`);
+        console.log(`[OneSignal] External ID set: ${user.id}`);
 
-        // -----------------------------------------------------------------
-        // 7️⃣ Tag the user based on Supabase role (admin / user)
-        // -----------------------------------------------------------------
-        const role = user.role; // assuming you store the role in `user.role`
-        if (role === "admin" || role === "member_admin" || role === "main_admin") {
-          await window.OneSignal.User.addTag("role", "admin");
-          console.log("[OneSignal] Tag 'admin' added");
-        } else {
-          await window.OneSignal.User.addTag("role", "user");
-          console.log("[OneSignal] Tag 'user' added");
-        }
+        // Add a role tag based on the profile role
+        const role = profile?.role || "customer";
+        const tagValue = role === "main_admin" || role === "member_admin" ? "admin" : "user";
+        await window.OneSignal.User.addTag("role", tagValue);
+        console.log(`[OneSignal] Tag '${tagValue}' added for role '${role}'`);
       }
     } catch (err) {
       console.error("[OneSignal] Initialization error:", err);
     }
-  }, [user, hasPrompted]);
+  }, [user, profile]);
 
-  /** --------------------------------------------------------------
-   * 7️⃣ Effect: load SDK → init OneSignal
-   * -------------------------------------------------------------- */
+  // --------------------------------------------------------------
+  // 3️⃣ Effect: load SDK → initialise OneSignal
+  // --------------------------------------------------------------
   useEffect(() => {
     let mounted = true;
     const init = async () => {
@@ -176,27 +113,55 @@ export default function OneSignalInit() {
     return () => {
       mounted = false;
     };
-  }, [loadSDK, initializeOneSignal, user]);
+  }, [loadSDK, initializeOneSignal, user, profile]);
 
-  /** --------------------------------------------------------------
-   * 8️⃣ Effect: react to Supabase user changes (login / logout)
-   * -------------------------------------------------------------- */
+  // --------------------------------------------------------------
+  // 4️⃣ Prompt for subscription if not yet prompted
+  // --------------------------------------------------------------
   useEffect(() => {
-    // Whenever the Supabase user object changes, re‑run the init flow.
-    // This safely handles login → logout transitions without duplicate
-    // SDK loads.
-    initializeOneSignal();
-  }, [user]);
+    if (!initializedRef.current || !user) return;
+    const maybePrompt = async () => {
+      const optedIn = await window.OneSignal.User.PushSubscription.getOptedIn();
+      setIsSubscribed(optedIn);
+      if (!optedIn && !hasPrompted) {
+        try {
+          await window.OneSignal.showSlidedownPrompt();
+          setHasPrompted(true);
+          const newlyOptedIn = await window.OneSignal.User.PushSubscription.getOptedIn();
+          setIsSubscribed(newlyOptedIn);
+        } catch (e) {
+          console.warn("[OneSignal] Prompt failed:", e);
+        }
+      }
+    };
+    maybePrompt();
+  }, [hasPrompted, user]);
 
-  /** --------------------------------------------------------------
-   * 9️⃣ Expose a logout helper for components that need it
-   * -------------------------------------------------------------- */
+  // --------------------------------------------------------------
+  // 5️⃣ Get player ID for debugging
+  // --------------------------------------------------------------
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    const getPlayerId = async () => {
+      try {
+        const pid = await window.OneSignal.User.PushSubscription.getId();
+        setPlayerId(pid);
+        console.log("[OneSignal] Player ID:", pid);
+      } catch (e) {
+        console.warn("[OneSignal] Could not fetch player ID:", e);
+      }
+    };
+    getPlayerId();
+  }, []);
+
+  // --------------------------------------------------------------
+  // 6️⃣ Cleanup on unmount
+  // --------------------------------------------------------------
   const logout = useCallback(async () => {
     if (window.OneSignal) {
       try {
         await window.OneSignal.logout();
-        console.log("[OneSignal] Manual logout performed");
-        loginAttemptedRef.current = false;
+        console.log("[OneSignal] Logged out");
       } catch (e) {
         console.error("[OneSignal] Logout error:", e);
       }
