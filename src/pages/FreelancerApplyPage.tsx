@@ -11,7 +11,7 @@ import { ArrowLeft, GraduationCap, BookOpen, Award, CheckCircle2 } from "lucide-
 import { toast } from "sonner";
 
 export default function FreelancerApplyPage() {
-  const { user, profile } = useAuth();
+  const { user, profile } = useAuth();               // ✅ Get profile
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -31,7 +31,7 @@ export default function FreelancerApplyPage() {
       const { error } = await (supabase as any).from("freelancer_profiles").insert({
         user_id: user.id,
         academic_strengths: form.academic_strengths.trim(),
-        subjects: form.subjects.split(",").map(s => s.trim()),
+        subjects: form.subjects.split(",").map((s) => s.trim()),
         experience: form.experience.trim(),
         bio: form.bio.trim(),
         status: "pending",
@@ -64,73 +64,57 @@ export default function FreelancerApplyPage() {
           </Button>
         </div>
       </div>
-    );
-  }
-
+    </div>
+  );
   return (
     <div className="min-h-screen bg-background pb-12">
-      <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-        <button onClick={() => navigate(-1)} className="p-1.5">
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <span className="font-bold text-sm ml-2">Become a Freelancer</span>
-      </div>
-
+      <TopBar />
       <div className="px-4 mt-6">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center">
-            <GraduationCap className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-lg">Freelancer Application</h1>
-            <p className="text-xs text-muted-foreground">Share your knowledge and earn</p>
-          </div>
+          <GraduationCap className="h-12 w-12 text-primary" />
+          <h1 className="font-extrabold text-lg mb-2">Become a Freelancer</h1>
+          <p className="text-xs text-muted-foreground mb-8 leading-relaxed">
+            Share your knowledge and earn
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold flex items-center gap-1.5">
-              <Award className="h-3.5 w-3.5 text-primary" /> Academic Strengths
-            </Label>
-            <Input 
-              placeholder="e.g. Consistent Honor Student, Math Enthusiast" 
+            <Label className="text-xs font-bold">Academic Strengths</Label>
+            <Input
+              placeholder="e.g. Consistent Honor Student, Math Enthusiast"
               value={form.academic_strengths}
-              onChange={(e) => setForm({...form, academic_strengths: e.target.value})}
+              onChange={(e) => setForm({ ...form, academic_strengths: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold flex items-center gap-1.5">
-              <BookOpen className="h-3.5 w-3.5 text-primary" /> Subjects of Expertise
-            </Label>
-            <Input 
-              placeholder="e.g. Mathematics, Science, Accounting (comma separated)" 
+            <Label className="text-xs font-bold">Subjects of Expertise</Label>
+            <Input
+              placeholder="e.g. Mathematics, Science, Accounting (comma separated)"
               value={form.subjects}
-              onChange={(e) => setForm({...form, subjects: e.target.value})}
+              onChange={(e) => setForm({ ...form, subjects: e.target.value })}
               required
             />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Tutoring Experience (Optional)</Label>
-            <Textarea 
-              placeholder="Describe any previous experience helping other students..." 
-              className="rounded-xl text-xs"
+            <Textarea
+              placeholder="Describe any previous experience helping other students..."
               value={form.experience}
-              onChange={(e) => setForm({...form, experience: e.target.value})}
+              onChange={(e) => setForm({ ...form, experience: e.target.value })}
             />
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Short Bio / Approach</Label>
-            <Textarea 
-              placeholder="Explain how you can help other students understand lessons effectively..." 
-              className="min-h-[100px] rounded-xl text-xs"
+            <Textarea
+              placeholder="Explain how you can help other students understand lessons effectively..."
               value={form.bio}
-              onChange={(e) => setForm({...form, bio: e.target.value})}
-              required
-            />
+              onChange={(e) => setForm({ ...form, bio: e.target.value })}
+              required            />
           </div>
 
           <div className="bg-muted/30 p-4 rounded-2xl border border-border mb-6">

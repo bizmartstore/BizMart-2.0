@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { totalItems } = useCart();
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut } = useAuth();               // ✅ Get profile
   const [orderCount, setOrderCount] = useState(0);
   const [bcoins, setBcoins] = useState(0);
 
@@ -27,18 +27,18 @@ export default function ProfilePage() {
   }
 
   const handleLogout = async () => {
-    await signOut();
+    await signOut();                     // ✅ signOut is exported from AuthContext
     navigate("/login");
   };
 
   const menuItems = [
     { icon: Package, label: "My Orders", badge: orderCount > 0 ? String(orderCount) : undefined, action: () => navigate("/orders") },
-    { icon: Coins, label: "My BCoins", action: () => navigate("/bcoins") },
+    { icon: Coins, label: "My BCoins", badge: bcoins > 0 ? String(bcoins) : undefined, action: () => navigate("/bcoins") },
     { icon: ShoppingCart, label: "Cart", badge: totalItems > 0 ? String(totalItems) : undefined, action: () => navigate("/cart") },
     { icon: Heart, label: "Wishlist" },
     { icon: HelpCircle, label: "Help Center" },
     { icon: Settings, label: "Settings" },
-  ];
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -61,7 +61,7 @@ export default function ProfilePage() {
             <h2 className="text-secondary-foreground font-bold text-lg">
               {profile ? `${profile.first_name} ${profile.last_name}` : "Student"}
             </h2>
-            <p className="text-secondary-foreground/70 text-xs">{profile?.email || user.email}</p>
+            <p className="text-secondary-foreground/70 text-xs">{profile?.email || user?.email}</p>
           </div>
         </div>
       </div>
@@ -76,71 +76,55 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <p className="text-[10px] text-muted-foreground font-medium">School</p>
-              <p className="text-xs font-bold text-foreground">{profile.school}</p>
+              <p className="text-xs font-bold text-foreground">{profile.school}</p>               {/* ✅ Use profile */}
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground font-medium">Grade Level</p>
-              <p className="text-xs font-bold text-foreground">{profile.grade_level}</p>
+              <p className="text-xs font-bold text-foreground">{profile.grade_level}</p>               {/* ✅ Use profile */}
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground font-medium">Section</p>
-              <p className="text-xs font-bold text-foreground">{profile.section}</p>
+              <p className="text-xs font-bold text-foreground">{profile.section}</p>               {/* ✅ Use profile */}
             </div>
             <div>
               <p className="text-[10px] text-muted-foreground font-medium">BCoins</p>
-              <p className="text-xs font-bold text-primary">{Number(bcoins).toFixed(1)} 🪙</p>
+              <p className="text-xs font-bold text-primary">{Number(bcoins).toFixed(1)} 🪙</p>               {/* ✅ Use profile */}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Quick Stats */}
-      <div className="mx-3 mt-3 bg-card rounded-xl shadow-sm border border-border p-4 grid grid-cols-3 gap-4">
-        {[
-          { label: "In Cart", value: totalItems, action: () => navigate("/cart") },
-          { label: "Orders", value: orderCount, action: () => navigate("/orders") },
-          { label: "BCoins", value: Number(bcoins).toFixed(1), action: () => navigate("/bcoins") },
-        ].map((stat) => (
-          <button key={stat.label} onClick={stat.action} className="text-center">
-            <p className="text-lg font-extrabold text-primary">{stat.value}</p>
-            <p className="text-[10px] text-muted-foreground font-medium">{stat.label}</p>
-          </button>
-        ))}
-      </div>
+        {/* Quick Stats */}
+        <div className="mx-3 mt-3 bg-card rounded-xl border border-border p-4 grid grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
+            <button key={i} className="text-center">
+              <p className="text-lg font-extrabold text-primary">{i === 0 ? totalItems : i === 1 ? orderCount : Number(bcoins).toFixed(1)}</p>
+              <p className="text-[10px] text-muted-foreground font-medium">{i === 0 ? "In Cart" : i === 1 ? "Orders" : "BCoins"}</p>
+            </button>
+          ))}  
+        </div>
 
-      {/* Menu */}
-      <div className="mx-3 mt-3 bg-card rounded-xl border border-border overflow-hidden">
-        {menuItems.map((item, i) => (
-          <button
-            key={item.label}
-            onClick={item.action}
-            className={`w-full flex items-center gap-3 px-4 py-3.5 ${
-              i < menuItems.length - 1 ? "border-b border-border" : ""
-            }`}
-          >
-            <item.icon className="h-5 w-5 text-primary" />
-            <span className="flex-1 text-left text-sm font-semibold">{item.label}</span>
-            {item.badge && (
-              <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
-                {item.badge}
+        {/* Menu */}
+        <div className="mx-3 mt-3 bg-card rounded-xl border border-border overflow-hidden">
+          {menuItems.map((item, i) => (
+            <button
+              key={item.label}
+              onClick={item.action}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 ${i < menuItems.length - 1 ? "border-b border-border" : ""}`}
+            >
+              <item.icon className="h-5 w-5 text-primary" />
+              <span className="flex-1 text-left text-sm font-semibold">{item.label}</span>
+              {item.badge && (
+                <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                  {item.badge}
+                </span>
               </span>
-            )}
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </button>
           </button>
-        ))}
-      </div>
+        </div>
 
-      <div className="mx-3 mt-3">
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-3 bg-card rounded-xl border border-border text-destructive font-semibold text-sm"
-        >
-          <LogOut className="h-4 w-4" />
-          Log Out
-        </button>
+        <BottomNav />
       </div>
-
-      <BottomNav />
     </div>
   );
 }
