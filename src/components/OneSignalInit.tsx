@@ -16,7 +16,6 @@ export default function OneSignalInit() {
     if (initialized.current) return;
     initialized.current = true;
 
-    // Load OneSignal SDK
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
@@ -25,24 +24,27 @@ export default function OneSignalInit() {
       console.log("[OneSignal] SDK loaded");
       window.OneSignal = window.OneSignal || [];
 
-      window.OneSignal.push(async () => {
+      const setupOneSignal = async () => {
         try {
-          // Initialize OneSignal
           await window.OneSignal.init({
             appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
             allowLocalhostAsSecureOrigin: true,
           });
           console.log("[OneSignal] Initialized");
 
-          // Wait for OneSignal internal user ID to be ready
-          const oneSignalUserId = await window.OneSignal.getUserId();
+          // Wait until both OneSignal User ID and Supabase user are ready
+          let oneSignalUserId = null;
+          for (let i = 0; i < 10; i++) { // try 10 times
+            oneSignalUserId = await window.OneSignal.getUserId();
+            if (oneSignalUserId && user?.id) break;
+            await new Promise((res) => setTimeout(res, 300)); // wait 300ms
+          }
           console.log("[OneSignal] OneSignal User ID:", oneSignalUserId);
 
           // Check if push is enabled
           let isSubscribed = await window.OneSignal.isPushNotificationsEnabled();
           console.log("[OneSignal] Subscribed?", isSubscribed);
 
-          // If not subscribed yet, prompt user
           if (!isSubscribed) {
             console.log("[OneSignal] Prompting user for push...");
             await window.OneSignal.showSlidedownPrompt();
@@ -50,23 +52,23 @@ export default function OneSignalInit() {
             console.log("[OneSignal] Subscribed after prompt?", isSubscribed);
           }
 
-          // ✅ If subscribed and user exists, set External ID
-          if (isSubscribed && user?.id) {
+          if (isSubscribed && oneSignalUserId && user?.id) {
             await window.OneSignal.setExternalUserId(user.id.toString());
             console.log("[OneSignal] External ID set:", user.id);
 
-            // Add role tag if admin
             if (user.role === "admin") {
               await window.OneSignal.sendTags({ role: "admin" });
               console.log("[OneSignal] Admin tag set");
             }
           } else {
-            console.log("[OneSignal] User not subscribed or missing user ID, skipping External ID");
+            console.log("[OneSignal] Cannot set External ID — waiting failed or user not subscribed");
           }
         } catch (err) {
-          console.error("[OneSignal] Init error:", err);
+          console.error("[OneSignal] Setup error:", err);
         }
-      });
+      };
+
+      window.OneSignal.push(setupOneSignal);
     };
 
     document.head.appendChild(script);
