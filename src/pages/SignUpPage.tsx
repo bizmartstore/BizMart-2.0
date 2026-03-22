@@ -44,7 +44,6 @@ export default function SignUpPage() {
           section: form.section,
           grade_level: form.gradeLevel,
           school: form.school,
-          role: "customer", // ✅ Explicitly set default role
         },
         emailRedirectTo: window.location.origin,
       },

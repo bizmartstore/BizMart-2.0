@@ -26,7 +26,7 @@ import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 
 export default function AdminDashboard() {
-  const { user, profile } = useAuth(); // ✅ Get profile
+  const { user, profile } = useAuth();
   const { isAdmin, isMainAdmin, loading } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
@@ -69,7 +69,7 @@ export default function AdminDashboard() {
           <div>
             <h1 className="font-extrabold text-xl text-foreground">Admin Dashboard</h1>
             <p className="text-xs text-muted-foreground">
-              {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email || user?.email}
+              {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
             </p>
           </div>
           <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
