@@ -8,59 +8,61 @@ declare global {
 }
 
 export default function OneSignalInit() {
-  const { user } = useAuth(); // logged-in user
+  const { user } = useAuth();
   const initAttempted = useRef(false);
 
   useEffect(() => {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
-    // Load OneSignal SDK
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
 
-    script.onload = () => {
+    script.onload = async () => {
       console.log("[OneSignal] SDK loaded");
 
-      // Ensure OneSignal exists and push commands
       window.OneSignal = window.OneSignal || [];
-      window.OneSignal.push(() => {
+      window.OneSignal.push(async () => {
         try {
-          // Initialize SDK
-          window.OneSignal.init({
+          await window.OneSignal.init({
             appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
             allowLocalhostAsSecureOrigin: true,
-            autoRegister: false, // prevent auto-subscribe
+            autoRegister: false,
           });
 
           console.log("[OneSignal] SDK initialized");
 
-          // Prompt user to subscribe if not already
-          window.OneSignal.isPushNotificationsEnabled((enabled: boolean) => {
-            if (!enabled) {
-              window.OneSignal.showSlidedownPrompt(); // Show subscription prompt
-            }
-          });
+          // Prompt user if notifications not granted
+          const permission = await window.OneSignal.getNotificationPermission();
+          if (permission !== "granted") {
+            window.OneSignal.showSlidedownPrompt();
+          }
 
           // Set external user ID **after subscription**
-          window.OneSignal.on("subscriptionChange", (isSubscribed: boolean) => {
+          window.OneSignal.on("subscriptionChange", async (isSubscribed: boolean) => {
+            console.log("[OneSignal] subscriptionChange:", isSubscribed);
             if (isSubscribed && user?.id) {
-              window.OneSignal.setExternalUserId(
-                user.id.toString(),
-                () => console.log("[OneSignal] ExternalUserId set:", user.id),
-                (err: any) => console.error("[OneSignal] Failed to set ExternalUserId:", err)
-              );
+              try {
+                await window.OneSignal.setExternalUserId(user.id.toString());
+                console.log("[OneSignal] ExternalUserId set:", user.id);
+              } catch (err) {
+                console.error("[OneSignal] Failed to set ExternalUserId:", err);
+              }
             }
           });
 
-          // Set admin tag immediately if user is admin
+          // If already subscribed, set external ID immediately
+          const isSubscribed = await window.OneSignal.isPushNotificationsEnabled();
+          if (isSubscribed && user?.id) {
+            await window.OneSignal.setExternalUserId(user.id.toString());
+            console.log("[OneSignal] ExternalUserId set immediately:", user.id);
+          }
+
+          // Admin tag
           if (user?.role === "admin") {
-            window.OneSignal.sendTags(
-              { role: user.role },
-              () => console.log("[OneSignal] Admin tag set:", user.role),
-              (err: any) => console.error("[OneSignal] Failed to set tag:", err)
-            );
+            await window.OneSignal.sendTags({ role: user.role });
+            console.log("[OneSignal] Admin tag set:", user.role);
           }
         } catch (err) {
           console.error("[OneSignal] Init error:", err);
