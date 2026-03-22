@@ -55,7 +55,7 @@ export default function NotificationBell() {
     const channel = supabase      .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
+        { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
         () => { loadNotifications(); }
       )
       .subscribe();
@@ -71,24 +71,24 @@ export default function NotificationBell() {
         .update({ is_read: true })
         .eq("user_id", user.id)
         .eq("is_read", false);
+      loadNotifications();
     } catch (error) {
       console.error("Failed to mark notifications as read:", error);
-    } finally {
-      loadNotifications();
     }
   };
 
   const handleNotifClick = async (n: any) => {
     setOpen(false);
-    try {
-      await (supabase as any)
-        .from("notification_logs")
-        .update({ is_read: true })
-        .eq("id", n.id);
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error);
-    } finally {
-      loadNotifications();
+    if (!n.is_read) {
+      try {
+        await (supabase as any)
+          .from("notification_logs")
+          .update({ is_read: true })
+          .eq("id", n.id);
+        loadNotifications();
+      } catch (error) {
+        console.error("Failed to mark notification as read:", error);
+      }
     }
     if (n.link) {
       navigate(n.link);

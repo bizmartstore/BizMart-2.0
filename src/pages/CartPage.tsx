@@ -1,362 +1,305 @@
+import { useCart } from "@/context/CartContext";
+import { useAppSettings } from "@/hooks/useAppSettings";
+import { useAuth } from "@/context/AuthContext";
+import { ArrowLeft, Minus, Plus, Trash2, ShoppingBag, MapPin, Truck, Clock } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import BottomNav from "@/components/BottomNav";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { useState, useMemo } from "react";
 import { notifyCustomerOrder, notifyCustomerBCoins } from "@/lib/notifications";
 import { sendNotification } from "@/lib/notifications";
 import { sendTelegramOrderNotify } from "@/lib/telegramNotify";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { CartItem } from "@/context/CartContext";
-import { useCart } from "@/context/CartContext";
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Package, Truck, XCircle, Clock, CheckCheck2, MapPin, AlertTriangle } from "lucide-react";
-import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+
+function getMinDateTime() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() + 10);
+  const dateStr = now.toISOString().slice(0, 10);
+  const hours = String(now.getHours()).padStart(2, "0");
+  const mins = String(now.getMinutes()).padStart(2, "0");
+  return { date: dateStr, time: `${hours}:${mins}` };
+}
 
 export default function CartPage() {
+  const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
+  const { storeOpen } = useAppSettings();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { items, clearCart, updateQuantity, removeItem } = useCart();
-  const [shippingMethod, setShippingMethod] = useState<"pickup" | "delivery">("pickup");
-  const [deliveryDetails, setDeliveryDetails] = useState({
-    date: "",
-    time: "",
-    contact: "",
-    address: "",
-    gradeLevel: "",
-    section: "",
-  });
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
+  const min = useMemo(() => getMinDateTime(), []);
+  const [pickupDate, setPickupDate] = useState(min.date);
+  const [pickupTime, setPickupTime] = useState(min.time);
 
-  const calculateSubtotal = () => {
-    return items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  };
+  const deliveryFee = deliveryType === "delivery" ? 5 : 0;
+  const grandTotal = totalPrice + deliveryFee;
 
-  const calculateDeliveryFee = () => {
-    if (shippingMethod === "delivery") {
-      // Check if any item is from a seller (has seller_id)
-      const hasSellerItem = items.some((item: any) => item.seller_id);
-      return hasSellerItem ? 20 : 0; // ₱20 delivery fee if seller items exist
-    }
-    return 0;
-  };
+  const handleCheckout = async () => {
+    if (!user) { navigate("/login"); return; }
+    if (!storeOpen) { toast.error("Store is currently closed."); return; }
+    if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
 
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const deliveryFee = calculateDeliveryFee();
-    return subtotal + deliveryFee;
-  };
-
-  const calculateBcoinsEarned = () => {
-    // Earn 10 BCoins per ₱100 spent (excluding delivery fee)
-    const subtotal = calculateSubtotal();
-    return Math.floor(subtotal / 100) * 10;
-  };
-
-  const handlePlaceOrder = async () => {
-    if (!user) {
-      navigate("/login");
+    const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
+    const minDT = new Date();
+    minDT.setMinutes(minDT.getMinutes() + 10);
+    if (selectedDT < minDT) {
+      toast.error("Please select a time at least 10 minutes from now.");
       return;
     }
 
-    if (items.length === 0) {
-      toast.error("Your cart is empty");
-      return;
-    }
-
-    if (shippingMethod === "delivery") {
-      if (!deliveryDetails.date || !deliveryDetails.time || !deliveryDetails.contact) {
-        toast.error("Please fill in all delivery details");
-        return;
-      }
-    }
-
-    setIsProcessing(true);
+    setCheckingOut(true);
     try {
-      // Create order in database      const { data: orderData, error: orderError } = await supabase
+      const productIds = items.map(i => i.id);
+      const { data: productData } = await (supabase as any).from('products').select('id, stock, name').in('id', productIds);
+            if (productData) {
+        for (const item of items) {
+          const product = productData.find((p: any) => p.id === item.id);
+          if (product && product.stock < item.quantity) {
+            toast.error(`"${item.name}" only has ${product.stock} left in stock.`);
+            setCheckingOut(false);
+            return;
+          }
+        }
+      }
+
+      const bcoinsEarned = Number((totalPrice * 0.10).toFixed(1));
+      const adminCommission = Number((totalPrice * 0.10).toFixed(2));
+      const sellerEarnings = Number((totalPrice - adminCommission).toFixed(2));
+      const orderItems = items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        image: item.image,
+      }));;
+
+      const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
+      const { data: insertedOrder, error } = await (supabase as any)
         .from("orders")
         .insert({
           user_id: user.id,
-          items: items.map((item) => ({
-            id: item.id,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-          })),
-          shipping_method: shippingMethod,
-          delivery_details: shippingMethod === "delivery" ? deliveryDetails : null,
-          subtotal: calculateSubtotal(),
-          delivery_fee: calculateDeliveryFee(),
-          total: calculateTotal(),
-          bcoins_earned: calculateBcoinsEarned(),
+          items: orderItems,
+          total: grandTotal,
+          bcoins_earned: bcoinsEarned,
           status: "pending",
+          delivery_type: deliveryType,
+          delivery_fee: deliveryFee,
+          pickup_date: pickupDate,
+          pickup_time: pickupTime,
+          admin_commission: adminCommission,
+          seller_earnings: sellerEarnings,
+          customer_name: customerName,
+          customer_section: profile?.section ?? null,
+          customer_grade_level: profile?.grade_level ?? null,
+          customer_contact: profile?.email ?? null,
         })
         .select()
         .single();
 
-      if (orderError) throw orderError;
+      if (error) throw error;
 
-      const orderId = orderData.id;
-      setOrderId(orderId);
+      // Notify admin and customer - AWAIT these so they complete before navigation
+      const buyerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
+      const typeLabel = deliveryType === "delivery" ? "🚚 Delivery" : "📦 Pickup";
+            await Promise.all([
+        sendNotification({
+          title: "🛒 New Purchase Order",
+          message: `${buyerName} placed a ${typeLabel} order for ₱${grandTotal.toLocaleString()} (${items.length} items)`,
+          icon: "🛒",
+          link: "/admin?tab=orders",
+          type: "new_order",
+          targetRole: "admin",
+        }),
+        notifyCustomerOrder(user.id, "placed"),
+        sendTelegramOrderNotify("pending", {
+          id: insertedOrder.id,
+          items: orderItems,
+          customer_name: customerName,
+          customer_grade_level: profile?.grade_level ?? null,
+          customer_section: profile?.section ?? null,
+          customer_contact: profile?.email ?? null,
+          total: grandTotal,
+          delivery_type: deliveryType,
+        })
+      ]);
 
-      // Notify customer via OneSignal and Telegram
-      await notifyCustomerOrder(user.id, "placed an order");
-      await notifyCustomerBCoins(
-        user.id,
-        calculateBcoinsEarned(),
-        "earned"
-      );
-      await sendTelegramOrderNotify("pending", {
-        id: orderId,
-        items: items.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-        })),
-        customer_name: user.user_metadata?.full_name || "Customer",
-        customer_grade_level: user.user_metadata?.grade_level,
-        customer_section: user.user_metadata?.section,
-        customer_contact: deliveryDetails.contact,
-        delivery_type: shippingMethod,
-        total: calculateTotal(),
-      });
-
-      // Clear cart
       clearCart();
-
-      // Show success modal
-      toast.success("Order placed successfully! 🎉");
-      navigate(`/order-confirmation/${orderId}`);
-    } catch (error: any) {
-      console.error("Error placing order:", error);
-      toast.error(`Failed to place order: ${error.message}`);
-    } finally {
-      setIsProcessing(false);
+      toast.success("Order placed! Waiting for admin approval.");
+      navigate("/orders");
+    } catch (e: any) {
+      toast.error(e.message || "Checkout failed");
     }
+    setCheckingOut(false);
   };
 
+  if (items.length === 0) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <div className="sticky top-0 z-40 bg-secondary flex items-center px-3 py-2.5 border-b border-border">
+          <button onClick={() => navigate(-1)} className="p-1.5">
+            <ArrowLeft className="h-5 w-5 text-secondary-foreground" />
+          </button>
+          <span className="font-bold text-sm ml-2 text-secondary-foreground">Shopping Cart</span>
+        </div>
+        <div className="flex flex-col items-center justify-center h-[60vh] gap-3">
+          <ShoppingBag className="h-16 w-16 text-muted-foreground/30" />
+          <p className="text-muted-foreground text-sm">Your cart is empty</p>
+          <button
+            onClick={() => navigate("/")}
+            className="bg-primary text-primary-foreground font-semibold text-sm px-6 py-2.5 rounded-xl"
+          >
+            Start Shopping
+          </button>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-        <button onClick={() => navigate(-1)} className="p-1.5">
-          <ArrowLeft className="h-5 w-5" />
+    <div className="min-h-screen bg-background pb-44">
+      <div className="sticky top-0 z-40 bg-secondary flex items-center justify-between px-3 py-2.5 border-b border-border">
+        <div className="flex items-center">
+          <button onClick={() => navigate(-1)} className="p-1.5">
+            <ArrowLeft className="h-5 w-5 text-secondary-foreground" />
+          </button>
+          <span className="font-bold text-sm ml-2 text-secondary-foreground">Cart ({items.length})</span>
+        </div>
+        <button onClick={() => { clearCart(); toast.success("Cart cleared"); }} className="text-xs text-primary font-semibold">
+          Clear All
         </button>
-        <span className="font-bold text-sm ml-2">My Cart</span>
       </div>
 
-      {items.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20">
-          <Package className="h-12 w-12 text-muted-foreground/30 mb-4" />
-          <p className="text-sm text-muted-foreground">Your cart is empty</p>
-          <Button onClick={() => navigate("/")} className="mt-4">
-            Continue Shopping
-          </Button>
+      <div className="px-3 py-2 space-y-2">
+        {items.map((item) => (
+          <div key={item.id} className="bg-card rounded-xl p-3 flex gap-3 border border-border shadow-sm">
+            <img
+              src={item.image}
+              alt={item.name}
+              className="w-20 h-20 rounded-xl object-cover flex-shrink-0 cursor-pointer"
+              onClick={() => navigate(`/product/${item.id}`)}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold line-clamp-2 leading-tight">{item.name}</p>
+              <div className="flex items-center gap-1 mt-1">
+                <span className="text-primary font-extrabold text-sm">₱{item.price}</span>
+                {item.originalPrice && (                  <span className="text-[10px] text-muted-foreground line-through">₱{item.originalPrice}</span>
+                )}  
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => updateQuantity(item.id, item.quantity - 1)} className="h-7 w-7 rounded-lg border border-border flex items-center justify-center bg-muted">
+                    <Minus className="h-3 w-3" />
+                  </button>
+                  <span className="text-xs font-bold w-5 text-center">{item.quantity}</span>
+                  <button onClick={() => updateQuantity(item.id, item.quantity + 1)} className="h-7 w-7 rounded-lg border border-border flex items-center justify-center bg-muted">
+                    <Plus className="h-3 w-3" />
+                  </button>
+                </div>
+                <button onClick={() => removeItem(item.id)} className="p-1.5">
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </button>
+              </div>
+            </div>
+          </div>
+        ))}  
+      </div>
+
+      <div className="mx-3 mt-3 bg-card rounded-xl border border-border p-3 space-y-3">
+        <p className="text-xs font-bold text-foreground">Fulfillment Method</p>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setDeliveryType("pickup")}
+            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${  
+              deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
+            }`}  
+          >
+            <MapPin className={`h-5 w-5 ${deliveryType === "pickup" ? "text-primary" : "text-muted-foreground"}`} />
+            <span className={`text-xs font-bold ${deliveryType === "pickup" ? "text-primary" : "text-muted-foreground"}`}>Pickup</span>
+            <span className="text-[10px] text-muted-foreground">Free</span>
+          </button>
+          <button
+            onClick={() => setDeliveryType("delivery")}
+            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${  
+              deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
+            }`}  
+          >
+            <Truck className={`h-5 w-5 ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
+            <span className={`text-xs font-bold ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`}>Delivery</span>
+            <span className="text-[10px] text-primary font-semibold">+₱5.00</span>
+          </button>
         </div>
-      ) : (
-        <>
-          <div className="px-4 pt-4">
-            <div className="space-y-4">
-              {/* Cart Items */}
-              <div className="space-y-4">
-                {items.map((item, index) => (
-                  <div key={item.id} className="bg-card rounded-xl p-4 border border-border flex items-center gap-3">
-                    {item.image && (
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="h-12 w-12 rounded-lg object-cover"
-                      />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-foreground">{item.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {item.category}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="h-8 w-8 rounded-lg border border-border flex items-center justify-center"
-                          disabled={item.quantity <= 1}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </button>
-                        <span className="text-lg font-bold">{item.quantity}</span>
-                        <button
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="h-8 w-8 rounded-lg border border-border flex items-center justify-center"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="text-lg font-bold text-foreground">
-                        ₱{(item.price * item.quantity).toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
-              {/* Summary */}
-              <div className="bg-card rounded-xl p-4 border border-border">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-muted-foreground">Items:</span>
-                  <span className="text-sm font-semibold text-foreground">
-                    {items.reduce((sum, item) => sum + item.quantity, 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-semibold text-muted-foreground">Subtotal:</span>
-                  <span className="text-lg font-bold text-foreground">
-                    ₱{calculateSubtotal().toFixed(2)}
-                  </span>
-                </div>
-                {shippingMethod === "delivery" && (
-                  <>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-muted-foreground">Delivery Fee:</span>
-                      <span className="text-lg font-bold text-foreground">
-                        ₱{calculateDeliveryFee().toFixed(2)}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-semibold text-muted-foreground">BCoins Earned:</span>
-                      <span className="text-lg font-bold text-primary">
-                        +{calculateBcoinsEarned()} 🪙
-                      </span>
-                    </div>
-                  </>
-                )}
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <span className="text-lg font-bold text-foreground">Total:</span>
-                  <span className="text-xl font-extrabold text-foreground">
-                    ₱{calculateTotal().toFixed(2)}
-                  </span>
-                </div>
-              </div>
-            </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <Label className="text-[10px] font-bold flex items-center gap-1 mb-1">
+              <Clock className="h-3 w-3" /> Date
+            </Label>
+            <Input              type="date"
+              value={pickupDate}
+              min={min.date}
+              onChange={(e) => setPickupDate(e.target.value)}
+              className="text-xs h-9"
+            />
           </div>
+          <div>
+            <Label className="text-[10px] font-bold flex items-center gap-1 mb-1">
+              <Clock className="h-3 w-3" /> Time
+            </Label>
+            <Input
+              type="time"
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+              className="text-xs h-9"
+            />
+          </div>
+        </div>
+        <p className="text-[9px] text-muted-foreground">⏰ Must be at least 10 minutes from now</p>
+      </div>
 
-          {/* Shipping Method */}
-          <div className="px-4 pt-4">
-            <div className="bg-card rounded-xl p-4 border border-border">
-              <h2 className="text-xl font-bold mb-4">Shipping Method</h2>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="pickup"
-                    name="shippingMethod"
-                    checked={shippingMethod === "pickup"}
-                    onChange={() => setShippingMethod("pickup")}
-                    className="h-4 w-4 text-primary"
-                  />
-                  <label htmlFor="pickup" className="ml-2 text-sm font-semibold">
-                    Pickup at BizMart Store
-                  </label>
-                </div>
-                <div className="flex items-center">
-                  <input
-                    type="radio"
-                    id="delivery"
-                    name="shippingMethod"
-                    checked={shippingMethod === "delivery"}
-                    onChange={() => setShippingMethod("delivery")}
-                    className="h-4 w-4 text-primary"
-                  />
-                  <label htmlFor="delivery" className="ml-2 text-sm font-semibold">
-                    Delivery
-                  </label>
-                </div>
-                {shippingMethod === "delivery" && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-bold mb-2">Delivery Details</h3>
-                    <div className="space-y-3">
-                      <Label htmlFor="date" className="text-xs font-bold">Date</Label>
-                      <Input
-                        id="date"
-                        type="date"
-                        min={new Date().toISOString().split("T")[0]}
-                        value={deliveryDetails.date}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, date: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="time" className="text-xs font-bold">Time</Label>
-                      <Input
-                        id="time"
-                        type="time"
-                        value={deliveryDetails.time}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, time: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="contact" className="text-xs font-bold">Contact Number</Label>
-                      <Input                        id="contact"
-                        type="tel"
-                        value={deliveryDetails.contact}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, contact: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="address" className="text-xs font-bold">Address</Label>
-                      <Input
-                        id="address"
-                        type="text"
-                        value={deliveryDetails.address}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, address: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="gradeLevel" className="text-xs font-bold">Grade Level</Label>
-                      <Input
-                        id="gradeLevel"
-                        type="text"
-                        value={deliveryDetails.gradeLevel}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, gradeLevel: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-3">
-                      <Label htmlFor="section" className="text-xs font-bold">Section</Label>
-                      <Input
-                        id="section"
-                        type="text"
-                        value={deliveryDetails.section}
-                        onChange={(e) => setDeliveryDetails({ ...deliveryDetails, section: e.target.value })}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+      <div className="mx-3 mt-2 bg-accent rounded-xl p-3 border border-primary/20">
+        <p className="text-[11px] text-accent-foreground font-semibold">
+          🪙 You'll earn <strong className="text-primary">{(totalPrice * 0.10).toFixed(1)} BCoins</strong> from this purchase!  
+        </p>
+      </div>
 
-          {/* Action Buttons */}
-          <div className="px-4 pb-6">
-            <div className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={() => navigate("/")}
-                className="w-full md:w-auto"
-              >
-                Continue Shopping
-              </Button>
-              <Button
-                onClick={handlePlaceOrder}
-                disabled={isProcessing}
-                className="w-full md:w-auto"
-              >
-                {isProcessing ? "Placing Order..." : "Place Order"}
-              </Button>
-            </div>
+      {!storeOpen && (  
+        <div className="mx-3 bg-destructive/10 border border-destructive/30 rounded-xl p-2 mt-2">
+          <p className="text-[10px] text-destructive font-semibold text-center">Store is closed — checkout is disabled</p>
+        </div>
+      )}  
+
+      <div className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 shadow-lg">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-[10px] text-muted-foreground">Subtotal</span>
+          <span className="text-xs font-bold">₱{totalPrice.toLocaleString()}</span>
+        </div>
+        {deliveryFee > 0 && (  
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] text-muted-foreground">Delivery Fee</span>
+            <span className="text-xs font-bold text-primary">+₱{deliveryFee.toFixed(2)}</span>
           </div>
-        </>
-      )}
+        )}
+        <div className="flex items-center justify-between">
+          <div>
+            <span className="text-xs text-muted-foreground">Total:</span>
+            <span className="text-lg font-extrabold text-primary ml-1">₱{grandTotal.toLocaleString()}</span>
+          </div>
+          <button
+            onClick={handleCheckout}
+            disabled={!storeOpen || checkingOut}
+            className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all ${  
+              storeOpen ? 'bg-primary text-primary-foreground shadow-md active:scale-95' : 'bg-muted text-muted-foreground'
+            }`}            >
+            {checkingOut ? "Placing Order..." : "Confirm Order"}
+          </button>
+        </div>
+      </div>
+
+      <BottomNav />
     </div>
   );
 }

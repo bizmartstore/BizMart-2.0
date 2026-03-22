@@ -1,287 +1,184 @@
-import { MessageCircle, Send, ArrowLeft, User, Search, Check, CheckCheck, RefreshCw } from "lucide-react";
-import { notifyNewMessage } from "@/lib/notifications"; // now exported
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { ScrollArea, ScrollAreaScrollbar, ScrollAreaViewport } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { MessageCircle, Send, ArrowLeft, User, Search, Check, CheckCheck, RefreshCw } from "lucide-react";
+import { notifyNewMessage } from "@/lib/notifications";
 
 export default function AdminMessagesTab() {
   const { user, profile } = useAuth();
   const [conversations, setConversations] = useState<any[]>([]);
+  const [profiles, setProfiles] = useState<Record<string, any>>({});
+  const [activeConv, setActiveConv] = useState<any | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<any | null>(null);
-  const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [scrollToBottom, setScrollToBottom] = useState(false);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState("");
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
+  const [showNewChat, setShowNewChat] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const loadConversations = useCallback(async () => {
     if (!user) return;
+    setLoading(true);
+    const { data: convos } = await (supabase as any)
+      .from("conversations").select("*")
+      .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
+      .order("last_message_at", { ascending: false });
+    setConversations(convos || []);
 
-    const loadConversations = async () => {
-      const { data } = await supabase
-        .from("conversations")
-        .select(`
-          *,
-          participant_1:profiles!conversations_participant_1_fkey(*),
-          participant_2:profiles!conversations_participant_2_fkey(*)
-        `)
-        .order("updated_at", { ascending: false });
-
-      setConversations(data || []);
-    };
-
-    loadConversations();
-
-    const channel = supabase
-      .channel("admin-conversations-changes")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "conversations" },
-        () => loadConversations()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const otherIds = (convos || []).map((c: any) =>
+      c.participant_1 === user.id ? c.participant_2 : c.participant_1
+    );
+    if (otherIds.length > 0) {
+      const { data: profs } = await (supabase as any).from("profiles").select("*").in("user_id", otherIds);
+      const map: Record<string, any> = {};
+      (profs || []).forEach((p: any) => { map[p.user_id] = p; });
+      setProfiles(map);
+    }
+    setLoading(false);
   }, [user]);
 
+  const loadAllProfiles = async () => {
+    const { data } = await (supabase as any).from("profiles").select("*").order("first_name");
+    setAllProfiles((data || []).filter((p: any) => p.user_id !== user?.id));
+  };
+
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  const loadMessages = async (convId: string) => {
+    const { data } = await (supabase as any).from("messages").select("*")
+      .eq("conversation_id", convId).order("created_at", { ascending: true }).limit(200);
+    setMessages(data || []);
+    if (user) {
+      await (supabase as any).from("messages").update({ is_read: true })
+        .eq("conversation_id", convId).neq("sender_id", user.id).eq("is_read", false);
+    }
+  };
+
   useEffect(() => {
-    if (!selectedConversation) {
-      setMessages([]);
+    if (!activeConv) return;
+    loadMessages(activeConv.id);
+    const ch = supabase.channel(`admin-chat-${activeConv.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages",
+        filter: `conversation_id=eq.${activeConv.id}` }, (payload: any) => {
+        setMessages(prev => [...prev, payload.new]);
+      }).subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [activeConv?.id, user]);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || !user || !activeConv) return;
+    setSending(true);
+    const content = input.trim();
+    setInput("");
+    await (supabase as any).from("messages").insert({
+      conversation_id: activeConv.id, sender_id: user.id, content,
+    });
+    await (supabase as any).from("conversations").update({
+      last_message: content, last_message_at: new Date().toISOString(),
+    }).eq("id", activeConv.id);
+    
+    const recipientId = activeConv.participant_1 === user.id ? activeConv.participant_2 : activeConv.participant_1;
+    notifyNewMessage(recipientId, profile ? `${profile.first_name} ${profile.last_name}` : "Admin", content);
+    setSending(false);
+  };
+
+  const startChat = async (otherUserId: string) => {
+    if (!user) return;
+    const { data: existing } = await (supabase as any).from("conversations").select("*")
+      .or(`and(participant_1.eq.${user.id},participant_2.eq.${otherUserId}),and(participant_1.eq.${otherUserId},participant_2.eq.${user.id})`)
+      .maybeSingle();
+    if (existing) {
+      setActiveConv(existing);
+      setShowNewChat(false);
       return;
     }
-
-    const loadMessages = async () => {
-      const { data } = await supabase
-        .from("messages")
-        .select("*")
-        .eq("conversation_id", selectedConversation.id)
-        .order("created_at", { ascending: true });
-
-      setMessages(data || []);
-      setScrollToBottom(true);
-    };
-
-    loadMessages();
-
-    const channel = supabase
-      .channel(`admin-messages-${selectedConversation.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${selectedConversation.id}` },
-        (payload: any) => {
-          setMessages(prev => [...prev, payload.new]);
-          // Mark as read for the recipient
-          if (user && payload.new.sender_id !== user.id) {
-            // Update the message as read in the database            supabase
-              .from("messages")
-              .update({ is_read: true })
-              .eq("id", payload.new.id);
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [selectedConversation, user]);
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim() || !selectedConversation) return;
-
-    try {
-      const { data: messageData, error: messageError } = await supabase
-        .from("messages")
-        .insert({
-          conversation_id: selectedConversation.id,
-          sender_id: user.id,
-          content: newMessage.trim(),
-        })
-        .select()
-        .single();
-
-      if (messageError) throw messageError;
-
-      setNewMessage("");
-      setScrollToBottom(true);
-
-      // Notify the recipient
-      const recipientId =
-        selectedConversation.participant_1.id === user.id
-          ? selectedConversation.participant_2.id
-          : selectedConversation.participant_1.id;
-      const recipientName =
-        selectedConversation.participant_1.id === user.id
-          ? selectedConversation.participant_2.first_name +
-            " " +
-            selectedConversation.participant_2.last_name
-          : selectedConversation.participant_1.first_name +
-            " " +
-            selectedConversation.participant_1.last_name;
-
-      notifyNewMessage(recipientId, `${profile?.first_name} ${profile?.last_name}`, newMessage.trim());
-    } catch (error: any) {
-      console.error("Failed to send message:", error);
+    const { data: newConv } = await (supabase as any).from("conversations")
+      .insert({ participant_1: user.id, participant_2: otherUserId }).select().single();
+    if (newConv) {
+      setActiveConv(newConv);
+      setShowNewChat(false);
+      loadConversations();
     }
   };
 
-  const handleConversationSelect = (conversation: any) => {
-    setSelectedConversation(conversation);
-    setNewMessage("");
-  };
+  if (activeConv) {
+    const otherId = activeConv.participant_1 === user?.id ? activeConv.participant_2 : activeConv.participant_1;
+    const otherProf = profiles[otherId];
+    const otherName = otherProf ? `${otherProf.first_name} ${otherProf.last_name}` : "User";
 
-  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
-
-  if (conversations.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-4" />
-        <p className="text-sm text-muted-foreground">No conversations yet</p>
+      <div className="space-y-0">
+        <div className="flex items-center gap-3 py-2 border-b border-border">
+          <button onClick={() => setActiveConv(null)} className="p-1"><ArrowLeft className="h-4 w-4" /></button>
+          <span className="font-bold text-sm">{otherName}</span>
+        </div>
+        <div ref={scrollRef} className="h-80 overflow-y-auto py-3 space-y-2">
+          {messages.map(msg => (
+            <div key={msg.id} className={`flex ${msg.sender_id === user?.id ? "justify-end" : "justify-start"}`}>
+              <div className={`max-w-[75%] rounded-2xl px-3 py-2 ${
+                msg.sender_id === user?.id ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+              }`}>
+                <p className="text-[13px] break-words">{msg.content}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 pt-2 border-t border-border">
+          <Input value={input} onChange={e => setInput(e.target.value)} placeholder="Type a message..." className="flex-1 text-sm" />
+          <Button onClick={sendMessage} disabled={!input.trim() || sending} size="sm"><Send className="h-4 w-4" /></Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex-1">
-      <div className="flex">
-        {/* Conversations List */}
-        <div className="w-64 border-r border-border">
-          <div className="space-y-4">
-            {conversations.map((conversation) => {
-              const isSelected = selectedConversation?.id === conversation.id;
-              const recipient =
-                conversation.participant_1.id === user.id
-                  ? conversation.participant_2
-                  : conversation.participant_1;
-              const unreadCount = conversation.unread_count || 0;
-              const lastMessage = conversation.last_message || "";
-
-              return (
-                <div
-                  key={conversation.id}
-                  onClick={() => handleConversationSelect(conversation)}
-                  className={`cursor-pointer p-3 rounded-lg hover:bg-muted transition-colors ${
-                    isSelected ? "bg-primary/10" : ""
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                      {recipient.first_name?.[0]}{recipient.last_name?.[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-foreground">
-                        {recipient.first_name} {recipient.last_name}
-                      </p>
-                      {lastMessage && (
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          {lastMessage}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {unreadCount > 0 && (
-                        <span className="bg-primary text-primary-foreground text-xs font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1">
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </span>
-                      )}
-                      <CheckCheck className="h-4 w-4 text-primary/50" />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Messages Area */}
-          <div className="flex-1 flex flex-col">
-            {selectedConversation ? (
-              <>
-                <div className="px-4 py-3 border-b border-border">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      {selectedConversation.participant_1.id === user.id
-                        ? selectedConversation.participant_2.first_name?.[0] +
-                          selectedConversation.participant_2.last_name?.[0]
-                        : selectedConversation.participant_1.first_name?.[0] +
-                          selectedConversation.participant_1.last_name?.[0]}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-base font-semibold text-foreground">
-                        {selectedConversation.participant_1.id === user.id
-                          ? selectedConversation.participant_2.first_name +
-                            " " +
-                            selectedConversation.participant_2.last_name
-                          : selectedConversation.participant_1.first_name +
-                            " " +
-                            selectedConversation.participant_1.last_name}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Online • {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                      </p>
-                    </div>
-                  </div>
-
-                  <ScrollArea className="flex-1">
-                    <ScrollAreaViewport className="flex-1 p-4 space-y-4" onScrollChange={({ scrolling }) => setScrollToBottom(!scrolling)}>
-                      {messages.map((message) => (
-                        <div
-                          key={message.id}
-                          className={`flex ${message.sender_id === user.id ? "justify-end" : "justify-start"} space-y-1`}
-                        >
-                          <div className="bg-${message.sender_id === user.id ? "primary" : "muted"} text-${message.sender_id === user.id ? "primary-foreground" : "foreground"} rounded-lg px-3 py-2 max-w-[80%]">
-                            {message.content}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {new Date(message.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </p>
-                        </div>
-                      ))}
-                      {scrollToBottom && (
-                        <div className="h-4 w-4" />
-                      )}
-                    </ScrollAreaViewport>
-                    <ScrollAreaScrollbar className="w-2" />
-                  </ScrollArea>
-
-                  <div className="px-4 pt-3 border-t border-border">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type a message..."
-                        className="flex-1 rounded-lg p-2"
-                      />
-                      <button                        onClick={handleSendMessage}
-                        disabled={!newMessage.trim()}
-                        className="p-2"
-                      >
-                        <Send className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-20">
-                  <MessageCircle className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                  <p className="text-sm text-muted-foreground">Select a conversation to start chatting</p>
-                </div>
-              )}
-            </div>
-          </div>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="font-bold text-sm">💬 Messages</p>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" onClick={loadConversations} disabled={loading}><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /></Button>
+          <Button size="sm" onClick={() => { setShowNewChat(true); loadAllProfiles(); }} className="text-xs h-7">New Chat</Button>
         </div>
       </div>
-    );
-  }
+
+      {showNewChat ? (
+        <div className="space-y-2">
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search students..." className="text-xs h-8" />
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            {allProfiles.filter(p => `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase())).map(p => (
+              <button key={p.user_id} onClick={() => startChat(p.user_id)} className="w-full text-left p-2 hover:bg-muted rounded-lg text-xs border border-border">
+                {p.first_name} {p.last_name} ({p.email})
+              </button>
+            ))}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setShowNewChat(false)} className="w-full text-xs">Cancel</Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {conversations.map(conv => {
+            const otherId = conv.participant_1 === user?.id ? conv.participant_2 : conv.participant_1;
+            const prof = profiles[otherId];
+            return (
+              <button key={conv.id} onClick={() => setActiveConv(conv)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-muted/50 transition-colors border border-border bg-card">
+                <div className="w-9 h-9 rounded-full bg-primary/20 flex items-center justify-center flex-shrink-0"><User className="h-4 w-4 text-primary" /></div>
+                <div className="flex-1 min-w-0 text-left">
+                  <span className="font-bold text-xs">{prof ? `${prof.first_name} ${prof.last_name}` : 'User'}</span>
+                  <p className="text-[10px] text-muted-foreground truncate">{conv.last_message || "Start chatting..."}</p>
+                </div>
+              </button>
+            );
+          })}
+          {conversations.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No conversations yet</p>}
+        </div>
+      )}
+    </div>
+  );
 }

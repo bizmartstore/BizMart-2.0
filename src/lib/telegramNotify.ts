@@ -1,3 +1,6 @@
+/**
+ * Send an order status update to the Telegram admin group via edge function.
+ */
 export async function sendTelegramOrderNotify(status: string, order: Record<string, any>) {
   try {
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
