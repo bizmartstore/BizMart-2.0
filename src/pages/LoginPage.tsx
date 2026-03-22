@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, ArrowLeft, ShoppingBag } from "lucide-react";
 
 const LOGO_URL = "https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png";
 
@@ -16,47 +16,37 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (form.password.length < 6) {
-      toast({ title: "Password must be at least 6 characters", variant: "destructive" });
-      return;
-    }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          first_name: form.firstName,
-          last_name: form.lastName,
-          section: form.section,
-          grade_level: form.gradeLevel,
-          school: form.school,
-          // ✅ Explicitly set default role
-          role: "customer",
-        },
-        emailRedirectTo: window.location.origin,
-      },
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+    
     if (error) {
-      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+      toast({ title: "Login failed", description: error.message, variant: "destructive" });
     } else {
-      // ✅ After sign‑up, fetch profile to see the role
-      const { data: profileData } = await (supabase as any)
-        .from("profiles")
-        .select("role")
-        .eq("user_id", error?.user?.id ?? "")
-        .maybeSingle();
+      toast({ title: "Welcome back! 🎉" });
+      if (data.user) {
+        // ✅ Check profile.role instead of user.role
+        if (data.user.email === 'sheethappenswithjaa@gmail.com') {
+          navigate("/admin");
+          return;
+        }
 
-      const userRole = profileData?.role || "customer";
-      if (userRole === "main_admin" || userRole === "member_admin") {
-        navigate("/admin");
-        return;
+        // Fetch profile to check role
+        const { data: profileData } = await (supabase as any)
+          .from("profiles")
+          .select("role")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+        
+        const userRole = profileData?.role || "customer";
+        if (userRole === 'main_admin' || userRole === 'member_admin') {
+          navigate("/admin");
+          return;
+        }
       }
-      toast({ title: "Account created! 🎉", description: "Check your email to verify your account before logging in." });
-      navigate("/login");
+      navigate("/");
     }
   };
 
@@ -69,90 +59,36 @@ export default function LoginPage() {
         </button>
         <div className="flex items-center gap-2 mb-1">
           <ShoppingBag className="h-6 w-6 text-primary-foreground" />
-          <h1 className="text-xl font-extrabold text-primary-foreground">Create Account</h1>
+          <h1 className="text-xl font-extrabold text-primary-foreground">Welcome Back!</h1>
         </div>
-        <p className="text-primary-foreground/70 text-xs">Join SchoolMart and start shopping!</p>
+        <p className="text-primary-foreground/70 text-xs">Log in to continue shopping</p>
       </div>
 
       {/* Form */}
       <div className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
-        <form onSubmit={handleSignUp} className="space-y-3.5">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Last Name</Label>
-              <Input
-                placeholder="Dela Cruz"
-                value={form.lastName}
-                onChange={(e) => update("lastName", e.target.value)}
-                required              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">First Name</Label>
-              <Input
-                placeholder="Juan"
-                value={form.firstName}
-                onChange={(e) => update("firstName", e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs font-bold">School</Label>
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-xs font-bold">Email Address</Label>
             <Input
-              placeholder="Enter your school name"
-              value={form.school}
-              onChange={(e) => update("school", e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Grade Level</Label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={form.gradeLevel}
-                onChange={(e) => update("gradeLevel", e.target.value)}
-                required
-              >
-                <option value="">Select grade</option>
-                {GRADE_LEVELS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs font-bold">Section</Label>
-              <Input
-                placeholder="e.g. Section A"
-                value={form.section}
-                onChange={(e) => update("section", e.target.value)}
-                required              />
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label className="text-xs font-bold">Email Address</Label>
-            <Input
+              id="email"
               type="email"
               placeholder="student@school.edu"
-              value={form.email}
-              onChange={(e) => update("email", e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs font-bold">Password</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs font-bold">Password</Label>
             <div className="relative">
               <Input
+                id="password"
                 type={showPassword ? "text" : "password"}
-                placeholder="Min 6 characters"
-                value={form.password}
-                onChange={(e) => update("password", e.target.value)}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={6}
               />
               <button
                 type="button"
@@ -164,18 +100,18 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl mt-2" disabled={loading}>
-            {loading ? "Creating account..." : "Sign Up"}
+          <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl" disabled={loading}>
+            {loading ? "Logging in..." : "Log In"}
           </Button>
         </form>
-      </div>
 
-      <p className="text-center text-sm text-muted-foreground mt-5">
-        Already have an account?{" "}
-        <Link to="/login" className="text-primary font-bold">
-          Log In
-        </Link>
-      </p>
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Don't have an account?{" "}
+          <Link to="/signup" className="text-primary font-bold">
+            Sign Up
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

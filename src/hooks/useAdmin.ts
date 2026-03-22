@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useAdmin() {
-  const { user, profile } = useAuth();          // ✅ Get profile from AuthContext
+  const { user, profile } = useAuth();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -12,10 +12,10 @@ export function useAdmin() {
       setLoading(false);
       return;
     }
-
-    // ✅ Prefer profile.role; fall back to DB lookup if not ready yet
+    
+    // ✅ Use profile.role from AuthContext (already fetched)
     if (profile?.role) {
-      // Super‑admin override (kept for backward compatibility)
+      // Superuser override (kept for backward compatibility)
       if (user.email === "sheethappenswithjaa@gmail.com") {
         setRole("main_admin");
       } else {
@@ -25,7 +25,7 @@ export function useAdmin() {
       return;
     }
 
-    // Fallback: fetch role from DB
+    // Fallback: fetch role from database if profile not loaded yet
     (supabase as any).rpc("get_user_role", { _user_id: user.id })
       .then(({ data, error }: any) => {
         if (error) {
