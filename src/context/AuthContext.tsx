@@ -12,6 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
+  role: string; // ✅ ADDED ROLE
 }
 
 interface AuthContextType {
@@ -37,9 +38,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
-      
+
       if (error) throw error;
-      setProfile(data);
+
+      // ✅ Ensure role fallback
+      const profileWithRole = {
+        ...data,
+        role: data?.role || "customer",
+      };
+
+      setProfile(profileWithRole);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
       setProfile(null);
@@ -47,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    // Check if we need to clear session due to project change
     const currentProjectUrl = import.meta.env.VITE_SUPABASE_URL;
     const lastProjectUrl = localStorage.getItem("last_supabase_url");
 
@@ -59,33 +66,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.location.reload();
       return;
     }
+
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
+    // ✅ Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         if (session?.user) {
-          fetchProfile(session.user.id);
+          await fetchProfile(session.user.id);
         } else {
           setProfile(null);
         }
+
         setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    // ✅ Get initial session
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error("[AuthContext] Session error:", error);
-        supabase.auth.signOut();
+        await supabase.auth.signOut();
       }
+
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
-        fetchProfile(session.user.id);
+        await fetchProfile(session.user.id);
       }
+
       setLoading(false);
     });
 
