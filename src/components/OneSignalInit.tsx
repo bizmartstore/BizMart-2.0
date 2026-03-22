@@ -1,49 +1,55 @@
-import { useEffect, useRef, useState } from "react";
-import { useAuth } from "../context/AuthContext"; // adjust path to your auth context
+import { useEffect, useRef } from "react";
+import { useAuth } from "../context/AuthContext"; // Assuming you have an auth context
+
+declare global {
+  interface Window { OneSignal: any; }
+}
 
 export default function OneSignalInit() {
-  const { user } = useAuth(); // assume user object has id and role
-  const [isReady, setIsReady] = useState(false);
   const initAttempted = useRef(false);
+  const { user } = useAuth(); // Your logged-in user
 
   useEffect(() => {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
+    // Load SDK script
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
     script.onload = () => {
       console.log("[OneSignal] SDK loaded");
-      setIsReady(true);
+
+      // Push all commands to queue to guarantee SDK readiness
+      window.OneSignal = window.OneSignal || [];
+      window.OneSignal.push(() => {
+        try {
+          // Initialize
+          window.OneSignal.init({
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+            allowLocalhostAsSecureOrigin: true,
+            autoRegister: false, // prevent auto-subscribe
+          });
+
+          // If user exists, set external user ID
+          if (user?.id) {
+            window.OneSignal.setExternalUserId(user.id.toString());
+            console.log("[OneSignal] ExternalUserId set:", user.id);
+          }
+        } catch (err) {
+          console.error("[OneSignal] Init error:", err);
+        }
+      });
     };
     script.onerror = () => console.error("[OneSignal] SDK load error");
+
     document.head.appendChild(script);
-  }, []);
 
-  useEffect(() => {
-    if (!isReady || !window.OneSignal) return;
-
-    const OneSignal = window.OneSignal || [];
-
-    OneSignal.init({
-      appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-      allowLocalhostAsSecureOrigin: true,
-      autoSubscribe: false,
-    });
-
-    // Only set external user ID after login
-    if (user?.id) {
-      OneSignal.setExternalUserId(user.id);
-      console.log("[OneSignal] External user ID set:", user.id);
-    }
-
-    // Set admin tag if user is admin
-    if (user?.role === "admin") {
-      OneSignal.sendTags({ role: user.role });
-      console.log("[OneSignal] Admin tag set:", user.role);
-    }
-  }, [isReady, user]);
+    return () => {
+      // Optional cleanup if needed
+      document.head.removeChild(script);
+    };
+  }, [user]);
 
   return null;
 }
