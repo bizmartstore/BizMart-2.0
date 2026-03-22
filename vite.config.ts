@@ -14,7 +14,7 @@ export default defineConfig(() => ({
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "inline",
-      strategies: "generateSW",
+      strategies: false, // Disable service worker generation to avoid conflict with OneSignal
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",

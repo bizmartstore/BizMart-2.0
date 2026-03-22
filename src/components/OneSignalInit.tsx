@@ -1,13 +1,17 @@
 import { useEffect, useRef } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "@/context/AuthContext";
 
 declare global {
-  interface Window { OneSignal: any; }
+  interface Window {
+    OneSignal?: any;
+    OneSignalDeferred?: Array<(OneSignal: any) => void>;
+  }
 }
 
 export default function OneSignalInit() {
   const { user } = useAuth();
   const initAttempted = useRef(false);
+  const subscriptionChecked = useRef(false);
 
   useEffect(() => {
     if (initAttempted.current) return;
@@ -17,54 +21,51 @@ export default function OneSignalInit() {
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
 
-    script.onload = () => {
+    script.onload = async () => {
       console.log("[OneSignal] SDK loaded");
       window.OneSignal = window.OneSignal || [];
-
+      
       window.OneSignal.push(async () => {
         try {
-          // ⚠️ Only call init once
-          if (!(window as any).OneSignal.__initialized) {
-            await window.OneSignal.init({
-              appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-              allowLocalhostAsSecureOrigin: true,
-              autoRegister: false,
-            });
-            console.log("[OneSignal] SDK initialized");
-          }
-
-          // Get user state (v16)
-          const state = await window.OneSignal.getUserState();
-          console.log("[OneSignal] User state:", state);
-
-          // Prompt if not subscribed
-          if (!state.isSubscribed) {
-            console.log("[OneSignal] User not subscribed, showing prompt...");
-            window.OneSignal.showSlidedownPrompt();
-          }
-
-          // Set external ID after subscription
-          window.OneSignal.on("subscriptionChange", async (subscribed: boolean) => {
-            console.log("[OneSignal] subscriptionChange:", subscribed);
-            if (subscribed && user?.id) {
-              await window.OneSignal.setExternalUserId(user.id.toString());
-              console.log("[OneSignal] ExternalUserId set after subscription:", user.id);
-            }
+          // Initialize OneSignal
+          await window.OneSignal.init({
+            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+            allowLocalhostAsSecureOrigin: true,
+            autoRegister: false,
+            // We'll handle registration manually after login
           });
+          
+          console.log("[OneSignal] SDK initialized");
 
-          // If already subscribed, set external ID immediately
-          if (state.isSubscribed && user?.id) {
-            await window.OneSignal.setExternalUserId(user.id.toString());
-            console.log("[OneSignal] ExternalUserId set immediately:", user.id);
+          // Check if we have a user
+          if (!user?.id) {
+            console.log("[OneSignal] No user yet, waiting for auth");
+            return;
           }
 
-          // Admin tag
-          if (user?.role === "admin") {
-            await window.OneSignal.sendTags({ role: user.role });
-            console.log("[OneSignal] Admin tag set:", user.role);
+          // Login to set external ID
+          console.log(`[OneSignal] Logging in user ID: ${user.id}`);
+          await window.OneSignal.login(user.id.toString());
+          console.log("[OneSignal] External ID set successfully");
+
+          // Add role tag if user has role
+          if (user.role) {
+            await window.OneSignal.User.addTag('role', user.role);
+            console.log(`[OneSignal] Added role tag: ${user.role}`);
+          }
+
+          // Check subscription status and prompt if needed
+          const isSubscribed = await window.OneSignal.User.PushSubscription.getOptedIn();
+          console.log(`[OneSignal] Subscription status: ${isSubscribed}`);
+          
+          if (!isSubscribed) {
+            console.log("[OneSignal] Showing subscription prompt");
+            await window.OneSignal.showSlidedownPrompt();
+          } else {
+            console.log("[OneSignal] User already subscribed");
           }
         } catch (err) {
-          console.error("[OneSignal] Init error:", err);
+          console.error("[OneSignal] Initialization error:", err);
         }
       });
     };
@@ -72,7 +73,9 @@ export default function OneSignalInit() {
     script.onerror = () => console.error("[OneSignal] SDK load error");
     document.head.appendChild(script);
 
-    return () => document.head.removeChild(script);
+    return () => {
+      document.head.removeChild(script);
+    };
   }, [user]);
 
   return null;

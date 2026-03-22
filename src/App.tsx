@@ -7,7 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWAInstallGate from "@/components/PWAInstallGate";
-import PWARegister from "@/components/PWARegister";
+// Removed PWARegister import
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 
 // Import all pages
@@ -55,7 +55,7 @@ function App() {
             <PWAInstallGate>
               {!splashDone && <SplashScreen onFinished={handleSplashFinished} />}
               <OneSignalInit />
-              <PWARegister />
+              {/* PWARegister removed */} 
               <Toaster />
               <Sonner />
               <BrowserRouter>
