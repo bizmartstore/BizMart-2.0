@@ -12,7 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
-  role: string; // ✅ ADDED ROLE
+  role: string; // ✅ ADDED ROLE with default "customer"
 }
 
 interface AuthContextType {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // ✅ Ensure role fallback
+      // ✅ Ensure role fallback to "customer" if missing
       const profileWithRole = {
         ...data,
         role: data?.role || "customer",

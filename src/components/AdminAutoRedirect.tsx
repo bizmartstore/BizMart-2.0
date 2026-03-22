@@ -8,13 +8,13 @@ import { useAuth } from "@/context/AuthContext";
  * Place this inside BrowserRouter.
  */
 export default function AdminAutoRedirect() {
-  const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useAdmin();
+  const { user, profile } = useAuth(); // ✅ Get profile
+  const { isAdmin, loading } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    if (authLoading || roleLoading) return;
+    if (loading) return;
     if (!user || !isAdmin) return;
 
     // Only redirect from customer-facing pages, not from admin or auth pages
@@ -22,7 +22,7 @@ export default function AdminAutoRedirect() {
     if (adminPaths.some((p) => location.pathname.startsWith(p))) return;
 
     navigate("/admin", { replace: true });
-  }, [user, isAdmin, authLoading, roleLoading, location.pathname, navigate]);
+  }, [user, isAdmin, loading, location.pathname, navigate]);
 
   return null;
 }

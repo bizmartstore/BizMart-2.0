@@ -81,21 +81,21 @@ function StoreSettingsTab({ user }: { user: any }) {
       </div>
       {/* Fields */}
       <div>
-        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><Store className="h-3 w-3" /> Store Name *</Label>
+        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5">Store Name *</Label>
         <Input value={form.store_name} onChange={(e) => setForm(f => ({ ...f, store_name: e.target.value }))} placeholder="e.g. Juan's Tech Hub" className="text-sm" />
       </div>
       <div>
-        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><MessageSquare className="h-3 w-3" /> Store Saying</Label>
-        <Input value={form.store_saying} onChange={(e) => setForm(f => ({ ...f, store_saying: e.target.value }))} placeholder="e.g. Your one-stop campus shop!" className="text-sm" />
+        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5">Store Saying</Label>
+        <Input value={form.store_saying} onChange={(e) => setForm(f => ({ ...f, store_saying: e.target.value }))} placeholder="e.g. Your one‑stop campus shop!" className="text-sm" />
       </div>
       <div>
-        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><Image className="h-3 w-3" /> Store Image</Label>
+        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5">Store Image</Label>
         <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => {
           const file = e.target.files?.[0];
           if (file) uploadStoreImage(file);
         }} />
         {form.store_image ? (
-          <div className="relative w-full h-32 rounded-xl overflow-hidden border border-border">
+          <div className="relative w-full h-32 rounded-xl overflow-hidden border border-border mt-1">
             <img src={form.store_image} alt="" className="w-full h-full object-cover" />
             <button onClick={() => setForm(f => ({ ...f, store_image: "" }))} className="absolute top-1.5 right-1.5 bg-destructive text-destructive-foreground rounded-full p-1">
               <X className="h-3 w-3" />
@@ -103,14 +103,14 @@ function StoreSettingsTab({ user }: { user: any }) {
           </div>
         ) : (
           <button onClick={() => fileRef.current?.click()} disabled={uploading}
-            className="w-full h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
+            className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
             {uploading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
             <span className="text-[10px] text-muted-foreground">{uploading ? "Uploading..." : "Tap to upload store image"}</span>
           </button>
         )}
       </div>
       <div>
-        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><MapPin className="h-3 w-3" /> Location</Label>
+        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5">Location</Label>
         <Input value={form.location} onChange={(e) => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Main Building, 2nd Floor" className="text-sm" />
       </div>
       <div>
@@ -186,11 +186,7 @@ function SellerOrdersTab({ user }: { user: any }) {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all ${
-              filter === f
-                ? "bg-primary text-primary-foreground border-primary"
-                : "bg-card text-muted-foreground border-border"
-            }`}
+            className={`text-[10px] font-bold px-3 py-1.5 rounded-full ${filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border"}`}
           >
             {f === "all" ? "All" : f === "approved" ? "Approved" : "Completed"}
           </button>
@@ -216,43 +212,45 @@ function SellerOrdersTab({ user }: { user: any }) {
                 )}
               </div>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-primary/20 text-primary'
-              }`}>{order.status}</span>
-            </div>
-            {myItems.length > 0 ? myItems.map((item: any, i: number) => (
-              <div key={i} className="flex justify-between text-xs text-muted-foreground">
-                <span>{item.name} ×{item.quantity}</span>
-                <span>₱{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}</span>
+                order.status === 'completed' ? 'bg-green-100 text-green-600' :
+                order.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                'bg-primary/20 text-primary'}`}>
+                  {order.status}
+                </span>
               </div>
-            )) : items.slice(0, 3).map((item: any, i: number) => (
-              <p key={i} className="text-xs text-muted-foreground">{item.name} ×{item.quantity}</p>
-            ))}
-            <div className="flex items-center justify-between pt-1 border-t border-border">
-              <span className="text-[10px] text-muted-foreground">
-                {new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-              </span>
-              <div className="text-right">
-                <span className="font-bold text-sm text-primary">₱{Number(order.total).toFixed(2)}</span>
-                <p className="text-[9px] text-[hsl(var(--success))] font-bold">Earned: ₱{Number(order.seller_earnings || 0).toFixed(2)}</p>
+              {myItems.length > 0 ? myItems.map((item: any, i: number) => (
+                <div key={i} className="flex justify-between text-xs text-muted-foreground">
+                  <span>{item.name} ×{item.quantity}</span>
+                  <span>₱{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}</span>
+                </div>
+              )) : items.slice(0, 3).map((item: any, i: number) => (
+                <p key={i} className="text-xs text-muted-foreground">{item.name} ×{item.quantity}</p>
+              ))}
+              <div className="flex items-center justify-between pt-1 border-t border-border">
+                <span className="text-[10px] text-muted-foreground">
+                  {new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </span>
+                <div className="text-right">
+                  <span className="font-bold text-sm text-primary">₱{Number(order.total).toFixed(2)}</span>
+                  <span className="text-[9px] text-[hsl(var(--success))] font-bold">Earned: ₱{Number(order.seller_earnings || 0).toFixed(2)}</span>
+                </div>
               </div>
             </div>
           </div>
-        );
-      })}
-      {filtered.length === 0 && (
-        <div className="text-center py-8">
-          <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-          <p className="text-xs text-muted-foreground">
-            {products.length === 0 ? "Add products first to start receiving orders" : "No orders yet for your products"}
-          </p>
-        </div>
-      )}
+        ))}
+        {filtered.length === 0 && (
+          <div className="text-center py-8">
+            <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">No orders yet for your products</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 export default function SellerStorePage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();               // ✅ Get profile
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
@@ -270,7 +268,7 @@ export default function SellerStorePage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    );
+    </div>
   }
 
   return (
