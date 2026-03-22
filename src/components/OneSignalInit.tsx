@@ -8,6 +8,7 @@ export default function OneSignalInit() {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
+    // Load the OneSignal SDK script dynamically
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
@@ -19,6 +20,7 @@ export default function OneSignalInit() {
     document.head.appendChild(script);
   }, []);
 
+  // Initialize OneSignal as soon as the SDK is ready
   useEffect(() => {
     if (!isReady || !window.OneSignal) return;
     window.OneSignal.init({
