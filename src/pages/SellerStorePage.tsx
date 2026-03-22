@@ -16,11 +16,7 @@ import { useRef } from "react";
 
 function StoreSettingsTab({ user }: { user: any }) {
   const [form, setForm] = useState({
-    store_name: "",
-    store_description: "",
-    store_image: "",
-    store_saying: "",
-    location: "",
+    store_name: "", store_description: "", store_image: "", store_saying: "", location: "",
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -31,11 +27,8 @@ function StoreSettingsTab({ user }: { user: any }) {
     (supabase as any).from("seller_profiles").select("*").eq("user_id", user.id).maybeSingle()
       .then(({ data }: any) => {
         if (data) setForm({
-          store_name: data.store_name || "",
-          store_description: data.store_description || "",
-          store_image: data.store_image || "",
-          store_saying: data.store_saying || "",
-          location: data.location || "",
+          store_name: data.store_name || "", store_description: data.store_description || "",
+          store_image: data.store_image || "", store_saying: data.store_saying || "", location: data.location || "",
         });
       });
   }, [user]);
@@ -48,7 +41,7 @@ function StoreSettingsTab({ user }: { user: any }) {
       const { error } = await supabase.storage.from("seller-images").upload(path, file);
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from("seller-images").getPublicUrl(path);
-      setForm((f) => ({ ...f, store_image: publicUrl }));
+      setForm(f => ({ ...f, store_image: publicUrl }));
       toast.success("Store image uploaded!");
     } catch (e: any) {
       toast.error(e.message || "Upload failed");
@@ -61,20 +54,14 @@ function StoreSettingsTab({ user }: { user: any }) {
     setSaving(true);
     try {
       const { error } = await (supabase as any).from("seller_profiles").update({
-        store_name: form.store_name.trim(),
-        store_description: form.store_description.trim(),
-        store_image: form.store_image.trim(),
-        store_saying: form.store_saying.trim(),
-        location: form.location.trim(),
-        updated_at: new Date().toISOString(),
+        store_name: form.store_name.trim(), store_description: form.store_description.trim(),
+        store_image: form.store_image.trim(), store_saying: form.store_saying.trim(),
+        location: form.location.trim(), updated_at: new Date().toISOString(),
       }).eq("user_id", user.id);
       if (error) throw error;
       toast.success("Store updated! 🎉");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to save.");
-    } finally {
-      setSaving(false);
-    }
+    } catch (e: any) { toast.error(e.message || "Failed to save."); }
+    setSaving(false);
   };
 
   return (
@@ -82,8 +69,8 @@ function StoreSettingsTab({ user }: { user: any }) {
       {/* Preview */}
       <div className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm">
         <div className="h-32 bg-gradient-to-br from-primary/20 to-accent relative overflow-hidden">
-          {form.store_image ? <img src={form.store_image} alt="Store" className="w-full h-full object-cover" />
-          : <div className="flex items-center justify-center h-full"><Image className="h-8 w-8 text-muted-foreground/50" /></div>}
+          {form.store_image ? <img src={form.store_image} alt="Store" className="w-full h-full object-cover" /> :
+            <div className="flex items-center justify-center h-full"><Image className="h-8 w-8 text-muted-foreground/50" /></div>}
         </div>
         <div className="p-4">
           <h2 className="font-extrabold text-base text-foreground">{form.store_name || "Your Store Name"}</h2>
@@ -99,14 +86,35 @@ function StoreSettingsTab({ user }: { user: any }) {
       </div>
       <div>
         <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><MessageSquare className="h-3 w-3" /> Store Saying</Label>
-        <Input value={form.store_saying} onChange={(e) => setForm(f => ({ ...f, store_saying: e.target.value }))} placeholder="e.g. Your one‑stop campus shop!" className="text-sm" />
+        <Input value={form.store_saying} onChange={(e) => setForm(f => ({ ...f, store_saying: e.target.value }))} placeholder="e.g. Your one-stop campus shop!" className="text-sm" />
       </div>
       <div>
-        <Label className="text-xs font-bold mb-1.5">Location</Label>
+        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><Image className="h-3 w-3" /> Store Image</Label>
+        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => {
+          const file = e.target.files?.[0];
+          if (file) uploadStoreImage(file);
+        }} />
+        {form.store_image ? (
+          <div className="relative w-full h-32 rounded-xl overflow-hidden border border-border">
+            <img src={form.store_image} alt="" className="w-full h-full object-cover" />
+            <button onClick={() => setForm(f => ({ ...f, store_image: "" }))} className="absolute top-1.5 right-1.5 bg-destructive text-destructive-foreground rounded-full p-1">
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        ) : (
+          <button onClick={() => fileRef.current?.click()} disabled={uploading}
+            className="w-full h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
+            {uploading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+            <span className="text-[10px] text-muted-foreground">{uploading ? "Uploading..." : "Tap to upload store image"}</span>
+          </button>
+        )}
+      </div>
+      <div>
+        <Label className="text-xs font-bold flex items-center gap-1 mb-1.5"><MapPin className="h-3 w-3" /> Location</Label>
         <Input value={form.location} onChange={(e) => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Main Building, 2nd Floor" className="text-sm" />
       </div>
       <div>
-        <Label className="text-xs font-bold mb-1.5">Description</Label>
+        <Label className="text-xs font-bold mb-1.5 block">Description</Label>
         <Textarea value={form.store_description} onChange={(e) => setForm(f => ({ ...f, store_description: e.target.value }))} placeholder="Describe your store..." className="text-sm" rows={3} />
       </div>
       <Button onClick={handleSave} disabled={saving} className="w-full gap-2">
@@ -134,101 +142,117 @@ function SellerOrdersTab({ user }: { user: any }) {
         // Fetch orders that contain seller's products (seller_id on order)
         (supabase as any).from("orders").select("*")
           .eq("seller_id", user.id)
-          .eq("status", "approved")
-          .eq("status", "completed")
+          .in("status", ["approved", "completed"])
           .order("created_at", { ascending: false })
           .limit(100)
           .then(({ data: orderData }: any) => setOrders(orderData || []));
       });
-    }, [user]);
+  }, [user]);
 
-    const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
-    const totalSales = filtered.reduce((sum, o) => sum + Number(o.total), 0);
-    const sellerEarnings = filtered.reduce((sum, o) => sum + Number(o.seller_earnings || 0), 0);
-    const totalOrders = filtered.length;
-    const completedOrders = filtered.filter(o => o.status === "completed").length;
+  const filtered = filter === "all" ? orders : orders.filter(o => o.status === filter);
+  const totalSales = filtered.reduce((sum, o) => sum + Number(o.total), 0);
+  const sellerEarnings = filtered.reduce((sum, o) => sum + Number(o.seller_earnings || 0), 0);
+  const totalOrders = filtered.length;
+  const completedOrders = filtered.filter(o => o.status === "completed").length;
 
-    return (
-      <div className="space-y-3">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-2">
-          <div className="bg-gradient-to-br from-primary/10 to-accent rounded-xl p-3 border border-primary/20 text-center">
-            <p className="text-xl font-extrabold text-primary">₱{totalSales.toFixed(2)}</p>
-            <p className="text-[9px] text-muted-foreground font-bold">Total Sales</p>
-          </div>
-          <div className="bg-gradient-to-br from-[hsl(var(--success))]/10 to-[hsl(var(--success))]/5 rounded-xl p-3 border border-[hsl(var(--success))]/20 text-center">
-            <p className="text-xl font-extrabold text-[hsl(var(--success))]">₱{sellerEarnings.toFixed(2)}</p>
-            <p className="text-[9px] text-muted-foreground font-bold">Your Earnings (80%)</p>
-          </div>
+  return (
+    <div className="space-y-3">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-gradient-to-br from-primary/10 to-accent rounded-xl p-3 border border-primary/20 text-center">
+          <p className="text-xl font-extrabold text-primary">₱{totalSales.toFixed(2)}</p>
+          <p className="text-[9px] text-muted-foreground font-bold">Total Sales</p>
+        </div>
+        <div className="bg-gradient-to-br from-[hsl(var(--success))]/10 to-[hsl(var(--success))]/5 rounded-xl p-3 border border-[hsl(var(--success))]/20 text-center">
+          <p className="text-xl font-extrabold text-[hsl(var(--success))]">₱{sellerEarnings.toFixed(2)}</p>
+          <p className="text-[9px] text-muted-foreground font-bold">Your Earnings (80%)</p>
+        </div>
+      </div>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div className="bg-card rounded-xl p-2.5 border border-border text-center">
-              <p className="text-lg font-extrabold text-foreground">{totalOrders}</p>
-              <p className="text-[9px] text-muted-foreground">Total Orders</p>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-card rounded-xl p-2.5 border border-border text-center">
+          <p className="text-lg font-extrabold text-foreground">{totalOrders}</p>
+          <p className="text-[9px] text-muted-foreground">Total Orders</p>
+        </div>
+        <div className="bg-card rounded-xl p-2.5 border border-border text-center">
+          <p className="text-lg font-extrabold text-foreground">{completedOrders}</p>
+          <p className="text-[9px] text-muted-foreground">Completed</p>
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div className="flex gap-1.5">
+        {(["all", "approved", "completed"] as const).map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`text-[10px] font-bold px-3 py-1.5 rounded-full border transition-all ${
+              filter === f
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border"
+            }`}
+          >
+            {f === "all" ? "All" : f === "approved" ? "Approved" : "Completed"}
+          </button>
+        ))}
+      </div>
+
+      {/* Orders List */}
+      <p className="font-bold text-sm">Orders ({filtered.length})</p>
+      {filtered.map(order => {
+        const items = Array.isArray(order.items) ? order.items : [];
+        // Only show items that belong to this seller's products
+        const myProductIds = products.map(p => p.id);
+        const myItems = items.filter((item: any) => myProductIds.includes(item.id));
+        const itemsTotal = myItems.reduce((s: number, i: any) => s + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+
+        return (
+          <div key={order.id} className="bg-card rounded-xl p-3 border border-border space-y-1.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-muted-foreground">#{order.id.slice(0, 8)}</span>
+                {order.customer_name && (
+                  <span className="text-[10px] text-foreground font-bold ml-2">{order.customer_name}</span>
+                )}
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-primary/20 text-primary'
+              }`}>{order.status}</span>
             </div>
-            <div className="bg-card rounded-xl p-2.5 border border-border text-center">
-              <p className="text-lg font-extrabold text-foreground">{completedOrders}</p>
-              <p className="text-[9px] text-muted-foreground">Completed</p>
-            </div>
-          </div>
-
-          {/* Filter */}
-          <div className="flex gap-1.5">
-            {(["all", "approved", "completed"] as const).map(f => (
-              <button
-                key={f}
-                onClick={() => setFilter(f)}
-                className={`text-[10px] font-bold px-3 py-1.5 rounded-full ${filter === f ? "bg-primary text-primary-foreground border-primary" : "bg-card text-muted-foreground border-border"}`}
-              >
-                {f === "all" ? "All" : f === "approved" ? "Approved" : "Completed"}
-              </button>
-            </div>
-          )}          {/* Orders List */}
-          <p className="font-bold text-sm">Orders ({filtered.length})</p>
-          {filtered.map(order => {
-            const items = Array.isArray(order.items) ? order.items : [];
-            // Only show items that belong to this seller's products
-            const myProductIds = products.map((p: any) => p.id);
-            const myItems = items.filter((item: any) => myProductIds.includes(item.id));
-            const itemsTotal = myItems.reduce((s: number, i: any) => s + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
-
-            return (
-              <div key={order.id} className="bg-card rounded-xl p-3 border border-border space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <span className="text-[10px] font-mono text-muted-foreground">#{order.id.slice(0, 8)}</span>
-                    {order.customer_name && (
-                      <span className="text-[10px] text-foreground font-bold ml-2">{order.customer_name}</span>
-                    </div>
-                  </div>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${order.status === 'completed' ? 'bg-green-100 text-green-600' : 'bg-primary/20 text-primary'}`}>
-                    {order.status}
-                  </span>
-                </div>
-                {myItems.length > 0 ? myItems.map((item: any, i: number) => (
-                  <div key={i} className="flex justify-between text-xs text-muted-foreground">
-                    <span>{item.name} ×{item.quantity}</span>
-                    <span>₱{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}</span>
-                  </div>
-                </div>
-                </div>
-              )}</filtered>
-              {filtered.length === 0 && (
-                <div className="text-center py-8">
-                  <Package className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground">No orders yet for your products</p>
-                </div>
+            {myItems.length > 0 ? myItems.map((item: any, i: number) => (
+              <div key={i} className="flex justify-between text-xs text-muted-foreground">
+                <span>{item.name} ×{item.quantity}</span>
+                <span>₱{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}</span>
+              </div>
+            )) : items.slice(0, 3).map((item: any, i: number) => (
+              <p key={i} className="text-xs text-muted-foreground">{item.name} ×{item.quantity}</p>
+            ))}
+            <div className="flex items-center justify-between pt-1 border-t border-border">
+              <span className="text-[10px] text-muted-foreground">
+                {new Date(order.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+              </span>
+              <div className="text-right">
+                <span className="font-bold text-sm text-primary">₱{Number(order.total).toFixed(2)}</span>
+                <p className="text-[9px] text-[hsl(var(--success))] font-bold">Earned: ₱{Number(order.seller_earnings || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
+        );
+      })}
+      {filtered.length === 0 && (
+        <div className="text-center py-8">
+          <TrendingUp className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-xs text-muted-foreground">
+            {products.length === 0 ? "Add products first to start receiving orders" : "No orders yet for your products"}
+          </p>
         </div>
-      </div>
+      )}
     </div>
   );
 }
 
 export default function SellerStorePage() {
-  const { user, profile } = useAuth();               // ✅ Get profile
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
 
@@ -236,17 +260,17 @@ export default function SellerStorePage() {
     if (!user) { navigate("/login"); return; }
     (supabase as any).from("seller_profiles").select("id").eq("user_id", user.id).maybeSingle()
       .then(({ data }: any) => {
-        if (!data) { navigate("/login"); return; }
+        if (!data) { navigate("/club"); return; }
         setLoading(false);
       });
-    }, [user, navigate]);
+  }, [user, navigate]);
 
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
-    </div>
+    );
   }
 
   return (
@@ -264,18 +288,18 @@ export default function SellerStorePage() {
               <p className="text-[10px] text-muted-foreground">Manage your store, products & orders</p>
             </div>
           </div>
-
-          <Tabs defaultValue="products">
-            <TabsList className="w-full grid grid-cols-3 mb-4">
-              <TabsTrigger value="products" className="text-xs gap-1"><Package className="h-3 w-3" />Products</TabsTrigger>
-              <TabsTrigger value="settings" className="text-xs gap-1"><Store className="h-3 w-3" />Store</TabsTrigger>
-              <TabsTrigger value="orders" className="text-xs gap-1"><TrendingUp className="h-3 w-3" />Orders</TabsTrigger>
-            </TabsList>
-            <TabsContent value="products"><SellerProductsTab user={user} /></TabsContent>
-            <TabsContent value="settings"><StoreSettingsTab user={user} /></TabsContent>
-            <TabsContent value="orders"><SellerOrdersTab user={user} /></TabsContent>
-          </Tabs>
         </div>
+
+        <Tabs defaultValue="products">
+          <TabsList className="w-full grid grid-cols-3 mb-4">
+            <TabsTrigger value="products" className="text-xs gap-1"><Package className="h-3 w-3" />Products</TabsTrigger>
+            <TabsTrigger value="settings" className="text-xs gap-1"><Store className="h-3 w-3" />Store</TabsTrigger>
+            <TabsTrigger value="orders" className="text-xs gap-1"><TrendingUp className="h-3 w-3" />Orders</TabsTrigger>
+          </TabsList>
+          <TabsContent value="products"><SellerProductsTab user={user} /></TabsContent>
+          <TabsContent value="settings"><StoreSettingsTab user={user} /></TabsContent>
+          <TabsContent value="orders"><SellerOrdersTab user={user} /></TabsContent>
+        </Tabs>
       </div>
       <BottomNav />
     </div>
