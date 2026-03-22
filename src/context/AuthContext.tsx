@@ -12,7 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
-  role: string; // ✅ role field (default "customer")
+  role: string;
 }
 
 interface AuthContextType {
@@ -41,10 +41,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // ✅ Ensure role defaults to "customer" and handle null data
+      // Handle null data by providing defaults
+      const profileData = data ?? {
+        id: '',
+        user_id: userId,
+        first_name: '',
+        last_name: '',
+        section: '',
+        grade_level: '',
+        school: '',
+        email: '',
+        avatar_url: null,
+        role: 'customer',
+      };
+
       const profileWithRole = {
-        ...(data ?? {}),
-        role: data?.role || "customer",
+        ...profileData,
+        role: profileData.role || 'customer',
       };
 
       setProfile(profileWithRole);
@@ -69,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
-    // Listen for auth state changes
+    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
@@ -87,10 +100,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Initial session    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error("[AuthContext] Session error:", error);
         await supabase.auth.signOut();
+        return;
       }
 
       setSession(session);
@@ -98,14 +113,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (session?.user) {
         await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
       }
 
       setLoading(false);
     });
 
+    // Cleanup subscription on unmount
     return () => {
-      // cleanup subscription
-      // (supabase auth subscriber is cleaned up automatically by Supabase)
+      subscription.unsubscribe();
     };
   }, []);
 
