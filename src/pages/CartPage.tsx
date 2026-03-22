@@ -228,7 +228,7 @@ export default function CartPage() {
             }`}  
           >
             <Truck className={`h-5 w-5 ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
-            <span className={`text-xs font-bold ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground`}`}>Delivery</span>
+            <span className={`text-xs font-bold ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`}>Delivery</span>
             <span className="text-[10px] text-primary font-semibold">+₱5.00</span>
           </button>
         </div>
