@@ -12,7 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
-  role: string; // ← role field, defaults to "customer"
+  role: string; // ✅ ADDED ROLE with default "customer"
 }
 
 interface AuthContextType {
@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Ensure role exists – fallback to "customer" if missing or null
+      // ✅ Ensure role fallback to "customer" if missing
       const profileWithRole = {
         ...data,
         role: data?.role || "customer",
@@ -69,7 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
-    // Listen for auth changes    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    // ✅ Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
 
@@ -86,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Get initial session
+    // ✅ Get initial session
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error("[AuthContext] Session error:", error);

@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Store, MapPin, ArrowLeft, Star, Package, ChevronRight, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Input } from "@/components/ui/input";
-import bizMartLogo from "@/assets/bizmart-install-logo.png";
 
 export default function SellersPage() {
   const navigate = useNavigate();
@@ -82,17 +81,16 @@ export default function SellersPage() {
 
               {/* Store info */}
               <div className="p-3 relative">
-                {/* Floating avatar */}
                 <div className="absolute -top-7 left-3">
                   <div className="h-12 w-12 rounded-xl bg-card border-2 border-background shadow-md overflow-hidden flex items-center justify-center">
                     <img src={bizMartLogo} alt="BizMart" className="h-10 w-10 object-contain" />
                   </div>
                 </div>
 
-                <div className="ml-16 flex items-center justify-between">
+                <div className="flex items-center gap-3 relative z-10">
                   <div className="flex-1 min-w-0">
                     <h3 className="font-extrabold text-sm">BizMart Official Store</h3>
-                    <p className="text-[10px] text-primary italic">"Your one-stop campus shop! 🏪"</p>
+                    <p className="text-[10px] text-primary italic">"Your one‑stop campus shop! 🏪"</p>
                   </div>
                   <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 </div>
@@ -137,7 +135,7 @@ export default function SellersPage() {
                         <img src={s.store_image} alt={s.store_name} className="h-full w-full object-cover" />
                       ) : (
                         <Store className="h-5 w-5 text-primary" />
-                      )}
+                      </div>
                     </div>
                   </div>
 
@@ -146,7 +144,7 @@ export default function SellersPage() {
                       <h3 className="font-bold text-sm truncate">{s.store_name || "Unnamed Store"}</h3>
                       {s.store_saying && (
                         <p className="text-[10px] text-primary italic truncate">"{s.store_saying}"</p>
-                      )}
+                      </div>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   </div>
@@ -157,7 +155,7 @@ export default function SellersPage() {
                         <MapPin className="h-3 w-3 text-muted-foreground" />
                         <span className="text-[10px] text-muted-foreground">{s.location}</span>
                       </div>
-                    )}
+                    </div>
                     <div className="flex items-center gap-1">
                       <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
                       <span className="text-[10px] text-muted-foreground">4.5</span>
@@ -169,15 +167,15 @@ export default function SellersPage() {
                   )}
                 </div>
               </div>
-            ))}
-
-            {filteredSellers.length === 0 && !loading && sellers.length > 0 && (
-              <p className="text-center text-xs text-muted-foreground py-6">No stores match your search</p>
-            )}
-            {sellers.length === 0 && !loading && (
-              <p className="text-center text-xs text-muted-foreground py-6">No seller stores yet — be the first!</p>
-            )}
+            </div>
           </div>
+        )}  
+
+        {filteredSellers.length === 0 && !loading && (
+          <p className="text-center text-xs text-muted-foreground py-6">No stores match your search</p>
+        )}
+        {sellers.length === 0 && !loading && (
+          <p className="text-center text-xs text-muted-foreground py-6">No seller stores yet — be the first!</p>
         )}
       </div>
       <BottomNav />
