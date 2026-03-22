@@ -3,36 +3,31 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 export function useAdmin() {
-  const { user, profile } = useAuth();          // ✅ Get profile from AuthContext
+  const { user } = useAuth();
   const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) {
+    if (!user) { 
+      setLoading(false);
+      return; 
+    }
+    
+    // Superuser override
+    if (user.email === 'sheethappenswithjaa@gmail.com') {
+      setRole('main_admin');
       setLoading(false);
       return;
     }
 
-    // ✅ Prefer profile.role; fall back to DB lookup if not ready yet
-    if (profile?.role) {
-      // Super‑admin override (kept for backward compatibility)
-      if (user.email === "sheethappenswithjaa@gmail.com") {
-        setRole("main_admin");
-      } else {
-        setRole(profile.role);
-      }
-      setLoading(false);
-      return;
-    }
-
-    // Fallback: fetch role from DB
-    (supabase as any).rpc("get_user_role", { _user_id: user.id })
+    // Check user role from database
+    (supabase as any).rpc('get_user_role', { _user_id: user.id })
       .then(({ data, error }: any) => {
         if (error) {
           console.error("Role check error:", error);
           setRole(null);
         } else {
-          setRole(data || "customer");
+          setRole(data);
         }
         setLoading(false);
       })
@@ -41,13 +36,13 @@ export function useAdmin() {
         setRole(null);
         setLoading(false);
       });
-  }, [user, profile]);
+  }, [user]);
 
   return {
     role,
-    isAdmin: role === "main_admin" || role === "member_admin",
-    isMainAdmin: role === "main_admin",
-    isMemberAdmin: role === "member_admin",
+    isAdmin: role === 'main_admin' || role === 'member_admin',
+    isMainAdmin: role === 'main_admin',
+    isMemberAdmin: role === 'member_admin',
     loading,
   };
 }

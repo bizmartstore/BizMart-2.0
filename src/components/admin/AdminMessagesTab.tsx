@@ -7,7 +7,7 @@ import { MessageCircle, Send, ArrowLeft, User, Search, Check, CheckCheck, Refres
 import { notifyNewMessage } from "@/lib/notifications";
 
 export default function AdminMessagesTab() {
-  const { user, profile } = useAuth(); // ✅ Get profile
+  const { user, profile } = useAuth();
   const [conversations, setConversations] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<Record<string, any>>({});
   const [activeConv, setActiveConv] = useState<any | null>(null);
