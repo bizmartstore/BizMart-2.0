@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useAuth } from "../context/AuthContext"; // Assuming you have an auth context
+import { useAuth } from "../context/AuthContext"; // Your auth context
 
 declare global {
   interface Window { OneSignal: any; }
@@ -7,40 +7,51 @@ declare global {
 
 export default function OneSignalInit() {
   const initAttempted = useRef(false);
-  const { user } = useAuth(); // Your logged-in user
+  const { user } = useAuth();
 
   useEffect(() => {
     if (initAttempted.current) return;
     initAttempted.current = true;
 
-    // Load SDK script
+    // Load OneSignal SDK
     const script = document.createElement("script");
     script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
     script.async = true;
+
     script.onload = () => {
       console.log("[OneSignal] SDK loaded");
 
-      // Push all commands to queue to guarantee SDK readiness
+      // Ensure OneSignal is defined
       window.OneSignal = window.OneSignal || [];
-      window.OneSignal.push(() => {
-        try {
-          // Initialize
-          window.OneSignal.init({
-            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            autoRegister: false, // prevent auto-subscribe
-          });
 
-          // If user exists, set external user ID
-          if (user?.id) {
-            window.OneSignal.setExternalUserId(user.id.toString());
+      // Initialize OneSignal safely
+      window.OneSignal.push(() => {
+        if (window.OneSignal.initialized) {
+          console.log("[OneSignal] Already initialized");
+          return;
+        }
+
+        window.OneSignal.init({
+          appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          autoRegister: false, // prevent auto-subscribe
+        });
+
+        window.OneSignal.initialized = true;
+
+        console.log("[OneSignal] Initialized");
+
+        // Set external user ID if user exists
+        if (user?.id) {
+          window.OneSignal.setExternalUserId(user.id.toString(), () => {
             console.log("[OneSignal] ExternalUserId set:", user.id);
-          }
-        } catch (err) {
-          console.error("[OneSignal] Init error:", err);
+          }, (err: any) => {
+            console.error("[OneSignal] Failed to set ExternalUserId:", err);
+          });
         }
       });
     };
+
     script.onerror = () => console.error("[OneSignal] SDK load error");
 
     document.head.appendChild(script);
