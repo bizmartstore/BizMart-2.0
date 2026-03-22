@@ -41,9 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // ✅ Ensure role defaults to "customer"
+      // ✅ Ensure role defaults to "customer" and handle null data
       const profileWithRole = {
-        ...data,
+        ...(data ?? {}),
         role: data?.role || "customer",
       };
 
@@ -87,8 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Initial session
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+    // Initial session    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error("[AuthContext] Session error:", error);
         await supabase.auth.signOut();
