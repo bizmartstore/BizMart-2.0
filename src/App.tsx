@@ -7,7 +7,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWAInstallGate from "@/components/PWAInstallGate";
-import OneSignalInit from "@/components/OneSignalInit";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 
@@ -24,7 +23,6 @@ import ProfilePage from "@/pages/ProfilePage";
 import BCoinsPage from "@/pages/BCoinsPage";
 import GCashPage from "@/pages/GCashPage";
 import ClubPage from "@/pages/ClubPage";
-import PrintServicePage from "@/pages/PrintServicePage";
 import MessagesPage from "@/pages/MessagesPage";
 import SellersPage from "@/pages/SellersPage";
 import StoreViewPage from "@/pages/StoreViewPage";
@@ -38,6 +36,7 @@ import NotFound from "@/pages/NotFound";
 
 // Import components
 import SplashScreen from "@/components/SplashScreen";
+import OneSignalInit from "@/components/OneSignalInit";
 
 const queryClient = new QueryClient();
 
@@ -74,7 +73,6 @@ function App() {
                   <Route path="/bcoins" element={<BCoinsPage />} />
                   <Route path="/gcash" element={<GCashPage />} />
                   <Route path="/club" element={<ClubPage />} />
-                  <Route path="/print-service" element={<PrintServicePage />} />
                   <Route path="/messages" element={<MessagesPage />} />
                   <Route path="/sellers" element={<SellersPage />} />
                   <Route path="/store/:sellerId" element={<StoreViewPage />} />
