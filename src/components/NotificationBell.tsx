@@ -20,7 +20,7 @@ export default function NotificationBell() {
       const { data } = await (supabase as any)
         .from("notification_logs")
         .select("*")
-        .or(`user_id.eq.${user.id},target_role.is.not.null`)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
       
@@ -52,11 +52,10 @@ export default function NotificationBell() {
     loadNotifications();
     
     if (!user) return;
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
+    const channel = supabase      .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id} OR target_role=is.not.null` },
+        { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
         () => { loadNotifications(); }
       )
       .subscribe();

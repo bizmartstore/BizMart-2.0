@@ -34,11 +34,22 @@ serve(async (req) => {
     const method = order.delivery_type === "delivery" ? "🚚 Delivery" : "📦 Pickup";
     const orderId = order.id?.slice(0, 8) || "N/A";
     const buyerName = order.customer_name || "Customer";
-    const gradeLevel = order.customer_grade_level || "N/A";
-    const section = order.customer_section || "N/A";
-    const contact = order.customer_contact || "N/A";
+    const gradeLevel = order.customer_grade_level;
+    const section = order.customer_section;
+    const contact = order.customer_contact;
     const total = `₱${Number(order.total || 0).toLocaleString()}`;
     const now = new Date().toLocaleString("en-PH", { timeZone: "Asia/Manila" });
+
+    // Helper to show N/A for null, undefined, or empty string (after trim)
+    const getValue = (val: any) => {
+      if (val === null || val === undefined) return "N/A";
+      if (typeof val === 'string' && val.trim() === '') return "N/A";
+      return val;
+    };
+
+    const formattedGradeLevel = getValue(gradeLevel);
+    const formattedSection = getValue(section);
+    const formattedContact = getValue(contact);
 
     let message = "";
 
@@ -48,9 +59,9 @@ serve(async (req) => {
 
 📦 Product: ${productNames}
 👤 Buyer: ${buyerName}
-🎓 Grade Level: ${gradeLevel}
-🏫 Section: ${section}
-📞 Contact: ${contact}
+🎓 Grade Level: ${formattedGradeLevel}
+🏫 Section: ${formattedSection}
+📞 Contact: ${formattedContact}
 
 🔢 Quantity: ${totalQty}
 💰 Total Price: ${total}
@@ -65,8 +76,8 @@ ${method}
 
 📦 Product: ${productNames}
 👤 Buyer: ${buyerName}
-🎓 Grade Level: ${gradeLevel}
-🏫 Section: ${section}
+🎓 Grade Level: ${formattedGradeLevel}
+🏫 Section: ${formattedSection}
 
 🆔 Order ID: #${orderId}
 ${method}
@@ -79,9 +90,8 @@ ${method}
 
 📦 Product: ${productNames}
 👤 Buyer: ${buyerName}
-🎓 Grade Level: ${gradeLevel}
-🏫 Section: ${section}
-
+🎓 Grade Level: ${formattedGradeLevel}
+🏫 Section: ${formattedSection}
 🔢 Quantity: ${totalQty}
 💰 Total Price: ${total}
 🆔 Order ID: #${orderId}
@@ -155,8 +165,7 @@ ${method}
     console.error("[Telegram Order Notify] Error:", error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message || "Unknown error" 
-    }), {
+      error: error.message || "Unknown error"     }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

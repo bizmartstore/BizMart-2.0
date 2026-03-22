@@ -54,8 +54,7 @@ export default function CartPage() {
     try {
       const productIds = items.map(i => i.id);
       const { data: productData } = await (supabase as any).from('products').select('id, stock, name').in('id', productIds);
-      
-      if (productData) {
+            if (productData) {
         for (const item of items) {
           const product = productData.find((p: any) => p.id === item.id);
           if (product && product.stock < item.quantity) {
@@ -75,7 +74,7 @@ export default function CartPage() {
         price: item.price,
         quantity: item.quantity,
         image: item.image,
-      }));
+      }));;
 
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       const { data: insertedOrder, error } = await (supabase as any)
@@ -93,9 +92,9 @@ export default function CartPage() {
           admin_commission: adminCommission,
           seller_earnings: sellerEarnings,
           customer_name: customerName,
-          customer_section: profile?.section || "",
-          customer_grade_level: profile?.grade_level || "",
-          customer_contact: profile?.email || "",
+          customer_section: profile?.section ?? null,
+          customer_grade_level: profile?.grade_level ?? null,
+          customer_contact: profile?.email ?? null,
         })
         .select()
         .single();
@@ -119,9 +118,9 @@ export default function CartPage() {
           id: insertedOrder.id,
           items: orderItems,
           customer_name: customerName,
-          customer_grade_level: profile?.grade_level || "",
-          customer_section: profile?.section || "",
-          customer_contact: profile?.email || "",
+          customer_grade_level: profile?.grade_level ?? null,
+          customer_section: profile?.section ?? null,
+          customer_contact: profile?.email ?? null,
           total: grandTotal,
           delivery_type: deliveryType,
         })
@@ -187,9 +186,8 @@ export default function CartPage() {
               <p className="text-xs font-semibold line-clamp-2 leading-tight">{item.name}</p>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-primary font-extrabold text-sm">₱{item.price}</span>
-                {item.originalPrice && (
-                  <span className="text-[10px] text-muted-foreground line-through">₱{item.originalPrice}</span>
-                )}
+                {item.originalPrice && (                  <span className="text-[10px] text-muted-foreground line-through">₱{item.originalPrice}</span>
+                )}  
               </div>
               <div className="flex items-center justify-between mt-2">
                 <div className="flex items-center gap-2">
@@ -207,7 +205,7 @@ export default function CartPage() {
               </div>
             </div>
           </div>
-        ))}
+        ))}  
       </div>
 
       <div className="mx-3 mt-3 bg-card rounded-xl border border-border p-3 space-y-3">
@@ -215,7 +213,7 @@ export default function CartPage() {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setDeliveryType("pickup")}
-            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${
+            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${  
               deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
             }`}  
           >
@@ -225,12 +223,12 @@ export default function CartPage() {
           </button>
           <button
             onClick={() => setDeliveryType("delivery")}
-            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${
+            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${  
               deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
             }`}  
           >
             <Truck className={`h-5 w-5 ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`} />
-            <span className={`text-xs font-bold ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground"}`}>Delivery</span>
+            <span className={`text-xs font-bold ${deliveryType === "delivery" ? "text-primary" : "text-muted-foreground`}`}>Delivery</span>
             <span className="text-[10px] text-primary font-semibold">+₱5.00</span>
           </button>
         </div>
@@ -264,22 +262,22 @@ export default function CartPage() {
 
       <div className="mx-3 mt-2 bg-accent rounded-xl p-3 border border-primary/20">
         <p className="text-[11px] text-accent-foreground font-semibold">
-          🪙 You'll earn <strong className="text-primary">{(totalPrice * 0.10).toFixed(1)} BCoins</strong> from this purchase!
+          🪙 You'll earn <strong className="text-primary">{(totalPrice * 0.10).toFixed(1)} BCoins</strong> from this purchase!  
         </p>
       </div>
 
-      {!storeOpen && (
+      {!storeOpen && (  
         <div className="mx-3 bg-destructive/10 border border-destructive/30 rounded-xl p-2 mt-2">
           <p className="text-[10px] text-destructive font-semibold text-center">Store is closed — checkout is disabled</p>
         </div>
-      )}
+      )}  
 
       <div className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 shadow-lg">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] text-muted-foreground">Subtotal</span>
           <span className="text-xs font-bold">₱{totalPrice.toLocaleString()}</span>
         </div>
-        {deliveryFee > 0 && (
+        {deliveryFee > 0 && (  
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-muted-foreground">Delivery Fee</span>
             <span className="text-xs font-bold text-primary">+₱{deliveryFee.toFixed(2)}</span>
@@ -293,7 +291,7 @@ export default function CartPage() {
           <button
             onClick={handleCheckout}
             disabled={!storeOpen || checkingOut}
-            className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all ${
+            className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all ${  
               storeOpen ? 'bg-primary text-primary-foreground shadow-md active:scale-95' : 'bg-muted text-muted-foreground'
             }`}            >
             {checkingOut ? "Placing Order..." : "Confirm Order"}
