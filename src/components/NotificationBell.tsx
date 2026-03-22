@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
 
 export default function NotificationBell() {
-  const { user, profile } = useAuth(); // ✅ Get profile
+  const { user, profile } = useAuth();               // ✅ Get profile
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -47,19 +47,7 @@ export default function NotificationBell() {
     } catch (error) {
       console.error("Failed to load notifications:", error);
     }
-  }, [user, profile]); // ✅ Add profile dependency
-
-  useEffect(() => {
-    loadNotifications();
-    
-    if (!user) return;
-    const channel = supabase.channel(`notifications-${user.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
-        () => { loadNotifications(); })
-      .subscribe();
-    
-    return () => { supabase.removeChannel(channel); };
-  }, [user, loadNotifications]);
+  }, [user, profile]);   // ✅ Depend on profile
 
   const markAllAsRead = async () => {
     if (!user) return;
@@ -105,12 +93,12 @@ export default function NotificationBell() {
           <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
-        )}
+        )} 
       </button>
 
       {open && (
         <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
-          <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
+          <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
             <span className="font-bold text-xs">Notifications</span>
             {unreadCount > 0 && (
               <button 
@@ -119,7 +107,7 @@ export default function NotificationBell() {
               >
                 Mark all read
               </button>
-            )}
+            )} 
           </div>
           <div className="overflow-y-auto max-h-[340px]">
             {notifications.length === 0 ? (
@@ -146,11 +134,11 @@ export default function NotificationBell() {
                     <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />
                   )}
                 </button>
-              ))
+              ))}
             )}
           </div>
         </div>
-      )}
+      )} 
     </div>
   );
 }

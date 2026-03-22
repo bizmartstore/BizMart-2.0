@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // ✅ Ensure role fallback to "customer" if missing or null
+      // ✅ Ensure role fallback to "customer" if missing
       const profileWithRole = {
         ...data,
         role: data?.role || "customer",
