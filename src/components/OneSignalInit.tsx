@@ -23,24 +23,27 @@ export default function OneSignalInit() {
 
       window.OneSignal.push(async () => {
         try {
-          await window.OneSignal.init({
-            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            autoRegister: false,
-          });
+          // ⚠️ Only call init once
+          if (!(window as any).OneSignal.__initialized) {
+            await window.OneSignal.init({
+              appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+              allowLocalhostAsSecureOrigin: true,
+              autoRegister: false,
+            });
+            console.log("[OneSignal] SDK initialized");
+          }
 
-          console.log("[OneSignal] SDK initialized");
+          // Get user state (v16)
+          const state = await window.OneSignal.getUserState();
+          console.log("[OneSignal] User state:", state);
 
-          // Check subscription status using v16 method
-          const isSubscribed = await window.OneSignal.getSubscription();
-          console.log("[OneSignal] isSubscribed:", isSubscribed);
-
-          // Show prompt if not subscribed
-          if (!isSubscribed) {
+          // Prompt if not subscribed
+          if (!state.isSubscribed) {
+            console.log("[OneSignal] User not subscribed, showing prompt...");
             window.OneSignal.showSlidedownPrompt();
           }
 
-          // When subscription changes
+          // Set external ID after subscription
           window.OneSignal.on("subscriptionChange", async (subscribed: boolean) => {
             console.log("[OneSignal] subscriptionChange:", subscribed);
             if (subscribed && user?.id) {
@@ -50,7 +53,7 @@ export default function OneSignalInit() {
           });
 
           // If already subscribed, set external ID immediately
-          if (isSubscribed && user?.id) {
+          if (state.isSubscribed && user?.id) {
             await window.OneSignal.setExternalUserId(user.id.toString());
             console.log("[OneSignal] ExternalUserId set immediately:", user.id);
           }
