@@ -1,14 +1,8 @@
+import React from "react";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 
-// Declare OneSignal interface
-declare global {
-  interface Window {
-    OneSignal: any;
-  }
-}
-
-export default function OneSignalInit() {
+export const OneSignalInit: React.FC = () => {
   const { user } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const initAttempted = useRef(false);
@@ -57,8 +51,7 @@ export default function OneSignalInit() {
   useEffect(() => {
     if (!isReady || !window.OneSignal || !oneSignalInitialized.current) return;
 
-    // Update external user ID
-    if (user?.id) {
+    // Update external user ID    if (user?.id) {
       window.OneSignal.setExternalUserId(user.id);
       console.log(`[OneSignal] External user ID updated: ${user.id}`);
     } else {
