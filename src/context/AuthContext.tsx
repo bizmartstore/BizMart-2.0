@@ -76,8 +76,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: null,
         role: "customer",
       });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -101,8 +99,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) await fetchProfile(session.user.id);
-        else setProfile(null);
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
         setLoading(false);
       }
     );
@@ -117,8 +118,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) await fetchProfile(session.user.id);
-      else setProfile(null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
 
