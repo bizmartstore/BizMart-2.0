@@ -8,34 +8,56 @@ export function useAdmin() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user) { 
+    if (!user) {
       setLoading(false);
-      return; 
+      setRole(null);
+      return;
     }
-    
-    // Superuser override
+
+    // Superuser override - check email first
     if (user.email === 'sheethappenswithjaa@gmail.com') {
+      console.log('[useAdmin] Superuser detected via email, setting main_admin');
       setRole('main_admin');
       setLoading(false);
       return;
     }
 
     // Check user role from database
-    (supabase as any).rpc('get_user_role', { _user_id: user.id })
-      .then(({ data, error }: any) => {
+    const checkRole = async () => {
+      try {
+        // First try the RPC function
+        const { data, error } = await (supabase as any).rpc('get_user_role', { _user_id: user.id });
+        
         if (error) {
-          console.error("Role check error:", error);
-          setRole(null);
+          console.error('[useAdmin] RPC error:', error);
+          
+          // Fallback: direct query to user_roles table
+          const { data: roleData, error: roleError } = await (supabase as any)
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", user.id)
+            .maybeSingle();
+            
+          if (roleError || !roleData) {
+            console.error('[useAdmin] Direct query failed:', roleError);
+            setRole(null);
+          } else {
+            console.log('[useAdmin] Role from direct query:', roleData.role);
+            setRole(roleData.role);
+          }
         } else {
+          console.log('[useAdmin] Role from RPC:', data);
           setRole(data);
         }
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Role check failed:", error);
+      } catch (err) {
+        console.error('[useAdmin] Role check failed:', err);
         setRole(null);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    checkRole();
   }, [user]);
 
   return {

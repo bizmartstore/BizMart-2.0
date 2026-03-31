@@ -33,15 +33,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+      // Fetch profile and role in parallel
+      const [profileRes, roleRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", userId)
+          .maybeSingle(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", userId)
+          .maybeSingle()
+      ]);
 
-      if (error) throw error;
+      const { data: profileData, error: profileError } = profileRes;
+      const { data: roleData, error: roleError } = roleRes;
 
-      // Provide complete default profile if data is null
+      if (profileError) throw profileError;
+      if (roleError && roleError.code !== 'PGRST116') throw roleError; // PGRST116 = no rows
+
+      const role = roleData?.role || 'customer';
+
       const defaultProfile: Profile = {
         id: '',
         user_id: userId,
@@ -52,19 +65,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         school: '',
         email: '',
         avatar_url: null,
-        role: 'customer',
+        role: role,
       };
 
-      const profileData: Profile = data ? {
+      const profileDataFinal: Profile = profileData ? {
         ...defaultProfile,
-        ...data,
-        role: data.role || 'customer',
+        ...profileData,
+        role: role,
       } : defaultProfile;
 
-      setProfile(profileData);
+      setProfile(profileDataFinal);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
-      setProfile(null);
+      // Set a default profile with customer role
+      setProfile({
+        id: '',
+        user_id: userId,
+        first_name: '',
+        last_name: '',
+        section: '',
+        grade_level: '',
+        school: '',
+        email: '',
+        avatar_url: null,
+        role: 'customer',
+      });
     }
   };
 

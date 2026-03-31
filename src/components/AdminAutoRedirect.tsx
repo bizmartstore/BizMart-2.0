@@ -14,13 +14,25 @@ export default function AdminAutoRedirect() {
   const location = useLocation();
 
   useEffect(() => {
-    if (authLoading || roleLoading) return;
-    if (!user || !isAdmin) return;
+    // Wait for both auth and role loading to complete
+    if (authLoading || roleLoading) {
+      console.log('[AdminAutoRedirect] Still loading...', { authLoading, roleLoading });
+      return;
+    }
+
+    if (!user || !isAdmin) {
+      console.log('[AdminAutoRedirect] Not admin or no user');
+      return;
+    }
 
     // Only redirect from customer-facing pages, not from admin or auth pages
     const adminPaths = ["/admin", "/login", "/signup"];
-    if (adminPaths.some((p) => location.pathname.startsWith(p))) return;
+    if (adminPaths.some((p) => location.pathname.startsWith(p))) {
+      console.log('[AdminAutoRedirect] Already on admin/auth page, skipping');
+      return;
+    }
 
+    console.log('[AdminAutoRedirect] Redirecting admin to /admin');
     navigate("/admin", { replace: true });
   }, [user, isAdmin, authLoading, roleLoading, location.pathname, navigate]);
 

@@ -4,7 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/context/AuthContext"; // make sure useAuth is exported
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWAInstallGate from "@/components/PWAInstallGate";
 import PWARegister from "@/components/PWARegister";
@@ -36,7 +36,6 @@ import NotFound from "@/pages/NotFound";
 
 // Components
 import SplashScreen from "@/components/SplashScreen";
-// import OneSignalInit from "@/components/OneSignalInit"; // REMOVE this
 import { useOneSignal } from "@/hooks/useOneSignal";
 
 const queryClient = new QueryClient();
@@ -45,9 +44,7 @@ function AppContent() {
   const { user } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
-  // -----------------------------
-  // ✅ Initialize OneSignal with current user
-  // -----------------------------
+  // Initialize OneSignal with current user
   useOneSignal(user);
 
   const handleSplashFinished = () => {
