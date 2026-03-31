@@ -161,8 +161,7 @@ export default function CartPage() {
           type: "new_order",
           targetRole: "admin",
         });
-        // Small delay to prevent lock contention
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay to prevent lock contention        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (e) {
         console.warn("Failed to send admin notification:", e);
       }
@@ -264,8 +263,7 @@ export default function CartPage() {
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={() => setDeliveryType("pickup")}
-            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${  
-              deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
+            className={`rounded-xl border-2 p-3 flex flex-col items-center gap-1 transition-all ${                deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"
             }`}  
           >
             <MapPin className={`h-5 w-5 ${deliveryType === "pickup" ? "text-primary" : "text-muted-foreground"}`} />
@@ -322,9 +320,7 @@ export default function CartPage() {
         <div className="mx-3 bg-destructive/10 border border-destructive/30 rounded-xl p-2 mt-2">
           <p className="text-[10px] text-destructive font-semibold text-center">Store is closed — checkout is disabled</p>
         </div>
-      )}  
-
-      <div className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 shadow-lg">
+      )}        <div className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-4 py-3 shadow-lg">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] text-muted-foreground">Subtotal</span>
           <span className="text-xs font-bold">₱{totalPrice.toLocaleString()}</span>

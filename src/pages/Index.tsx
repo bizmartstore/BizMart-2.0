@@ -48,7 +48,7 @@ export default function Index() {
   const navigate = useNavigate();
   const { data: products = [], refetch: refetchProducts } = useProducts();
   const { data: categories = [] } = useCategories();
-  const { storeOpen, closeMessage } = useAppSettings();
+  const { storeOpen, closeMessage, allSettings, loading: settingsLoading } = useAppSettings();
   const [flashEndsAt, setFlashEndsAt] = useState<string | null>(null);
 
   const flashSaleProducts = products.filter((p) => p.isFlashSale);
@@ -56,14 +56,10 @@ export default function Index() {
   const [rotating, setRotating] = useState(false);
 
   const loadFlashState = useCallback(async () => {
-    const { data } = await (supabase as any)
-      .from("app_settings")
-      .select("*")
-      .eq("key", "flash_sale_state")
-      .maybeSingle();
-
-    if (data?.value?.ends_at) {
-      const endsAt = data.value.ends_at;
+    // Find the flash_sale_state in allSettings
+    const flashSaleSetting = allSettings.find((s: any) => s.key === 'flash_sale_state');
+    if (flashSaleSetting?.value?.ends_at) {
+      const endsAt = flashSaleSetting.value.ends_at;
       if (new Date(endsAt).getTime() > Date.now()) {
         setFlashEndsAt(endsAt);
       } else {
@@ -72,7 +68,7 @@ export default function Index() {
     } else {
       triggerRotation();
     }
-  }, []);
+  }, [allSettings]);
 
   const triggerRotation = async () => {
     if (rotating) return; 

@@ -5,12 +5,14 @@ export function useAppSettings() {
   const [storeOpen, setStoreOpen] = useState(true);
   const [closeMessage, setCloseMessage] = useState("");
   const [gcashFee, setGcashFee] = useState(10);
+  const [allSettings, setAllSettings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (supabase as any).from('app_settings').select('*')
       .then(({ data }: any) => {
         if (data) {
+          setAllSettings(data);
           const storeStatus = data.find((s: any) => s.key === 'store_status');
           const fee = data.find((s: any) => s.key === 'gcash_service_fee');
           if (storeStatus && storeStatus.value) {
@@ -23,5 +25,5 @@ export function useAppSettings() {
       });
   }, []);
 
-  return { storeOpen, closeMessage, gcacheFee: gcashFee, loading };
+  return { storeOpen, closeMessage, gcashFee, allSettings, loading };
 }

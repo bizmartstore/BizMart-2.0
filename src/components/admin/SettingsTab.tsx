@@ -9,35 +9,25 @@ import { toast } from "sonner";
 import { Save, Loader2, Zap, Store, DollarSign, Users } from "lucide-react";
 
 export default function SettingsTab() {
-  const [loading, setLoading] = useState(false);
+  const { storeOpen, closeMessage, gcashFee, allSettings, loading: settingsLoading } = useAppSettings();
   const [settings, setSettings] = useState({
-    storeOpen: true,
-    closeMessage: "",
-    gcashFee: 10,
+    storeOpen: storeOpen,
+    closeMessage: closeMessage,
+    gcashFee: gcashFee,
     maxSellers: 5,
   });
 
   useEffect(() => {
-    (supabase as any).from("app_settings").select("*")
-      .then(({ data }: any) => {
-        if (data) {
-          const storeStatus = data.find((s: any) => s.key === "store_status");
-          const gcashFee = data.find((s: any) => s.key === "gcash_service_fee");
-          const maxSellers = data.find((s: any) => s.key === "max_sellers");
-          if (storeStatus?.value) {
-            setSettings(s => ({ ...s, storeOpen: storeStatus.value.is_open ?? true, closeMessage: storeStatus.value.close_message || "" }));
-          }
-          if (gcashFee?.value) setSettings(s => ({ ...s, gcashFee: gcashFee.value.amount ?? 10 }));
-          if (maxSellers?.value) setSettings(s => ({ ...s, maxSellers: maxSellers.value.max ?? 5 }));
-        }
-      });
-  }, []);
+    // Extract maxSellers from allSettings
+    const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
+    const maxSellers = maxSellersSetting?.value?.max ?? 5;
+    setSettings(prev => ({ ...prev, maxSellers }));
+  }, [allSettings]);
 
   const saveSettings = async () => {
     setLoading(true);
     try {
-      // Store status
-      const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
+      // Store status      const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
       if (existingStore) {
         await (supabase as any).from("app_settings").update({ value: { is_open: settings.storeOpen, close_message: settings.closeMessage }, updated_at: new Date().toISOString() }).eq("key", "store_status");
       } else {
@@ -126,9 +116,9 @@ export default function SettingsTab() {
         <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger Flash Sale</Button>
       </div>
 
-      <Button onClick={saveSettings} disabled={loading} className="w-full gap-2">
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        {loading ? "Saving..." : "Save Settings"}
+      <Button onClick={saveSettings} disabled={settingsLoading} className="w-full gap-2">
+        {settingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        {settingsLoading ? "Saving..." : "Save Settings"}
       </Button>
     </div>
   );
