@@ -49,17 +49,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleError) throw roleError;
 
+      // Safely extract values with defaults - handle null from maybeSingle()
+      const profileRecord = profData ?? {};
+      const roleRecord = roleData ?? {};
+
       const finalProfile: Profile = {
-        id: profData?.id ?? userId,
+        id: profileRecord.id ?? userId,
         user_id: userId,
-        first_name: profData?.first_name ?? '',
-        last_name: profData?.last_name ?? '',
-        section: profData?.section ?? '',
-        grade_level: profData?.grade_level ?? '',
-        school: profData?.school ?? '',
-        email: profData?.email ?? '',
-        avatar_url: profData?.avatar_url ?? null,
-        role: roleData?.role ?? 'customer',
+        first_name: profileRecord.first_name ?? '',
+        last_name: profileRecord.last_name ?? '',
+        section: profileRecord.section ?? '',
+        grade_level: profileRecord.grade_level ?? '',
+        school: profileRecord.school ?? '',
+        email: profileRecord.email ?? '',
+        avatar_url: profileRecord.avatar_url ?? null,
+        role: roleRecord.role ?? 'customer',
       };
 
       setProfile(finalProfile);
