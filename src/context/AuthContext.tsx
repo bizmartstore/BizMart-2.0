@@ -30,7 +30,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hasFetched, setHasFetched] = useState(false); // Prevent multiple fetches
 
   const fetchProfile = async (userId: string) => {
     try {
@@ -79,7 +78,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
     } finally {
       setLoading(false);
-      setHasFetched(true);
     }
   };
 
@@ -126,8 +124,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       subscription?.unsubscribe();
-    });
-  }, []); // Empty deps – run once on mount
+    };
+  }, []);
 
   const signOut = async () => {
     await supabase.auth.signOut();
