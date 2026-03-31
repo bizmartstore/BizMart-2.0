@@ -54,8 +54,7 @@ export default function NotificationBell() {
     loadNotifications();
     
     if (!user) return;
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
+    const channel = supabase      .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
@@ -126,8 +125,7 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button 
-        onClick={() => setOpen(!open)} 
+      <button         onClick={() => setOpen(!open)} 
         className="p-1.5 relative hover:bg-muted rounded-full transition-colors"
         aria-label="Notifications"
       >
@@ -170,8 +168,7 @@ export default function NotificationBell() {
                     n.is_read ? 'opacity-60' : 'bg-primary/5'
                   }`}
                 >
-                  <button
-                    onClick={() => handleNotifClick(n)}
+                  <button                    onClick={() => handleNotifClick(n)}
                     className="w-full flex items-start gap-2"
                   >
                     <span className="text-xl shrink-0 mt-0.5">{n.icon || "🔔"}</span>
