@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react"; // <-- Added missing useEffect import
+import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
@@ -6,7 +6,6 @@ import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
-import PWAInstallGate from "@/components/PWAInstallGate";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 
@@ -34,14 +33,11 @@ import FreelancerApplyPage from "@/pages/FreelancerApplyPage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 
-// Components
-import SplashScreen from "@/components/SplashScreen";
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
       retry: 2,
@@ -51,25 +47,25 @@ const queryClient = new QueryClient({
 });
 
 function AppContent() {
-  const { user, loading: authLoading } = useAuth();
+  const { loading: authLoading } = useAuth();
   const [hasFinishedLoading, setHasFinishedLoading] = useState(false);
 
-  // Run once when auth state becomes ready
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading) {
       setHasFinishedLoading(true);
     }
-  }, [authLoading, user]);
+  }, [authLoading]);
 
-  // While loading, show a simple spinner; after loading, render the app  if (!hasFinishedLoading) {
-    return <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-    </div>;
+  if (!hasFinishedLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
   }
 
   return (
     <>
-      {!hasFinishedLoading && <SplashScreen />}
       <PWARegister />
       <Toaster />
       <Sonner />
