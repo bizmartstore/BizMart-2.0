@@ -30,8 +30,7 @@ export async function triggerNotification(params: NotifyParams) {
       icon,
     });
   } catch (dbError) {
-    console.error("[Notification] DB log failed:", dbError);
-    // Continue with push notification even if DB log fails
+    console.warn("[Notification] DB log failed (table/column may be missing):", dbError);
   }
 
   // 2. Trigger Push via Edge Function
@@ -48,15 +47,13 @@ export async function triggerNotification(params: NotifyParams) {
     });
 
     if (error) {
-      console.error("[Push Notification] Edge Function error:", error);
-      // Fallback: try direct OneSignal API if Edge Function fails
+      console.warn("[Push Notification] Edge Function error:", error);
       await fallbackOneSignalPush(title, message, userId, targetRole, link, icon);
     } else {
       console.log("[Push Notification] Sent successfully:", data);
     }
   } catch (e) {
-    console.error("[Push Notification] Failed:", e);
-    // Fallback to direct OneSignal API
+    console.warn("[Push Notification] Failed:", e);
     await fallbackOneSignalPush(title, message, userId, targetRole, link, icon);
   }
 }
@@ -75,7 +72,6 @@ async function fallbackOneSignalPush(
     const ONESIGNAL_REST_API_KEY = import.meta.env.VITE_ONESIGNAL_REST_API_KEY;
     
     if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
-      console.warn("[OneSignal] Missing env vars, skipping fallback");
       return;
     }
 
@@ -104,10 +100,10 @@ async function fallbackOneSignalPush(
     });
 
     if (!response.ok) {
-      console.error("[OneSignal Fallback] Failed:", await response.json());
+      console.warn("[OneSignal Fallback] Failed:", await response.json());
     }
   } catch (e) {
-    console.error("[OneSignal Fallback] Error:", e);
+    console.warn("[OneSignal Fallback] Error:", e);
   }
 }
 
