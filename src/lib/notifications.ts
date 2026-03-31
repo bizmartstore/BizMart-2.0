@@ -10,11 +10,27 @@ interface NotifyParams {
   icon?: string;
 }
 
+// Track recent notifications to prevent duplicates
+const recentNotifications = new Set<string>();
+const NOTIFICATION_DEDUP_WINDOW = 5000; // 5 seconds
+
 /**
  * Master notification trigger with lock conflict prevention
  */
 export async function triggerNotification(params: NotifyParams) {
   const { title, message, type, userId, targetRole, link, icon = "🔔" } = params;
+
+  // Create a dedup key
+  const dedupKey = `${type}-${userId || 'all'}-${title}-${message.slice(0, 50)}`;
+  
+  // Check if we've sent this notification recently
+  if (recentNotifications.has(dedupKey)) {
+    return;
+  }
+  
+  // Add to recent notifications
+  recentNotifications.add(dedupKey);
+  setTimeout(() => recentNotifications.delete(dedupKey), NOTIFICATION_DEDUP_WINDOW);
 
   try {
     // Add small random delay to prevent simultaneous inserts from causing locks

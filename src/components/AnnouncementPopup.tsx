@@ -1,29 +1,45 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Megaphone, X } from "lucide-react";
 
 export default function AnnouncementPopup() {
-  const [announcement, setAnnouncement] = useState<any>(null);
   const [show, setShow] = useState(false);
 
-  useEffect(() => {
-    // Use session storage so announcement shows on every app launch, not just once
-    const delayTimer = setTimeout(() => {
-      (supabase as any).from('announcements').select('*').eq('is_active', true).order('created_at', { ascending: false }).limit(1)
-        .then(({ data }: any) => {
-          if (data && data.length > 0) {
-            const dismissedThisSession = sessionStorage.getItem('dismissed_announcement');
-            if (dismissedThisSession !== data[0].id) {
-              setAnnouncement(data[0]);
-              setTimeout(() => setShow(true), 300);
-            }
-          }
-        });
-    }, 3200);
+  const { data: announcement } = useQuery({
+    queryKey: ['announcement'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('announcements')
+        .select('*')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      if (error || !data || data.length === 0) return null;
+      return data[0];
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
+  });
 
-    return () => clearTimeout(delayTimer);
-  }, []);
+  useEffect(() => {
+    if (announcement) {
+      const delayTimer = setTimeout(() => {
+        const dismissedThisSession = sessionStorage.getItem('dismissed_announcement');
+        if (dismissedThisSession !== announcement.id) {
+          setShow(true);
+        }
+      }, 3200);
+
+      return () => clearTimeout(delayTimer);
+    }
+  }, [announcement]);
 
   if (!show || !announcement) return null;
 

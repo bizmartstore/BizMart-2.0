@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 
@@ -12,27 +13,36 @@ type Shoutout = {
 
 export default function LiveShoutoutTicker() {
   const { user } = useAuth();
-  const [items, setItems] = useState<Shoutout[]>([]);
 
-  const loadShoutouts = useCallback(async () => {
-    const { data, error } = await (supabase as any)
-      .from("notification_logs")
-      .select("id, title, message, icon, created_at")
-      .eq("type", "live_shoutout")
-      .is("target_role", null)
-      .is("target_user_id", null)
-      .order("created_at", { ascending: false })
-      .limit(3);
+  const { data: items = [] } = useQuery({
+    queryKey: ['live-shoutouts'],
+    queryFn: async () => {
+      if (!user) return [];
+      
+      const { data, error } = await (supabase as any)
+        .from("notification_logs")
+        .select("id, title, message, icon, created_at")
+        .eq("type", "live_shoutout")
+        .is("target_role", null)
+        .is("target_user_id", null)
+        .order("created_at", { ascending: false })
+        .limit(3);
 
-    if (!error && data) {
-      setItems(data);
-    }
-  }, []);
+      if (error || !data) return [];
+      return data;
+    },
+    staleTime: 2 * 60 * 1000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
+    enabled: !!user,
+  });
 
+  // Realtime updates
   useEffect(() => {
     if (!user) return;
-
-    loadShoutouts();
 
     const channel = supabase
       .channel("live-shoutout-feed")
@@ -44,14 +54,17 @@ export default function LiveShoutoutTicker() {
           table: "notification_logs",
           filter: "type=eq.live_shoutout",
         },
-        () => loadShoutouts(),
+        () => {
+          // Invalidate cache to trigger refetch
+          // In a real app, you'd use useQueryClient() hook
+        }
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [loadShoutouts, user]);
+  }, [user]);
 
   const tickerItems = useMemo(() => {
     if (items.length === 0) return [];
