@@ -20,8 +20,7 @@ export default function SettingsTab() {
   const [isSaving, setIsSaving] = useState(false); // Added loading state
 
   useEffect(() => {
-    // Extract maxSellers from allSettings
-    const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
+    // Extract maxSellers from allSettings    const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
     const maxSellers = maxSellersSetting?.value?.max ?? 5;
     setSettings(prev => ({ ...prev, maxSellers }));
   }, [allSettings]);
@@ -119,8 +118,7 @@ export default function SettingsTab() {
         <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger Flash Sale</Button>
       </div>
 
-      <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2"> // Fixed: use isSaving
-        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} // Fixed: use isSaving        {isSaving ? "Saving..." : "Save Settings"} // Fixed: use isSaving      </Button>
+      <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2"> // Fixed: use isSaving        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} // Fixed: use isSaving        {isSaving ? "Saving..." : "Save Settings"} // Fixed: use isSaving      </Button>
     </div>
   );
 }

@@ -37,13 +37,11 @@ import NotFound from "@/pages/NotFound";
 // Components
 import SplashScreen from "@/components/SplashScreen";
 
-// Configure QueryClient with better defaults for app lifecycle
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 10 * 60 * 1000, // 10 minutes
-      refetchOnWindowFocus: false,
+      gcTime: 10 * 60 * 1000, // 10 minutes      refetchOnWindowFocus: false,
       refetchOnReconnect: true, // Refetch when app reconnects
       retry: 2, // Retry failed requests
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
@@ -64,33 +62,35 @@ function AppContent() {
       <PWARegister />
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <AdminAutoRedirect />
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignUpPage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/marketplace" element={<MarketplacePage />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/bcoins" element={<BCoinsPage />} />
-          <Route path="/gcash" element={<GCashPage />} />
-          <Route path="/club" element={<ClubPage />} />
-          <Route path="/messages" element={<MessagesPage />} />
-          <Route path="/sellers" element={<SellersPage />} />
-          <Route path="/store/:sellerId" element={<StoreViewPage />} />
-          <Route path="/seller-store" element={<SellerStorePage />} />
-          <Route path="/jobs" element={<JobsPage />} />
-          <Route path="/jobs/post" element={<JobPostPage />} />
-          <Route path="/jobs/:id" element={<JobDetailPage />} />
-          <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AdminAutoRedirect />
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/bcoins" element={<BCoinsPage />} />
+            <Route path="/gcash" element={<GCashPage />} />
+            <Route path="/club" element={<ClubPage />} />
+            <Route path="/messages" element={<MessagesPage />} />
+            <Route path="/sellers" element={<SellersPage />} />
+            <Route path="/store/:sellerId" element={<StoreViewPage />} />
+            <Route path="/seller-store" element={<SellerStorePage />} />
+            <Route path="/jobs" element={<JobsPage />} />
+            <Route path="/jobs/post" element={<JobPostPage />} />
+            <Route path="/jobs/:id" element={<JobDetailPage />} />
+            <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
     </>
   );
 }
@@ -100,11 +100,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <CartProvider>
-          <TooltipProvider>
-            <PWAInstallGate>
-              <AppContent />
-            </PWAInstallGate>
-          </TooltipProvider>
+          <AppContent />
         </CartProvider>
       </AuthProvider>
     </QueryClientProvider>

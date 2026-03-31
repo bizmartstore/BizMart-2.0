@@ -35,46 +35,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const [profileRes, roleRes] = await Promise.all([
         supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle()
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
       ]);
 
       const { data: profileData, error: profileError } = profileRes;
       const { data: roleData, error: roleError } = roleRes;
 
       if (profileError) throw profileError;
-      if (roleError && roleError.code !== 'PGRST116') throw roleError;
+      if (roleError && roleError.code !== "PGRST116") throw roleError;
 
       const mapToProfile = (record: any): Profile => ({
-        id: record.id ?? '',
+        id: record.id ?? "",
         user_id: userId,
-        first_name: record.first_name ?? '',
-        last_name: record.last_name ?? '',
-        section: record.section ?? '',
-        grade_level: record.grade_level ?? '',
-        school: record.school ?? '',
-        email: record.email ?? '',
+        first_name: record.first_name ?? "",
+        last_name: record.last_name ?? "",
+        section: record.section ?? "",
+        grade_level: record.grade_level ?? "",
+        school: record.school ?? "",
+        email: record.email ?? "",
         avatar_url: record.avatar_url ?? null,
-        role: record.role ?? 'customer',
+        role: record.role ?? "customer",
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
-      if (roleData && roleData.role) {
-        finalProfile.role = roleData.role;
+      const role = roleData?.role;
+      if (role) {
+        finalProfile.role = role;
       }
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
       setProfile({
-        id: '',
+        id: "",
         user_id: userId,
-        first_name: '',
-        last_name: '',
-        section: '',
-        grade_level: '',
-        school: '',
-        email: '',
+        first_name: "",
+        last_name: "",
+        section: "",
+        grade_level: "",
+        school: "",
+        email: "",
         avatar_url: null,
-        role: 'customer',
+        role: "customer",
       });
     }
   };
@@ -106,7 +107,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Restore session on app load    supabase.auth.getSession().then(async ({ data, error }) => {
+    // Restore session on app load
+    supabase.auth.getSession().then(async ({ data, error }) => {
       const session = data?.session ?? null;
       if (error) {
         console.error("[AuthContext] Session error:", error);
@@ -114,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
+      const { data } = data; // data contains the session object
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) await fetchProfile(session.user.id);
@@ -121,7 +124,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    return () => { subscription.unsubscribe(); };
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
