@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Save, Loader2, Zap, Store, DollarSign, Users } from "lucide-react";
-import { useAppSettings } from "@/hooks/useAppSettings"; // Added missing import
+import { useAppSettings } from "@/hooks/useAppSettings";
 
 export default function SettingsTab() {
   const { storeOpen, closeMessage, gcashFee, allSettings, loading: settingsLoading } = useAppSettings();
@@ -17,18 +17,17 @@ export default function SettingsTab() {
     gcashFee: gcashFee,
     maxSellers: 5,
   });
-  const [isSaving, setIsSaving] = useState(false); // Added loading state
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    // Extract maxSellers from allSettings    const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
+    const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
     const maxSellers = maxSellersSetting?.value?.max ?? 5;
     setSettings(prev => ({ ...prev, maxSellers }));
   }, [allSettings]);
 
   const saveSettings = async () => {
-    setIsSaving(true); // Fixed: use isSaving instead of undefined setLoading
+    setIsSaving(true);
     try {
-      // Store status
       const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
       if (existingStore) {
         await (supabase as any).from("app_settings").update({ value: { is_open: settings.storeOpen, close_message: settings.closeMessage }, updated_at: new Date().toISOString() }).eq("key", "store_status");
@@ -36,7 +35,6 @@ export default function SettingsTab() {
         await (supabase as any).from("app_settings").insert({ key: "store_status", value: { is_open: settings.storeOpen, close_message: settings.closeMessage } });
       }
 
-      // GCash fee
       const { data: existingFee } = await (supabase as any).from("app_settings").select("id").eq("key", "gcash_service_fee").maybeSingle();
       if (existingFee) {
         await (supabase as any).from("app_settings").update({ value: { amount: settings.gcashFee }, updated_at: new Date().toISOString() }).eq("key", "gcash_service_fee");
@@ -44,7 +42,6 @@ export default function SettingsTab() {
         await (supabase as any).from("app_settings").insert({ key: "gcash_service_fee", value: { amount: settings.gcashFee } });
       }
 
-      // Max sellers
       const { data: existingMax } = await (supabase as any).from("app_settings").select("id").eq("key", "max_sellers").maybeSingle();
       if (existingMax) {
         await (supabase as any).from("app_settings").update({ value: { max: settings.maxSellers }, updated_at: new Date().toISOString() }).eq("key", "max_sellers");
@@ -56,7 +53,7 @@ export default function SettingsTab() {
     } catch (e: any) {
       toast.error(e.message || "Failed to save settings");
     }
-    setIsSaving(false); // Fixed: use isSaving instead of undefined setLoading
+    setIsSaving(false);
   };
 
   const triggerFlashSale = async () => {
@@ -74,7 +71,6 @@ export default function SettingsTab() {
 
   return (
     <div className="space-y-4">
-      {/* Store Status */}
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Store className="h-5 w-5 text-primary" />
@@ -90,7 +86,6 @@ export default function SettingsTab() {
         </div>
       </div>
 
-      {/* Fees */}
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <DollarSign className="h-5 w-5 text-[hsl(var(--success))]" />
@@ -108,7 +103,6 @@ export default function SettingsTab() {
         </div>
       </div>
 
-      {/* Flash Sale */}
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-warning" />
@@ -118,7 +112,10 @@ export default function SettingsTab() {
         <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger Flash Sale</Button>
       </div>
 
-      <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2"> // Fixed: use isSaving        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} // Fixed: use isSaving        {isSaving ? "Saving..." : "Save Settings"} // Fixed: use isSaving      </Button>
+      <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2">
+        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+        {isSaving ? "Saving..." : "Save Settings"}
+      </Button>
     </div>
   );
 }

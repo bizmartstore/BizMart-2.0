@@ -24,7 +24,7 @@ const statusIcon = {
 export default function GCashPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { gcashFee } = useAppSettings(); // Fixed: changed from gcacheFee to gcashFee
+  const { gcashFee } = useAppSettings();
   const [type, setType] = useState<TransactionType>("cash_in");
   const [amount, setAmount] = useState<number | null>(null);
   const [gcashNumber, setGcashNumber] = useState("");
@@ -198,7 +198,7 @@ export default function GCashPage() {
                       )}
                       <span className="text-xs font-bold capitalize">{tx.type.replace("_", " ")}</span>
                     </div>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full ${tx.status === "completed" ? "bg-green-100 text-green-600" : tx.status === "rejected" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-600"}`>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tx.status === "completed" ? "bg-green-100 text-green-600" : tx.status === "rejected" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-600"}`}>
                       {tx.status}
                     </span>
                   </div>
@@ -212,41 +212,7 @@ export default function GCashPage() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
-
-        <div className="mt-6">
-          <h3 className="font-bold text-sm mb-3">Transaction History</h3>
-          {transactions.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-8">No transactions yet</p>
-          ) : (
-            <div className="space-y-2">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="bg-card rounded-xl p-3 border border-border">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      {tx.type === "cash_in" ? (
-                        <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" />
-                      ) : (
-                        <ArrowUpCircle className="h-4 w-4 text-destructive" />
-                      )}
-                      <span className="text-xs font-bold capitalize">{tx.type.replace("_", " ")}</span>
-                    </div>
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full ${tx.status === "completed" ? "bg-green-100 text-green-600" : tx.status === "rejected" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-600"}`>
-                      {tx.status}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>₱{Number(tx.amount).toFixed(2)} + ₱{Number(tx.service_fee).toFixed(2)} fee</span>
-                    <span>{new Date(tx.created_at).toLocaleDateString()}</span>
-                  </div>
-                  {tx.reference_number && (
-                    <p className="text-[10px] text-muted-foreground mt-1">Ref: {tx.reference_number}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
       </div>
       <BottomNav />
