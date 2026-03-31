@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: record.role ?? 'customer',
       });
 
-      const finalProfile = mapToProfile(profileData ?? {}, userId);
+      const finalProfile = mapToProfile(profileData ?? {});
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
