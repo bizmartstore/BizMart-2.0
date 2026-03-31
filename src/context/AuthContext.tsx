@@ -58,9 +58,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
-      const role = roleData?.role;
-      if (role) {
-        finalProfile.role = role;
+      if (roleData) {
+        finalProfile.role = roleData.role;
       }
       setProfile(finalProfile);
     } catch (err) {
@@ -95,22 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
-    // Handle auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
+        if (session?.user) await fetchProfile(session.user.id);
+        else setProfile(null);
         setLoading(false);
       }
     );
 
-    // Restore session on app load
     supabase.auth.getSession().then(async ({ data, error }) => {
       const session = data?.session ?? null;
       if (error) {
@@ -121,11 +115,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
+      if (session?.user) await fetchProfile(session.user.id);
+      else setProfile(null);
       setLoading(false);
     });
 
