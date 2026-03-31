@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Check, Trash2, X } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -17,26 +17,41 @@ export default function NotificationBell() {
   const loadNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      const { data } = await (supabase as any)
+      let query = (supabase as any)
         .from("notification_logs")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
+
+      // If user is not admin, only show their notifications
+      const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      } else {
+        // Admins see notifications targeted to them OR with target_role='admin'
+        query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) {
+        console.error("Failed to load notifications:", error);
+        return;
+      }
       
       const notifs = data || [];
       setNotifications(notifs);
       
-      // Safely count unread
+      // Count unread
       const newUnread = notifs.filter((n: any) => !n.is_read).length;
       setUnreadCount(newUnread);
       
+      // Play sound for new notifications
       if (newUnread > 0 && notifs.length > 0) {
         const latest = notifs[0];
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
           
-          // Use profile?.role safely
           const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
           if (isAdmin) {
             playAdminNotificationSound();
@@ -54,10 +69,11 @@ export default function NotificationBell() {
     loadNotifications();
     
     if (!user) return;
-    const channel = supabase      .channel(`notifications-${user.id}`)
+    const channel = supabase
+      .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
+        { event: "INSERT", schema: "public", table: "notification_logs" },
         () => { loadNotifications(); }
       )
       .subscribe();
@@ -125,7 +141,8 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button         onClick={() => setOpen(!open)} 
+      <button 
+        onClick={() => setOpen(!open)} 
         className="p-1.5 relative hover:bg-muted rounded-full transition-colors"
         aria-label="Notifications"
       >
@@ -168,7 +185,8 @@ export default function NotificationBell() {
                     n.is_read ? 'opacity-60' : 'bg-primary/5'
                   }`}
                 >
-                  <button                    onClick={() => handleNotifClick(n)}
+                  <button 
+                    onClick={() => handleNotifClick(n)}
                     className="w-full flex items-start gap-2"
                   >
                     <span className="text-xl shrink-0 mt-0.5">{n.icon || "🔔"}</span>

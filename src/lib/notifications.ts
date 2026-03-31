@@ -11,13 +11,15 @@ interface NotifyParams {
 }
 
 /**
- * Master notification trigger
- * Logs to Supabase DB for in-app bell notifications.
+ * Master notification trigger with lock conflict prevention
  */
 export async function triggerNotification(params: NotifyParams) {
   const { title, message, type, userId, targetRole, link, icon = "🔔" } = params;
 
   try {
+    // Add small random delay to prevent simultaneous inserts from causing locks
+    await new Promise(resolve => setTimeout(resolve, Math.random() * 50));
+    
     await (supabase as any).from("notification_logs").insert({
       user_id: userId || null,
       target_role: targetRole || null,
@@ -27,8 +29,9 @@ export async function triggerNotification(params: NotifyParams) {
       link,
       icon,
     });
-  } catch (dbError) {
-    console.warn("[Notification] DB log failed:", dbError);
+  } catch (dbError: any) {
+    // Don't throw on notification failures - they're non-critical
+    console.warn("[Notification] DB log failed:", dbError?.message || dbError);
   }
 }
 

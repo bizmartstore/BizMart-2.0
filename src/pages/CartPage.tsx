@@ -7,7 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useMemo } from "react";
-import { notifyCustomerOrder, notifyCustomerBCoins, sendNotification } from "@/lib/notifications";
+import { notifyCustomerOrder, sendNotification } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ function getMinDateTime() {
   return { date: dateStr, time: `${hours}:${mins}` };
 }
 
-// Retry wrapper for Supabase operations that might encounter lock conflicts
+// Robust retry wrapper with exponential backoff for lock conflicts
 async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
@@ -29,13 +29,15 @@ async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promis
       return await operation();
     } catch (error: any) {
       lastError = error;
-      // Check if it's a lock/abort error
-      if (error?.name === 'AbortError' || error?.message?.includes('lock') || error?.message?.includes('steal')) {
-        // Wait with exponential backoff before retrying
-        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, i)));
+      const isLockError = error?.message?.includes('lock') || 
+                         error?.message?.includes('steal') || 
+                         error?.name === 'AbortError' ||
+                         error?.code === '40P01';
+      
+      if (isLockError && i < maxRetries - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, i)));
         continue;
       }
-      // For other errors, throw immediately
       throw error;
     }
   }
@@ -60,6 +62,7 @@ export default function CartPage() {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
+    if (items.length === 0) { toast.error("Cart is empty"); return; }
 
     const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
     const minDT = new Date();
@@ -74,7 +77,10 @@ export default function CartPage() {
       // Step 1: Check stock with retry
       const productIds = items.map(i => i.id);
       const productData = await withRetry(async () => {
-        const { data, error } = await (supabase as any).from('products').select('id, stock, name').in('id', productIds);
+        const { data, error } = await (supabase as any)
+          .from('products')
+          .select('id, stock, name')
+          .in('id', productIds);
         if (error) throw error;
         return data;
       });
@@ -130,10 +136,22 @@ export default function CartPage() {
         return data;
       });
 
-      // Step 3: Send notifications sequentially to avoid lock conflicts
+      // Step 3: Update product stock sequentially (not in parallel to avoid locks)
+      for (const item of items) {
+        await withRetry(async () => {
+          const { error } = await (supabase as any)
+            .from('products')
+            .update({ stock: (productData.find((p: any) => p.id === item.id)?.stock || 0) - item.quantity })
+            .eq('id', item.id);
+          if (error) throw error;
+        });
+      }
+
+      // Step 4: Send notifications sequentially with delays to prevent lock conflicts
       const buyerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       const typeLabel = deliveryType === "delivery" ? "🚚 Delivery" : "📦 Pickup";
       
+      // Send admin notification first
       try {
         await sendNotification({
           title: "🛒 New Purchase Order",
@@ -143,22 +161,26 @@ export default function CartPage() {
           type: "new_order",
           targetRole: "admin",
         });
+        // Small delay to prevent lock contention
+        await new Promise(resolve => setTimeout(resolve, 100));
       } catch (e) {
         console.warn("Failed to send admin notification:", e);
       }
 
+      // Send customer notification
       try {
         await notifyCustomerOrder(user.id, "placed");
       } catch (e) {
         console.warn("Failed to send customer notification:", e);
       }
 
+      // Clear cart and redirect
       clearCart();
       toast.success("Order placed! Waiting for admin approval.");
       navigate("/orders");
     } catch (e: any) {
       console.error("Checkout error:", e);
-      toast.error(e.message || "Checkout failed");
+      toast.error(e.message || "Checkout failed. Please try again.");
     }
     setCheckingOut(false);
   };

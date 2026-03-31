@@ -59,6 +59,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
+      // Add role from user_roles if available
+      if (roleData?.role) {
+        finalProfile.role = roleData.role;
+      }
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);

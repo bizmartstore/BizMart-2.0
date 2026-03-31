@@ -5,7 +5,6 @@ import { useAuth } from "@/context/AuthContext";
 
 /**
  * Redirects authenticated admin users to /admin if they land on customer pages.
- * Place this inside BrowserRouter.
  */
 export default function AdminAutoRedirect() {
   const { user, loading: authLoading } = useAuth();
@@ -16,19 +15,16 @@ export default function AdminAutoRedirect() {
   useEffect(() => {
     // Wait for both auth and role loading to complete
     if (authLoading || roleLoading) {
-      console.log('[AdminAutoRedirect] Still loading...', { authLoading, roleLoading });
       return;
     }
 
     if (!user || !isAdmin) {
-      console.log('[AdminAutoRedirect] Not admin or no user');
       return;
     }
 
     // Only redirect from customer-facing pages, not from admin or auth pages
     const adminPaths = ["/admin", "/login", "/signup"];
     if (adminPaths.some((p) => location.pathname.startsWith(p))) {
-      console.log('[AdminAutoRedirect] Already on admin/auth page, skipping');
       return;
     }
 
