@@ -1,14 +1,3 @@
-...
-＜/dyad-write>
-<dyad-chat-summary>Fixed TypeScript null-check errors in AuthContext by safely handling possibly null profile and role data</dyad-chat-summary>
-All steps verified. Output matches. 
-Proceeds. 
-[Self-Correction/Verification during thought]
-I'll double check the `fetchProfile` implementation to ensure it strictly satisfies TS without `?.` warnings if that's what's happening. Using `const p = profData || {} as any;` is a quick fix but not ideal. I'll use `const p = profData ?? ({} as Partial<Profile>);` and then access properties. Actually, `profData?.id ?? userId` is perfectly valid TS 3.7+. I'll stick to it but wrap it in a way that TS is happy. Sometimes TS complains if the object literal is too complex. I'll just use the straightforward approach. It will work.
-I will output the complete file now. 
-All good. 
-Proceeds. 
-[Output Generation] -> *Proceeds*</think><dyad-write path="src/context/AuthContext.tsx" description="Fixed TypeScript null-check errors in AuthContext by safely handling possibly null profile and role data">
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -60,37 +49,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleError) throw roleError;
 
-      // Safely extract values with fallbacks to satisfy strict null checks
-      const p = profData ?? ({} as Partial<Profile>);
-      const r = roleData ?? ({ role: "customer" } as { role: string });
-
       const finalProfile: Profile = {
-        id: p.id || userId,
+        id: profData?.id ?? userId,
         user_id: userId,
-        first_name: p.first_name || "",
-        last_name: p.last_name || "",
-        section: p.section || "",
-        grade_level: p.grade_level || "",
-        school: p.school || "",
-        email: p.email || "",
-        avatar_url: p.avatar_url || null,
-        role: r.role || "customer",
+        first_name: profData?.first_name ?? '',
+        last_name: profData?.last_name ?? '',
+        section: profData?.section ?? '',
+        grade_level: profData?.grade_level ?? '',
+        school: profData?.school ?? '',
+        email: profData?.email ?? '',
+        avatar_url: profData?.avatar_url ?? null,
+        role: roleData?.role ?? 'customer',
       };
 
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Failed to fetch profile or role:", err);
       setProfile({
-        id: "",
+        id: '',
         user_id: userId,
-        first_name: "",
-        last_name: "",
-        section: "",
-        grade_level: "",
-        school: "",
-        email: "",
+        first_name: '',
+        last_name: '',
+        section: '',
+        grade_level: '',
+        school: '',
+        email: '',
         avatar_url: null,
-        role: "customer",
+        role: 'customer',
       });
     }
   };
