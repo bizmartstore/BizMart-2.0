@@ -18,47 +18,43 @@ export function useOneSignal(user?: { id?: string; role?: string }) {
     if (initialized.current) return;
     initialized.current = true;
 
-    const script = document.createElement("script");
-    script.src = "https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js";
-    script.async = true;
+    // Check if OneSignal is already loaded (from index.html script tag)
+    if (!window.OneSignal) {
+      console.error("[OneSignal] SDK not found - make sure the script tag is in index.html");
+      return;
+    }
 
-    script.onload = () => {
-      console.log("[OneSignal] SDK loaded");
-      window.OneSignal = window.OneSignal || [];
+    console.log("[OneSignal] SDK loaded from index.html");
+    window.OneSignal = window.OneSignal || [];
 
-      window.OneSignal.push(async () => {
-        try {
-          await window.OneSignal.init({
-            appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
-            allowLocalhostAsSecureOrigin: true,
-            autoRegister: false, // do NOT auto-register
-          });
+    window.OneSignal.push(async () => {
+      try {
+        await window.OneSignal.init({
+          appId: import.meta.env.VITE_ONESIGNAL_APP_ID,
+          allowLocalhostAsSecureOrigin: true,
+          autoRegister: false, // do NOT auto-register
+        });
 
-          console.log("[OneSignal] Initialized");
-          setIsInitialized(true);
+        console.log("[OneSignal] Initialized");
+        setIsInitialized(true);
 
-          // -------------------------------
-          // ✅ CHECK SUBSCRIPTION
-          // -------------------------------
-          const permission = await window.OneSignal.Notifications.permission;
-          const subscribed = permission === "granted";
-          setIsSubscribed(subscribed);
+        // -------------------------------
+        // ✅ CHECK SUBSCRIPTION
+        // -------------------------------
+        const permission = await window.OneSignal.Notifications.permission;
+        const subscribed = permission === "granted";
+        setIsSubscribed(subscribed);
 
-          if (!subscribed) {
-            console.log("[OneSignal] Prompting user for push...");
-            await window.OneSignal.Notifications.requestPermission();
-            const newPermission = await window.OneSignal.Notifications.permission;
-            setIsSubscribed(newPermission === "granted");
-          }
-        } catch (err) {
-          console.error("[OneSignal] Init error:", err);
+        if (!subscribed) {
+          console.log("[OneSignal] Prompting user for push...");
+          await window.OneSignal.Notifications.requestPermission();
+          const newPermission = await window.OneSignal.Notifications.permission;
+          setIsSubscribed(newPermission === "granted");
         }
-      });
-    };
-
-    script.onerror = () => console.error("[OneSignal] SDK load error");
-
-    document.head.appendChild(script);
+      } catch (err) {
+        console.error("[OneSignal] Init error:", err);
+      }
+    });
   }, []);
 
   // -------------------------------
