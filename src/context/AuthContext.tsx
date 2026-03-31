@@ -33,37 +33,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const [profileRes, roleRes] = await Promise.all([
-        supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
-        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle(),
-      ]);
+      // Fetch profile data
+      const { data: profData, error: profError } = await supabase        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-      const { data: profileData, error: profileError } = profileRes;
-      const { data: roleData, error: roleError } = roleRes;
+      if (profError) throw profError;
 
-      if (profileError) throw profileError;
-      if (roleError && roleError.code !== "PGRST116") throw roleError;
+      // Fetch role data
+      const { data: roleData, error: roleError } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .maybeSingle();
 
-      const mapToProfile = (record: any): Profile => ({
-        id: record.id ?? "",
+      if (roleError) throw roleError;
+
+      const finalProfile: Profile = {
+        id: profData.id,
         user_id: userId,
-        first_name: record.first_name ?? "",
-        last_name: record.last_name ?? "",
-        section: record.section ?? "",
-        grade_level: record.grade_level ?? "",
-        school: record.school ?? "",
-        email: record.email ?? "",
-        avatar_url: record.avatar_url ?? null,
-        role: record.role ?? "customer",
-      });
+        first_name: profData.first_name,
+        last_name: profData.last_name,
+        section: profData.section,
+        grade_level: profData.grade_level,
+        school: profData.school,
+        email: profData.email,
+        avatar_url: profData.avatar_url,
+        role: roleData.role,
+      };
 
-      const finalProfile = mapToProfile(profileData ?? {});
-      if (roleData) {
-        finalProfile.role = (roleData as { role: string }).role;
-      }
       setProfile(finalProfile);
     } catch (err) {
-      console.error("[AuthContext] Profile fetch error:", err);
+      console.error("[AuthContext] Failed to fetch profile or role:", err);
+      // Fallback profile with customer role
       setProfile({
         id: "",
         user_id: userId,
@@ -79,10 +82,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  useEffect(() => {
+  // Initial load: check session and set up auth state  useEffect(() => {
     const currentProjectUrl = import.meta.env.VITE_SUPABASE_URL;
     const lastProjectUrl = localStorage.getItem("last_supabase_url");
 
+    // Handle Supabase project changes
     if (lastProjectUrl && lastProjectUrl !== currentProjectUrl) {
       console.warn("[AuthContext] Supabase project changed! Clearing old session...");
       supabase.auth.signOut();
@@ -94,37 +98,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
+    const initializeAuth = async () => {
+      try {
+        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) throw sessionError;
+
+        setSession(initialSession);
+        setUser(initialSession?.user ?? null);
+
+        if (initialSession) {
+          await fetchProfile(initialSession.user.id);
+        } else {
+          setProfile(null);
+        }
+      } catch (err) {
+        console.error("[AuthContext] Initial session error:", err);
+        // Clear state on error        setSession(null);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
+  // Listen for auth changes (sign in/out, token refresh, etc.)
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
+
+        if (session) {
           await fetchProfile(session.user.id);
         } else {
           setProfile(null);
         }
-        setLoading(false);
+        // Note: We do NOT set loading here because loading is only for initial load
       }
     );
-
-    supabase.auth.getSession().then(async ({ data, error }) => {
-      const session = data?.session ?? null;
-      if (error) {
-        console.error("[AuthContext] Session error:", error);
-        await supabase.auth.signOut();
-        setLoading(false);
-        return;
-      }
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
-    });
 
     return () => {
       subscription?.unsubscribe();
@@ -132,11 +148,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    localStorage.removeItem("supabase.auth.token");
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("[AuthContext] Sign out error:", err);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setProfile(null);
+      localStorage.removeItem("supabase.auth.token");
+    }
   };
 
   return (
