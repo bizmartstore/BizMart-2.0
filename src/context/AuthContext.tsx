@@ -44,31 +44,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileError) throw profileError;
       if (roleError && roleError.code !== 'PGRST116') throw roleError;
 
-      // Fix: Provide default empty objects to avoid null
-      const profileRecord = profileData ?? {};
-      const roleRecord = roleData ?? {};
-
-      // Now all properties are safely accessed
-      const finalProfile: Profile = {
-        id: profileRecord.id ?? '',
+      // Helper to safely map profile data to Profile type
+      const mapToProfile = (record: any): Profile => ({
+        id: record.id ?? '',
         user_id: userId,
-        first_name: profileRecord.first_name ?? '',
-        last_name: profileRecord.last_name ?? '',
-        section: profileRecord.section ?? '',
-        grade_level: profileRecord.grade_level ?? '',
-        school: profileRecord.school ?? '',
-        email: profileRecord.email ?? '',
-        avatar_url: profileRecord.avatar_url ?? null,
-        role: roleRecord.role ?? 'customer',
-      };
+        first_name: record.first_name ?? '',
+        last_name: record.last_name ?? '',
+        section: record.section ?? '',
+        grade_level: record.grade_level ?? '',
+        school: record.school ?? '',
+        email: record.email ?? '',
+        avatar_url: record.avatar_url ?? null,
+        role: record.role ?? 'customer',
+      });
 
+      const finalProfile = mapToProfile(profileData ?? {}, userId);
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
       setProfile({
-        id: '', user_id: userId, first_name: '', last_name: '',
-        section: '', grade_level: '', school: '', email: '',
-        avatar_url: null, role: 'customer',
+        id: '',
+        user_id: userId,
+        first_name: '',
+        last_name: '',
+        section: '',
+        grade_level: '',
+        school: '',
+        email: '',
+        avatar_url: null,
+        role: 'customer',
       });
     }
   };
