@@ -1,3 +1,42 @@
+...
+＜/dyad-write>
+<dyad-chat-summary>Fixed roleData null check＜/dyad-chat-summary>
+All good. 
+Let's produce the response. 
+Wait, let's verify the exact line in the provided code:
+```typescript
+      const finalProfile = mapToProfile(profileData ?? {});
+      const role = roleData?.role;
+      if (role) {
+        finalProfile.role = role;
+      }
+```
+I will change it to:
+```typescript
+      const finalProfile = mapToProfile(profileData ?? {});
+      if (roleData && roleData.role) {
+        finalProfile.role = roleData.role;
+      }
+```
+This resolves TS18047.
+Done. 
+Output matches. 
+Proceeds. 
+[Self-Correction/Verification during thought]
+Is there any chance `roleData` is typed as `never`? In the previous prompt, error 4 & 5 said `Property 'role' does not exist on type 'never'`. That was fixed by typing or casting. But now it says `'roleData' is possibly 'null'`.
+I'll just use a safe explicit check.
+```typescript
+      const finalProfile = mapToProfile(profileData ?? {});
+      if (roleData) {
+        finalProfile.role = roleData.role || "customer";
+      }
+```
+This is robust.
+I will generate the full file to be safe.
+All set. 
+Output matches response. 
+Proceeds. 
+[Output Generation] -> *Proceeds*</think><dyad-write path="src/context/AuthContext.tsx" description="Fixing roleData null check to resolve TS18047">
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -58,9 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
-      const role = roleData?.role;
-      if (role) {
-        finalProfile.role = role;
+      if (roleData && roleData.role) {
+        finalProfile.role = roleData.role;
       }
       setProfile(finalProfile);
     } catch (err) {
