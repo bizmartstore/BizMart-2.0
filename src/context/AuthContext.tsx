@@ -33,15 +33,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Fetch profile data
-      const { data: profData, error: profError } = await supabase        .from("profiles")
+      const { data: profData, error: profError } = await supabase
+        .from("profiles")
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
 
       if (profError) throw profError;
 
-      // Fetch role data
       const { data: roleData, error: roleError } = await supabase
         .from("user_roles")
         .select("role")
@@ -51,42 +50,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (roleError) throw roleError;
 
       const finalProfile: Profile = {
-        id: profData.id,
+        id: profData?.id ?? userId,
         user_id: userId,
-        first_name: profData.first_name,
-        last_name: profData.last_name,
-        section: profData.section,
-        grade_level: profData.grade_level,
-        school: profData.school,
-        email: profData.email,
-        avatar_url: profData.avatar_url,
-        role: roleData.role,
+        first_name: profData?.first_name ?? '',
+        last_name: profData?.last_name ?? '',
+        section: profData?.section ?? '',
+        grade_level: profData?.grade_level ?? '',
+        school: profData?.school ?? '',
+        email: profData?.email ?? '',
+        avatar_url: profData?.avatar_url ?? null,
+        role: roleData?.role ?? 'customer',
       };
 
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Failed to fetch profile or role:", err);
-      // Fallback profile with customer role
       setProfile({
-        id: "",
+        id: '',
         user_id: userId,
-        first_name: "",
-        last_name: "",
-        section: "",
-        grade_level: "",
-        school: "",
-        email: "",
+        first_name: '',
+        last_name: '',
+        section: '',
+        grade_level: '',
+        school: '',
+        email: '',
         avatar_url: null,
-        role: "customer",
+        role: 'customer',
       });
     }
   };
 
-  // Initial load: check session and set up auth state  useEffect(() => {
+  useEffect(() => {
     const currentProjectUrl = import.meta.env.VITE_SUPABASE_URL;
     const lastProjectUrl = localStorage.getItem("last_supabase_url");
 
-    // Handle Supabase project changes
     if (lastProjectUrl && lastProjectUrl !== currentProjectUrl) {
       console.warn("[AuthContext] Supabase project changed! Clearing old session...");
       supabase.auth.signOut();
@@ -114,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (err) {
         console.error("[AuthContext] Initial session error:", err);
-        // Clear state on error        setSession(null);
+        setSession(null);
         setUser(null);
         setProfile(null);
       } finally {
@@ -125,7 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, []);
 
-  // Listen for auth changes (sign in/out, token refresh, etc.)
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
@@ -138,7 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           setProfile(null);
         }
-        // Note: We do NOT set loading here because loading is only for initial load
       }
     );
 
