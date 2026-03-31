@@ -31,65 +31,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Load persisted session on mount
-  useEffect(() => {
-    const persisted = localStorage.getItem("supabase.auth.token");
-    if (persisted) {
-      // Restore session from localStorage
-      const { access_token, refresh_token, expires_at } = JSON.parse(persisted);
-      const token = btoa(access_token + ":" + refresh_token);
-      supabase.auth.setSession(access_token, refresh_token, expires_at);
+  const fetchProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      // Provide complete default profile if data is null
+      const defaultProfile: Profile = {
+        id: '',
+        user_id: userId,
+        first_name: '',
+        last_name: '',
+        section: '',
+        grade_level: '',
+        school: '',
+        email: '',
+        avatar_url: null,
+        role: 'customer',
+      };
+
+      const profileData: Profile = data ? {
+        ...defaultProfile,
+        ...data,
+        role: data.role || 'customer',
+      } : defaultProfile;
+
+      setProfile(profileData);
+    } catch (err) {
+      console.error("[AuthContext] Profile fetch error:", err);
+      setProfile(null);
     }
-  }, []);
+  };
 
   useEffect(() => {
-    const { data: { session } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (session) {
-          setSession(session);
-          setUser(session.user);
-          // Persist token to localStorage
-          localStorage.setItem("supabase.auth.token", JSON.stringify({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-            expires_at: session.expires_at,
-          }));
-        } else {
-          localStorage.removeItem("supabase.auth.token");
-        }
-        // Load profile
+    const currentProjectUrl = import.meta.env.VITE_SUPABASE_URL;
+    const lastProjectUrl = localStorage.getItem("last_supabase_url");
+
+    if (lastProjectUrl && lastProjectUrl !== currentProjectUrl) {
+      console.warn("[AuthContext] Supabase project changed! Clearing old session...");
+      supabase.auth.signOut();
+      localStorage.clear();
+      localStorage.setItem("last_supabase_url", currentProjectUrl);
+      window.location.reload();
+      return;
+    }
+
+    localStorage.setItem("last_supabase_url", currentProjectUrl);
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log(`[AuthContext] Auth event: ${event}`);
+
+        setSession(session);
+        setUser(session?.user ?? null);
+
         if (session?.user) {
-          const { data: profileData, error } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("user_id", session.user.id)
-            .maybeSingle();
-          if (!error && profileData) {
-            setProfile(profileData);
-          } else {
-            // Default profile if none exists
-            setProfile({
-              id: "",
-              user_id: session.user.id,
-              first_name: "",
-              last_name: "",
-              section: "",
-              grade_level: "",
-              school: "",
-              email: session.user.email,
-              avatar_url: null,
-              role: "customer",
-            });
-          }
+          await fetchProfile(session.user.id);
         } else {
           setProfile(null);
         }
+
         setLoading(false);
       }
     );
 
+    // Get initial session
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      const session = data?.session ?? null;
+      
+      if (error) {
+        console.error("[AuthContext] Session error:", error);
+        await supabase.auth.signOut();
+        return;
+      }
+
+      setSession(session);
+      setUser(session?.user ?? null);
+
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
+
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
     return () => {
-      supabase.auth.onAuthStateChange(_event => {});
+      subscription.unsubscribe();
     };
   }, []);
 

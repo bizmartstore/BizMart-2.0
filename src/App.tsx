@@ -31,11 +31,12 @@ import JobsPage from "@/pages/JobsPage";
 import JobPostPage from "@/pages/JobPostPage";
 import JobDetailPage from "@/pages/JobDetailPage";
 import FreelancerApplyPage from "@/pages/FreelancerApplyPage";
-import AdminDashboard from "@/components/admin/AdminDashboard";
+import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 
 // Components
 import SplashScreen from "@/components/SplashScreen";
+// import OneSignalInit from "@/components/OneSignalInit"; // REMOVE this
 import { useOneSignal } from "@/hooks/useOneSignal";
 
 const queryClient = new QueryClient();
@@ -44,7 +45,9 @@ function AppContent() {
   const { user } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
 
-  // Initialize OneSignal with current user
+  // -----------------------------
+  // ✅ Initialize OneSignal with current user
+  // -----------------------------
   useOneSignal(user);
 
   const handleSplashFinished = () => {
@@ -57,35 +60,33 @@ function AppContent() {
       <PWARegister />
       <Toaster />
       <Sonner />
-      <TooltipProvider>
-        <BrowserRouter>
-          <AdminAutoRedirect />
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/categories" element={<CategoriesPage />} />
-            <Route path="/marketplace" element={<MarketplacePage />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/bcoins" element={<BCoinsPage />} />
-            <Route path="/gcash" element={<GCashPage />} />
-            <Route path="/club" element={<ClubPage />} />
-            <Route path="/messages" element={<MessagesPage />} />
-            <Route path="/sellers" element={<SellersPage />} />
-            <Route path="/store/:sellerId" element={<StoreViewPage />} />
-            <Route path="/seller-store" element={<SellerStorePage />} />
-            <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/jobs/post" element={<JobPostPage />} />
-            <Route path="/jobs/:id" element={<JobDetailPage />} />
-            <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <BrowserRouter>
+        <AdminAutoRedirect />
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/signup" element={<SignUpPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/product/:id" element={<ProductDetail />} />
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/bcoins" element={<BCoinsPage />} />
+          <Route path="/gcash" element={<GCashPage />} />
+          <Route path="/club" element={<ClubPage />} />
+          <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/sellers" element={<SellersPage />} />
+          <Route path="/store/:sellerId" element={<StoreViewPage />} />
+          <Route path="/seller-store" element={<SellerStorePage />} />
+          <Route path="/jobs" element={<JobsPage />} />
+          <Route path="/jobs/post" element={<JobPostPage />} />
+          <Route path="/jobs/:id" element={<JobDetailPage />} />
+          <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
+          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </BrowserRouter>
     </>
   );
 }
