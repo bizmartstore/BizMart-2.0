@@ -24,7 +24,7 @@ const statusIcon = {
 export default function GCashPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { gcacheFee } = useAppSettings();
+  const { gcashFee } = useAppSettings(); // Fixed: changed from gcacheFee to gcashFee
   const [type, setType] = useState<TransactionType>("cash_in");
   const [amount, setAmount] = useState<number | null>(null);
   const [gcashNumber, setGcashNumber] = useState("");
@@ -59,8 +59,8 @@ export default function GCashPage() {
           user_id: user.id,
           type,
           amount,
-          service_fee: gcacheFee,
-          total: amount + gcacheFee,
+          service_fee: gcashFee,
+          total: amount + gcashFee,
           gcash_number: gcashNumber,
           admin_gcash_number: GCASH_ADMIN_NUMBER,
           reference_number: refNo,
@@ -77,7 +77,7 @@ export default function GCashPage() {
 
       toast({
         title: "Request Submitted! ✅",
-        description: `Ref: ${refNo}. Send ₱${amount + gcacheFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcacheFee} fee). +1 BCoin earned!`,
+        description: `Ref: ${refNo}. Send ₱${amount + gcashFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcashFee} fee). +1 BCoin earned!`,
       });
       setShowForm(false);
     } catch (e: any) {
@@ -118,21 +118,13 @@ export default function GCashPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setType("cash_in")}
-                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    type === "cash_in"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${type === "cash_in" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                 >
                   <ArrowDownCircle className="h-4 w-4 inline mr-1" /> Cash In
                 </button>
                 <button
                   onClick={() => setType("cash_out")}
-                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${
-                    type === "cash_out"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all ${type === "cash_out" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                 >
                   <ArrowUpCircle className="h-4 w-4 inline mr-1" /> Cash Out
                 </button>
@@ -146,11 +138,7 @@ export default function GCashPage() {
                   <button
                     key={a}
                     onClick={() => setAmount(a)}
-                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                      amount === a
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-muted-foreground"
-                    }`}
+                    className={`py-2 rounded-lg text-xs font-bold transition-all ${amount === a ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                   >
                     ₱{a}
                   </button>
@@ -179,11 +167,11 @@ export default function GCashPage() {
             <div className="bg-muted/30 rounded-xl p-3">
               <div className="flex justify-between text-xs mb-1">
                 <span className="text-muted-foreground">Service Fee</span>
-                <span className="font-bold">₱{gcacheFee}</span>
+                <span className="font-bold">₱{gcashFee}</span>
               </div>
               <div className="flex justify-between text-xs font-bold">
                 <span>Total to Pay</span>
-                <span className="text-primary">₱{(amount ? amount + gcacheFee : 0).toFixed(2)}</span>
+                <span className="text-primary">₱{(amount ? amount + gcashFee : 0).toFixed(2)}</span>
               </div>
             </div>
 
@@ -203,18 +191,14 @@ export default function GCashPage() {
                 <div key={tx.id} className="bg-card rounded-xl p-3 border border-border">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                      {type === "cash_in" ? (
+                      {tx.type === "cash_in" ? (
                         <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" />
                       ) : (
                         <ArrowUpCircle className="h-4 w-4 text-destructive" />
                       )}
                       <span className="text-xs font-bold capitalize">{tx.type.replace("_", " ")}</span>
                     </div>
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                      tx.status === "completed" ? "bg-green-100 text-green-600" :
-                      tx.status === "rejected" ? "bg-red-100 text-red-600" :
-                      "bg-yellow-100 text-yellow-600"
-                    }`}>
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${tx.status === "completed" ? "bg-green-100 text-green-600" : tx.status === "rejected" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-600"}`}>
                       {tx.status}
                     </span>
                   </div>

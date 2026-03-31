@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Save, Loader2, Zap, Store, DollarSign, Users } from "lucide-react";
+import { useAppSettings } from "@/hooks/useAppSettings"; // Added missing import
 
 export default function SettingsTab() {
   const { storeOpen, closeMessage, gcashFee, allSettings, loading: settingsLoading } = useAppSettings();
@@ -16,6 +17,7 @@ export default function SettingsTab() {
     gcashFee: gcashFee,
     maxSellers: 5,
   });
+  const [isSaving, setIsSaving] = useState(false); // Added loading state
 
   useEffect(() => {
     // Extract maxSellers from allSettings
@@ -25,9 +27,10 @@ export default function SettingsTab() {
   }, [allSettings]);
 
   const saveSettings = async () => {
-    setLoading(true);
+    setIsSaving(true); // Fixed: use isSaving instead of undefined setLoading
     try {
-      // Store status      const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
+      // Store status
+      const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
       if (existingStore) {
         await (supabase as any).from("app_settings").update({ value: { is_open: settings.storeOpen, close_message: settings.closeMessage }, updated_at: new Date().toISOString() }).eq("key", "store_status");
       } else {
@@ -54,7 +57,7 @@ export default function SettingsTab() {
     } catch (e: any) {
       toast.error(e.message || "Failed to save settings");
     }
-    setLoading(false);
+    setIsSaving(false); // Fixed: use isSaving instead of undefined setLoading
   };
 
   const triggerFlashSale = async () => {
@@ -116,10 +119,8 @@ export default function SettingsTab() {
         <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger Flash Sale</Button>
       </div>
 
-      <Button onClick={saveSettings} disabled={settingsLoading} className="w-full gap-2">
-        {settingsLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-        {settingsLoading ? "Saving..." : "Save Settings"}
-      </Button>
+      <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2"> // Fixed: use isSaving
+        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} // Fixed: use isSaving        {isSaving ? "Saving..." : "Save Settings"} // Fixed: use isSaving      </Button>
     </div>
   );
 }

@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
-      if (roleData?.role) {
+      if (roleData && roleData.role) {
         finalProfile.role = roleData.role;
       }
       setProfile(finalProfile);
@@ -106,8 +106,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    // Restore session on app load
-    supabase.auth.getSession().then(async ({ data, error }) => {
+    // Restore session on app load    supabase.auth.getSession().then(async ({ data, error }) => {
       const session = data?.session ?? null;
       if (error) {
         console.error("[AuthContext] Session error:", error);
