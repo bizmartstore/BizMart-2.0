@@ -11,7 +11,7 @@ import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 
 // Pages
-import HomePage from "@/pages/HomePage";
+import Index from "@/pages/Index";
 import LoginPage from "@/pages/LoginPage";
 import SignUpPage from "@/pages/SignUpPage";
 import CategoriesPage from "@/pages/CategoriesPage";
@@ -60,7 +60,7 @@ function AppContent() {
       <BrowserRouter>
         <AdminAutoRedirect />
         <Routes>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<Index />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<SignUpPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
