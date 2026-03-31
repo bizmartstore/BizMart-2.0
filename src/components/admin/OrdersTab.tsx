@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, RefreshCw, Eye } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
-import { sendTelegramOrderNotify } from "@/lib/telegramNotify";
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -39,9 +38,6 @@ export default function OrdersTab() {
         link: "/orders",
         icon: "📦"
       });
-
-      // Notify Telegram
-      await sendTelegramOrderNotify(newStatus, order);
 
       toast.success(`Order ${newStatus}!`);
       loadOrders();

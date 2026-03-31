@@ -12,13 +12,11 @@ interface NotifyParams {
 
 /**
  * Master notification trigger
- * 1. Logs to Supabase DB (for in-app bell)
- * 2. Calls Edge Function (for OneSignal push + Telegram for admin)
+ * Logs to Supabase DB for in-app bell notifications.
  */
 export async function triggerNotification(params: NotifyParams) {
   const { title, message, type, userId, targetRole, link, icon = "🔔" } = params;
 
-  // 1. Log to Database (best effort - don't block if this fails)
   try {
     await (supabase as any).from("notification_logs").insert({
       user_id: userId || null,
@@ -30,80 +28,7 @@ export async function triggerNotification(params: NotifyParams) {
       icon,
     });
   } catch (dbError) {
-    console.warn("[Notification] DB log failed (table/column may be missing):", dbError);
-  }
-
-  // 2. Trigger Push via Edge Function
-  try {
-    const { data, error } = await supabase.functions.invoke("send-notification", {
-      body: { 
-        title, 
-        message, 
-        targetUserId: userId, 
-        targetRole, 
-        link, 
-        icon 
-      },
-    });
-
-    if (error) {
-      console.warn("[Push Notification] Edge Function error:", error);
-      await fallbackOneSignalPush(title, message, userId, targetRole, link, icon);
-    } else {
-      console.log("[Push Notification] Sent successfully:", data);
-    }
-  } catch (e) {
-    console.warn("[Push Notification] Failed:", e);
-    await fallbackOneSignalPush(title, message, userId, targetRole, link, icon);
-  }
-}
-
-// Fallback: Direct OneSignal API call (if Edge Function fails)
-async function fallbackOneSignalPush(
-  title: string, 
-  message: string, 
-  userId?: string, 
-  targetRole?: string, 
-  link?: string, 
-  icon?: string
-) {
-  try {
-    const ONESIGNAL_APP_ID = import.meta.env.VITE_ONESIGNAL_APP_ID;
-    const ONESIGNAL_REST_API_KEY = import.meta.env.VITE_ONESIGNAL_REST_API_KEY;
-    
-    if (!ONESIGNAL_APP_ID || !ONESIGNAL_REST_API_KEY) {
-      return;
-    }
-
-    const payload: any = {
-      app_id: ONESIGNAL_APP_ID,
-      headings: { en: title },
-      contents: { en: message },
-      data: { link, type: "notification" },
-    };
-
-    if (userId) {
-      payload.include_external_user_ids = [userId];
-    } else if (targetRole) {
-      payload.filters = [{ field: "tag", key: "role", relation: "==", value: targetRole }];
-    } else {
-      payload.included_segments = ["Subscribed Users"];
-    }
-
-    const response = await fetch("https://api.onesignal.com/notifications", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Basic ${ONESIGNAL_REST_API_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      console.warn("[OneSignal Fallback] Failed:", await response.json());
-    }
-  } catch (e) {
-    console.warn("[OneSignal Fallback] Error:", e);
+    console.warn("[Notification] DB log failed:", dbError);
   }
 }
 

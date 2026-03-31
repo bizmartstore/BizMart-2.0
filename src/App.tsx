@@ -36,16 +36,11 @@ import NotFound from "@/pages/NotFound";
 
 // Components
 import SplashScreen from "@/components/SplashScreen";
-import { useOneSignal } from "@/hooks/useOneSignal";
 
 const queryClient = new QueryClient();
 
 function AppContent() {
-  const { user } = useAuth();
   const [splashDone, setSplashDone] = useState(false);
-
-  // Initialize OneSignal with current user
-  useOneSignal(user);
 
   const handleSplashFinished = () => {
     setSplashDone(true);

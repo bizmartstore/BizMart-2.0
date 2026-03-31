@@ -7,9 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useMemo } from "react";
-import { notifyCustomerOrder, notifyCustomerBCoins } from "@/lib/notifications";
-import { sendNotification } from "@/lib/notifications";
-import { sendTelegramOrderNotify } from "@/lib/telegramNotify";
+import { notifyCustomerOrder, notifyCustomerBCoins, sendNotification } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -153,21 +151,6 @@ export default function CartPage() {
         await notifyCustomerOrder(user.id, "placed");
       } catch (e) {
         console.warn("Failed to send customer notification:", e);
-      }
-
-      try {
-        await sendTelegramOrderNotify("pending", {
-          id: insertedOrder.id,
-          items: orderItems,
-          customer_name: customerName,
-          customer_grade_level: profile?.grade_level ?? null,
-          customer_section: profile?.section ?? null,
-          customer_contact: profile?.email ?? null,
-          total: grandTotal,
-          delivery_type: deliveryType,
-        });
-      } catch (e) {
-        console.warn("Failed to send Telegram notification:", e);
       }
 
       clearCart();
