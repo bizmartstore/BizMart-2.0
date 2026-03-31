@@ -23,6 +23,27 @@ function getMinDateTime() {
   return { date: dateStr, time: `${hours}:${mins}` };
 }
 
+// Retry wrapper for Supabase operations that might encounter lock conflicts
+async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
+  let lastError: any;
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await operation();
+    } catch (error: any) {
+      lastError = error;
+      // Check if it's a lock/abort error
+      if (error?.name === 'AbortError' || error?.message?.includes('lock') || error?.message?.includes('steal')) {
+        // Wait with exponential backoff before retrying
+        await new Promise(resolve => setTimeout(resolve, 100 * Math.pow(2, i)));
+        continue;
+      }
+      // For other errors, throw immediately
+      throw error;
+    }
+  }
+  throw lastError;
+}
+
 export default function CartPage() {
   const { items, updateQuantity, removeItem, clearCart, totalPrice } = useCart();
   const { storeOpen } = useAppSettings();
@@ -52,9 +73,15 @@ export default function CartPage() {
 
     setCheckingOut(true);
     try {
+      // Step 1: Check stock with retry
       const productIds = items.map(i => i.id);
-      const { data: productData } = await (supabase as any).from('products').select('id, stock, name').in('id', productIds);
-            if (productData) {
+      const productData = await withRetry(async () => {
+        const { data, error } = await (supabase as any).from('products').select('id, stock, name').in('id', productIds);
+        if (error) throw error;
+        return data;
+      });
+
+      if (productData) {
         for (const item of items) {
           const product = productData.find((p: any) => p.id === item.id);
           if (product && product.stock < item.quantity) {
@@ -74,47 +101,62 @@ export default function CartPage() {
         price: item.price,
         quantity: item.quantity,
         image: item.image,
-      }));;
+      }));
 
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
-      const { data: insertedOrder, error } = await (supabase as any)
-        .from("orders")
-        .insert({
-          user_id: user.id,
-          items: orderItems,
-          total: grandTotal,
-          bcoins_earned: bcoinsEarned,
-          status: "pending",
-          delivery_type: deliveryType,
-          delivery_fee: deliveryFee,
-          pickup_date: pickupDate,
-          pickup_time: pickupTime,
-          admin_commission: adminCommission,
-          seller_earnings: sellerEarnings,
-          customer_name: customerName,
-          customer_section: profile?.section ?? null,
-          customer_grade_level: profile?.grade_level ?? null,
-          customer_contact: profile?.email ?? null,
-        })
-        .select()
-        .single();
+      
+      // Step 2: Insert order with retry
+      const insertedOrder = await withRetry(async () => {
+        const { data, error } = await (supabase as any)
+          .from("orders")
+          .insert({
+            user_id: user.id,
+            items: orderItems,
+            total: grandTotal,
+            bcoins_earned: bcoinsEarned,
+            status: "pending",
+            delivery_type: deliveryType,
+            delivery_fee: deliveryFee,
+            pickup_date: pickupDate,
+            pickup_time: pickupTime,
+            admin_commission: adminCommission,
+            seller_earnings: sellerEarnings,
+            customer_name: customerName,
+            customer_section: profile?.section ?? null,
+            customer_grade_level: profile?.grade_level ?? null,
+            customer_contact: profile?.email ?? null,
+          })
+          .select()
+          .single();
+        if (error) throw error;
+        return data;
+      });
 
-      if (error) throw error;
-
-      // Notify admin and customer - AWAIT these so they complete before navigation
+      // Step 3: Send notifications sequentially to avoid lock conflicts
       const buyerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       const typeLabel = deliveryType === "delivery" ? "🚚 Delivery" : "📦 Pickup";
-            await Promise.all([
-        sendNotification({
+      
+      try {
+        await sendNotification({
           title: "🛒 New Purchase Order",
           message: `${buyerName} placed a ${typeLabel} order for ₱${grandTotal.toLocaleString()} (${items.length} items)`,
           icon: "🛒",
           link: "/admin?tab=orders",
           type: "new_order",
           targetRole: "admin",
-        }),
-        notifyCustomerOrder(user.id, "placed"),
-        sendTelegramOrderNotify("pending", {
+        });
+      } catch (e) {
+        console.warn("Failed to send admin notification:", e);
+      }
+
+      try {
+        await notifyCustomerOrder(user.id, "placed");
+      } catch (e) {
+        console.warn("Failed to send customer notification:", e);
+      }
+
+      try {
+        await sendTelegramOrderNotify("pending", {
           id: insertedOrder.id,
           items: orderItems,
           customer_name: customerName,
@@ -123,13 +165,16 @@ export default function CartPage() {
           customer_contact: profile?.email ?? null,
           total: grandTotal,
           delivery_type: deliveryType,
-        })
-      ]);
+        });
+      } catch (e) {
+        console.warn("Failed to send Telegram notification:", e);
+      }
 
       clearCart();
       toast.success("Order placed! Waiting for admin approval.");
       navigate("/orders");
     } catch (e: any) {
+      console.error("Checkout error:", e);
       toast.error(e.message || "Checkout failed");
     }
     setCheckingOut(false);
@@ -186,7 +231,8 @@ export default function CartPage() {
               <p className="text-xs font-semibold line-clamp-2 leading-tight">{item.name}</p>
               <div className="flex items-center gap-1 mt-1">
                 <span className="text-primary font-extrabold text-sm">₱{item.price}</span>
-                {item.originalPrice && (                  <span className="text-[10px] text-muted-foreground line-through">₱{item.originalPrice}</span>
+                {item.originalPrice && (
+                  <span className="text-[10px] text-muted-foreground line-through">₱{item.originalPrice}</span>
                 )}  
               </div>
               <div className="flex items-center justify-between mt-2">
@@ -238,7 +284,8 @@ export default function CartPage() {
             <Label className="text-[10px] font-bold flex items-center gap-1 mb-1">
               <Clock className="h-3 w-3" /> Date
             </Label>
-            <Input              type="date"
+            <Input
+              type="date"
               value={pickupDate}
               min={min.date}
               onChange={(e) => setPickupDate(e.target.value)}
@@ -293,7 +340,8 @@ export default function CartPage() {
             disabled={!storeOpen || checkingOut}
             className={`font-bold text-sm px-8 py-2.5 rounded-xl transition-all ${  
               storeOpen ? 'bg-primary text-primary-foreground shadow-md active:scale-95' : 'bg-muted text-muted-foreground'
-            }`}            >
+            }`}
+          >
             {checkingOut ? "Placing Order..." : "Confirm Order"}
           </button>
         </div>
