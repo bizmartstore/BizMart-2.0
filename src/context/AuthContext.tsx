@@ -44,21 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileError) throw profileError;
       if (roleError && roleError.code !== 'PGRST116') throw roleError;
 
-      // Fix 1: Safely handle null roleData
-      const role = roleData?.role ?? 'customer';
+      // Fix: Provide default empty objects to avoid null
+      const profileRecord = profileData ?? {};
+      const roleRecord = roleData ?? {};
 
-      // Fix 2: Build profile object safely without spreading null
+      // Now all properties are safely accessed
       const finalProfile: Profile = {
-        id: profileData?.id || '',
+        id: profileRecord.id ?? '',
         user_id: userId,
-        first_name: profileData?.first_name || '',
-        last_name: profileData?.last_name || '',
-        section: profileData?.section || '',
-        grade_level: profileData?.grade_level || '',
-        school: profileData?.school || '',
-        email: profileData?.email || '',
-        avatar_url: profileData?.avatar_url || null,
-        role,
+        first_name: profileRecord.first_name ?? '',
+        last_name: profileRecord.last_name ?? '',
+        section: profileRecord.section ?? '',
+        grade_level: profileRecord.grade_level ?? '',
+        school: profileRecord.school ?? '',
+        email: profileRecord.email ?? '',
+        avatar_url: profileRecord.avatar_url ?? null,
+        role: roleRecord.role ?? 'customer',
       };
 
       setProfile(finalProfile);
