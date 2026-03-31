@@ -33,62 +33,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Fetch profile and role in parallel
       const [profileRes, roleRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select("*")
-          .eq("user_id", userId)
-          .maybeSingle(),
-        supabase
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", userId)
-          .maybeSingle()
+        supabase.from("profiles").select("*").eq("user_id", userId).maybeSingle(),
+        supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle()
       ]);
 
       const { data: profileData, error: profileError } = profileRes;
       const { data: roleData, error: roleError } = roleRes;
 
       if (profileError) throw profileError;
-      if (roleError && roleError.code !== 'PGRST116') throw roleError; // PGRST116 = no rows
+      if (roleError && roleError.code !== 'PGRST116') throw roleError;
 
-      const role = roleData?.role || 'customer';
+      // Fix 1: Safely handle null roleData
+      const role = roleData?.role ?? 'customer';
 
-      const defaultProfile: Profile = {
-        id: '',
+      // Fix 2: Build profile object safely without spreading null
+      const finalProfile: Profile = {
+        id: profileData?.id || '',
         user_id: userId,
-        first_name: '',
-        last_name: '',
-        section: '',
-        grade_level: '',
-        school: '',
-        email: '',
-        avatar_url: null,
-        role: role,
+        first_name: profileData?.first_name || '',
+        last_name: profileData?.last_name || '',
+        section: profileData?.section || '',
+        grade_level: profileData?.grade_level || '',
+        school: profileData?.school || '',
+        email: profileData?.email || '',
+        avatar_url: profileData?.avatar_url || null,
+        role,
       };
 
-      const profileDataFinal: Profile = profileData ? {
-        ...defaultProfile,
-        ...profileData,
-        role: role,
-      } : defaultProfile;
-
-      setProfile(profileDataFinal);
+      setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
-      // Set a default profile with customer role
       setProfile({
-        id: '',
-        user_id: userId,
-        first_name: '',
-        last_name: '',
-        section: '',
-        grade_level: '',
-        school: '',
-        email: '',
-        avatar_url: null,
-        role: 'customer',
+        id: '', user_id: userId, first_name: '', last_name: '',
+        section: '', grade_level: '', school: '', email: '',
+        avatar_url: null, role: 'customer',
       });
     }
   };
@@ -108,50 +87,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
-    // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
-
         setSession(session);
         setUser(session?.user ?? null);
-
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-        } else {
-          setProfile(null);
-        }
-
+        if (session?.user) await fetchProfile(session.user.id);
+        else setProfile(null);
         setLoading(false);
       }
     );
 
-    // Get initial session
     supabase.auth.getSession().then(async ({ data, error }) => {
       const session = data?.session ?? null;
-      
       if (error) {
         console.error("[AuthContext] Session error:", error);
         await supabase.auth.signOut();
         return;
       }
-
       setSession(session);
       setUser(session?.user ?? null);
-
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
-        setProfile(null);
-      }
-
+      if (session?.user) await fetchProfile(session.user.id);
+      else setProfile(null);
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => { subscription.unsubscribe(); };
   }, []);
 
   const signOut = async () => {
