@@ -7,7 +7,8 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
-  Users, Package, ShoppingCart, Printer, MessageCircle,   Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase 
+  Users, Package, ShoppingCart, Printer, MessageCircle,
+  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket
 } from "lucide-react";
 import { toast } from "sonner";
 import OverviewTab from "@/components/admin/OverviewTab";
@@ -24,6 +25,7 @@ import GCashTab from "@/components/admin/GCashTab";
 import SellersTab from "@/components/admin/SellersTab";
 import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
+import POSTab from "@/components/admin/POSTab";
 
 export default function AdminDashboard() {
   const { user, profile } = useAuth();
@@ -52,12 +54,13 @@ export default function AdminDashboard() {
     { id: "sellers", label: "Sellers", icon: Crown },
     { id: "print", label: "Print", icon: Printer },
     { id: "messages", label: "Messages", icon: MessageCircle },
-    { id: "codes", label: "Codes", icon: Bell },
+    { id: "codes", label: "Codes", icon: Ticket },
     { id: "news", label: "News", icon: Bell },
     { id: "club", label: "Club", icon: Crown },
     { id: "bcoins", label: "BCoins", icon: Coins },
     { id: "gcash", label: "GCash", icon: Coins },
     { id: "jobs", label: "Jobs", icon: Briefcase },
+    { id: "pos", label: "POS", icon: ShoppingCart },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -104,6 +107,7 @@ export default function AdminDashboard() {
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
+          <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
