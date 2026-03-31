@@ -101,8 +101,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) await fetchProfile(session.user.id);
-        else setProfile(null);
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
         setLoading(false);
       }
     );
@@ -116,11 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
         return;
       }
-      const { data } = data; // data contains the session object
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) await fetchProfile(session.user.id);
-      else setProfile(null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
 
