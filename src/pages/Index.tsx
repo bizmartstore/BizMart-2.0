@@ -54,6 +54,12 @@ export default function Index() {
 
   const flashSaleProducts = products.filter((p) => p.isFlashSale);
 
+  // Moved useMemo to top level to comply with React Hooks rules
+  const recommendedProducts = useMemo(() => {
+    const shuffled = [...products].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 10);
+  }, [products]);
+
   const loadFlashState = useCallback(async () => {
     const flashSaleSetting = allSettings.find((s: any) => s.key === 'flash_sale_state');
     if (flashSaleSetting?.value?.ends_at) {
@@ -210,10 +216,7 @@ export default function Index() {
           <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Recommended For You</span>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
-          {useMemo(() => {
-            const shuffled = [...products].sort(() => Math.random() - 0.5);
-            return shuffled.slice(0, 10);
-          }, [products]).map((product) => (
+          {recommendedProducts.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
