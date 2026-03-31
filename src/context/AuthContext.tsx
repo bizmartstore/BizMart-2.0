@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const finalProfile = mapToProfile(profileData ?? {});
       if (roleData) {
-        finalProfile.role = roleData.role;
+        finalProfile.role = (roleData as { role: string }).role;
       }
       setProfile(finalProfile);
     } catch (err) {
