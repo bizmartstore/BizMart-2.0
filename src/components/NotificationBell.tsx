@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, Check, Trash2 } from "lucide-react";
+import { Bell, Check, Trash2, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -27,8 +27,8 @@ export default function NotificationBell() {
       const notifs = data || [];
       setNotifications(notifs);
       
-      // FIX: Safely count unread without relying on DB column existence
-      const newUnread = notifs.filter((n: any) => !n.is_read && n.user_id === user.id).length;
+      // Safely count unread
+      const newUnread = notifs.filter((n: any) => !n.is_read).length;
       setUnreadCount(newUnread);
       
       if (newUnread > 0 && notifs.length > 0) {
@@ -36,7 +36,8 @@ export default function NotificationBell() {
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
           
-          const isAdmin = (profile as any)?.role === 'main_admin' || (profile as any)?.role === 'member_admin';
+          // Use profile?.role safely
+          const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
           if (isAdmin) {
             playAdminNotificationSound();
           } else {
@@ -65,35 +66,58 @@ export default function NotificationBell() {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadNotifications]);
 
+  // Optimistic mark all as read
   const markAllAsRead = async () => {
     if (!user) return;
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setUnreadCount(0);
+    
     try {
-      // FIX: Wrap in try/catch to handle missing is_read column gracefully
       await (supabase as any)
         .from("notification_logs")
         .update({ is_read: true })
         .eq("user_id", user.id);
-      loadNotifications();
     } catch (error) {
-      console.warn("Failed to mark notifications as read (column may be missing):", error);
-      // Optimistically update UI anyway
-      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      console.warn("Failed to mark notifications as read:", error);
+    }
+  };
+
+  // Optimistic mark single as read
+  const markAsRead = async (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    setUnreadCount(prev => Math.max(0, prev - 1));
+    try {
+      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("id", id);
+    } catch (error) {
+      console.warn("Failed to mark notification as read:", error);
+    }
+  };
+
+  // Optimistic delete single
+  const deleteNotification = async (id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await (supabase as any).from("notification_logs").delete().eq("id", id);
+    } catch (error) {
+      console.warn("Failed to delete notification:", error);
+    }
+  };
+
+  // Optimistic clear all
+  const clearAll = async () => {
+    setNotifications([]);
+    setUnreadCount(0);
+    try {
+      await (supabase as any).from("notification_logs").delete().eq("user_id", user?.id);
+    } catch (error) {
+      console.warn("Failed to clear notifications:", error);
     }
   };
 
   const handleNotifClick = async (n: any) => {
     setOpen(false);
     if (!n.is_read) {
-      try {
-        await (supabase as any)
-          .from("notification_logs")
-          .update({ is_read: true })
-          .eq("id", n.id);
-        loadNotifications();
-      } catch (error) {
-        console.warn("Failed to mark notification as read:", error);
-      }
+      await markAsRead(n.id);
     }
     if (n.link) {
       navigate(n.link);
@@ -119,14 +143,18 @@ export default function NotificationBell() {
         <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
-            {unreadCount > 0 && (
-              <button 
-                onClick={markAllAsRead} 
-                className="text-[10px] text-primary font-bold hover:underline"
-              >
-                Mark all read
-              </button>
-            )}
+            <div className="flex gap-2">
+              {unreadCount > 0 && (
+                <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">
+                  Mark all read
+                </button>
+              )}
+              {notifications.length > 0 && (
+                <button onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
+                  Clear all
+                </button>
+              )}
+            </div>
           </div>
           <div className="overflow-y-auto max-h-[340px]">
             {notifications.length === 0 ? (
@@ -136,25 +164,35 @@ export default function NotificationBell() {
               </div>
             ) : (
               notifications.map((n) => (
-                <button
+                <div
                   key={n.id}
-                  onClick={() => handleNotifClick(n)}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-xs transition-colors ${
+                  className={`w-full text-left px-4 py-2 rounded-lg text-xs transition-colors group relative ${
                     n.is_read ? 'opacity-60' : 'bg-primary/5'
                   }`}
                 >
-                  <span className="text-xl shrink-0">{n.icon || "🔔"}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
-                    <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
-                    <p className="text-[8px] text-muted-foreground mt-1 uppercase font-medium">
-                      {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  {!n.is_read && (
-                    <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-1" />
-                  )}
-                </button>
+                  <button
+                    onClick={() => handleNotifClick(n)}
+                    className="w-full flex items-start gap-2"
+                  >
+                    <span className="text-xl shrink-0 mt-0.5">{n.icon || "🔔"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
+                      <p className="text-[8px] text-muted-foreground mt-1 uppercase font-medium">
+                        {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                    {!n.is_read && (
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                    className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-all"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
               ))
             )}
           </div>
