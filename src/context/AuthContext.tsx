@@ -44,7 +44,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (profileError) throw profileError;
       if (roleError && roleError.code !== 'PGRST116') throw roleError;
 
-      // Helper to safely map profile data to Profile type
       const mapToProfile = (record: any): Profile => ({
         id: record.id ?? '',
         user_id: userId,
@@ -59,7 +58,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
-      // Add role from user_roles if available
       if (roleData?.role) {
         finalProfile.role = roleData.role;
       }
@@ -96,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     localStorage.setItem("last_supabase_url", currentProjectUrl);
 
+    // Handle auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log(`[AuthContext] Auth event: ${event}`);
@@ -107,11 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
+    // Restore session on app load
     supabase.auth.getSession().then(async ({ data, error }) => {
       const session = data?.session ?? null;
       if (error) {
         console.error("[AuthContext] Session error:", error);
         await supabase.auth.signOut();
+        setLoading(false);
         return;
       }
       setSession(session);

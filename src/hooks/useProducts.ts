@@ -34,10 +34,12 @@ export function useProducts() {
       }
       return fallbackProducts;
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes cache
-    gcTime: 10 * 60 * 1000, // 10 minutes garbage collection
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
     refetchOnMount: true,
+    retry: 2,
   });
 }
 
@@ -61,9 +63,12 @@ export function useCategories() {
       }
       return fallbackCategories;
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes cache
+    staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }
 
@@ -95,5 +100,8 @@ export function useBanners() {
     staleTime: 10 * 60 * 1000,
     gcTime: 15 * 60 * 1000,
     refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }

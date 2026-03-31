@@ -37,7 +37,19 @@ import NotFound from "@/pages/NotFound";
 // Components
 import SplashScreen from "@/components/SplashScreen";
 
-const queryClient = new QueryClient();
+// Configure QueryClient with better defaults for app lifecycle
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      gcTime: 10 * 60 * 1000, // 10 minutes
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: true, // Refetch when app reconnects
+      retry: 2, // Retry failed requests
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
 
 function AppContent() {
   const [splashDone, setSplashDone] = useState(false);

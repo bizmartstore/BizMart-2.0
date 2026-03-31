@@ -9,7 +9,7 @@ import NewsCarousel from "@/components/NewsCarousel";
 import { useProducts, useCategories } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useNavigate } from "react-router-dom";
-import { Zap, AlertTriangle, ArrowRight } from "lucide-react";
+import { Zap, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -46,17 +46,15 @@ function FlashTimer({ endsAt, onExpired }: { endsAt: string; onExpired: () => vo
 
 export default function Index() {
   const navigate = useNavigate();
-  const { data: products = [], refetch: refetchProducts } = useProducts();
-  const { data: categories = [] } = useCategories();
+  const { data: products = [], isLoading: productsLoading, refetch: refetchProducts } = useProducts();
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { storeOpen, closeMessage, allSettings, loading: settingsLoading } = useAppSettings();
   const [flashEndsAt, setFlashEndsAt] = useState<string | null>(null);
+  const [rotating, setRotating] = useState(false);
 
   const flashSaleProducts = products.filter((p) => p.isFlashSale);
 
-  const [rotating, setRotating] = useState(false);
-
   const loadFlashState = useCallback(async () => {
-    // Find the flash_sale_state in allSettings
     const flashSaleSetting = allSettings.find((s: any) => s.key === 'flash_sale_state');
     if (flashSaleSetting?.value?.ends_at) {
       const endsAt = flashSaleSetting.value.ends_at;
@@ -87,8 +85,10 @@ export default function Index() {
   };
 
   useEffect(() => {
-    loadFlashState();
-  }, [loadFlashState]);
+    if (allSettings.length > 0) {
+      loadFlashState();
+    }
+  }, [allSettings, loadFlashState]);
 
   useEffect(() => {
     const channel = supabase
@@ -103,6 +103,18 @@ export default function Index() {
   const handleFlashExpired = useCallback(() => {
     triggerRotation();
   }, [rotating]);
+
+  // Show loading state while data is loading
+  if (productsLoading || categoriesLoading || settingsLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading BizMart...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
