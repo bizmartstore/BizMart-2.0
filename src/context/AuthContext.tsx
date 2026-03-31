@@ -12,7 +12,7 @@ interface Profile {
   school: string;
   email: string;
   avatar_url: string | null;
-  role: string; // ✅ role field (default "customer")
+  role: string;
 }
 
 interface AuthContextType {
@@ -41,8 +41,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) throw error;
 
-      // Handle null data by providing defaults
-      const profileData = data ?? {
+      // Provide complete default profile if data is null
+      const defaultProfile: Profile = {
         id: '',
         user_id: userId,
         first_name: '',
@@ -55,12 +55,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: 'customer',
       };
 
-      const profileWithRole = {
-        ...profileData,
-        role: profileData.role || 'customer',
-      };
+      const profileData: Profile = data ? {
+        ...defaultProfile,
+        ...data,
+        role: data.role || 'customer',
+      } : defaultProfile;
 
-      setProfile(profileWithRole);
+      setProfile(profileData);
     } catch (err) {
       console.error("[AuthContext] Profile fetch error:", err);
       setProfile(null);
@@ -101,7 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     // Get initial session
-    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      const session = data?.session ?? null;
+      
       if (error) {
         console.error("[AuthContext] Session error:", error);
         await supabase.auth.signOut();
