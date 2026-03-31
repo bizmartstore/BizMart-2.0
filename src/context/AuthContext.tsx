@@ -58,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       const finalProfile = mapToProfile(profileData ?? {});
-      const role = (roleData as any)?.role; // Fixed: cast to any to avoid possibly 'null' error
+      const role = roleData?.role;
       if (role) {
         finalProfile.role = role;
       }
@@ -101,13 +101,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) await fetchProfile(session.user.id);
-        else setProfile(null);
+        if (session?.user) {
+          await fetchProfile(session.user.id);
+        } else {
+          setProfile(null);
+        }
         setLoading(false);
       }
     );
 
-    // Restore session on app load    supabase.auth.getSession().then(async ({ data, error }) => {
+    // Restore session on app load
+    supabase.auth.getSession().then(async ({ data, error }) => {
       const session = data?.session ?? null;
       if (error) {
         console.error("[AuthContext] Session error:", error);
@@ -117,8 +121,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       setSession(session);
       setUser(session?.user ?? null);
-      if (session?.user) await fetchProfile(session.user.id);
-      else setProfile(null);
+      if (session?.user) {
+        await fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
 
