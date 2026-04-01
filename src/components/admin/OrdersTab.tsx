@@ -37,7 +37,7 @@ export default function OrdersTab() {
         userId: order.user_id,
         link: "/orders",
         icon: "📦"
-      );
+      });
 
       toast.success(`Order ${newStatus}!`);
       loadOrders();
@@ -55,7 +55,7 @@ export default function OrdersTab() {
     return matchFilter && matchSearch;
   });
 
-  const statusCounts: Record<string, number> = {
+  const statusCounts = {
     all: orders.length,
     pending: orders.filter(o => o.status === "pending").length,
     approved: orders.filter(o => o.status === "approved").length,
@@ -81,7 +81,7 @@ export default function OrdersTab() {
               selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' :
               selectedOrder.status === 'rejected' || selectedOrder.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
               'bg-primary/20 text-primary'
-            }`}>{selectedOrder.status}</span>
+            }`}>{selectedOrder.status.toUpperCase()}</span>
           </div>
           
           <div className="bg-muted/30 rounded-lg p-3 space-y-1">
@@ -99,10 +99,10 @@ export default function OrdersTab() {
               </div>
             </div>
           </div>
-          
+
           {selectedOrder.delivery_type && (
             <div className="text-[10px] text-muted-foreground">
-              {selectedOrder.delivery_type === 'delivery' ? '🚚 Delivery' : '📦 Pickup'} • {selectedOrder.pickup_date} at {selectedOrder.pickup_time}
+              <p>{selectedOrder.delivery_type === 'delivery' ? '🚚 Delivery' : '📦 Pickup'} • {selectedOrder.pickup_date} at {selectedOrder.pickup_time}</p>
               {Number(selectedOrder.delivery_fee) > 0 && <p>Delivery Fee: ₱{Number(selectedOrder.delivery_fee).toFixed(2)}</p>}
             </div>
           )}
@@ -116,6 +116,9 @@ export default function OrdersTab() {
             )}
             {selectedOrder.status === "approved" && (
               <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "ready")} className="gap-1"><Truck className="h-3 w-3" /> Mark Ready</Button>
+            )}
+            {selectedOrder.status === "ready" && (
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1"><CheckCircle2 className="h-3 w-3" /> Complete</Button>
             )}
             {["pending", "approved", "ready"].includes(selectedOrder.status) && (
               <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1"><XCircle className="h-3 w-3" /> Cancel</Button>
@@ -131,18 +134,20 @@ export default function OrdersTab() {
       <div className="flex gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders..." className="pl-9 text-sm h-9" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders..." className="pl-9 text-xs h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={loadOrders} disabled={loading}><RefreshCw className="h-3 w-3" /></Button>
+        <Button size="sm" variant="outline" onClick={loadOrders}><RefreshCw className="h-3 w-3" /></Button>
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-1">
         {Object.entries(statusCounts).map(([key, count]) => (
           <button key={key} onClick={() => setFilter(key)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+              filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}>
             {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
           </button>
-        </div>
+        ))}
       </div>
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -151,9 +156,14 @@ export default function OrdersTab() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold truncate">{order.customer_name || "Customer"}</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : order.status === 'pending' ? 'bg-warning/20 text-warning' : order.status === 'rejected' || order.status === 'canceled' ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}"}>{order.status}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                  order.status === 'pending' ? 'bg-warning/20 text-warning' :
+                  order.status === 'rejected' || order.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
+                  'bg-primary/20 text-primary'
+                }`}>{order.status}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground">#{order.id.slice(0, 8)} • {new Date(order.created_at).toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">#{order.id.slice(0, 8)} • {new Date(order.created_at).toLocaleDateString()}</p>
             </div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-primary">₱{Number(order.total).toFixed(2)}</span>
@@ -161,7 +171,7 @@ export default function OrdersTab() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
+        {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
       </div>
     </div>
   );

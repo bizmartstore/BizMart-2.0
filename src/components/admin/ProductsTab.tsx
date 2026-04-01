@@ -17,14 +17,8 @@ export default function ProductsTab() {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
-    name: "",
-    price: 0,
-    original_price: "",
-    image: "",
-    category: "",
-    stock: 0,
-    description: "",
-    is_flash_sale: false,
+    name: "", price: 0, original_price: "", image: "", category: "",
+    stock: 0, description: "", is_flash_sale: false,
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -113,7 +107,7 @@ export default function ProductsTab() {
   };
 
   const syncDefaults = async () => {
-    if (!confirm(`Sync ${fallbackProducts.length} default products?`)) return;
+    if (!confirm(`Sync ${fallbackProducts.length} default products? This will add any missing products.`)) return;
     let added = 0;
     for (const p of fallbackProducts) {
       const { data: existing } = await (supabase as any).from("products").select("id").eq("id", p.id).maybeSingle();
@@ -142,53 +136,48 @@ export default function ProductsTab() {
         <div className="flex gap-2 flex-1">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..." className="pl-9 text-sm h-9" />
+            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..." className="pl-9 text-xs h-9" />
           </div>
-          <Button size="sm" variant="outline" onClick={syncDefaults} className="gap-1"><RefreshCw className="h-3 w-3" /></Button>
+          <Button size="sm" variant="outline" onClick={syncDefaults} className="gap-1"><RefreshCw className="h-3 w-3" /> Sync Defaults</Button>
         </div>
+        <Button size="sm" onClick={() => { resetForm(); setEditId(null); setShowForm(!showForm); }} className="gap-1 ml-2">
+          <Plus className="h-3 w-3" />{showForm ? "Cancel" : "Add Product"}
+        </Button>
       </div>
 
       {showForm && (
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs">{editId ? "Edit" : "New"} Product</span>
-            <button onClick={resetForm} className="text-[10px] hover:text-primary">✕</button>
-          </div>
-          
+        <div className="bg-card rounded-xl p-3 border border-border space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div>
             <div><Label className="text-[10px]">Category</Label><Input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. notebooks" className="text-xs h-8" /></div>
           </div>
-          
           <div className="grid grid-cols-3 gap-2">
             <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
             <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
             <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
           </div>
-          
           <div>
             <Label className="text-[10px]">Image</Label>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) uploadImage(file); }} />
             {form.image ? (
               <div className="relative w-full h-24 rounded-lg overflow-hidden border border-border mt-1">
                 <img src={form.image} alt="" className="w-full h-full object-cover" />
-                <button onClick={() => setForm(f => ({ ...f, image: "" }))} className="absolute top-1.5 right-1.5 bg-destructive text-destructive-foreground rounded-full p-1"> <X className="h-3 w-3" /> </button>
+                <button onClick={() => setForm(f => ({ ...f, image: "" }))} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"><X className="h-3 w-3" /></button>
               </div>
             ) : (
-              <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full h-24 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
-                {uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
+              <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full h-16 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 mt-1 hover:bg-muted/50 transition-colors">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
                 <span className="text-[10px] text-muted-foreground">{uploading ? "Uploading..." : "Tap to upload"}</span>
               </button>
             )}
           </div>
-                    <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
-          
+          <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
           <Button onClick={save} disabled={saving} size="sm" className="w-full gap-1">
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />}
             {editId ? "Update" : "Add"} Product
           </Button>
         </div>
-      )} 
+      )}
 
       <div className="space-y-2 max-h-[400px] overflow-y-auto">
         {filtered.map(p => (
@@ -197,7 +186,7 @@ export default function ProductsTab() {
             <div className="flex-1 min-w-0">
               <p className="text-xs font-bold truncate">{p.name}</p>
               <p className="text-[10px] text-muted-foreground">
-                ₱{p.price} · Stock: <span className={p.stock <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}">{p.stock || 0}</span>
+                ₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock || 0}</span>
               </p>
             </div>
             <div className="flex gap-1 flex-shrink-0 items-center">
@@ -207,7 +196,7 @@ export default function ProductsTab() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-6">No products found</p>}
+        {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No products found</p>}
       </div>
     </div>
   );

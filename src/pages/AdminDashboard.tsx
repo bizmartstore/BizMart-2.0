@@ -29,12 +29,12 @@ import POSTab from "@/components/admin/POSTab";
 
 export default function AdminDashboard() {
   const { user, profile, loading: authLoading } = useAuth();
-  const { isAdmin, role } = useAdmin();
+  const { isAdmin, isMainAdmin, loading: roleLoading } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Only show loading spinner while the *initial* auth session is bootstrapping
-  if (authLoading) {
+  // Wait for both auth and role loading
+  if (authLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -42,14 +42,14 @@ export default function AdminDashboard() {
     );
   }
 
-  // If not admin, redirect to home
+  // If not admin, redirect
   if (!isAdmin) {
     console.log('[AdminDashboard] User is not admin, redirecting...');
     navigate("/");
     return null;
   }
 
-  console.log('[AdminDashboard] Admin access granted. Role:', role);
+  console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
 
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
@@ -77,7 +77,7 @@ export default function AdminDashboard() {
           <div>
             <h1 className="font-extrabold text-xl text-foreground">Admin Dashboard</h1>
             <p className="text-xs text-muted-foreground">
-              {role === 'main_admin' ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
+              {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
             </p>
           </div>
           <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
@@ -112,7 +112,7 @@ export default function AdminDashboard() {
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="pos"><POSTab role={role} onSaleComplete={() => {}} /></TabsContent>
+          <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>

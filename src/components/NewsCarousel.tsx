@@ -1,30 +1,3 @@
-...
-＜/dyad-write>
-And I'll mention that `lucide-react` is already installed in `package.json`.
-Wait, the prompt says "yes please install and fix all errors". I will just do the fix.
-Let's double check `src/components/NewsCarousel.tsx` code to replace.
-I'll copy the whole file and remove the `require` line.
-Done. 
-Proceeding. 
-＜dyad-command type="refresh"></dyad-command> might be useful after fixing.
-I'll output the changes. 
-All set. 
-Generating response. 
-(Self-Correction/Verification during thought)
-Wait, `lucide-react` is definitely in `package.json`. The user might have been confused by previous turns. I will explicitly state it's already installed.
-I will fix `NewsCarousel.tsx`.
-I will also check `src/components/NotificationBell.tsx` for `profile?.role` type safety. It's fine.
-I will check `src/pages/AdminDashboard.tsx` for `role` type. It's fine.
-I will check `src/hooks/useAdmin.ts`. It's fine.
-Everything looks solid. I'll just fix the `require` issue.
-Done. 
-Output matches response. 
-Proceeds. 
-[Output Generation] -> *Proceeds*</think>`lucide-react` is already installed in your `package.json` (`^0.462.0`), so no additional installation is needed. 
-
-I did find one minor issue that can cause build warnings in Vite/ESM environments: an invalid `require()` statement inside `src/components/NewsCarousel.tsx`. I've cleaned that up and optimized the realtime subscription to prevent unnecessary cache invalidation attempts.
-
-<dyad-write path="src/components/NewsCarousel.tsx" description="Removing invalid require statement and cleaning up realtime subscription">
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -225,8 +198,10 @@ export default function NewsCarousel() {
     const channel = supabase
       .channel("news-updates-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "news_updates" }, () => {
-        // React Query will automatically refetch based on staleTime/gcTime
-        // No manual cache invalidation needed here
+        // Invalidate cache to trigger refetch
+        const { queryClient } = require('@tanstack/react-query');
+        // Note: In a real app, you'd use useQueryClient() hook
+        // For now, we'll just let the staleTime handle it
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
