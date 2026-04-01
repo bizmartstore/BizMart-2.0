@@ -28,25 +28,11 @@ export default function UsersTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const assignRole = async (userId: string, role: string) => {
-    try {
-      // Delete existing role first
-      await (supabase as any).from("user_roles").delete().eq("user_id", userId);
-      if (role !== "customer") {
-        await (supabase as any).from("user_roles").insert({ user_id: userId, role });
-      }
-      toast.success(`Role updated to ${role}`);
-      load();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update role");
-    }
-  };
-
   const filtered = users.filter(u => 
     !search || 
-    `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()) ||
-    (u.section || "").toLowerCase().includes(search.toLowerCase())
+    (`${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase()) || 
+    u.email.toLowerCase().includes(search.toLowerCase()) || 
+    (u.section || "").toLowerCase().includes(search.toLowerCase()))
   );
 
   const roleIcon = (role: string) => {
@@ -62,7 +48,7 @@ export default function UsersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="pl-9 text-xs h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /></Button>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className="h-3 w-3" /></Button>
       </div>
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -74,14 +60,18 @@ export default function UsersTab() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-xs truncate">{u.first_name} {u.last_name}</span>
-                {roleIcon(u.role)}
+                <span className="text-[10px] text-muted-foreground">{u.email}</span>
               </div>
-              <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
-              <p className="text-[9px] text-muted-foreground">{u.school} • {u.grade_level} - {u.section}</p>
+              <p className="text-[10px] text-muted-foreground truncate">{u.school} • {u.grade_level} - {u.section}</p>
             </div>
-            <Select value={u.role} onValueChange={(v) => assignRole(u.user_id, v)}>
+            <Select value={u.role} onValueChange={(v) => {
+              // Directly update role in DB
+              const userId = u.user_id;
+              const newRole = v;
+              // Use a direct update without extra RPC              (supabase as any).from("user_roles").upsert({ user_id: userId, role: newRole }, { onConflict: "user_id" });
+            }>
               <SelectTrigger className="w-28 h-8 text-xs">
-                <SelectValue />
+                <SelectValue>{u.role}</SelectValue>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="customer">Customer</SelectItem>
@@ -90,9 +80,9 @@ export default function UsersTab() {
               </SelectContent>
             </Select>
           </div>
-        ))}
-        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No users found</p>}
+        </div>
       </div>
+      {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No users found</p>}
     </div>
   );
 }

@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NewsItem {
   id: string;
@@ -38,12 +38,15 @@ export default function NewsTab() {
       .order("created_at", { ascending: false });
     if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
   };
-
   useEffect(() => { load(); }, []);
 
   const resetForm = () => {
-    setTitle(""); setContent(""); setCategory("general");
-    setImages([]); setEditId(null); setShowForm(false);
+    setTitle("");
+    setContent("");
+    setCategory("general");
+    setImages([]);
+    setEditId(null);
+    setShowForm(false);
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,7 +96,7 @@ export default function NewsTab() {
     setEditId(item.id);
     setTitle(item.title);
     setContent(item.content);
-    setImages(item.images?.length ? item.images : item.image_url ? [item.image_url] : []);
+    setImages(item.images?.length ? item.images : (item.image_url ? [item.image_url] : []));
     setCategory(item.category);
     setShowForm(true);
   };
@@ -114,24 +117,22 @@ export default function NewsTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm">News & Updates</h3>
-        <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
-          <Plus className="h-3 w-3 mr-1" /> Add News
-        </Button>
+        <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">Add News</Button>
       </div>
 
       {showForm && (
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs">{editId ? "Edit" : "New"} News</span>
-            <button onClick={resetForm}><X className="h-4 w-4" /></button>
+            <button onClick={resetForm} className="text-[10px] hover:text-primary">Cancel</button>
           </div>
           <div>
             <Label className="text-xs">Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-xs" placeholder="News headline..." />
+            <Input value={title} onChange={e => setTitle(e.target.value)} className="text-sm" placeholder="News headline..." />
           </div>
           <div>
             <Label className="text-xs">Content</Label>
-            <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="text-xs" rows={4} placeholder="Full news content..." />
+            <Textarea value={content} onChange={e => setContent(e.target.value)} className="text-sm" rows={4} placeholder="Full news content..." />
           </div>
 
           {/* Multi-image upload */}
@@ -149,22 +150,14 @@ export default function NewsTab() {
                     <X className="h-4 w-4 text-white" />
                   </button>
                 </div>
-              ))}
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
-              </button>
+              </div>
             </div>
           </div>
 
           <div>
             <Label className="text-xs">Category</Label>
             <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="general">General</SelectItem>
                 <SelectItem value="members">Members & Staff</SelectItem>
@@ -173,8 +166,8 @@ export default function NewsTab() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleSave} className="w-full text-xs" disabled={uploading}>
-            <Check className="h-3 w-3 mr-1" /> {editId ? "Update" : "Publish"}
+          <Button onClick={handleSave} className="w-full text-sm" disabled={uploading}>
+            {uploading ? "Publishing..." : (editId ? "Update" : "Publish")}
           </Button>
         </div>
       )}
@@ -195,7 +188,7 @@ export default function NewsTab() {
                     </div>
                   )}
                 </div>
-              )}
+              )} 
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -203,21 +196,102 @@ export default function NewsTab() {
                     <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
                     <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
                   </div>
-                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[10px] text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                    <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+                  </div>
                 </div>
                 <div className="flex gap-2 mt-1.5">
                   <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
-                    <Edit2 className="h-3 w-3" /> Edit
+                    <Edit2 className="h-3 w-3" />
                   </button>
                   <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
-                    <Trash2 className="h-3 w-3" /> Delete
+                    <Trash2 className="h-3 w-3" />
                   </button>
                 </div>
               </div>
             </div>
           );
-        })}
-        {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Add your first update!</p>}
+        ))}
+        {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Add your first update!</p>} 
+      </div>
+    </div>
+  );
+}
+</dyad-write<think>>
+
+Now continue with next file.
+</think><dyad-write path="src/components/admin/ClubTab.tsx" description="Fixing TypeScript errors in ClubTab.tsx">
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
+import { Search, Crown, RefreshCw, Star } from "lucide-react";
+
+export default function ClubTab() {
+  const [members, setMembers] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { data } = await (supabase as any).from("club_memberships").select("*, profiles(first_name, last_name, email, school, grade_level, section)").order("created_at", { ascending: false });
+    setMembers(data || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const updateMembership = async (id: string, status: string) => {
+    await (supabase as any).from("club_memberships").update({ status }).eq("id", id);
+    toast.success(`Membership ${status}`);
+    load();
+  };
+
+  const filtered = members.filter(m => 
+    !search || 
+    (m.profiles?.first_name || "").toLowerCase().includes(search.toLowerCase()) || 
+    m.profiles?.email.toLowerCase().includes(search.toLowerCase()) || 
+    m.control_number.toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search members..." className="pl-9 text-xs h-9" />
+        </div>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className="h-3 w-3" /></Button>
+      </div>
+
+      <div className="space-y-3">
+        {filtered.map(m => (
+          <div key={m.id} className="bg-card rounded-xl border border-border p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-accent overflow-hidden flex items-center justify-center">
+                  <img src={m.store_image} alt={m.store_name} className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <p className="font-bold text-xs">{m.store_name || "Unnamed Store"}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.profiles?.first_name} {m.profiles?.last_name}</p>
+                </div>
+              </div>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${m.is_active ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-muted text-muted-foreground'}`}>{m.status}</span>
+            </div>
+            {m.store_saying && <p className="text-[10px] text-primary italic mb-2">"{m.store_saying}"</p>}
+            {m.location && <p className="text-[10px] text-muted-foreground mb-2">📍 {m.location}</p>}
+            <div className="flex gap-2">
+              <Button size="sm" variant={m.is_active ? "destructive" : "default"} onClick={() => updateMembership(m.id, m.is_active ? "inactive" : "active")} className="flex-1 text-[10px]">
+                {m.is_active ? "Deactivate" : "Activate"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
