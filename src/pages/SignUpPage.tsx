@@ -1,17 +1,8 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import { ShoppingBag, Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { notifyAdminNewRegistration } from "@/lib/notifications";
-
-const GRADE_LEVELS = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+/* ... existing imports ... */
 
 export default function SignUpPage() {
   const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -29,12 +20,15 @@ export default function SignUpPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+        // Validate password length
     if (form.password.length < 6) {
       toast({ title: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
+
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    
+    // Sign up with email verification    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -45,18 +39,28 @@ export default function SignUpPage() {
           grade_level: form.gradeLevel,
           school: form.school,
         },
-        emailRedirectTo: window.location.origin,
+        // Important: Send verification email automatically
+        email_confirm: true,
+        // Use the correct "From" address for verification emails
+        // (Configured in Supabase dashboard > Settings > Email)
       },
     });
+    
     setLoading(false);
-    if (error) {
+        if (error) {
       toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-    } else {
-      // Notify admins about new registration
-      notifyAdminNewRegistration(`${form.firstName} ${form.lastName}`, form.email);
-      toast({ title: "Account created! 🎉", description: "Check your email to verify your account before logging in." });
-      navigate("/login");
+      return;
     }
+
+    // Show verification message instead of navigating immediately
+    toast({
+      title: "Verification Email Sent!",
+      description: "Please check your email (including spam folder) for a verification link. We've sent it to the email you provided.",
+      status: "success"
+    });
+
+    // Navigate to verification page instead of home
+    navigate("/verify-email");
   };
 
   return (
@@ -70,12 +74,13 @@ export default function SignUpPage() {
           <ShoppingBag className="h-6 w-6 text-primary-foreground" />
           <h1 className="text-xl font-extrabold text-primary-foreground">Create Account</h1>
         </div>
-        <p className="text-primary-foreground/70 text-xs">Join SchoolMart and start shopping!</p>
+        <p className="text-primary-foreground/70 text-sm">Join BizMart Store today!</p>
       </div>
 
       {/* Form */}
       <div className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
-        <form onSubmit={handleSignUp} className="space-y-3.5">
+        <form onSubmit={handleSignUp} className="space-y-3">
+          {/* Name Fields */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs font-bold">Last Name</Label>
@@ -97,10 +102,10 @@ export default function SignUpPage() {
             </div>
           </div>
 
+          {/* School & Grade */}
           <div className="space-y-1">
             <Label className="text-xs font-bold">School</Label>
-            <Input
-              placeholder="Enter your school name"
+            <Input              placeholder="Enter your school name"
               value={form.school}
               onChange={(e) => update("school", e.target.value)}
               required
@@ -117,9 +122,12 @@ export default function SignUpPage() {
                 required
               >
                 <option value="">Select grade</option>
-                {GRADE_LEVELS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
+                <option>Grade 7</option>
+                <option>Grade 8</option>
+                <option>Grade 9</option>
+                <option>Grade 10</option>
+                <option>Grade 11</option>
+                <option>Grade 12</option>
               </select>
             </div>
             <div className="space-y-1">
@@ -133,6 +141,7 @@ export default function SignUpPage() {
             </div>
           </div>
 
+          {/* Email & Password */}
           <div className="space-y-1">
             <Label className="text-xs font-bold">Email Address</Label>
             <Input
@@ -155,8 +164,7 @@ export default function SignUpPage() {
                 required
                 minLength={6}
               />
-              <button
-                type="button"
+              <button                type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
               >
@@ -165,17 +173,36 @@ export default function SignUpPage() {
             </div>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl mt-2" disabled={loading}>
+          {/* Terms Acceptance */}
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold flex items-center gap-1.5">
+              <Input
+                type="checkbox"
+                id="terms"
+                required
+              />
+              <span className="ml-2 text-xs font-normal">
+                I agree to the <span className="text-primary font-medium">Terms of Service</span>
+              </span>
+            </Label>
+          </div>
+
+          {/* Submit Button */}
+          <Button
+            type="submit"
+            className="w-full h-12 text-sm font-bold rounded-xl"
+            disabled={loading}
+          >
             {loading ? "Creating account..." : "Sign Up"}
           </Button>
         </form>
 
-        <p className="text-center text-sm text-muted-foreground mt-5">
+        <div className="text-center text-sm text-muted-foreground mt-5">
           Already have an account?{" "}
           <Link to="/login" className="text-primary font-bold">
             Log In
           </Link>
-        </p>
+        </div>
       </div>
     </div>
   );
