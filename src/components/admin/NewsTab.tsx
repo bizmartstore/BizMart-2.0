@@ -13,16 +13,12 @@ const DEFAULT_NEWS = [
   {
     title: "BizMart Store v2.0 Coming June 2026",
     content: "We're thrilled to announce the official release of BizMart Store v2.0! This major update brings a redesigned interface, faster checkout, improved notifications, and many more features to enhance your shopping experience.",
-    image_url: null,
-    images: [],
     category: "updates",
     is_active: true,
   },
   {
     title: "Welcome New BizMart Staff Members!",
     content: "Please join us in welcoming our newest team members who will be helping run the BizMart Store. They bring fresh energy and great ideas to our campus marketplace!",
-    image_url: null,
-    images: [],
     category: "members",
     is_active: true,
   },
@@ -71,28 +67,6 @@ export default function NewsTab() {
     setImages([]); setEditId(null); setShowForm(false);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    const newUrls: string[] = [];
-    for (const file of Array.from(files)) {
-      const ext = file.name.split(".").pop();
-      const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error } = await supabase.storage.from("news-images").upload(path, file);
-      if (error) { toast.error(`Upload failed: ${file.name}`); continue; }
-      const { data: urlData } = supabase.storage.from("news-images").getPublicUrl(path);
-      newUrls.push(urlData.publicUrl);
-    }
-    setImages(prev => [...prev, ...newUrls]);
-    setUploading(false);
-    if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const removeImage = (idx: number) => {
-    setImages(prev => prev.filter((_, i) => i !== idx));
-  };
-
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) { toast.error("Title and content required"); return; }
     const payload = {
@@ -116,6 +90,52 @@ export default function NewsTab() {
     load();
   };
 
+  const syncDefaults = async () => {
+    setSyncing(true);
+    let added = 0;
+    try {
+      for (const item of DEFAULT_NEWS) {
+        // 1. Check if it exists by title (never by ID to avoid UUID errors)
+        const { data: existing, error: checkError } = await (supabase as any)
+          .from("news_updates")
+          .select("id")
+          .eq("title", item.title)
+          .maybeSingle();
+
+        if (checkError) {
+          console.warn("Check error for:", item.title, checkError);
+          continue;
+        }
+
+        // 2. If it doesn't exist, insert it
+        if (!existing) {
+          const { error: insertError } = await (supabase as any)
+            .from("news_updates")
+            .insert({
+              title: item.title,
+              content: item.content,
+              category: item.category,
+              is_active: item.is_active,
+              images: []
+            });
+          
+          if (insertError) {
+            console.error("Insert error for:", item.title, insertError);
+          } else {
+            added++;
+          }
+        }
+      }
+      toast.success(`Synced ${added} new news items!`);
+      load();
+    } catch (err: any) {
+      console.error("Sync process failed:", err);
+      toast.error("Sync failed. Check console.");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
   const handleEdit = (item: NewsItem) => {
     setEditId(item.id);
     setTitle(item.title);
@@ -136,37 +156,6 @@ export default function NewsTab() {
   const toggleActive = async (id: string, active: boolean) => {
     await (supabase as any).from("news_updates").update({ is_active: active }).eq("id", id);
     load();
-  };
-
-  const syncDefaults = async () => {
-    setSyncing(true);
-    let added = 0;
-    try {
-      for (const item of DEFAULT_NEWS) {
-        // Check by title instead of ID to avoid UUID mismatch errors
-        const { data: existing } = await (supabase as any)
-          .from("news_updates")
-          .select("id")
-          .eq("title", item.title)
-          .maybeSingle();
-
-        if (!existing) {
-          const { error } = await (supabase as any).from("news_updates").insert(item);
-          if (error) {
-            console.error(`Failed to sync "${item.title}":`, error.message);
-          } else {
-            added++;
-          }
-        }
-      }
-      toast.success(`Synced ${added} new default news items!`);
-      load();
-    } catch (err: any) {
-      console.error("Sync error:", err);
-      toast.error("Sync failed. Check console for details.");
-    } finally {
-      setSyncing(false);
-    }
   };
 
   return (
@@ -198,33 +187,6 @@ export default function NewsTab() {
             <Label className="text-xs">Content</Label>
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="text-xs" rows={4} placeholder="Full news content..." />
           </div>
-
-          <div>
-            <Label className="text-xs">Images</Label>
-            <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-            <div className="flex flex-wrap gap-2 mt-1.5">
-              {images.map((url, i) => (
-                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border group">
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeImage(i)}
-                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
-              </button>
-            </div>
-          </div>
-
           <div>
             <Label className="text-xs">Category</Label>
             <Select value={category} onValueChange={setCategory}>
@@ -244,43 +206,28 @@ export default function NewsTab() {
       )}
 
       <div className="space-y-2">
-        {news.map((item) => {
-          const allImages = item.images?.length ? item.images : item.image_url ? [item.image_url] : [];
-          return (
-            <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
-              {allImages.length > 0 && (
-                <div className="flex gap-1 flex-shrink-0">
-                  {allImages.slice(0, 3).map((url, i) => (
-                    <img key={i} src={url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                  ))}
-                  {allImages.length > 3 && (
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
-                      +{allImages.length - 3}
-                    </div>
-                  )}
+        {news.map((item) => (
+          <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
+                  <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
+                  <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
-                  </div>
-                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
-                </div>
-                <div className="flex gap-2 mt-1.5">
-                  <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
-                    <Edit2 className="h-3 w-3" /> Edit
-                  </button>
-                  <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
-                    <Trash2 className="h-3 w-3" /> Delete
-                  </button>
-                </div>
+                <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+              </div>
+              <div className="flex gap-2 mt-1.5">
+                <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
+                  <Edit2 className="h-3 w-3" /> Edit
+                </button>
+                <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
               </div>
             </div>
-          );
-        })}
+          </div>
+        ))}
         {news.length === 0 && !syncing && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news!</p>}
       </div>
     </div>
