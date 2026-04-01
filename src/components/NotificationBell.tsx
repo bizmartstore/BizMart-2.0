@@ -66,7 +66,8 @@ export default function NotificationBell() {
     loadNotifications();
     
     if (!user) return;
-    const channel = supabase      .channel(`notifications-${user.id}`)
+    const channel = supabase
+      .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notification_logs" },
@@ -87,6 +88,21 @@ export default function NotificationBell() {
       console.error("Failed to mark notification as read:", error);
     }
   };
+
+  const markAllAsRead = async () => {
+    if (!user) return;
+    try {
+      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id);
+      // Refresh notifications list immediately      await loadNotifications();
+    } catch (error) {
+      console.error("Failed to mark all notifications as read:", error);
+    } finally {
+      // Ensure UI refreshes even if there's an error
+      await loadNotifications();
+    }
+  } catch (error) {
+    console.error("Error in markAllAsRead:", error);
+  }
 
   const deleteNotification = async (id: string) => {
     try {
@@ -139,8 +155,7 @@ export default function NotificationBell() {
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
               <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">
-                Mark all read
-              </button>
+                Mark all read              </button>
               {notifications.length > 0 && (
                 <button onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
                   Clear all
