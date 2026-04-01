@@ -11,7 +11,6 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const lastNotificationId = useRef<string | null>(null);
-  const recentNotifications = useRef<Set<string>>(new Set());
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
@@ -39,16 +38,13 @@ export default function NotificationBell() {
       const notifs = data || [];
       setNotifications(notifs);
       
-      // Count unread
       const newUnread = notifs.filter((n: any) => !n.is_read).length;
       setUnreadCount(newUnread);
       
-      // Play sound for new notifications
       if (newUnread > 0 && notifs.length > 0) {
         const latest = notifs[0];
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
-          
           const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
           if (isAdmin) {
             playAdminNotificationSound();
@@ -82,7 +78,6 @@ export default function NotificationBell() {
     if (!id) return;
     try {
       await (supabase as any).from("notification_logs").update({ is_read: true }).eq("id", id);
-      // Refresh notifications list immediately
       await loadNotifications();
     } catch (error) {
       console.error("Failed to mark notification as read:", error);
@@ -93,21 +88,15 @@ export default function NotificationBell() {
     if (!user) return;
     try {
       await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id);
-      // Refresh notifications list immediately      await loadNotifications();
+      await loadNotifications();
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
-    } finally {
-      // Ensure UI refreshes even if there's an error
-      await loadNotifications();
     }
-  } catch (error) {
-    console.error("Error in markAllAsRead:", error);
-  }
+  };
 
   const deleteNotification = async (id: string) => {
     try {
       await (supabase as any).from("notification_logs").delete().eq("id", id);
-      // Refresh notifications list
       await loadNotifications();
     } catch (error) {
       console.error("Failed to delete notification:", error);
@@ -128,9 +117,6 @@ export default function NotificationBell() {
     setOpen(false);
     if (!n.is_read) {
       await markAsRead(n.id);
-    }
-    if (n.link) {
-      // Navigate to the linked page      // We don't have navigate here, so just allow default behavior
     }
   };
 
@@ -155,7 +141,8 @@ export default function NotificationBell() {
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
               <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">
-                Mark all read              </button>
+                Mark all read
+              </button>
               {notifications.length > 0 && (
                 <button onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
                   Clear all
@@ -173,9 +160,9 @@ export default function NotificationBell() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className="w-full text-left px-4 py-2 rounded-lg text-xs transition-colors group relative ${
+                  className={`w-full text-left px-4 py-2 rounded-lg text-xs transition-colors group relative ${
                     n.is_read ? 'opacity-60' : 'bg-primary/5'
-                  }"
+                  }`}
                 >
                   <button 
                     onClick={(e) => { e.stopPropagation(); handleNotifClick(n); }}
