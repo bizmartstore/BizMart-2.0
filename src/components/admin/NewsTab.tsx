@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw } from "lucide-react";
 
+// Version 2.1 - Explicitly removed all manual IDs
 const DEFAULT_NEWS = [
   {
     title: "BizMart Store v2.0 Coming June 2026",
@@ -95,19 +96,13 @@ export default function NewsTab() {
     let added = 0;
     try {
       for (const item of DEFAULT_NEWS) {
-        // 1. Check if it exists by title (never by ID to avoid UUID errors)
-        const { data: existing, error: checkError } = await (supabase as any)
+        // Check by title to avoid UUID errors with string IDs
+        const { data: existing } = await (supabase as any)
           .from("news_updates")
           .select("id")
           .eq("title", item.title)
           .maybeSingle();
 
-        if (checkError) {
-          console.warn("Check error for:", item.title, checkError);
-          continue;
-        }
-
-        // 2. If it doesn't exist, insert it
         if (!existing) {
           const { error: insertError } = await (supabase as any)
             .from("news_updates")
@@ -116,21 +111,16 @@ export default function NewsTab() {
               content: item.content,
               category: item.category,
               is_active: item.is_active,
-              images: []
+              images: [] // Ensure this is an empty array for JSONB
             });
           
-          if (insertError) {
-            console.error("Insert error for:", item.title, insertError);
-          } else {
-            added++;
-          }
+          if (!insertError) added++;
         }
       }
-      toast.success(`Synced ${added} new news items!`);
+      toast.success(`Synced ${added} news items!`);
       load();
     } catch (err: any) {
-      console.error("Sync process failed:", err);
-      toast.error("Sync failed. Check console.");
+      toast.error("Sync failed. Please refresh and try again.");
     } finally {
       setSyncing(false);
     }
