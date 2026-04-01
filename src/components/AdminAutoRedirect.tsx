@@ -5,16 +5,17 @@ import { useAuth } from "@/context/AuthContext";
 
 /**
  * Redirects authenticated admin users to /admin if they land on customer pages.
+ * Uses the new non-blocking role system.
  */
 export default function AdminAutoRedirect() {
   const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useAdmin();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Wait for both auth and role loading to complete
-    if (authLoading || roleLoading) {
+    // Wait for auth loading to complete
+    if (authLoading) {
       return;
     }
 
@@ -30,7 +31,7 @@ export default function AdminAutoRedirect() {
 
     console.log('[AdminAutoRedirect] Redirecting admin to /admin');
     navigate("/admin", { replace: true });
-  }, [user, isAdmin, authLoading, roleLoading, location.pathname, navigate]);
+  }, [user, isAdmin, authLoading, location.pathname, navigate]);
 
   return null;
 }
