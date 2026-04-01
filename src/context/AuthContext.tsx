@@ -49,7 +49,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (roleError) throw roleError;
 
-      // Destructure with defaults to handle null from maybeSingle()
       const {
         id = userId,
         first_name = '',
@@ -79,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Failed to fetch profile or role:", err);
+      // Set a default profile so the app can still function
       setProfile({
         id: '',
         user_id: userId,
@@ -119,7 +119,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(initialSession?.user ?? null);
 
         if (initialSession) {
-          await fetchProfile(initialSession.user.id);
+          // Fetch profile in the background - don't await it
+          fetchProfile(initialSession.user.id).catch(err => {
+            console.error("Background profile fetch failed:", err);
+          });
         } else {
           setProfile(null);
         }
@@ -129,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setProfile(null);
       } finally {
+        // Always finish loading, even if profile fetch is pending
         setLoading(false);
       }
     };
@@ -144,7 +148,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
 
         if (session) {
-          await fetchProfile(session.user.id);
+          // Fetch profile in background on auth change as well
+          fetchProfile(session.user.id).catch(err => {
+            console.error("Background profile fetch failed:", err);
+          });
         } else {
           setProfile(null);
         }
