@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw } from "lucide-react";
-import { products as fallbackProducts } from "@/data/products";
+import { products as fallbackProducts, categories as fallbackCategories } from "@/data/products";
 
 export default function ProductsTab() {
   const [products, setProducts] = useState<any[]>([]);
@@ -107,10 +107,23 @@ export default function ProductsTab() {
   };
 
   const syncDefaults = async () => {
-    if (!confirm(`Sync ${fallbackProducts.length} default products? This will add any missing products.`)) return;
-    let added = 0;
+    if (!confirm(`Sync ${fallbackProducts.length} default products? This will add missing categories first to prevent errors.`)) return;
+    let addedCats = 0;
+    let addedProds = 0;
     let errors = 0;
     try {
+      // 1. Sync categories FIRST to avoid foreign key constraint errors
+      for (const cat of fallbackCategories) {
+        const { data: existing } = await (supabase as any).from("categories").select("id").eq("id", cat.id).maybeSingle();
+        if (!existing) {
+          const { error } = await (supabase as any).from("categories").insert({
+            id: cat.id, name: cat.name, icon: cat.icon, is_active: true, sort_order: 0
+          });
+          if (!error) addedCats++;
+        }
+      }
+
+      // 2. Sync products
       for (const p of fallbackProducts) {
         try {
           const { data: existing } = await (supabase as any).from("products").select("id").eq("id", p.id).maybeSingle();
@@ -126,7 +139,7 @@ export default function ProductsTab() {
               console.warn(`Failed to sync product ${p.name}:`, error.message);
               errors++;
             } else {
-              added++;
+              addedProds++;
             }
           }
         } catch (err) {
@@ -134,11 +147,8 @@ export default function ProductsTab() {
           errors++;
         }
       }
-      if (errors > 0) {
-        toast.warning(`Synced ${added} products. ${errors} failed (check console).`);
-      } else {
-        toast.success(`Synced ${added} new products!`);
-      }
+      
+      toast.success(`Synced ${addedCats} categories and ${addedProds} products! ${errors > 0 ? `${errors} failed.` : ''}`);
       load();
     } catch (e: any) {
       toast.error(e.message || "Sync failed");
