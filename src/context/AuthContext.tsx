@@ -21,6 +21,7 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -33,21 +34,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (currentUser: User) => {
     try {
-      const { data: profData } = await supabase
+      // 1. Try to get data from the public.profiles table
+      const { data: profData, error: profError } = await supabase
         .from("profiles")
         .select("*")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
+      if (profError) console.warn("[AuthContext] Profile fetch error:", profError);
+
+      // 2. Get the user role
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      // Use metadata as fallback if database profile is missing or incomplete
+      // 3. Get metadata from the Auth user object (this is where sign-up data lives)
       const metadata = currentUser.user_metadata || {};
       
+      // 4. Merge data: Database takes priority, then Metadata, then empty string
       const finalProfile: Profile = {
         id: profData?.id || currentUser.id,
         user_id: currentUser.id,
@@ -61,10 +67,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: roleData?.role || 'customer',
       };
 
+      console.log("[AuthContext] Profile loaded:", finalProfile);
       setProfile(finalProfile);
     } catch (err) {
       console.error("[AuthContext] Failed to fetch profile:", err);
     }
+  };
+
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user);
   };
 
   useEffect(() => {
@@ -103,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("[AuthContext] Auth state changed:", event);
         setSession(session);
         setUser(session?.user ?? null);
 
@@ -131,7 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

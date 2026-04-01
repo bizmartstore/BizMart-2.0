@@ -1,4 +1,4 @@
-import { ArrowLeft, Settings, ChevronRight, Package, Heart, Star, MapPin, HelpCircle, LogOut, GraduationCap, Coins, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Settings, ChevronRight, Package, Heart, HelpCircle, LogOut, GraduationCap, Coins, ShoppingCart } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
@@ -59,7 +59,7 @@ export default function ProfilePage() {
           </div>
           <div>
             <h2 className="text-secondary-foreground font-bold text-lg">
-              {profile ? `${profile.first_name} ${profile.last_name}` : "Student"}
+              {profile?.first_name ? `${profile.first_name} ${profile.last_name}` : "Student"}
             </h2>
             <p className="text-secondary-foreground/70 text-xs">{profile?.email || user.email}</p>
           </div>
@@ -67,32 +67,30 @@ export default function ProfilePage() {
       </div>
 
       {/* Student Info Card */}
-      {profile && (
-        <div className="mx-3 -mt-4 bg-card rounded-xl shadow-sm border border-border p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <GraduationCap className="h-4 w-4 text-primary" />
-            <span className="text-xs font-bold text-foreground">Student Information</span>
+      <div className="mx-3 -mt-4 bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="flex items-center gap-2 mb-3">
+          < GraduationCap className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold text-foreground">Student Information</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">School</p>
+            <p className="text-xs font-bold text-foreground">{profile?.school || "Not provided"}</p>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] text-muted-foreground font-medium">School</p>
-              <p className="text-xs font-bold text-foreground">{profile.school}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground font-medium">Grade Level</p>
-              <p className="text-xs font-bold text-foreground">{profile.grade_level}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground font-medium">Section</p>
-              <p className="text-xs font-bold text-foreground">{profile.section}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground font-medium">BCoins</p>
-              <p className="text-xs font-bold text-primary">{Number(bcoins).toFixed(1)} 🪙</p>
-            </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">Grade Level</p>
+            <p className="text-xs font-bold text-foreground">{profile?.grade_level || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">Section</p>
+            <p className="text-xs font-bold text-foreground">{profile?.section || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">BCoins</p>
+            <p className="text-xs font-bold text-primary">{Number(bcoins).toFixed(1)} 🪙</p>
           </div>
         </div>
-      )}
+      </div>
 
       {/* Quick Stats */}
       <div className="mx-3 mt-3 bg-card rounded-xl shadow-sm border border-border p-4 grid grid-cols-3 gap-4">
