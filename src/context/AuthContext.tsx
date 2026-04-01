@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 export interface Profile {
   id: string;
-  user_id: string;
   first_name: string;
   last_name: string;
   section: string;
@@ -14,7 +13,6 @@ export interface Profile {
   avatar_url: string | null;
   bcoins: number;
   role: string;
-  created_at?: string;
 }
 
 interface AuthContextType {
@@ -36,28 +34,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = async (currentUser: User) => {
     try {
-      // 1. Fetch from profiles table
-      const { data: profData, error: profError } = await supabase
+      // 1. Try to fetch existing profile
+      let { data: profData, error: profError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", currentUser.id)
         .maybeSingle();
 
-      if (profError) console.error("[AuthContext] Profile fetch error:", profError);
+      const metadata = currentUser.user_metadata || {};
 
-      // 2. Fetch role
+      // 2. If profile is missing, create it (Self-healing)
+      if (!profData && !profError) {
+        console.log("[AuthContext] Profile missing, creating from metadata...");
+        const { data: newProf, error: insertError } = await supabase
+          .from("profiles")
+          .insert({
+            id: currentUser.id,
+            email: currentUser.email,
+            first_name: metadata.first_name || '',
+            last_name: metadata.last_name || '',
+            school: metadata.school || '',
+            section: metadata.section || '',
+            grade_level: metadata.grade_level || '',
+            bcoins: 0
+          })
+          .select()
+          .single();
+        
+        if (!insertError) profData = newProf;
+      }
+
+      // 3. Fetch role
       const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      const metadata = currentUser.user_metadata || {};
-      
-      // 3. Merge data
-      const finalProfile: Profile = {
+      // 4. Set state with priority: DB > Metadata > Empty
+      setProfile({
         id: currentUser.id,
-        user_id: profData?.user_id || currentUser.id,
         first_name: profData?.first_name || metadata.first_name || '',
         last_name: profData?.last_name || metadata.last_name || '',
         section: profData?.section || metadata.section || '',
@@ -67,12 +83,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         avatar_url: profData?.avatar_url || metadata.avatar_url || null,
         bcoins: Number(profData?.bcoins || 0),
         role: roleData?.role || 'customer',
-        created_at: profData?.created_at
-      };
-
-      setProfile(finalProfile);
+      });
     } catch (err) {
-      console.error("[AuthContext] Unexpected error during profile fetch:", err);
+      console.error("[AuthContext] Profile error:", err);
     }
   };
 
@@ -81,42 +94,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
-        if (initialSession?.user) await fetchProfile(initialSession.user);
-      } catch (err) {
-        console.error("[AuthContext] Initialization error:", err);
-      } finally {
-        setLoading(false);
-      }
+    const init = async () => {
+      const { data: { session: s } } = await supabase.auth.getSession();
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) await fetchProfile(s.user);
+      setLoading(false);
     };
-    initializeAuth();
-  }, []);
+    init();
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user);
-      } else {
-        setProfile(null);
-      }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      setSession(s);
+      setUser(s?.user ?? null);
+      if (s?.user) await fetchProfile(s.user);
+      else setProfile(null);
     });
+
     return () => subscription?.unsubscribe();
   }, []);
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-    } finally {
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-    }
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
   };
 
   return (
