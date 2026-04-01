@@ -34,42 +34,28 @@ export default function SignUpPage() {
       return;
     }
     setLoading(true);
-    
-    try {
-      // Call the Edge Function to create and auto-confirm user
-      const { data, error } = await supabase.functions.invoke('customer-signup', {
-        body: {
-          email: form.email,
-          password: form.password,
+    const { error } = await supabase.auth.signUp({
+      email: form.email,
+      password: form.password,
+      options: {
+        data: {
           first_name: form.firstName,
           last_name: form.lastName,
           section: form.section,
           grade_level: form.gradeLevel,
           school: form.school,
         },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Set the session from the response
-      if (data?.session) {
-        await supabase.auth.setSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
-      }
-
-      // Notify admin about new registration
+        emailRedirectTo: window.location.origin,
+      },
+    });
+    setLoading(false);
+    if (error) {
+      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+    } else {
+      // Notify admins about new registration
       notifyAdminNewRegistration(`${form.firstName} ${form.lastName}`, form.email);
-
-      toast({ title: "Account created! 🎉", description: "You are now logged in." });
-      navigate("/");
-    } catch (err: any) {
-      toast({ title: "Sign up failed", description: err.message || "Unknown error", variant: "destructive" });
-    } finally {
-      setLoading(false);
+      toast({ title: "Account created! 🎉", description: "Check your email to verify your account before logging in." });
+      navigate("/login");
     }
   };
 
