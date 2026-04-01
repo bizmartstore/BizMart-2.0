@@ -1,4 +1,13 @@
--- This script populates the profiles table with data from existing auth users
+-- 1. Ensure all required columns exist in the profiles table
+ALTER TABLE public.profiles 
+ADD COLUMN IF NOT EXISTS first_name TEXT,
+ADD COLUMN IF NOT EXISTS last_name TEXT,
+ADD COLUMN IF NOT EXISTS school TEXT,
+ADD COLUMN IF NOT EXISTS section TEXT,
+ADD COLUMN IF NOT EXISTS grade_level TEXT,
+ADD COLUMN IF NOT EXISTS bcoins NUMERIC DEFAULT 0;
+
+-- 2. Sync existing data from auth.users to public.profiles
 INSERT INTO public.profiles (id, email, first_name, last_name, school, section, grade_level, bcoins)
 SELECT 
   id, 
