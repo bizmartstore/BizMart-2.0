@@ -37,10 +37,7 @@ export default function SignUpPage() {
     }
     setLoading(true);
     
-    // Use the current origin for the redirect URL
-    const redirectTo = `${window.location.origin}/login`;
-
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
       options: {
@@ -51,18 +48,39 @@ export default function SignUpPage() {
           grade_level: form.gradeLevel,
           school: form.school,
         },
-        emailRedirectTo: redirectTo,
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     });
 
-    setLoading(false);
     if (error) {
       toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-    } else {
+      setLoading(false);
+      return;
+    }
+
+    if (data.user) {
+      // Manually insert into profiles table to ensure data is saved
+      const { error: profileError } = await supabase.from("profiles").insert({
+        id: data.user.id,
+        email: form.email,
+        first_name: form.firstName,
+        last_name: form.lastName,
+        school: form.school,
+        section: form.section,
+        grade_level: form.gradeLevel,
+        bcoins: 0
+      });
+
+      if (profileError) {
+        console.error("Error creating profile:", profileError);
+        // We don't stop here because the auth account was still created
+      }
+
       notifyAdminNewRegistration(`${form.firstName} ${form.lastName}`, form.email);
       setIsSubmitted(true);
       toast({ title: "Account created! 🎉", description: "Please check your Gmail to verify your account." });
     }
+    setLoading(false);
   };
 
   const handleResend = async () => {
@@ -70,15 +88,13 @@ export default function SignUpPage() {
     const { error } = await supabase.auth.resend({
       type: 'signup',
       email: form.email,
-      options: {
-        emailRedirectTo: `${window.location.origin}/login`,
-      }
+      options: { emailRedirectTo: `${window.location.origin}/login` }
     });
     setResending(false);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Verification sent! 📧", description: "Check your Gmail inbox (and spam folder)." });
+      toast({ title: "Verification sent! 📧", description: "Check your Gmail inbox." });
     }
   };
 
@@ -90,36 +106,15 @@ export default function SignUpPage() {
         </div>
         <h2 className="text-2xl font-extrabold text-foreground mb-2">Check your Gmail!</h2>
         <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
-          We've sent a verification link to <strong className="text-foreground">{form.email}</strong>.<br />
-          Please click the link in the email to activate your account.
+          We've sent a verification link to <strong className="text-foreground">{form.email}</strong>.
         </p>
-        
-        <div className="w-full space-y-3">
-          <Button onClick={() => navigate("/login")} variant="outline" className="w-full h-12 rounded-xl font-bold">
-            Go to Login
-          </Button>
-          <button 
-            onClick={handleResend} 
-            disabled={resending}
-            className="text-xs text-primary font-bold flex items-center justify-center gap-1.5 mx-auto py-2"
-          >
-            {resending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            Didn't get the email? Resend link
-          </button>
-        </div>
-
-        <div className="mt-12 p-4 bg-muted/50 rounded-2xl border border-border text-left">
-          <div className="flex items-center gap-2 mb-1">
-            <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
-            <span className="text-xs font-bold">Next Steps</span>
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            1. Open your Gmail app.<br />
-            2. Look for an email from BizMart.<br />
-            3. Click "Confirm your email".<br />
-            4. You will be redirected back here to log in!
-          </p>
-        </div>
+        <Button onClick={() => navigate("/login")} variant="outline" className="w-full h-12 rounded-xl font-bold">
+          Go to Login
+        </Button>
+        <button onClick={handleResend} disabled={resending} className="text-xs text-primary font-bold flex items-center justify-center gap-1.5 mx-auto py-4">
+          <RefreshCw className={`h-3 w-3 ${resending ? 'animate-spin' : ''}`} />
+          Didn't get the email? Resend link
+        </button>
       </div>
     );
   }
@@ -134,7 +129,6 @@ export default function SignUpPage() {
           <ShoppingBag className="h-6 w-6 text-primary-foreground" />
           <h1 className="text-xl font-extrabold text-primary-foreground">Create Account</h1>
         </div>
-        <p className="text-primary-foreground/70 text-xs">Join BizMart and start shopping!</p>
       </div>
 
       <div className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
@@ -142,102 +136,49 @@ export default function SignUpPage() {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs font-bold">Last Name</Label>
-              <Input
-                placeholder="Dela Cruz"
-                value={form.lastName}
-                onChange={(e) => update("lastName", e.target.value)}
-                required
-              />
+              <Input placeholder="Dela Cruz" value={form.lastName} onChange={(e) => update("lastName", e.target.value)} required />
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-bold">First Name</Label>
-              <Input
-                placeholder="Juan"
-                value={form.firstName}
-                onChange={(e) => update("firstName", e.target.value)}
-                required
-              />
+              <Input placeholder="Juan" value={form.firstName} onChange={(e) => update("firstName", e.target.value)} required />
             </div>
           </div>
-
           <div className="space-y-1">
             <Label className="text-xs font-bold">School</Label>
-            <Input
-              placeholder="Enter your school name"
-              value={form.school}
-              onChange={(e) => update("school", e.target.value)}
-              required
-            />
+            <Input placeholder="Enter your school name" value={form.school} onChange={(e) => update("school", e.target.value)} required />
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs font-bold">Grade Level</Label>
-              <select
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={form.gradeLevel}
-                onChange={(e) => update("gradeLevel", e.target.value)}
-                required
-              >
+              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.gradeLevel} onChange={(e) => update("gradeLevel", e.target.value)} required>
                 <option value="">Select grade</option>
-                {GRADE_LEVELS.map((g) => (
-                  <option key={g} value={g}>{g}</option>
-                ))}
+                {GRADE_LEVELS.map((g) => <option key={g} value={g}>{g}</option>)}
               </select>
             </div>
             <div className="space-y-1">
               <Label className="text-xs font-bold">Section</Label>
-              <Input
-                placeholder="e.g. Section A"
-                value={form.section}
-                onChange={(e) => update("section", e.target.value)}
-                required
-              />
+              <Input placeholder="e.g. Section A" value={form.section} onChange={(e) => update("section", e.target.value)} required />
             </div>
           </div>
-
           <div className="space-y-1">
             <Label className="text-xs font-bold">Email Address</Label>
-            <Input
-              type="email"
-              placeholder="student@school.edu"
-              value={form.email}
-              onChange={(e) => update("email", e.target.value)}
-              required
-            />
+            <Input type="email" placeholder="student@school.edu" value={form.email} onChange={(e) => update("email", e.target.value)} required />
           </div>
-
           <div className="space-y-1">
             <Label className="text-xs font-bold">Password</Label>
             <div className="relative">
-              <Input
-                type={showPassword ? "text" : "password"}
-                placeholder="Min 6 characters"
-                value={form.password}
-                onChange={(e) => update("password", e.target.value)}
-                required
-                minLength={6}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
+              <Input type={showPassword ? "text" : "password"} placeholder="Min 6 characters" value={form.password} onChange={(e) => update("password", e.target.value)} required minLength={6} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
-
           <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl mt-2" disabled={loading}>
             {loading ? "Creating account..." : "Sign Up"}
           </Button>
         </form>
-
         <p className="text-center text-sm text-muted-foreground mt-5">
-          Already have an account?{" "}
-          <Link to="/login" className="text-primary font-bold">
-            Log In
-          </Link>
+          Already have an account? <Link to="/login" className="text-primary font-bold">Log In</Link>
         </p>
       </div>
     </div>
