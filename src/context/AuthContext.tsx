@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,45 +34,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (currentUser: User) => {
+  const fetchProfile = useCallback(async (currentUser: User) => {
+    console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
+    
     try {
-      // 1. Try to fetch existing profile
-      let { data: profData, error: profError } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", currentUser.id)
-        .maybeSingle();
-
-      const metadata = currentUser.user_metadata || {};
-
-      // 2. If profile is missing, create it immediately
-      if (!profData && !profError) {
-        const { data: newProf, error: insertError } = await supabase
+      // Use a Promise.race to ensure we don't hang forever on a slow DB query
+      const profilePromise = (async () => {
+        // 1. Try to fetch existing profile
+        let { data: profData, error: profError } = await supabase
           .from("profiles")
-          .insert({
-            id: currentUser.id,
-            email: currentUser.email,
-            first_name: metadata.first_name || '',
-            last_name: metadata.last_name || '',
-            school: metadata.school || '',
-            section: metadata.section || '',
-            grade_level: metadata.grade_level || '',
-            bcoins: 0
-          })
-          .select()
-          .single();
-        
-        if (!insertError) profData = newProf;
-      }
+          .select("*")
+          .eq("id", currentUser.id)
+          .maybeSingle();
 
-      // 3. Fetch role
-      const { data: roleData } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
+        if (profError) {
+          console.warn("[AuthContext] Profile fetch error:", profError.message);
+        }
 
-      // 4. Set state
+        const metadata = currentUser.user_metadata || {};
+
+        // 2. If profile is missing, create it
+        if (!profData && !profError) {
+          console.log("[AuthContext] Profile missing, creating...");
+          const { data: newProf, error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: currentUser.id,
+              email: currentUser.email,
+              first_name: metadata.first_name || '',
+              last_name: metadata.last_name || '',
+              school: metadata.school || '',
+              section: metadata.section || '',
+              grade_level: metadata.grade_level || '',
+              bcoins: 0
+            })
+            .select()
+            .single();
+          
+          if (!insertError) profData = newProf;
+          else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+        }
+
+        // 3. Fetch role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        return { profData, roleData, metadata };
+      })();
+
+      // Timeout after 3 seconds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
+      );
+
+      const result = await Promise.race([profilePromise, timeoutPromise]) as any;
+      const { profData, roleData, metadata } = result;
+
       setProfile({
         id: currentUser.id,
         first_name: profData?.first_name || metadata.first_name || 'Student',
@@ -85,51 +105,87 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         bcoins: Number(profData?.bcoins || 0),
         role: roleData?.role || 'customer',
       });
-    } catch (err) {
-      console.error("[AuthContext] Unexpected error:", err);
+      
+      console.log("[AuthContext] Profile loaded successfully");
+    } catch (err: any) {
+      console.warn("[AuthContext] Profile fetch issue:", err.message);
+      // Fallback to metadata if DB fails or times out
+      const metadata = currentUser.user_metadata || {};
+      setProfile({
+        id: currentUser.id,
+        first_name: metadata.first_name || 'Student',
+        last_name: metadata.last_name || '',
+        section: metadata.section || 'N/A',
+        grade_level: metadata.grade_level || 'N/A',
+        school: metadata.school || 'N/A',
+        email: currentUser.email || '',
+        avatar_url: metadata.avatar_url || null,
+        bcoins: 0,
+        role: 'customer',
+      });
     }
-  };
+  }, []);
 
   const refreshProfile = async () => {
     if (user) await fetchProfile(user);
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const init = async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        
         setSession(s);
         setUser(s?.user ?? null);
         
         if (s?.user) {
-          // Use a timeout to prevent hanging forever on profile fetch
-          await Promise.race([
-            fetchProfile(s.user),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000))
-          ]).catch(err => console.warn("[AuthContext] Profile fetch issue:", err));
+          await fetchProfile(s.user);
         }
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
       } finally {
-        // Always resolve loading
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+          console.log("[AuthContext] Initialization complete");
+        }
       }
     };
+
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log(`[AuthContext] Auth state changed: ${event}`);
+      if (!mounted) return;
+
       setSession(s);
       setUser(s?.user ?? null);
+      
       if (s?.user) {
         await fetchProfile(s.user);
       } else {
         setProfile(null);
       }
+      
       setLoading(false);
     });
 
-    return () => subscription?.unsubscribe();
-  }, []);
+    // Safety fallback: always stop loading after 6 seconds max
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
+        setLoading(false);
+      }
+    }, 6000);
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
+  }, [fetchProfile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
