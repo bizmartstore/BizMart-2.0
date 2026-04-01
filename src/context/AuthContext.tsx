@@ -31,66 +31,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (currentUser: User) => {
     try {
-      const { data: profData, error: profError } = await supabase
+      const { data: profData } = await supabase
         .from("profiles")
         .select("*")
-        .eq("user_id", userId)
+        .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      if (profError) throw profError;
-
-      const { data: roleData, error: roleError } = await supabase
+      const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
-        .eq("user_id", userId)
+        .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      if (roleError) throw roleError;
-
-      const {
-        id = userId,
-        first_name = '',
-        last_name = '',
-        section = '',
-        grade_level = '',
-        school = '',
-        email = '',
-        avatar_url = null,
-      } = profData ?? {};
-
-      const { role = 'customer' } = roleData ?? {};
-
+      // Use metadata as fallback if database profile is missing or incomplete
+      const metadata = currentUser.user_metadata || {};
+      
       const finalProfile: Profile = {
-        id,
-        user_id: userId,
-        first_name,
-        last_name,
-        section,
-        grade_level,
-        school,
-        email,
-        avatar_url,
-        role,
+        id: profData?.id || currentUser.id,
+        user_id: currentUser.id,
+        first_name: profData?.first_name || metadata.first_name || '',
+        last_name: profData?.last_name || metadata.last_name || '',
+        section: profData?.section || metadata.section || '',
+        grade_level: profData?.grade_level || metadata.grade_level || '',
+        school: profData?.school || metadata.school || '',
+        email: profData?.email || currentUser.email || '',
+        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+        role: roleData?.role || 'customer',
       };
 
       setProfile(finalProfile);
     } catch (err) {
-      console.error("[AuthContext] Failed to fetch profile or role:", err);
-      // Set a default profile so the app can still function
-      setProfile({
-        id: '',
-        user_id: userId,
-        first_name: '',
-        last_name: '',
-        section: '',
-        grade_level: '',
-        school: '',
-        email: '',
-        avatar_url: null,
-        role: 'customer',
-      });
+      console.error("[AuthContext] Failed to fetch profile:", err);
     }
   };
 
@@ -99,7 +72,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const lastProjectUrl = localStorage.getItem("last_supabase_url");
 
     if (lastProjectUrl && lastProjectUrl !== currentProjectUrl) {
-      console.warn("[AuthContext] Supabase project changed! Clearing old session...");
       supabase.auth.signOut();
       localStorage.clear();
       localStorage.setItem("last_supabase_url", currentProjectUrl);
@@ -111,28 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const initializeAuth = async () => {
       try {
-        const { data: { session: initialSession }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError) throw sessionError;
-
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
         setSession(initialSession);
         setUser(initialSession?.user ?? null);
 
-        if (initialSession) {
-          // Fetch profile in the background - don't await it
-          fetchProfile(initialSession.user.id).catch(err => {
-            console.error("Background profile fetch failed:", err);
-          });
-        } else {
-          setProfile(null);
+        if (initialSession?.user) {
+          await fetchProfile(initialSession.user);
         }
       } catch (err) {
         console.error("[AuthContext] Initial session error:", err);
-        setSession(null);
-        setUser(null);
-        setProfile(null);
       } finally {
-        // Always finish loading, even if profile fetch is pending
         setLoading(false);
       }
     };
@@ -143,15 +103,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log(`[AuthContext] Auth event: ${event}`);
         setSession(session);
         setUser(session?.user ?? null);
 
-        if (session) {
-          // Fetch profile in background on auth change as well
-          fetchProfile(session.user.id).catch(err => {
-            console.error("Background profile fetch failed:", err);
-          });
+        if (session?.user) {
+          await fetchProfile(session.user);
         } else {
           setProfile(null);
         }
@@ -166,8 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       await supabase.auth.signOut();
-    } catch (err) {
-      console.error("[AuthContext] Sign out error:", err);
     } finally {
       setUser(null);
       setSession(null);
