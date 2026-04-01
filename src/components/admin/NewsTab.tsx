@@ -55,8 +55,8 @@ export default function NewsTab() {
   const load = async () => {
     const { data } = await (supabase as any)
       .from("news_updates")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select('*')
+      .order('created_at', { ascending: false });
     if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
   };
 
@@ -187,15 +187,7 @@ export default function NewsTab() {
                     <X className="h-4 w-4 text-white" />
                   </button>
                 </div>
-              ))}
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
-              </button>
+              </div>
             </div>
           </div>
 
@@ -241,7 +233,12 @@ export default function NewsTab() {
                     <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
                     <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
                   </div>
-                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-[9px] text-muted-foreground">
+                      {new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                    </span>
+                    <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+                  </div>
                 </div>
                 <div className="flex gap-2 mt-1.5">
                   <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
@@ -253,9 +250,9 @@ export default function NewsTab() {
                 </div>
               </div>
             </div>
-          );
-        })}
-        {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news, or add your first update!</p>}
+          ))}
+          {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news, or add your first update!</p>}
+        </div>
       </div>
     </div>
   );

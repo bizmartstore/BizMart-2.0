@@ -112,7 +112,7 @@ export default function ProductsTab() {
     let addedProds = 0;
     let errors = 0;
     try {
-      // 1. Sync categories FIRST to avoid foreign key constraint errors
+      // 1. Ensure ALL categories exist BEFORE inserting products
       for (const cat of fallbackCategories) {
         const { data: existing } = await (supabase as any).from("categories").select("id").eq("id", cat.id).maybeSingle();
         if (!existing) {
@@ -123,7 +123,7 @@ export default function ProductsTab() {
         }
       }
 
-      // 2. Sync products
+      // 2. Now sync products (FK constraint will be satisfied)
       for (const p of fallbackProducts) {
         try {
           const { data: existing } = await (supabase as any).from("products").select("id").eq("id", p.id).maybeSingle();
@@ -147,16 +147,14 @@ export default function ProductsTab() {
           errors++;
         }
       }
-      
-      toast.success(`Synced ${addedCats} categories and ${addedProds} products! ${errors > 0 ? `${errors} failed.` : ''}`);
+            toast.success(`Synced ${addedCats} categories and ${addedProds} products! ${errors > 0 ? `${errors} failed.` : ''}`);
       load();
     } catch (e: any) {
       toast.error(e.message || "Sync failed");
     }
   };
 
-  const filtered = products.filter(p => 
-    !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.category || "").toLowerCase().includes(search.toLowerCase())
+  const filtered = products.filter(p =>     !search || p.name.toLowerCase().includes(search.toLowerCase()) || (p.category || "").toLowerCase().includes(search.toLowerCase())
   );
 
   return (

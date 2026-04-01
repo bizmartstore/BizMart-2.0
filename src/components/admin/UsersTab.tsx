@@ -16,15 +16,17 @@ export default function UsersTab() {
     setLoading(true);
     setDbError(null);
     try {
+      // 1. Load profiles
       const { data: profiles, error: profilesError } = await (supabase as any).from("profiles").select("*").order("first_name");
       if (profilesError) throw profilesError;
       
+      // 2. Load roles
       const { data: roles, error: rolesError } = await (supabase as any).from("user_roles").select("*");
       if (rolesError) throw rolesError;
       
-      const roleMap: Record<string, string> = {};
+      // Build role map      const roleMap: Record<string, string> = {};
       (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
-      
+            // Enrich profiles with role info
       const enriched = (profiles || []).map((p: any) => ({
         ...p,
         role: roleMap[p.user_id] || "customer",
@@ -43,7 +45,10 @@ export default function UsersTab() {
 
   const assignRole = async (userId: string, role: string) => {
     try {
+      // Remove existing role assignment
       await (supabase as any).from("user_roles").delete().eq("user_id", userId);
+      
+      // Add new role if it's not 'customer'
       if (role !== "customer") {
         await (supabase as any).from("user_roles").insert({ user_id: userId, role });
       }
@@ -52,7 +57,13 @@ export default function UsersTab() {
     } catch (e: any) {
       toast.error(e.message || "Failed to update role");
     }
-  };
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update role");
+    }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const filtered = users.filter(u => 
     !search || 
@@ -118,8 +129,7 @@ export default function UsersTab() {
             <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
             <p className="text-xs font-bold text-muted-foreground">No users found</p>
             <p className="text-[10px] text-muted-foreground mt-1 max-w-xs mx-auto">
-              If you created accounts but they don't appear here, the Supabase <code className="bg-muted px-1 rounded">handle_new_user</code> trigger might be missing or disabled. 
-              This trigger automatically creates a <code className="bg-muted px-1 rounded">profiles</code> row when a user signs up.
+              If you created accounts but they don't appear here, the Supabase <code className="bg-muted px-1 rounded">handle_new_user</code> trigger might be missing or disabled.               This trigger automatically creates a <code className="bg-muted px-1 rounded">profiles</code> row when a user signs up.
             </p>
           </div>
         )}
