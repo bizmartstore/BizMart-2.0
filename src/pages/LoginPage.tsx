@@ -1,27 +1,46 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Eye, EyeOff, Mail, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, Mail, RefreshCw, AlertCircle } from "lucide-react";
 
 const LOGO_URL = "https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png";
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [unconfirmed, setUnconfirmed] = useState(false);
   const [resending, setResending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  // Detect errors from the URL hash (e.g. after clicking an expired link)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("error_code=otp_expired") || hash.includes("error=access_denied")) {
+      setUnconfirmed(true);
+      setErrorMsg("The verification link has expired or was already used. Please request a new one below.");
+      toast({ 
+        title: "Link Expired", 
+        description: "Please request a new verification link.", 
+        variant: "destructive" 
+      });
+      // Clean up the hash
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setUnconfirmed(false);
+    setErrorMsg(null);
     
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
@@ -29,6 +48,7 @@ export default function LoginPage() {
     if (error) {
       if (error.message.toLowerCase().includes("email not confirmed")) {
         setUnconfirmed(true);
+        setErrorMsg("You need to confirm your email before you can log in.");
         toast({ 
           title: "Email not verified", 
           description: "Please check your Gmail to confirm your account.", 
@@ -55,6 +75,10 @@ export default function LoginPage() {
   };
 
   const handleResend = async () => {
+    if (!email) {
+      toast({ title: "Email required", description: "Please enter your email address first.", variant: "destructive" });
+      return;
+    }
     setResending(true);
     const { error } = await supabase.auth.resend({
       type: 'signup',
@@ -68,6 +92,7 @@ export default function LoginPage() {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Link sent! 📧", description: "Check your Gmail inbox for the new verification link." });
+      setErrorMsg("A new link has been sent to your email. Please check your inbox.");
     }
   };
 
@@ -85,11 +110,11 @@ export default function LoginPage() {
         {unconfirmed && (
           <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
             <div className="flex items-center gap-2 mb-2">
-              <Mail className="h-4 w-4 text-destructive" />
-              <span className="text-xs font-bold text-destructive">Email Not Verified</span>
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <span className="text-xs font-bold text-destructive">Verification Required</span>
             </div>
             <p className="text-[11px] text-destructive/80 mb-3 leading-relaxed">
-              You need to confirm your email before you can log in. Check your Gmail inbox for the verification link.
+              {errorMsg || "You need to confirm your email before you can log in. Check your Gmail inbox for the verification link."}
             </p>
             <Button 
               onClick={handleResend} 
