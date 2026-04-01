@@ -109,21 +109,40 @@ export default function ProductsTab() {
   const syncDefaults = async () => {
     if (!confirm(`Sync ${fallbackProducts.length} default products? This will add any missing products.`)) return;
     let added = 0;
-    for (const p of fallbackProducts) {
-      const { data: existing } = await (supabase as any).from("products").select("id").eq("id", p.id).maybeSingle();
-      if (!existing) {
-        await (supabase as any).from("products").insert({
-          id: p.id, name: p.name, price: p.price,
-          original_price: p.originalPrice || null, image: p.image,
-          category: p.category, stock: p.stock || 100,
-          description: p.description, is_flash_sale: p.isFlashSale || false,
-          is_active: true, rating: p.rating, sold: p.sold,
-        });
-        added++;
+    let errors = 0;
+    try {
+      for (const p of fallbackProducts) {
+        try {
+          const { data: existing } = await (supabase as any).from("products").select("id").eq("id", p.id).maybeSingle();
+          if (!existing) {
+            const { error } = await (supabase as any).from("products").insert({
+              id: p.id, name: p.name, price: p.price,
+              original_price: p.originalPrice || null, image: p.image,
+              category: p.category, stock: p.stock || 100,
+              description: p.description, is_flash_sale: p.isFlashSale || false,
+              is_active: true, rating: p.rating, sold: p.sold,
+            });
+            if (error) {
+              console.warn(`Failed to sync product ${p.name}:`, error.message);
+              errors++;
+            } else {
+              added++;
+            }
+          }
+        } catch (err) {
+          console.warn(`Error checking product ${p.id}:`, err);
+          errors++;
+        }
       }
+      if (errors > 0) {
+        toast.warning(`Synced ${added} products. ${errors} failed (check console).`);
+      } else {
+        toast.success(`Synced ${added} new products!`);
+      }
+      load();
+    } catch (e: any) {
+      toast.error(e.message || "Sync failed");
     }
-    toast.success(`Synced ${added} new products!`);
-    load();
   };
 
   const filtered = products.filter(p => 

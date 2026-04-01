@@ -13,24 +13,33 @@ export default function UsersTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data: profiles } = await (supabase as any).from("profiles").select("*").order("first_name");
-    const { data: roles } = await (supabase as any).from("user_roles").select("*");
-    const roleMap: Record<string, string> = {};
-    (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
-    
-    const enriched = (profiles || []).map((p: any) => ({
-      ...p,
-      role: roleMap[p.user_id] || "customer",
-    }));
-    setUsers(enriched);
-    setLoading(false);
+    try {
+      const { data: profiles, error: profilesError } = await (supabase as any).from("profiles").select("*").order("first_name");
+      if (profilesError) throw profilesError;
+      
+      const { data: roles, error: rolesError } = await (supabase as any).from("user_roles").select("*");
+      if (rolesError) throw rolesError;
+      
+      const roleMap: Record<string, string> = {};
+      (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
+      
+      const enriched = (profiles || []).map((p: any) => ({
+        ...p,
+        role: roleMap[p.user_id] || "customer",
+      }));
+      setUsers(enriched);
+    } catch (e: any) {
+      console.error("Failed to load users:", e);
+      toast.error("Failed to load users. Check console for details.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const assignRole = async (userId: string, role: string) => {
     try {
-      // Delete existing role first
       await (supabase as any).from("user_roles").delete().eq("user_id", userId);
       if (role !== "customer") {
         await (supabase as any).from("user_roles").insert({ user_id: userId, role });
@@ -91,7 +100,13 @@ export default function UsersTab() {
             </Select>
           </div>
         ))}
-        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No users found</p>}
+        {filtered.length === 0 && !loading && (
+          <div className="text-center py-8">
+            <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">No users found</p>
+            <p className="text-[10px] text-muted-foreground mt-1">If you created accounts, ensure the database trigger for profiles is active.</p>
+          </div>
+        )}
       </div>
     </div>
   );
