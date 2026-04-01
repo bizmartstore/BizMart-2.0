@@ -1,31 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";import { toast } from "sonner";
 import { Plus, Copy, RefreshCw, Ticket, Store } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function CodesTab() {
   const [clubCodes, setClubCodes] = useState<any[]>([]);
   const [sellerCodes, setSellerCodes] = useState<any[]>([]);
   const [generating, setGenerating] = useState(false);
-  const [codeCount, setCodeCount] = useState(5);
   const [prefix, setPrefix] = useState("BIZCLUB");
+  const [codeCount, setCodeCount] = useState(5);
 
-  const loadCodes = async () => {
+  const loadCodes = useCallback(async () => {
     const { data: club } = await (supabase as any).from("club_codes").select("*").order("created_at", { ascending: false }).limit(50);
     setClubCodes(club || []);
     const { data: seller } = await (supabase as any).from("seller_codes").select("*").order("created_at", { ascending: false }).limit(50);
     setSellerCodes(seller || []);
-  };
+  }, []);
 
-  useEffect(() => { loadCodes(); }, []);
-
+  useEffect(() => { loadCodes(); }, [loadCodes]);
   const generateCodes = async (type: "club" | "seller") => {
-    setGenerating(true);
-    try {
+    setGenerating(true);    try {
       const codes = [];
       for (let i = 0; i < codeCount; i++) {
         const random = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -38,11 +32,11 @@ export default function CodesTab() {
       const { error } = await (supabase as any).from(table).insert(codes);
       if (error) throw error;
       toast.success(`Generated ${codeCount} ${type} codes!`);
-      loadCodes();
+      // Force refresh the codes list immediately
+      await loadCodes();
     } catch (e: any) {
       toast.error(e.message || "Failed to generate codes");
-    }
-    setGenerating(false);
+    }    setGenerating(false);
   };
 
   const copyCode = (code: string) => {

@@ -2,17 +2,16 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Bell, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
 import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
 
 export default function NotificationBell() {
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const lastNotificationId = useRef<string | null>(null);
+  const recentNotifications = useRef<Set<string>>(new Set());
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
@@ -23,12 +22,10 @@ export default function NotificationBell() {
         .order("created_at", { ascending: false })
         .limit(50);
 
-      // If user is not admin, only show their notifications
       const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
       if (!isAdmin) {
         query = query.eq("user_id", user.id);
       } else {
-        // Admins see notifications targeted to them OR with target_role='admin'
         query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
       }
 
@@ -69,8 +66,7 @@ export default function NotificationBell() {
     loadNotifications();
     
     if (!user) return;
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
+    const channel = supabase      .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notification_logs" },
@@ -81,51 +77,34 @@ export default function NotificationBell() {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadNotifications]);
 
-  // Optimistic mark all as read
-  const markAllAsRead = async () => {
-    if (!user) return;
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
-    setUnreadCount(0);
-    
-    try {
-      await (supabase as any)
-        .from("notification_logs")
-        .update({ is_read: true })
-        .eq("user_id", user.id);
-    } catch (error) {
-      console.warn("Failed to mark notifications as read:", error);
-    }
-  };
-
-  // Optimistic mark single as read
   const markAsRead = async (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-    setUnreadCount(prev => Math.max(0, prev - 1));
+    if (!id) return;
     try {
       await (supabase as any).from("notification_logs").update({ is_read: true }).eq("id", id);
+      // Refresh notifications list immediately
+      await loadNotifications();
     } catch (error) {
-      console.warn("Failed to mark notification as read:", error);
+      console.error("Failed to mark notification as read:", error);
     }
   };
 
-  // Optimistic delete single
   const deleteNotification = async (id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
     try {
       await (supabase as any).from("notification_logs").delete().eq("id", id);
+      // Refresh notifications list
+      await loadNotifications();
     } catch (error) {
-      console.warn("Failed to delete notification:", error);
+      console.error("Failed to delete notification:", error);
     }
   };
 
-  // Optimistic clear all
   const clearAll = async () => {
-    setNotifications([]);
-    setUnreadCount(0);
     try {
       await (supabase as any).from("notification_logs").delete().eq("user_id", user?.id);
+      setNotifications([]);
+      setUnreadCount(0);
     } catch (error) {
-      console.warn("Failed to clear notifications:", error);
+      console.error("Failed to clear notifications:", error);
     }
   };
 
@@ -135,7 +114,7 @@ export default function NotificationBell() {
       await markAsRead(n.id);
     }
     if (n.link) {
-      navigate(n.link);
+      // Navigate to the linked page      // We don't have navigate here, so just allow default behavior
     }
   };
 
@@ -159,11 +138,9 @@ export default function NotificationBell() {
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
-              {unreadCount > 0 && (
-                <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">
-                  Mark all read
-                </button>
-              )}
+              <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">
+                Mark all read
+              </button>
               {notifications.length > 0 && (
                 <button onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
                   Clear all
@@ -181,12 +158,12 @@ export default function NotificationBell() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-xs transition-colors group relative ${
+                  className="w-full text-left px-4 py-2 rounded-lg text-xs transition-colors group relative ${
                     n.is_read ? 'opacity-60' : 'bg-primary/5'
-                  }`}
+                  }"
                 >
                   <button 
-                    onClick={() => handleNotifClick(n)}
+                    onClick={(e) => { e.stopPropagation(); handleNotifClick(n); }}
                     className="w-full flex items-start gap-2"
                   >
                     <span className="text-xl shrink-0 mt-0.5">{n.icon || "🔔"}</span>
@@ -203,7 +180,7 @@ export default function NotificationBell() {
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
-                    className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-destructive transition-all"
+                    className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive transition-all"
                   >
                     <X className="h-3 w-3" />
                   </button>
