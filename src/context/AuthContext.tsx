@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
+    console.log("[AuthContext] Fetching profile for:", currentUser.email);
     try {
       // 1. Try to fetch existing profile
       let { data: profData, error: profError } = await supabase
@@ -41,11 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", currentUser.id)
         .maybeSingle();
 
+      if (profError) {
+        console.error("[AuthContext] Error fetching profile:", profError.message);
+      }
+
       const metadata = currentUser.user_metadata || {};
 
-      // 2. If profile is missing, create it (Self-healing)
-      if (!profData && !profError) {
-        console.log("[AuthContext] Profile missing, creating from metadata...");
+      // 2. If profile is missing, create it immediately
+      if (!profData) {
+        console.warn("[AuthContext] Profile missing in DB, attempting to create from metadata...");
         const { data: newProf, error: insertError } = await supabase
           .from("profiles")
           .insert({
@@ -61,7 +66,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select()
           .single();
         
-        if (!insertError) profData = newProf;
+        if (insertError) {
+          console.error("[AuthContext] Failed to auto-create profile:", insertError.message);
+        } else {
+          console.log("[AuthContext] Profile successfully auto-created!");
+          profData = newProf;
+        }
       }
 
       // 3. Fetch role
@@ -71,21 +81,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      // 4. Set state with priority: DB > Metadata > Empty
+      // 4. Set state
       setProfile({
         id: currentUser.id,
-        first_name: profData?.first_name || metadata.first_name || '',
+        first_name: profData?.first_name || metadata.first_name || 'Student',
         last_name: profData?.last_name || metadata.last_name || '',
-        section: profData?.section || metadata.section || '',
-        grade_level: profData?.grade_level || metadata.grade_level || '',
-        school: profData?.school || metadata.school || '',
+        section: profData?.section || metadata.section || 'N/A',
+        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
+        school: profData?.school || metadata.school || 'N/A',
         email: profData?.email || currentUser.email || '',
         avatar_url: profData?.avatar_url || metadata.avatar_url || null,
         bcoins: Number(profData?.bcoins || 0),
         role: roleData?.role || 'customer',
       });
     } catch (err) {
-      console.error("[AuthContext] Profile error:", err);
+      console.error("[AuthContext] Unexpected error:", err);
     }
   };
 
@@ -104,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log("[AuthContext] Auth state changed:", event);
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) await fetchProfile(s.user);
