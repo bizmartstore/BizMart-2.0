@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -8,6 +10,7 @@ import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
+import SplashScreen from "@/components/SplashScreen";
 
 // Pages
 import Index from "@/pages/Index";
@@ -40,28 +43,25 @@ const queryClient = new QueryClient({
       gcTime: 10 * 60 * 1000,
       refetchOnWindowFocus: false,
       refetchOnReconnect: true,
-      retry: 2,
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+      retry: 1,
     },
   },
 });
 
 function AppContent() {
   const { loading: authLoading } = useAuth();
-  const [hasFinishedLoading, setHasFinishedLoading] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
 
+  // Safety timeout for splash screen
   useEffect(() => {
-    if (!authLoading) {
-      setHasFinishedLoading(true);
-    }
-  }, [authLoading]);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, []);
 
-  if (!hasFinishedLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
+  if (showSplash || authLoading) {
+    return <SplashScreen onFinished={() => setShowSplash(false)} />;
   }
 
   return (

@@ -1,3 +1,5 @@
+"use client";
+
 import TopBar from "@/components/TopBar";
 import BannerCarousel from "@/components/BannerCarousel";
 import ProductCard from "@/components/ProductCard";
@@ -51,10 +53,16 @@ export default function Index() {
   const { storeOpen, closeMessage, allSettings, loading: settingsLoading } = useAppSettings();
   const [flashEndsAt, setFlashEndsAt] = useState<string | null>(null);
   const [rotating, setRotating] = useState(false);
+  const [forceShow, setForceShow] = useState(false);
+
+  // Safety timeout to show the page even if some data is slow
+  useEffect(() => {
+    const timer = setTimeout(() => setForceShow(true), 4000);
+    return () => clearTimeout(timer);
+  }, []);
 
   const flashSaleProducts = products.filter((p) => p.isFlashSale);
 
-  // Moved useMemo to top level to comply with React Hooks rules
   const recommendedProducts = useMemo(() => {
     const shuffled = [...products].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 10);
@@ -110,8 +118,10 @@ export default function Index() {
     triggerRotation();
   }, [rotating]);
 
-  // Show loading state while data is loading
-  if (productsLoading || categoriesLoading || settingsLoading) {
+  // Show loading state only if we have absolutely no data and haven't timed out
+  const isActuallyLoading = (productsLoading || categoriesLoading) && !forceShow && products.length === 0;
+
+  if (isActuallyLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -128,7 +138,7 @@ export default function Index() {
       <AnnouncementPopup />
       <LiveShoutoutTicker />
 
-      {!storeOpen && (
+      {!storeOpen && !settingsLoading && (
         <div className="mx-3 mt-2 bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-destructive flex-shrink-0" />
           <p className="text-xs text-destructive font-semibold">{closeMessage || 'Store is currently closed.'}</p>

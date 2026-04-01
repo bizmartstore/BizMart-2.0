@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +35,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
-    console.log("[AuthContext] Fetching profile for:", currentUser.email);
     try {
       // 1. Try to fetch existing profile
       let { data: profData, error: profError } = await supabase
@@ -42,15 +43,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("id", currentUser.id)
         .maybeSingle();
 
-      if (profError) {
-        console.error("[AuthContext] Error fetching profile:", profError.message);
-      }
-
       const metadata = currentUser.user_metadata || {};
 
       // 2. If profile is missing, create it immediately
-      if (!profData) {
-        console.warn("[AuthContext] Profile missing in DB, attempting to create from metadata...");
+      if (!profData && !profError) {
         const { data: newProf, error: insertError } = await supabase
           .from("profiles")
           .insert({
@@ -66,12 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select()
           .single();
         
-        if (insertError) {
-          console.error("[AuthContext] Failed to auto-create profile:", insertError.message);
-        } else {
-          console.log("[AuthContext] Profile successfully auto-created!");
-          profData = newProf;
-        }
+        if (!insertError) profData = newProf;
       }
 
       // 3. Fetch role
@@ -105,20 +96,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) await fetchProfile(s.user);
-      setLoading(false);
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        setSession(s);
+        setUser(s?.user ?? null);
+        
+        if (s?.user) {
+          // Use a timeout to prevent hanging forever on profile fetch
+          await Promise.race([
+            fetchProfile(s.user),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000))
+          ]).catch(err => console.warn("[AuthContext] Profile fetch issue:", err));
+        }
+      } catch (err) {
+        console.error("[AuthContext] Init error:", err);
+      } finally {
+        // Always resolve loading
+        setLoading(false);
+      }
     };
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      console.log("[AuthContext] Auth state changed:", event);
       setSession(s);
       setUser(s?.user ?? null);
-      if (s?.user) await fetchProfile(s.user);
-      else setProfile(null);
+      if (s?.user) {
+        await fetchProfile(s.user);
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
     });
 
     return () => subscription?.unsubscribe();
