@@ -7,28 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw } from "lucide-react";
-
-const DEFAULT_NEWS = [
-  {
-    id: "default-1",
-    title: "BizMart Store v2.0 Coming June 2026",
-    content: "We're thrilled to announce the official release of BizMart Store v2.0! This major update brings a redesigned interface, faster checkout, improved notifications, and many more features to enhance your shopping experience.",
-    image_url: null,
-    images: [],
-    category: "updates",
-    is_active: true,
-  },
-  {
-    id: "default-2",
-    title: "Welcome New BizMart Staff Members!",
-    content: "Please join us in welcoming our newest team members who will be helping run the BizMart Store. They bring fresh energy and great ideas to our campus marketplace!",
-    image_url: null,
-    images: [],
-    category: "members",
-    is_active: true,
-  },
-];
+import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2 } from "lucide-react";
 
 interface NewsItem {
   id: string;
@@ -55,8 +34,8 @@ export default function NewsTab() {
   const load = async () => {
     const { data } = await (supabase as any)
       .from("news_updates")
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select("*")
+      .order("created_at", { ascending: false });
     if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
   };
 
@@ -131,31 +110,13 @@ export default function NewsTab() {
     load();
   };
 
-  const syncDefaults = async () => {
-    let added = 0;
-    for (const item of DEFAULT_NEWS) {
-      const { data: existing } = await (supabase as any).from("news_updates").select("id").eq("id", item.id).maybeSingle();
-      if (!existing) {
-        await (supabase as any).from("news_updates").insert(item);
-        added++;
-      }
-    }
-    toast.success(`Synced ${added} default news items!`);
-    load();
-  };
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm">News & Updates</h3>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={syncDefaults} className="text-xs h-8 gap-1">
-            <RefreshCw className="h-3 w-3" /> Sync Defaults
-          </Button>
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
-            <Plus className="h-3 w-3 mr-1" /> Add News
-          </Button>
-        </div>
+        <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
+          <Plus className="h-3 w-3 mr-1" /> Add News
+        </Button>
       </div>
 
       {showForm && (
@@ -173,6 +134,7 @@ export default function NewsTab() {
             <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="text-xs" rows={4} placeholder="Full news content..." />
           </div>
 
+          {/* Multi-image upload */}
           <div>
             <Label className="text-xs">Images</Label>
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
@@ -187,7 +149,15 @@ export default function NewsTab() {
                     <X className="h-4 w-4 text-white" />
                   </button>
                 </div>
-              </div>
+              ))}
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+              >
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
+                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
+              </button>
             </div>
           </div>
 
@@ -233,12 +203,7 @@ export default function NewsTab() {
                     <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
                     <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
                   </div>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-[9px] text-muted-foreground">
-                      {new Date(item.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                    </span>
-                    <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
-                  </div>
+                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
                 </div>
                 <div className="flex gap-2 mt-1.5">
                   <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
@@ -250,9 +215,9 @@ export default function NewsTab() {
                 </div>
               </div>
             </div>
-          ))}
-          {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news, or add your first update!</p>}
-        </div>
+          );
+        })}
+        {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Add your first update!</p>}
       </div>
     </div>
   );

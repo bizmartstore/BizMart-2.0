@@ -4,51 +4,34 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Shield, Crown, User, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, Shield, Crown, User, RefreshCw } from "lucide-react";
 
 export default function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [dbError, setDbError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
-    setDbError(null);
-    try {
-      // 1. Load profiles
-      const { data: profiles, error: profilesError } = await (supabase as any).from("profiles").select("*").order("first_name");
-      if (profilesError) throw profilesError;
-      
-      // 2. Load roles
-      const { data: roles, error: rolesError } = await (supabase as any).from("user_roles").select("*");
-      if (rolesError) throw rolesError;
-      
-      // Build role map      const roleMap: Record<string, string> = {};
-      (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
-            // Enrich profiles with role info
-      const enriched = (profiles || []).map((p: any) => ({
-        ...p,
-        role: roleMap[p.user_id] || "customer",
-      }));
-      setUsers(enriched);
-    } catch (e: any) {
-      console.error("Failed to load users:", e);
-      setDbError(e.message || "Unknown database error");
-      toast.error("Failed to load users. Check console for details.");
-    } finally {
-      setLoading(false);
-    }
+    const { data: profiles } = await (supabase as any).from("profiles").select("*").order("first_name");
+    const { data: roles } = await (supabase as any).from("user_roles").select("*");
+    const roleMap: Record<string, string> = {};
+    (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
+    
+    const enriched = (profiles || []).map((p: any) => ({
+      ...p,
+      role: roleMap[p.user_id] || "customer",
+    }));
+    setUsers(enriched);
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const assignRole = async (userId: string, role: string) => {
     try {
-      // Remove existing role assignment
+      // Delete existing role first
       await (supabase as any).from("user_roles").delete().eq("user_id", userId);
-      
-      // Add new role if it's not 'customer'
       if (role !== "customer") {
         await (supabase as any).from("user_roles").insert({ user_id: userId, role });
       }
@@ -57,13 +40,7 @@ export default function UsersTab() {
     } catch (e: any) {
       toast.error(e.message || "Failed to update role");
     }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update role");
-    }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  };
 
   const filtered = users.filter(u => 
     !search || 
@@ -87,16 +64,6 @@ export default function UsersTab() {
         </div>
         <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /></Button>
       </div>
-
-      {dbError && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-xs font-bold text-destructive">Database Error</p>
-            <p className="text-[10px] text-destructive/80 mt-0.5">{dbError}</p>
-          </div>
-        </div>
-      )}
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
         {filtered.map(u => (
@@ -124,15 +91,7 @@ export default function UsersTab() {
             </Select>
           </div>
         ))}
-        {filtered.length === 0 && !loading && (
-          <div className="text-center py-8">
-            <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-xs font-bold text-muted-foreground">No users found</p>
-            <p className="text-[10px] text-muted-foreground mt-1 max-w-xs mx-auto">
-              If you created accounts but they don't appear here, the Supabase <code className="bg-muted px-1 rounded">handle_new_user</code> trigger might be missing or disabled.               This trigger automatically creates a <code className="bg-muted px-1 rounded">profiles</code> row when a user signs up.
-            </p>
-          </div>
-        )}
+        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No users found</p>}
       </div>
     </div>
   );
