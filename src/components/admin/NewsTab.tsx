@@ -7,10 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw, Upload, Image as ImageIcon } from "lucide-react";
 
-// Version 2.1 - Explicitly removed all manual IDs
-const DEFAULT_NEWS = [
+// Default news items to sync (similar to fallbackProducts)
+const DEFAULT_NEWS_DATA = [
   {
     title: "BizMart Store v2.0 Coming June 2026",
     content: "We're thrilled to announce the official release of BizMart Store v2.0! This major update brings a redesigned interface, faster checkout, improved notifications, and many more features to enhance your shopping experience.",
@@ -23,6 +23,12 @@ const DEFAULT_NEWS = [
     category: "members",
     is_active: true,
   },
+  {
+    title: "New Academic Assistance Policy",
+    content: "We have updated our guidelines for the Job Offers section. Freelancers are reminded to only provide guidance and tutoring. Doing assignments for others is strictly prohibited to maintain academic integrity.",
+    category: "general",
+    is_active: true,
+  }
 ];
 
 interface NewsItem {
@@ -46,9 +52,11 @@ export default function NewsTab() {
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
+    setLoading(true);
     const { data, error } = await (supabase as any)
       .from("news_updates")
       .select("*")
@@ -56,9 +64,11 @@ export default function NewsTab() {
     
     if (error) {
       console.error("Error loading news:", error);
-      return;
+      toast.error("Failed to load news feed");
+    } else if (data) {
+      setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
     }
-    if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -68,35 +78,84 @@ export default function NewsTab() {
     setImages([]); setEditId(null); setShowForm(false);
   };
 
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
+      const filePath = `news/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('news-images')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('news-images')
+        .getPublicUrl(filePath);
+
+      setImages(prev => [...prev, publicUrl]);
+      toast.success("Image uploaded successfully!");
+    } catch (error: any) {
+      toast.error(error.message || "Upload failed. Make sure the 'news-images' bucket exists.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSave = async () => {
-    if (!title.trim() || !content.trim()) { toast.error("Title and content required"); return; }
+    if (!title.trim() || !content.trim()) {
+      toast.error("Please provide both a title and content.");
+      return;
+    }
+
     const payload = {
       title: title.trim(),
       content: content.trim(),
       image_url: images[0] || null,
-      images,
+      images: images,
       category,
+      is_active: true,
     };
 
-    if (editId) {
-      const { error } = await (supabase as any).from("news_updates").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editId);
-      if (error) { toast.error(error.message); return; }
-      toast.success("News updated!");
-    } else {
-      const { error } = await (supabase as any).from("news_updates").insert(payload);
-      if (error) { toast.error(error.message); return; }
-      toast.success("News published!");
+    try {
+      if (editId) {
+        const { error } = await (supabase as any)
+          .from("news_updates")
+          .update({ ...payload, updated_at: new Date().toISOString() })
+          .eq("id", editId);
+        
+        if (error) throw error;
+        toast.success("News item updated!");
+      } else {
+        const { error } = await (supabase as any)
+          .from("news_updates")
+          .insert(payload);
+        
+        if (error) throw error;
+        toast.success("News item published!");
+      }
+      resetForm();
+      load();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to save news item.");
     }
-    resetForm();
-    load();
   };
 
   const syncDefaults = async () => {
     setSyncing(true);
-    let added = 0;
+    let addedCount = 0;
     try {
-      for (const item of DEFAULT_NEWS) {
-        // Check by title to avoid UUID errors with string IDs
+      for (const item of DEFAULT_NEWS_DATA) {
+        // Check if news with this title already exists
         const { data: existing } = await (supabase as any)
           .from("news_updates")
           .select("id")
@@ -104,23 +163,25 @@ export default function NewsTab() {
           .maybeSingle();
 
         if (!existing) {
-          const { error: insertError } = await (supabase as any)
+          const { error } = await (supabase as any)
             .from("news_updates")
             .insert({
-              title: item.title,
-              content: item.content,
-              category: item.category,
-              is_active: item.is_active,
-              images: [] // Ensure this is an empty array for JSONB
+              ...item,
+              images: [] // Start with empty images for defaults
             });
           
-          if (!insertError) added++;
+          if (!error) addedCount++;
         }
       }
-      toast.success(`Synced ${added} news items!`);
-      load();
+      
+      if (addedCount > 0) {
+        toast.success(`Successfully synced ${addedCount} default news items!`);
+        load();
+      } else {
+        toast.info("All default news items are already synced.");
+      }
     } catch (err: any) {
-      toast.error("Sync failed. Please refresh and try again.");
+      toast.error("Sync failed. Please try again.");
     } finally {
       setSyncing(false);
     }
@@ -133,92 +194,223 @@ export default function NewsTab() {
     setImages(item.images || []);
     setCategory(item.category);
     setShowForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Delete this news item?")) return;
-    const { error } = await (supabase as any).from("news_updates").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Deleted!");
-    load();
+    if (!confirm("Are you sure you want to delete this news item?")) return;
+    
+    try {
+      const { error } = await (supabase as any)
+        .from("news_updates")
+        .delete()
+        .eq("id", id);
+      
+      if (error) throw error;
+      toast.success("News item deleted.");
+      load();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete.");
+    }
   };
 
-  const toggleActive = async (id: string, active: boolean) => {
-    await (supabase as any).from("news_updates").update({ is_active: active }).eq("id", id);
-    load();
+  const toggleActive = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await (supabase as any)
+        .from("news_updates")
+        .update({ is_active: !currentStatus })
+        .eq("id", id);
+      
+      if (error) throw error;
+      load();
+    } catch (error: any) {
+      toast.error("Failed to update status.");
+    }
   };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-bold text-sm">News & Updates</h3>
+        <div>
+          <h3 className="font-bold text-sm">News & Updates</h3>
+          <p className="text-[10px] text-muted-foreground">Manage campus announcements and news</p>
+        </div>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={syncDefaults} disabled={syncing} className="text-xs h-8 gap-1">
-            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={syncDefaults} 
+            disabled={syncing} 
+            className="text-xs h-8 gap-1.5"
+          >
+            {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
             Sync Defaults
           </Button>
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
-            <Plus className="h-3 w-3 mr-1" /> Add News
+          <Button 
+            size="sm" 
+            onClick={() => { resetForm(); setShowForm(!showForm); }} 
+            className="text-xs h-8 gap-1.5"
+          >
+            {showForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+            {showForm ? "Cancel" : "Add News"}
           </Button>
         </div>
       </div>
 
       {showForm && (
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-xs">{editId ? "Edit" : "New"} News</span>
-            <button onClick={resetForm}><X className="h-4 w-4" /></button>
+        <div className="bg-card rounded-2xl border border-border p-4 space-y-4 shadow-sm animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center justify-between border-b border-border pb-2">
+            <span className="font-bold text-sm flex items-center gap-2">
+              {editId ? <Edit2 className="h-4 w-4 text-primary" /> : <Plus className="h-4 w-4 text-primary" />}
+              {editId ? "Edit News Item" : "Create New Post"}
+            </span>
           </div>
-          <div>
-            <Label className="text-xs">Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-xs" placeholder="News headline..." />
+          
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs font-bold mb-1.5 block">Headline / Title</Label>
+              <Input 
+                value={title} 
+                onChange={(e) => setTitle(e.target.value)} 
+                className="text-sm h-10 rounded-xl" 
+                placeholder="Enter a catchy headline..." 
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold mb-1.5 block">Category</Label>
+              <Select value={category} onValueChange={setCategory}>
+                <SelectTrigger className="text-sm h-10 rounded-xl">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General News</SelectItem>
+                  <SelectItem value="members">Members & Staff</SelectItem>
+                  <SelectItem value="events">Campus Events</SelectItem>
+                  <SelectItem value="updates">App Updates</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold mb-1.5 block">Content</Label>
+              <Textarea 
+                value={content} 
+                onChange={(e) => setContent(e.target.value)} 
+                className="text-sm rounded-xl min-h-[120px]" 
+                placeholder="Write the full story here..." 
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold mb-1.5 block">Images</Label>
+              <div className="grid grid-cols-3 gap-2 mb-2">
+                {images.map((url, idx) => (
+                  <div key={idx} className="relative aspect-video rounded-lg overflow-hidden border border-border group">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button 
+                      onClick={() => removeImage(idx)}
+                      className="absolute top-1 right-1 bg-destructive text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+                <button 
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="aspect-video rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  ) : (
+                    <>
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-[9px] font-bold text-muted-foreground uppercase">Upload</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <input 
+                type="file" 
+                ref={fileRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handleUpload} 
+              />
+              <p className="text-[9px] text-muted-foreground italic">Tip: The first image will be used as the cover photo.</p>
+            </div>
           </div>
-          <div>
-            <Label className="text-xs">Content</Label>
-            <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="text-xs" rows={4} placeholder="Full news content..." />
-          </div>
-          <div>
-            <Label className="text-xs">Category</Label>
-            <Select value={category} onValueChange={setCategory}>
-              <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="members">Members & Staff</SelectItem>
-                <SelectItem value="events">Events</SelectItem>
-                <SelectItem value="updates">App Updates</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <Button onClick={handleSave} className="w-full text-xs" disabled={uploading}>
-            <Check className="h-3 w-3 mr-1" /> {editId ? "Update" : "Publish"}
+
+          <Button onClick={handleSave} className="w-full h-11 rounded-xl font-bold gap-2">
+            <Check className="h-4 w-4" />
+            {editId ? "Update News Item" : "Publish to Feed"}
           </Button>
         </div>
       )}
 
-      <div className="space-y-2">
-        {news.map((item) => (
-          <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
-                  <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
-                  <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
+      <div className="space-y-3">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-xs text-muted-foreground">Loading news feed...</p>
+          </div>
+        ) : news.length === 0 ? (
+          <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
+            <ImageIcon className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No news items found</p>
+            <Button variant="link" onClick={syncDefaults} className="text-xs text-primary">Sync default news</Button>
+          </div>
+        ) : (
+          news.map((item) => (
+            <div key={item.id} className="bg-card rounded-2xl border border-border overflow-hidden shadow-sm flex flex-col">
+              <div className="flex p-3 gap-3">
+                {item.image_url ? (
+                  <img src={item.image_url} className="h-16 w-16 rounded-xl object-cover flex-shrink-0 border border-border" alt="" />
+                ) : (
+                  <div className="h-16 w-16 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+                    <ImageIcon className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded-full bg-primary/10 text-primary inline-block mb-1">
+                        {item.category}
+                      </span>
+                      <h4 className="text-xs font-bold text-foreground truncate">{item.title}</h4>
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{item.content}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <Switch 
+                        checked={item.is_active} 
+                        onCheckedChange={() => toggleActive(item.id, item.is_active)} 
+                        className="scale-75 origin-right"
+                      />
+                      <span className="text-[8px] text-muted-foreground whitespace-nowrap">
+                        {new Date(item.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
               </div>
-              <div className="flex gap-2 mt-1.5">
-                <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
-                  <Edit2 className="h-3 w-3" /> Edit
+              <div className="flex border-t border-border divide-x divide-border">
+                <button 
+                  onClick={() => handleEdit(item)} 
+                  className="flex-1 py-2 text-[10px] font-bold text-primary hover:bg-primary/5 transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <Edit2 className="h-3 w-3" /> Edit Post
                 </button>
-                <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
+                <button 
+                  onClick={() => handleDelete(item.id)} 
+                  className="flex-1 py-2 text-[10px] font-bold text-destructive hover:bg-destructive/5 transition-colors flex items-center justify-center gap-1.5"
+                >
                   <Trash2 className="h-3 w-3" /> Delete
                 </button>
               </div>
             </div>
-          </div>
-        ))}
-        {news.length === 0 && !syncing && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news!</p>}
+          ))
+        )}
       </div>
     </div>
   );
