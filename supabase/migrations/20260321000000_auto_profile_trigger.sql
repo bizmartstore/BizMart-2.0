@@ -1,18 +1,10 @@
--- 1. Ensure columns exist
-ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS first_name TEXT,
-ADD COLUMN IF NOT EXISTS last_name TEXT,
-ADD COLUMN IF NOT EXISTS school TEXT,
-ADD COLUMN IF NOT EXISTS section TEXT,
-ADD COLUMN IF NOT EXISTS grade_level TEXT;
-
--- 2. Create a function to handle new user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, email, first_name, last_name, school, section, grade_level, bcoins)
+  INSERT INTO public.profiles (id, user_id, email, first_name, last_name, school, section, grade_level, bcoins)
   VALUES (
     NEW.id,
+    NEW.id, -- Populate user_id with the same ID
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
     COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
@@ -22,6 +14,7 @@ BEGIN
     0
   )
   ON CONFLICT (id) DO UPDATE SET
+    user_id = EXCLUDED.id,
     email = EXCLUDED.email,
     first_name = COALESCE(NULLIF(EXCLUDED.first_name, ''), profiles.first_name),
     last_name = COALESCE(NULLIF(EXCLUDED.last_name, ''), profiles.last_name),
@@ -31,9 +24,3 @@ BEGIN
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- 3. Create the trigger
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
