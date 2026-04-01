@@ -7,25 +7,21 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, Loader2, RefreshCw, Upload, Image as ImageIcon } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw } from "lucide-react";
 
-// Version 3.0 - No IDs, only data
-const DEFAULT_NEWS_ITEMS = [
+const DEFAULT_NEWS = [
   {
     title: "BizMart Store v2.0 Coming June 2026",
     content: "We're thrilled to announce the official release of BizMart Store v2.0! This major update brings a redesigned interface, faster checkout, improved notifications, and many more features to enhance your shopping experience.",
     category: "updates",
+    is_active: true,
   },
   {
     title: "Welcome New BizMart Staff Members!",
     content: "Please join us in welcoming our newest team members who will be helping run the BizMart Store. They bring fresh energy and great ideas to our campus marketplace!",
     category: "members",
+    is_active: true,
   },
-  {
-    title: "New Academic Assistance Policy",
-    content: "We have updated our guidelines for the Job Offers section. Freelancers are reminded to only provide guidance and tutoring. Doing assignments for others is strictly prohibited to maintain academic integrity.",
-    category: "general",
-  }
 ];
 
 interface NewsItem {
@@ -49,11 +45,9 @@ export default function NewsTab() {
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [loading, setLoading] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
-    setLoading(true);
     const { data, error } = await (supabase as any)
       .from("news_updates")
       .select("*")
@@ -61,10 +55,9 @@ export default function NewsTab() {
     
     if (error) {
       console.error("Error loading news:", error);
-    } else if (data) {
-      setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
+      return;
     }
-    setLoading(false);
+    if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
   };
 
   useEffect(() => { load(); }, []);
@@ -74,170 +67,168 @@ export default function NewsTab() {
     setImages([]); setEditId(null); setShowForm(false);
   };
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}-${Date.now()}.${fileExt}`;
-      const filePath = `news/${fileName}`;
-      const { error: uploadError } = await supabase.storage.from('news-images').upload(filePath, file);
-      if (uploadError) throw uploadError;
-      const { data: { publicUrl } } = supabase.storage.from('news-images').getPublicUrl(filePath);
-      setImages(prev => [...prev, publicUrl]);
-      toast.success("Image uploaded!");
-    } catch (error: any) {
-      toast.error("Upload failed. Ensure 'news-images' bucket exists.");
-    } finally {
-      setUploading(false);
-    }
-  };
-
   const handleSave = async () => {
-    if (!title.trim() || !content.trim()) {
-      toast.error("Title and content required");
-      return;
-    }
-
+    if (!title.trim() || !content.trim()) { toast.error("Title and content required"); return; }
     const payload = {
       title: title.trim(),
       content: content.trim(),
       image_url: images[0] || null,
-      images: images,
+      images,
       category,
-      is_active: true,
     };
 
-    try {
-      if (editId) {
-        const { error } = await (supabase as any).from("news_updates").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editId);
-        if (error) throw error;
-        toast.success("Updated!");
-      } else {
-        const { error } = await (supabase as any).from("news_updates").insert(payload);
-        if (error) throw error;
-        toast.success("Published!");
-      }
-      resetForm();
-      load();
-    } catch (error: any) {
-      toast.error(error.message);
+    if (editId) {
+      const { error } = await (supabase as any).from("news_updates").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editId);
+      if (error) { toast.error(error.message); return; }
+      toast.success("News updated!");
+    } else {
+      const { error } = await (supabase as any).from("news_updates").insert(payload);
+      if (error) { toast.error(error.message); return; }
+      toast.success("News published!");
     }
+    resetForm();
+    load();
   };
 
   const syncDefaults = async () => {
-    console.log("[NewsTab] Starting Sync Version 3.0...");
     setSyncing(true);
     let added = 0;
     try {
-      for (const item of DEFAULT_NEWS_ITEMS) {
-        // Check by title ONLY. No IDs used here.
-        const { data: existing } = await (supabase as any)
+      for (const item of DEFAULT_NEWS) {
+        // 1. Check if it exists by title (never by ID to avoid UUID errors)
+        const { data: existing, error: checkError } = await (supabase as any)
           .from("news_updates")
           .select("id")
           .eq("title", item.title)
           .maybeSingle();
 
+        if (checkError) {
+          console.warn("Check error for:", item.title, checkError);
+          continue;
+        }
+
+        // 2. If it doesn't exist, insert it
         if (!existing) {
-          const { error } = await (supabase as any)
+          const { error: insertError } = await (supabase as any)
             .from("news_updates")
             .insert({
               title: item.title,
               content: item.content,
               category: item.category,
-              is_active: true,
+              is_active: item.is_active,
               images: []
             });
-          if (!error) added++;
+          
+          if (insertError) {
+            console.error("Insert error for:", item.title, insertError);
+          } else {
+            added++;
+          }
         }
       }
-      toast.success(`Synced ${added} items!`);
+      toast.success(`Synced ${added} new news items!`);
       load();
     } catch (err: any) {
-      console.error("[NewsTab] Sync Error:", err);
+      console.error("Sync process failed:", err);
       toast.error("Sync failed. Check console.");
     } finally {
       setSyncing(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Delete this post?")) return;
-    const { error } = await (supabase as any).from("news_updates").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else { toast.success("Deleted"); load(); }
+  const handleEdit = (item: NewsItem) => {
+    setEditId(item.id);
+    setTitle(item.title);
+    setContent(item.content);
+    setImages(item.images || []);
+    setCategory(item.category);
+    setShowForm(true);
   };
 
-  const toggleActive = async (id: string, current: boolean) => {
-    await (supabase as any).from("news_updates").update({ is_active: !current }).eq("id", id);
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this news item?")) return;
+    const { error } = await (supabase as any).from("news_updates").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    toast.success("Deleted!");
+    load();
+  };
+
+  const toggleActive = async (id: string, active: boolean) => {
+    await (supabase as any).from("news_updates").update({ is_active: active }).eq("id", id);
     load();
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm">News & Updates</h3>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={syncDefaults} disabled={syncing} className="text-xs h-8">
-            {syncing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <RefreshCw className="h-3 w-3 mr-1" />}
+          <Button size="sm" variant="outline" onClick={syncDefaults} disabled={syncing} className="text-xs h-8 gap-1">
+            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Sync Defaults
           </Button>
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(!showForm); }} className="text-xs h-8">
-            {showForm ? <X className="h-3 w-3 mr-1" /> : <Plus className="h-3 w-3 mr-1" />}
-            {showForm ? "Cancel" : "Add News"}
+          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
+            <Plus className="h-3 w-3 mr-1" /> Add News
           </Button>
         </div>
       </div>
 
       {showForm && (
-        <div className="bg-card rounded-2xl border border-border p-4 space-y-3 shadow-sm">
-          <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Headline" className="text-sm" />
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger className="text-sm"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="general">General</SelectItem>
-              <SelectItem value="members">Members</SelectItem>
-              <SelectItem value="events">Events</SelectItem>
-              <SelectItem value="updates">Updates</SelectItem>
-            </SelectContent>
-          </Select>
-          <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Content" className="text-sm min-h-[100px]" />
-          
-          <div className="flex flex-wrap gap-2">
-            {images.map((url, i) => (
-              <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border">
-                <img src={url} className="w-full h-full object-cover" />
-                <button onClick={() => setImages(images.filter((_, idx) => idx !== i))} className="absolute top-0.5 right-0.5 bg-destructive text-white rounded-full p-0.5"><X className="h-3 w-3" /></button>
-              </div>
-            ))}
-            <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-16 h-16 border-2 border-dashed border-border rounded-lg flex items-center justify-center">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
-            </button>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-bold text-xs">{editId ? "Edit" : "New"} News</span>
+            <button onClick={resetForm}><X className="h-4 w-4" /></button>
           </div>
-          <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleUpload} />
-
-          <Button onClick={handleSave} className="w-full font-bold">Publish Post</Button>
+          <div>
+            <Label className="text-xs">Title</Label>
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-xs" placeholder="News headline..." />
+          </div>
+          <div>
+            <Label className="text-xs">Content</Label>
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="text-xs" rows={4} placeholder="Full news content..." />
+          </div>
+          <div>
+            <Label className="text-xs">Category</Label>
+            <Select value={category} onValueChange={setCategory}>
+              <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="general">General</SelectItem>
+                <SelectItem value="members">Members & Staff</SelectItem>
+                <SelectItem value="events">Events</SelectItem>
+                <SelectItem value="updates">App Updates</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={handleSave} className="w-full text-xs" disabled={uploading}>
+            <Check className="h-3 w-3 mr-1" /> {editId ? "Update" : "Publish"}
+          </Button>
         </div>
       )}
 
       <div className="space-y-2">
         {news.map((item) => (
           <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
-            {item.image_url && <img src={item.image_url} className="h-12 w-12 rounded-lg object-cover" />}
             <div className="flex-1 min-w-0">
-              <div className="flex justify-between items-start">
-                <h4 className="text-xs font-bold truncate">{item.title}</h4>
-                <Switch checked={item.is_active} onCheckedChange={() => toggleActive(item.id, item.is_active)} className="scale-75" />
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
+                  <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
+                  <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
+                </div>
+                <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
               </div>
-              <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
-              <div className="flex gap-2 mt-1">
-                <button onClick={() => { setEditId(item.id); setTitle(item.title); setContent(item.content); setCategory(item.category); setImages(item.images); setShowForm(true); }} className="text-[10px] text-primary font-bold">Edit</button>
-                <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold">Delete</button>
+              <div className="flex gap-2 mt-1.5">
+                <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
+                  <Edit2 className="h-3 w-3" /> Edit
+                </button>
+                <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
               </div>
             </div>
           </div>
         ))}
+        {news.length === 0 && !syncing && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news!</p>}
       </div>
     </div>
   );

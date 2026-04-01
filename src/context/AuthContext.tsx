@@ -33,19 +33,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (currentUser: User) => {
+    console.log("[AuthContext] Fetching profile for:", currentUser.email);
     try {
-      // Use 'as any' to bypass table name type strictness if types are out of sync
-      const { data: profData } = await (supabase as any)
+      // 1. Try to fetch existing profile
+      let { data: profData, error: profError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", currentUser.id)
         .maybeSingle();
 
-      const metadata = currentUser.user_metadata || {};
-      let finalProf = profData;
+      if (profError) {
+        console.error("[AuthContext] Error fetching profile:", profError.message);
+      }
 
+      const metadata = currentUser.user_metadata || {};
+
+      // 2. If profile is missing, create it immediately
       if (!profData) {
-        const { data: newProf } = await (supabase as any)
+        console.warn("[AuthContext] Profile missing in DB, attempting to create from metadata...");
+        const { data: newProf, error: insertError } = await supabase
           .from("profiles")
           .insert({
             id: currentUser.id,
@@ -59,27 +65,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           })
           .select()
           .single();
-        finalProf = newProf;
+        
+        if (insertError) {
+          console.error("[AuthContext] Failed to auto-create profile:", insertError.message);
+        } else {
+          console.log("[AuthContext] Profile successfully auto-created!");
+          profData = newProf;
+        }
       }
 
-      const { data: roleData } = await (supabase as any)
+      // 3. Fetch role
+      const { data: roleData } = await supabase
         .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      // Ensure all fields have guaranteed string/number fallbacks to satisfy the Profile interface
+      // 4. Set state
       setProfile({
         id: currentUser.id,
-        first_name: String(finalProf?.first_name || metadata.first_name || 'Student'),
-        last_name: String(finalProf?.last_name || metadata.last_name || ''),
-        section: String(finalProf?.section || metadata.section || 'N/A'),
-        grade_level: String(finalProf?.grade_level || metadata.grade_level || 'N/A'),
-        school: String(finalProf?.school || metadata.school || 'N/A'),
-        email: String(finalProf?.email || currentUser.email || ''),
-        avatar_url: finalProf?.avatar_url || metadata.avatar_url || null,
-        bcoins: Number(finalProf?.bcoins || 0),
-        role: String(roleData?.role || 'customer'),
+        first_name: profData?.first_name || metadata.first_name || 'Student',
+        last_name: profData?.last_name || metadata.last_name || '',
+        section: profData?.section || metadata.section || 'N/A',
+        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
+        school: profData?.school || metadata.school || 'N/A',
+        email: profData?.email || currentUser.email || '',
+        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(profData?.bcoins || 0),
+        role: roleData?.role || 'customer',
       });
     } catch (err) {
       console.error("[AuthContext] Unexpected error:", err);
@@ -101,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log("[AuthContext] Auth state changed:", event);
       setSession(s);
       setUser(s?.user ?? null);
       if (s?.user) await fetchProfile(s.user);
@@ -126,6 +140,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within CartProvider");
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 }
