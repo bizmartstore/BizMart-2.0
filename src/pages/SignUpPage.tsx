@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { ShoppingBag, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { ShoppingBag, Eye, EyeOff, ArrowLeft, Mail, RefreshCw, CheckCircle2 } from "lucide-react";
 import { notifyAdminNewRegistration } from "@/lib/notifications";
 
 const GRADE_LEVELS = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
@@ -23,6 +23,8 @@ export default function SignUpPage() {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [resending, setResending] = useState(false);
 
   const update = (field: string, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -30,10 +32,14 @@ export default function SignUpPage() {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (form.password.length < 6) {
-      toast({ title: "Password must be at least 6 characters", variant: "destructive" });
+      toast({ title: "Password too short", description: "Password must be at least 6 characters", variant: "destructive" });
       return;
     }
     setLoading(true);
+    
+    // Use the current origin for the redirect URL
+    const redirectTo = `${window.location.origin}/login`;
+
     const { error } = await supabase.auth.signUp({
       email: form.email,
       password: form.password,
@@ -45,23 +51,81 @@ export default function SignUpPage() {
           grade_level: form.gradeLevel,
           school: form.school,
         },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: redirectTo,
       },
     });
+
     setLoading(false);
     if (error) {
       toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
     } else {
-      // Notify admins about new registration
       notifyAdminNewRegistration(`${form.firstName} ${form.lastName}`, form.email);
-      toast({ title: "Account created! 🎉", description: "Check your email to verify your account before logging in." });
-      navigate("/login");
+      setIsSubmitted(true);
+      toast({ title: "Account created! 🎉", description: "Please check your Gmail to verify your account." });
     }
   };
 
+  const handleResend = async () => {
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: form.email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+      }
+    });
+    setResending(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Verification sent! 📧", description: "Check your Gmail inbox (and spam folder)." });
+    }
+  };
+
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+          <Mail className="h-10 w-10 text-primary animate-bounce" />
+        </div>
+        <h2 className="text-2xl font-extrabold text-foreground mb-2">Check your Gmail!</h2>
+        <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+          We've sent a verification link to <strong className="text-foreground">{form.email}</strong>.<br />
+          Please click the link in the email to activate your account.
+        </p>
+        
+        <div className="w-full space-y-3">
+          <Button onClick={() => navigate("/login")} variant="outline" className="w-full h-12 rounded-xl font-bold">
+            Go to Login
+          </Button>
+          <button 
+            onClick={handleResend} 
+            disabled={resending}
+            className="text-xs text-primary font-bold flex items-center justify-center gap-1.5 mx-auto py-2"
+          >
+            {resending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            Didn't get the email? Resend link
+          </button>
+        </div>
+
+        <div className="mt-12 p-4 bg-muted/50 rounded-2xl border border-border text-left">
+          <div className="flex items-center gap-2 mb-1">
+            <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />
+            <span className="text-xs font-bold">Next Steps</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground">
+            1. Open your Gmail app.<br />
+            2. Look for an email from BizMart.<br />
+            3. Click "Confirm your email".<br />
+            4. You will be redirected back here to log in!
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* Header */}
       <div className="bg-primary px-4 pt-6 pb-6 rounded-b-[2rem]">
         <button onClick={() => navigate(-1)} className="mb-3">
           <ArrowLeft className="h-5 w-5 text-primary-foreground" />
@@ -70,10 +134,9 @@ export default function SignUpPage() {
           <ShoppingBag className="h-6 w-6 text-primary-foreground" />
           <h1 className="text-xl font-extrabold text-primary-foreground">Create Account</h1>
         </div>
-        <p className="text-primary-foreground/70 text-xs">Join SchoolMart and start shopping!</p>
+        <p className="text-primary-foreground/70 text-xs">Join BizMart and start shopping!</p>
       </div>
 
-      {/* Form */}
       <div className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
         <form onSubmit={handleSignUp} className="space-y-3.5">
           <div className="grid grid-cols-2 gap-3">
