@@ -68,10 +68,8 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
     setSubmitting(true);
     try {
       const { error } = await (supabase as any).from("pos_sales").insert({
-        sale_type: "product",
         status: "completed",
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity, image: c.image })),
-        subtotal,
         total: subtotal,
         sold_by: user.id,
       });
@@ -141,7 +139,7 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
           </div>
           <Button onClick={completeSale} disabled={submitting} className="w-full gap-1 font-extrabold">
             <Receipt className="h-4 w-4" />
-            {submitting ? "Processing..." : `Complete Sale — ₱${subtotal.toFixed(2)}`}
+            {submitting ? "Processing..." : `Complete Sale — ₱{subtotal.toFixed(2)}`}
           </Button>
         </div>
       )}
@@ -171,13 +169,11 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
     setSubmitting(true);
     try {
       const { error } = await (supabase as any).from("pos_sales").insert({
-        sale_type: "print",
         status: "completed",
         items: [
           ...(bwPages > 0 ? [{ name: `B&W ${pageSize}`, quantity: bwPages, price: PRICING.bw[pageSize] }] : []),
           ...(coloredPages > 0 ? [{ name: `Colored ${pageSize}`, quantity: coloredPages, price: PRICING.colored[pageSize] }] : []),
         ],
-        subtotal: totalCost,
         total: totalCost,
         sold_by: user.id,
       });
