@@ -175,7 +175,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         
         if (s?.user) {
-          // Set provisional profile immediately from localStorage + metadata
+          // IMMEDIATELY set provisional profile from localStorage + metadata
+          // This prevents admin redirect loops while DB fetches in background
           const storedRole = localStorage.getItem(`user_role_${s.user.id}`) || 'customer';
           setProfile({
             id: s.user.id,
@@ -190,8 +191,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: storedRole,
           });
           
-          // Then fetch fresh data from DB
-          await fetchProfile(s.user);
+          // Fetch fresh data in background (no timeout, just waits)
+          fetchProfile(s.user);
         }
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
