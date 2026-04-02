@@ -165,7 +165,8 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
+          {/* forceMount keeps OrdersTab mounted in background so real-time stays alive */}
+          <TabsContent value="orders" forceMount><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="sellers"><SellersTab /></TabsContent>

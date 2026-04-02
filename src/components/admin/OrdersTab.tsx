@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,30 +13,34 @@ export default function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
-      const [ordersData, printData, posData] = await Promise.all([
+      // Use Promise.allSettled to prevent one missing table from breaking the whole load
+      const [ordersRes, printRes, posRes] = await Promise.allSettled([
         supabase.from("orders").select("*").order("created_at", { ascending: false }),
         supabase.from("print_orders").select("*").order("created_at", { ascending: false }),
         supabase.from("pos_sales").select("*").order("created_at", { ascending: false }),
       ]);
 
+      const ordersData = ordersRes.status === 'fulfilled' && !ordersRes.value.error ? ordersRes.value.data || [] : [];
+      const printData = printRes.status === 'fulfilled' && !printRes.value.error ? printRes.value.data || [] : [];
+      const posData = posRes.status === 'fulfilled' && !posRes.value.error ? posRes.value.data || [] : [];
+
       const combined = [
-        ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
-        ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
-        ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
+        ...ordersData.map((o: any) => ({ ...o, order_type: 'product' })),
+        ...printData.map((p: any) => ({ ...p, order_type: 'print' })),
+        ...posData.map((p: any) => ({ ...p, order_type: 'pos' })),
       ];
       setOrders(combined);
       
-      if (showToast && ordersData.error) {
+      if (showToast && (ordersRes.status === 'rejected' || ordersRes.value?.error)) {
         toast.error("Failed to load some orders");
       }
     } catch (e) {
       console.error("Failed to load orders:", e);
-      if (showToast) {
-        toast.error("Failed to load orders");
-      }
+      if (showToast) toast.error("Failed to load orders");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -48,7 +52,7 @@ export default function OrdersTab() {
     loadOrders();
   }, [loadOrders]);
 
-  // Real-time subscription
+  // Real-time subscription + Polling fallback
   useEffect(() => {
     const channel = supabase
       .channel("admin-orders-realtime")
@@ -64,18 +68,22 @@ export default function OrdersTab() {
         console.log("[OrdersTab] pos_sales changed, reloading...");
         loadOrders();
       })
-      .subscribe((status, error) => {
-        if (error) {
-          console.error("[OrdersTab] Real-time subscription error:", error);
-          toast.error("Real-time connection failed. Using fallback polling.");
-          // Fallback: poll every 10 seconds if real-time fails
-          const interval = setInterval(() => loadOrders(), 10000);
-          return () => clearInterval(interval);
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("[OrdersTab] Real-time subscription active");
+        } else if (status === 'CHANNEL_ERROR') {
+          console.warn("[OrdersTab] Real-time channel error, relying on polling");
         }
       });
 
+    // Polling fallback every 10 seconds to guarantee updates even if real-time fails or tab is unmounted/remounted
+    pollIntervalRef.current = setInterval(() => {
+      loadOrders();
+    }, 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, [loadOrders]);
 
@@ -127,7 +135,6 @@ export default function OrdersTab() {
       toast.success(`${orderType === 'pos' ? 'POS' : orderType === 'print' ? 'Print' : 'Order'} ${newStatus}!`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
-      // Revert on error by reloading
       loadOrders();
     }
   };
