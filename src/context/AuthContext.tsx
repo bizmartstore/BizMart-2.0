@@ -1,3 +1,33 @@
+// Before (causing TypeScript error):
+const { data, error } = await supabase
+  .from("profiles")
+  .insert({
+    user_id: currentUser.id,
+    email: currentUser.email,
+    first_name: metadata.first_name || '',
+    last_name: metadata.last_name || '',
+    school: metadata.school || '',
+    section: metadata.section || '',
+    grade_level: metadata.grade_level || '',
+    bcoins: 0,
+  })
+  .select();
+
+// After (fixed):
+const { data, error } = await supabase
+  .from<{ id: string }>('profiles')
+  .insert([{
+    user_id: currentUser.id,
+    email: currentUser.email,
+    first_name: metadata.first_name || '',
+    last_name: metadata.last_name || '',
+    school: metadata.school || '',
+    section: metadata.section || '',
+    grade_level: metadata.grade_level || '',
+    bcoins: 0,
+  }] as any)
+  .select();
+```<dyad-write path="src/context/AuthContext.tsx" description="Fixing profile insert to use array syntax and correct column names, ensuring type safety.">
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
@@ -57,8 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!profData && !profError) {
           console.log("[AuthContext] Profile missing, creating...");
           const { data: newProf, error: insertError } = await supabase
-            .from("profiles")
-            .insert({
+            .from<{ id: string }>("profiles")
+            .insert([{
               user_id: currentUser.id,
               email: currentUser.email,
               first_name: metadata.first_name || '',
@@ -67,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
               bcoins: 0,
-            })
+            } as any])
             .select()
             .single();
           
