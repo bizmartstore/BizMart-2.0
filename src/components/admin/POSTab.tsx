@@ -70,7 +70,7 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
     if (!user) return;
     setSubmitting(true);
     try {
-      await (supabase as any).from("pos_sales").insert({
+      const { error } = await (supabase as any).from("pos_sales").insert({
         sale_type: "product",
         status: "completed",
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity, image: c.image })),
@@ -80,15 +80,18 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
         seller_earnings: sellerEarnings,
         member_admin_earnings: memberAdminCommission,
         sold_by: user.id,
-        customer_name: customerName.trim(),
+        customer_name: customerName.trim() || null,
       });
+
+      if (error) throw error;
 
       toast.success(`Sale completed! ₱${subtotal.toFixed(2)}`);
       setCart([]);
       setCustomerName("");
       onSaleComplete();
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("POS sale error:", e);
+      toast.error(e.message || "Failed to complete sale");
     }
     setSubmitting(false);
   };
@@ -174,7 +177,7 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
     if (!user) return;
     setSubmitting(true);
     try {
-      await (supabase as any).from("pos_sales").insert({
+      const { error } = await (supabase as any).from("pos_sales").insert({
         sale_type: "print",
         status: "completed",
         items: [
@@ -186,14 +189,17 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
         main_admin_commission: totalCost * 0.5,
         member_admin_earnings: totalCost * 0.5,
         sold_by: user.id,
-        customer_name: customerName.trim(),
+        customer_name: customerName.trim() || null,
       });
+
+      if (error) throw error;
 
       toast.success(`Print sale completed! ₱${totalCost.toFixed(2)}`);
       setBwPages(0); setColoredPages(0); setCustomerName("");
       onSaleComplete();
     } catch (e: any) {
-      toast.error(e.message);
+      console.error("Print POS sale error:", e);
+      toast.error(e.message || "Failed to complete print sale");
     }
     setSubmitting(false);
   };
@@ -268,16 +274,27 @@ export default function POSTab({ role }: { role: string; onSaleComplete: () => v
   const [sales, setSales] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalSales: 0, totalRevenue: 0 });
 
-  const loadSales = useCallback(() => {
-    (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }).limit(100)
-      .then(({ data }: any) => {
-        const all = data || [];
-        setSales(all);
-        setStats({
-          totalSales: all.length,
-          totalRevenue: all.reduce((s: number, r: any) => s + Number(r.total), 0),
-        });
+  const loadSales = useCallback(async () => {
+    try {
+      // Fetch without server-side ordering to avoid potential 400 errors
+      const { data, error } = await (supabase as any).from("pos_sales").select("*");
+      if (error) {
+        console.error("POS sales load error:", error);
+        toast.error("Failed to load sales: " + error.message);
+        return;
+      }
+      const all = (data || []).sort((a: any, b: any) => 
+        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
+      setSales(all.slice(0, 100));
+      setStats({
+        totalSales: all.length,
+        totalRevenue: all.reduce((s: number, r: any) => s + Number(r.total || 0), 0),
       });
+    } catch (e: any) {
+      console.error("POS sales exception:", e);
+      toast.error("Failed to load sales history");
+    }
   }, []);
 
   useEffect(() => { loadSales(); }, [loadSales]);
