@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Use a Promise.race to ensure we don't hang forever on a slow DB query
       const profilePromise = (async () => {
         // 1. Try to fetch existing profile
-        let { data: profData, error: profError } = await supabase
+        let { data: profData, error: profError } = await (supabase as any)
           .from("profiles")
           .select("*")
           .eq("id", currentUser.id)
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 2. If profile is missing, create it
         if (!profData && !profError) {
           console.log("[AuthContext] Profile missing, creating...");
-          const { data: newProf, error: insertError } = await supabase
+          const { data: newProf, error: insertError } = await (supabase as any)
             .from("profiles")
             .insert({
               user_id: currentUser.id,
@@ -77,14 +77,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // 3. Fetch role
-        const { data: roleData } = await supabase
+        const { data: roleData } = await (supabase as any)
           .from("user_roles")
           .select("role")
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
         // 4. Fetch wallet balance (source of truth for BCoins)
-        const { data: wallet } = await supabase
+        const { data: wallet } = await (supabase as any)
           .from("bcoins_wallets")
           .select("balance")
           .eq("user_id", currentUser.id)
@@ -203,7 +203,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
-      const { data: wallet } = await supabase        .from("bcoins_wallets")
+      const { data: wallet } = await (supabase as any)
+        .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
         .maybeSingle();
