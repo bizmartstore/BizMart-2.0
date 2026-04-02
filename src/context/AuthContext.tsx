@@ -121,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
         }
 
+        // ONLY update profile on successful database query
         setProfile({
           id: currentUser.id,
           first_name: profData.first_name || metadata.first_name || 'Student',
@@ -141,10 +142,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Check if still valid
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        // IMPORTANT: Do NOT set a fallback profile that downgrades admin to customer
-        // Instead, keep the existing profile if it exists, or just log the error
+        // CRITICAL: Do NOT set any fallback profile on error
+        // Keep the existing profile (if any) to preserve admin role
         // The profile will be re-fetched on next auth state change or manual refresh
-        console.warn("[AuthContext] Keeping existing profile (if any) due to fetch error");
+        console.warn("[AuthContext] Fetch failed - keeping existing profile (if any)");
+        // No setProfile call here - this preserves the existing profile
       } finally {
         if (fetchProfileRef.current === fetchPromise) {
           fetchProfileRef.current = null;
@@ -178,7 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           try {
             await fetchProfile(s.user);
           } catch (err) {
-            // On init error, don't set a fallback profile
+            // On init error, don't set any fallback profile
             // Just leave profile as null and let it be fetched later
             console.warn("[AuthContext] Init profile fetch failed, will retry");
           }
