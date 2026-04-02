@@ -138,8 +138,6 @@ export default function PrintServicePage() {
       const pdf = await pdfjsLib.getDocument({ 
         data: arrayBuffer,
         useSystemFonts: true,
-        // Disable webGL for better compatibility
-        enableWebGL: false,
       }).promise;
       
       const numPages = pdf.numPages;
