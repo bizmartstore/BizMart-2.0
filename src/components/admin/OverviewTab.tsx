@@ -27,7 +27,8 @@ export default function OverviewTab() {
       const totalOrders = orders?.length || 0;
       const pendingOrders = orders?.filter((o: any) => o.status === "pending").length || 0;
       const completedOrders = orders?.filter((o: any) => o.status === "completed").length || 0;
-      const totalRevenue = orders?.reduce((sum: number, o: any) => sum + Number(o.total || 0), 0) || 0;
+      // FIX: Only count revenue from completed orders
+      const totalRevenue = orders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.total || 0), 0) || 0;
 
       // Users
       const { count: totalUsers } = await (supabase as any).from("profiles").select("*", { count: "exact", head: true });
