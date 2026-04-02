@@ -11,11 +11,54 @@ export default function ProfilePage() {
   const { totalItems } = useCart();
   const { user, profile, signOut, loading: authLoading } = useAuth();
   const [orderCount, setOrderCount] = useState(0);
+  const [bcoinsBalance, setBcoinsBalance] = useState<number>(0);
 
   useEffect(() => {
     if (!user) return;
-    (supabase as any).from('orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+    (supabase as any)
+      .from('orders')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id)
       .then(({ count }: any) => setOrderCount(count || 0));
+  }, [user]);
+
+  // Fetch profile and BCoins balance
+  useEffect(() => {
+    if (!user) return;
+
+    // Fetch profile data
+    const fetchProfile = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+      setProfile(data);
+    };
+
+    // Fetch BCoins balance from wallet
+    const fetchBcoins = async () => {
+      const { data, error } = await supabase
+        .from('bcoins_wallets')
+        .select('balance')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error('Error fetching BCoins balance:', error);
+        setBcoinsBalance(0);
+        return;
+      }
+      setBcoinsBalance(data?.balance ?? 0);
+    };
+
+    fetchProfile();
+    fetchBcoins();
   }, [user]);
 
   if (authLoading) {
@@ -38,7 +81,7 @@ export default function ProfilePage() {
 
   const menuItems = [
     { icon: Package, label: "My Orders", badge: orderCount > 0 ? String(orderCount) : undefined, action: () => navigate("/orders") },
-    { icon: Coins, label: "My BCoins", action: () => navigate("/bcoins") },
+    { icon: Coins, label: "My BCoins", badge: bcoinsBalance > 0 ? bcoinsBalance.toFixed(1) : undefined, action: () => navigate("/bcoins") },
     { icon: ShoppingCart, label: "Cart", badge: totalItems > 0 ? String(totalItems) : undefined, action: () => navigate("/cart") },
     { icon: Heart, label: "Wishlist" },
     { icon: HelpCircle, label: "Help Center" },
@@ -88,7 +131,7 @@ export default function ProfilePage() {
           </div>
           <div>
             <p className="text-[10px] text-muted-foreground font-medium">BCoins</p>
-            <p className="text-xs font-bold text-primary">{Number(profile?.bcoins || 0).toFixed(1)} 🪙</p>
+            <p className="text-xs font-bold text-primary">{bcoinsBalance.toFixed(1)} 🪙</p>
           </div>
         </div>
       </div>
@@ -97,7 +140,7 @@ export default function ProfilePage() {
         {[
           { label: "In Cart", value: totalItems, action: () => navigate("/cart") },
           { label: "Orders", value: orderCount, action: () => navigate("/orders") },
-          { label: "BCoins", value: Number(profile?.bcoins || 0).toFixed(1), action: () => navigate("/bcoins") },
+          { label: "BCoins", value: bcoinsBalance.toFixed(1), action: () => navigate("/bcoins") },
         ].map((stat) => (
           <button key={stat.label} onClick={stat.action} className="text-center">
             <p className="text-lg font-extrabold text-primary">{stat.value}</p>
