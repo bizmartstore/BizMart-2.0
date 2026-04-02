@@ -66,13 +66,14 @@ export default function OrdersTab() {
       if (orderType === "print") table = "print_orders";
       if (orderType === "pos") table = "pos_sales";
 
-      const { data: order, error: fetchError } = await supabase.from(table).select("*").eq("id", orderId).maybeSingle();
+      // Use type assertion to bypass TypeScript's inability to infer dynamic table types
+      const { data: order, error: fetchError } = await (supabase as any).from(table).select("*").eq("id", orderId).maybeSingle();
       if (fetchError || !order) {
         toast.error("Order not found");
         return;
       }
 
-      const { error: updateError } = await supabase.from(table).update({ status: newStatus }).eq("id", orderId);
+      const { error: updateError } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       if (updateError) throw updateError;
       
       if (newStatus === "completed" && orderType !== 'pos' && order.user_id) {
