@@ -16,8 +16,10 @@ import {
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set worker source using jsdelivr CDN (more reliable for ES modules)
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+// Configure PDF.js worker with a reliable CDN
+// Using unpkg which is more reliable for PDF.js worker files
+const PDFJS_VERSION = (pdfjsLib as any).version || '5.6.207';
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.js`;
 
 const PRICING = {
   short: { bw: 3.00, color: 8.00 },
@@ -49,7 +51,6 @@ function isPageColored(imageData: ImageData, threshold = 0.01): boolean {
 
 export default function PrintServicePage() {
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
   const { storeOpen, gcashFee } = useAppSettings();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -159,7 +160,7 @@ export default function PrintServicePage() {
     } catch (e: any) {
       console.error("PDF analysis failed:", e);
       let errorMsg = "Failed to analyze PDF. ";
-      if (e.message?.includes("worker")) {
+      if (e.message?.includes("worker") || e.message?.includes("Failed to fetch")) {
         errorMsg += "PDF.js worker failed to load. This might be a network issue. Please try again or contact support.";
       } else if (e.message?.includes("Password")) {
         errorMsg += "The PDF is password protected. Please remove the password and try again.";
