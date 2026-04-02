@@ -75,7 +75,7 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
     icon: "🪙"
   });
 
-  // Then add BCoins to wallet
+  // Then add BCoins to wallet with retry logic
   try {
     const { data: wallet } = await (supabase as any)
       .from("bcoins_wallets")

@@ -4,7 +4,7 @@ import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/context/AuthContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { Smartphone, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { Smartphone, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, RefreshCw, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,17 +31,38 @@ export default function GCashPage() {
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      (supabase as any)
+  const loadTransactions = async () => {
+    if (!user) return;
+    setRefreshing(true);
+    try {
+      const { data, error } = await (supabase as any)
         .from("gcash_transactions")
         .select("*")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
-        .limit(20)
-        .then(({ data }: any) => setTransactions(data || []));
+        .limit(20);
+      
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (e: any) {
+      console.error("Failed to load transactions:", e);
     }
+    setRefreshing(false);
+  };
+
+  useEffect(() => { loadTransactions(); }, [user]);
+
+  // Realtime updates for transactions
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase.channel("gcash-tx-updates")
+      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions", filter: `user_id=eq.${user.id}` }, () => {
+        loadTransactions();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   const handleSubmit = async () => {
@@ -69,6 +90,8 @@ export default function GCashPage() {
         .select()
         .single();
       if (error) throw error;
+      
+      // Add to local state immediately
       setTransactions((prev) => [data, ...prev]);
 
       const userName = `User ${user.email?.split("@")[0] || "Student"}`;
@@ -78,12 +101,21 @@ export default function GCashPage() {
         title: "Request Submitted! ✅",
         description: `Ref: ${refNo}. Send ₱${amount + gcashFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcashFee} fee). BCoins will be awarded upon completion.`,
       });
-      setShowForm(false);
+      
+      // Reset form but keep it visible for another submission
+      setAmount(null);
+      setGcashNumber("");
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
+  };
+
+  const resetForm = () => {
+    setAmount(null);
+    setGcashNumber("");
+    setShowForm(true);
   };
 
   if (!user) {
@@ -94,7 +126,7 @@ export default function GCashPage() {
           <Smartphone className="h-16 w-16 text-muted-foreground/30 mb-4" />
           <h2 className="font-extrabold text-lg mb-2">GCash Transactions</h2>
           <p className="text-sm text-muted-foreground mb-6">Please login to access GCash services.</p>
-          <Button onClick={() => window.location.href = "/login"}>Login</Button>
+          <Button onClick={() => window.location.href = "/login"}>Login to Continue</Button>
         </div>
         <BottomNav />
       </div>
@@ -105,13 +137,19 @@ export default function GCashPage() {
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
       <div className="px-3 mt-4">
-        <div className="flex items-center gap-2 mb-4">
-          <Smartphone className="h-6 w-6 text-primary" />
-          <h1 className="font-extrabold text-lg">GCash</h1>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Smartphone className="h-6 w-6 text-primary" />
+            <h1 className="font-extrabold text-lg">GCash</h1>
+          </div>
+          <Button size="sm" variant="outline" onClick={loadTransactions} disabled={refreshing} className="gap-1">
+            <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
         {showForm && (
-          <div className="bg-card rounded-2xl p-4 border border-border space-y-4">
+          <div className="bg-card rounded-2xl p-4 border border-border space-y-4 mb-6">
             <div>
               <label className="text-xs font-bold mb-1.5 block">Transaction Type</label>
               <div className="grid grid-cols-2 gap-2">
@@ -181,9 +219,19 @@ export default function GCashPage() {
         )}
 
         <div className="mt-6">
-          <h3 className="font-bold text-sm mb-3">Transaction History</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm">Transaction History</h3>
+            {!showForm && (
+              <Button size="sm" variant="outline" onClick={resetForm} className="gap-1 text-xs h-8">
+                <Plus className="h-3 w-3" /> New Request
+              </Button>
+            )}
+          </div>
           {transactions.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-8">No transactions yet</p>
+            <div className="text-center py-8 bg-card rounded-2xl border border-dashed border-border">
+              <Smartphone className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No transactions yet</p>
+            </div>
           ) : (
             <div className="space-y-2">
               {transactions.map((tx) => (
