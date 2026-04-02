@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, RefreshCw, Eye, ShoppingCart, Printer } from "lucide-react";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -15,14 +15,12 @@ export default function OrdersTab() {
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
-    // Fetch all three types: product orders, print orders, and POS sales
     const [ordersData, printData, posData] = await Promise.all([
       (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
       (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
       (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
     ]);
 
-    // Combine and mark types
     const combined = [
       ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
       ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
@@ -46,7 +44,14 @@ export default function OrdersTab() {
 
       await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       
-      // Notify customer for product orders and print orders (POS is in-person, no notification needed)
+      // Award BCoins when order is completed
+      if (newStatus === "completed" && orderType !== 'pos' && order.user_id) {
+        const bcoins = Number(order.bcoins_earned || 0);
+        if (bcoins > 0) {
+          await notifyCustomerBCoins(order.user_id, bcoins, `Order #${orderId.slice(0, 8)} completed`);
+        }
+      }
+
       if (orderType !== 'pos' && order.user_id) {
         const notifType = orderType === 'print' ? 'print_status' : 'order_status';
         const icon = orderType === 'print' ? '🖨️' : '📦';
@@ -103,7 +108,7 @@ export default function OrdersTab() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-sm">
-                {isPOS ? 'POS Sale' : isPrint ? 'Print Order' : 'Order #{selectedOrder.id.slice(0, 8)}'}
+                {isPOS ? 'POS Sale' : isPrint ? 'Print Order' : `Order #${selectedOrder.id.slice(0, 8)}`}
               </h3>
               <p className="text-[10px] text-muted-foreground">
                 {selectedOrder.customer_name || "Customer"} • {new Date(selectedOrder.created_at).toLocaleString()}

@@ -8,7 +8,7 @@ import { Smartphone, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircl
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { notifyAdminGCash, notifyCustomerBCoins } from "@/lib/notifications";
+import { notifyAdminGCash } from "@/lib/notifications";
 
 const GCASH_ADMIN_NUMBER = "09957656049";
 const ALLOWED_AMOUNTS = [100, 150, 200, 250, 300, 350, 400, 450, 500];
@@ -73,11 +73,10 @@ export default function GCashPage() {
 
       const userName = `User ${user.email?.split("@")[0] || "Student"}`;
       notifyAdminGCash(type, userName, amount);
-      notifyCustomerBCoins(user.id, 1, "GCash transaction");
 
       toast({
         title: "Request Submitted! ✅",
-        description: `Ref: ${refNo}. Send ₱${amount + gcashFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcashFee} fee). +1 BCoin earned!`,
+        description: `Ref: ${refNo}. Send ₱${amount + gcashFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcashFee} fee). BCoins will be awarded upon completion.`,
       });
       setShowForm(false);
     } catch (e: any) {

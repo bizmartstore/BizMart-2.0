@@ -33,6 +33,7 @@ import JobsPage from "@/pages/JobsPage";
 import JobPostPage from "@/pages/JobPostPage";
 import JobDetailPage from "@/pages/JobDetailPage";
 import FreelancerApplyPage from "@/pages/FreelancerApplyPage";
+import PrintServicePage from "@/pages/PrintServicePage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 
@@ -52,7 +53,6 @@ function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
 
-  // Safety timeout for splash screen
   useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
@@ -93,6 +93,7 @@ function AppContent() {
             <Route path="/jobs/post" element={<JobPostPage />} />
             <Route path="/jobs/:id" element={<JobDetailPage />} />
             <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
+            <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

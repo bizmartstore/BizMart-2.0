@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, RefreshCw, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function GCashTab() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -66,6 +66,11 @@ export default function GCashTab() {
         .from("gcash_transactions")
         .update({ status })
         .eq("id", id);
+
+      // Award BCoins when GCash transaction is completed
+      if (status === "completed" && tx.user_id) {
+        await notifyCustomerBCoins(tx.user_id, 1, "GCash transaction completed");
+      }
 
       await sendNotification({
         title: `💳 GCash ${tx.type === 'cash_in' ? 'In' : 'Out'} ${status.toUpperCase()}`,
