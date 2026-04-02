@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw } from "lucide-react";
 
 const DEFAULT_NEWS = [
   {
+    id: "default-1",
     title: "BizMart Store v2.0 Coming June 2026",
     content: "We're thrilled to announce the official release of BizMart Store v2.0! This major update brings a redesigned interface, faster checkout, improved notifications, and many more features to enhance your shopping experience.",
     image_url: null,
@@ -19,6 +20,7 @@ const DEFAULT_NEWS = [
     is_active: true,
   },
   {
+    id: "default-2",
     title: "Welcome New BizMart Staff Members!",
     content: "Please join us in welcoming our newest team members who will be helping run the BizMart Store. They bring fresh energy and great ideas to our campus marketplace!",
     image_url: null,
@@ -48,23 +50,14 @@ export default function NewsTab() {
   const [category, setCategory] = useState("general");
   const [images, setImages] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
-    try {
-      const { data, error } = await (supabase as any)
-        .from("news_updates")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
-    } catch (e: any) {
-      console.error("Load error:", e);
-      toast.error("Failed to load news: " + e.message);
-    }
+    const { data } = await (supabase as any)
+      .from("news_updates")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (data) setNews(data.map((d: any) => ({ ...d, images: d.images || [] })));
   };
 
   useEffect(() => { load(); }, []);
@@ -79,33 +72,17 @@ export default function NewsTab() {
     if (!files || files.length === 0) return;
     setUploading(true);
     const newUrls: string[] = [];
-    
-    try {
-      for (const file of Array.from(files)) {
-        const ext = file.name.split(".").pop();
-        const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from("news-images")
-          .upload(path, file);
-        
-        if (uploadError) {
-          console.error("Upload error:", uploadError);
-          toast.error(`Upload failed for ${file.name}: ${uploadError.message}`);
-          continue;
-        }
-        
-        const { data: urlData } = supabase.storage.from("news-images").getPublicUrl(path);
-        newUrls.push(urlData.publicUrl);
-      }
-      setImages(prev => [...prev, ...newUrls]);
-      if (newUrls.length > 0) toast.success(`Uploaded ${newUrls.length} image(s)`);
-    } catch (e: any) {
-      toast.error("Upload process failed: " + e.message);
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = "";
+    for (const file of Array.from(files)) {
+      const ext = file.name.split(".").pop();
+      const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { error } = await supabase.storage.from("news-images").upload(path, file);
+      if (error) { toast.error(`Upload failed: ${file.name}`); continue; }
+      const { data: urlData } = supabase.storage.from("news-images").getPublicUrl(path);
+      newUrls.push(urlData.publicUrl);
     }
+    setImages(prev => [...prev, ...newUrls]);
+    setUploading(false);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const removeImage = (idx: number) => {
@@ -113,43 +90,24 @@ export default function NewsTab() {
   };
 
   const handleSave = async () => {
-    if (!title.trim() || !content.trim()) { 
-      toast.error("Title and content are required"); 
-      return; 
-    }
-    
-    setSaving(true);
-    try {
-      const payload = {
-        title: title.trim(),
-        content: content.trim(),
-        image_url: images[0] || null,
-        images,
-        category,
-      };
+    if (!title.trim() || !content.trim()) { toast.error("Title and content required"); return; }
+    const payload = {
+      title: title.trim(),
+      content: content.trim(),
+      image_url: images[0] || null,
+      images,
+      category,
+    };
 
-      if (editId) {
-        const { error } = await (supabase as any)
-          .from("news_updates")
-          .update({ ...payload, updated_at: new Date().toISOString() })
-          .eq("id", editId);
-        if (error) throw error;
-        toast.success("News updated!");
-      } else {
-        const { error } = await (supabase as any)
-          .from("news_updates")
-          .insert(payload);
-        if (error) throw error;
-        toast.success("News published!");
-      }
-      resetForm();
-      load();
-    } catch (e: any) {
-      console.error("Save error:", e);
-      toast.error("Failed to save: " + e.message);
-    } finally {
-      setSaving(false);
+    if (editId) {
+      await (supabase as any).from("news_updates").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editId);
+      toast.success("News updated!");
+    } else {
+      await (supabase as any).from("news_updates").insert(payload);
+      toast.success("News published!");
     }
+    resetForm();
+    load();
   };
 
   const handleEdit = (item: NewsItem) => {
@@ -163,53 +121,27 @@ export default function NewsTab() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this news item?")) return;
-    try {
-      const { error } = await (supabase as any).from("news_updates").delete().eq("id", id);
-      if (error) throw error;
-      toast.success("Deleted!");
-      load();
-    } catch (e: any) {
-      toast.error("Delete failed: " + e.message);
-    }
+    await (supabase as any).from("news_updates").delete().eq("id", id);
+    toast.success("Deleted!");
+    load();
   };
 
   const toggleActive = async (id: string, active: boolean) => {
-    try {
-      const { error } = await (supabase as any).from("news_updates").update({ is_active: active }).eq("id", id);
-      if (error) throw error;
-      load();
-    } catch (e: any) {
-      toast.error("Update failed: " + e.message);
-    }
+    await (supabase as any).from("news_updates").update({ is_active: active }).eq("id", id);
+    load();
   };
 
   const syncDefaults = async () => {
-    setSyncing(true);
     let added = 0;
-    try {
-      for (const item of DEFAULT_NEWS) {
-        const { data: existing, error: checkError } = await (supabase as any)
-          .from("news_updates")
-          .select("id")
-          .eq("title", item.title)
-          .maybeSingle();
-        
-        if (checkError) throw checkError;
-
-        if (!existing) {
-          const { error: insertError } = await (supabase as any).from("news_updates").insert(item);
-          if (insertError) throw insertError;
-          added++;
-        }
+    for (const item of DEFAULT_NEWS) {
+      const { data: existing } = await (supabase as any).from("news_updates").select("id").eq("id", item.id).maybeSingle();
+      if (!existing) {
+        await (supabase as any).from("news_updates").insert(item);
+        added++;
       }
-      toast.success(`Synced ${added} default news items!`);
-      load();
-    } catch (e: any) {
-      console.error("Sync error:", e);
-      toast.error("Sync failed: " + e.message);
-    } finally {
-      setSyncing(false);
     }
+    toast.success(`Synced ${added} default news items!`);
+    load();
   };
 
   return (
@@ -217,9 +149,8 @@ export default function NewsTab() {
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm">News & Updates</h3>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={syncDefaults} disabled={syncing} className="text-xs h-8 gap-1">
-            {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            Sync Defaults
+          <Button size="sm" variant="outline" onClick={syncDefaults} className="text-xs h-8 gap-1">
+            <RefreshCw className="h-3 w-3" /> Sync Defaults
           </Button>
           <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
             <Plus className="h-3 w-3 mr-1" /> Add News
@@ -228,7 +159,7 @@ export default function NewsTab() {
       </div>
 
       {showForm && (
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3 shadow-md animate-in slide-in-from-top-2">
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs">{editId ? "Edit" : "New"} News</span>
             <button onClick={resetForm}><X className="h-4 w-4" /></button>
@@ -280,9 +211,8 @@ export default function NewsTab() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleSave} className="w-full text-xs" disabled={uploading || saving}>
-            {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-            {editId ? "Update" : "Publish"}
+          <Button onClick={handleSave} className="w-full text-xs" disabled={uploading}>
+            <Check className="h-3 w-3 mr-1" /> {editId ? "Update" : "Publish"}
           </Button>
         </div>
       )}
@@ -325,12 +255,7 @@ export default function NewsTab() {
             </div>
           );
         })}
-        {news.length === 0 && (
-          <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
-            <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">No news yet. Click "Sync Defaults" to load sample news.</p>
-          </div>
-        )}
+        {news.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No news yet. Click "Sync Defaults" to load sample news, or add your first update!</p>}
       </div>
     </div>
   );
