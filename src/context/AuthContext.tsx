@@ -1,168 +1,208 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+"use client";
+
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 
-// --- Cart Context ---
-export interface CartItem {
+export interface Profile {
   id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  category: string;
-  quantity: number;
+  first_name: string;
+  last_name: string;
+  section: string;
+  grade_level: string;
+  school: string;
+  email: string;
+  avatar_url: string | null;
+  bcoins: number;
+  role: string;
 }
 
-export interface CartContextType {
-  items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  clearCart: () => void;
-  totalItems: number;
-  totalPrice: number;
-}
-
-const CartContext = createContext<CartContextType | undefined>(undefined);
-
-export function useCart() {
-  const context = useContext(CartContext);
-  if (!context) throw new Error("useCart must be used within CartProvider");
-  return context;
-}
-
-// --- Auth Context ---
-export const AuthContext = createContext<{
-  user: any | null;
-  profile: any | null;
+interface AuthContextType {
+  user: User | null;
+  session: Session | null;
+  profile: Profile | null;
   loading: boolean;
   signOut: () => Promise<void>;
-}>({
-  user: null,
-  profile: null,
-  loading: true,
-  signOut: async () => {},
-});
+  refreshProfile: () => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfile = useCallback(async (currentUser: User) => {
+    console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
+    
+    try {
+      // Use a Promise.race to ensure we don't hang forever on a slow DB query
+      const profilePromise = (async () => {
+        // 1. Try to fetch existing profile
+        let { data: profData, error: profError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .maybeSingle();
+
+        if (profError) {
+          console.warn("[AuthContext] Profile fetch error:", profError.message);
+        }
+
+        const metadata = currentUser.user_metadata || {};
+
+        // 2. If profile is missing, create it
+        if (!profData && !profError) {
+          console.log("[AuthContext] Profile missing, creating...");
+          const { data: newProf, error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: currentUser.id,
+              email: currentUser.email,
+              first_name: metadata.first_name || '',
+              last_name: metadata.last_name || '',
+              school: metadata.school || '',
+              section: metadata.section || '',
+              grade_level: metadata.grade_level || '',
+              bcoins: 0
+            })
+            .select()
+            .single();
+          
+          if (!insertError) profData = newProf;
+          else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+        }
+
+        // 3. Fetch role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        return { profData, roleData, metadata };
+      })();
+
+      // Timeout after 3 seconds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
+      );
+
+      const result = await Promise.race([profilePromise, timeoutPromise]) as any;
+      const { profData, roleData, metadata } = result;
+
+      setProfile({
+        id: currentUser.id,
+        first_name: profData?.first_name || metadata.first_name || 'Student',
+        last_name: profData?.last_name || metadata.last_name || '',
+        section: profData?.section || metadata.section || 'N/A',
+        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
+        school: profData?.school || metadata.school || 'N/A',
+        email: profData?.email || currentUser.email || '',
+        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(profData?.bcoins || 0),
+        role: roleData?.role || 'customer',
+      });
+      
+      console.log("[AuthContext] Profile loaded successfully");
+    } catch (err: any) {
+      console.warn("[AuthContext] Profile fetch issue:", err.message);
+      // Fallback to metadata if DB fails or times out
+      const metadata = currentUser.user_metadata || {};
+      setProfile({
+        id: currentUser.id,
+        first_name: metadata.first_name || 'Student',
+        last_name: metadata.last_name || '',
+        section: metadata.section || 'N/A',
+        grade_level: metadata.grade_level || 'N/A',
+        school: metadata.school || 'N/A',
+        email: currentUser.email || '',
+        avatar_url: metadata.avatar_url || null,
+        bcoins: 0,
+        role: 'customer',
+      });
+    }
+  }, []);
+
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user);
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        
+        setSession(s);
+        setUser(s?.user ?? null);
+        
+        if (s?.user) {
+          await fetchProfile(s.user);
+        }
+      } catch (err) {
+        console.error("[AuthContext] Init error:", err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          console.log("[AuthContext] Initialization complete");
+        }
+      }
+    };
+
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log(`[AuthContext] Auth state changed: ${event}`);
+      if (!mounted) return;
+
+      setSession(s);
+      setUser(s?.user ?? null);
+      
+      if (s?.user) {
+        await fetchProfile(s.user);
+      } else {
+        setProfile(null);
+      }
+      
+      setLoading(false);
+    });
+
+    // Safety fallback: always stop loading after 6 seconds max
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
+        setLoading(false);
+      }
+    }, 6000);
+
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
+  }, [fetchProfile]);
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) throw new Error("useAuth must be used within AuthProvider");
   return context;
 }
-
-function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadUser = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUser(user);
-
-        if (user) {
-          const { data: profileData, error: profError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("user_id", user.id)
-            .single();
-
-          if (!profError && profileData) {
-            setProfile(profileData);
-          } else {
-            // 2. If profile is missing, create it
-            if (!profileData && !profError) {
-              console.log("[AuthContext] Profile missing, creating...");
-              const { data: newProf, error: insertError } = await supabase
-                .from("profiles")
-                .insert({
-                  user_id: user.id,
-                  email: user.email,
-                  first_name: "",
-                  last_name: "",
-                  school: "",
-                  section: "",
-                  grade_level: "",
-                  bcoins: 0,
-                })
-                .select()
-                .single();
-
-              if (!insertError) setProfile(newProf);
-              else console.warn("[AuthContext] Profile creation failed:", insertError.message);
-            }
-          }
-        } else {
-          setProfile(null);
-        }
-      } catch (error) {
-        console.error("[AuthContext] Error loading user:", error);
-        setUser(null);
-        setProfile(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUser();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          const { data: profileData, error: profError } = await supabase
-            .from("profiles")
-            .select("*")
-            .eq("user_id", session.user.id)
-            .single();
-
-          if (!profError && profileData) {
-            setProfile(profileData);
-          } else {
-            if (!profileData && !profError) {
-              console.log("[AuthContext] Profile missing, creating...");
-              const { data: newProf, error: insertError } = await supabase
-                .from("profiles")
-                .insert({
-                  user_id: session.user.id,
-                  email: session.user.email,
-                  first_name: "",
-                  last_name: "",
-                  school: "",
-                  section: "",
-                  grade_level: "",
-                  bcoins: 0,
-                })
-                .select()
-                .single();
-
-              if (!insertError) setProfile(newProf);
-              else console.warn("[AuthContext] Profile creation failed:", insertError.message);
-            }
-          }
-        } else {
-          setProfile(null);
-        }
-      }
-    );
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const signOut = async () => {
-    await supabase.auth.signOut();
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
-      {children}
-    </AuthContext.Provider>
-  );
-}
-
-export { AuthProvider, useAuth };
