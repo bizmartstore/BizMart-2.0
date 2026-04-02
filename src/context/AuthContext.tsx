@@ -43,7 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const profilePromise = (async () => {
         // 1. Try to fetch existing profile
         let { data: profData, error: profError } = await supabase
-          .from<Profile>('profiles') // 👈 Explicit generic type
+          .from("profiles")
           .select("*")
           .eq("id", currentUser.id)
           .maybeSingle();
@@ -54,10 +54,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const metadata = currentUser.user_metadata || {};
 
-        // 2. If profile is missing, create it        if (!profData && !profError) {
+        // 2. If profile is missing, create it
+        if (!profData && !profError) {
           console.log("[AuthContext] Profile missing, creating...");
           const { data: newProf, error: insertError } = await supabase
-            .from<Profile>('profiles') // 👈 Explicit generic type            .insert({
+            .from("profiles")
+            .insert({
               user_id: currentUser.id,
               email: currentUser.email,
               first_name: metadata.first_name || '',
@@ -65,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               school: metadata.school || '',
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
-              bcoins: 0            })
+              bcoins: 0
+            })
             .select()
             .single();
           
@@ -73,15 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           else console.warn("[AuthContext] Profile creation failed:", insertError.message);
         }
 
-        // 3. Fetch role        const { data: roleData } = await supabase
-          .from('user_roles')
+        // 3. Fetch role
+        const { data: roleData } = await supabase
+          .from("user_roles")
           .select("role")
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
         // 4. Fetch wallet balance (source of truth for BCoins)
         const { data: wallet } = await supabase
-          .from<{ balance: number }>('bcoins_wallets') // 👈 Explicit generic type
+          .from("bcoins_wallets")
           .select("balance")
           .eq("user_id", currentUser.id)
           .maybeSingle();
@@ -113,7 +117,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[AuthContext] Profile loaded successfully with bcoins:", Number(wallet?.balance || profData?.bcoins || 0));
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      // Fallback to metadata if DB fails or times out      const metadata = currentUser.user_metadata || {};
+      // Fallback to metadata if DB fails or times out
+      const metadata = currentUser.user_metadata || {};
       setProfile({
         id: currentUser.id,
         first_name: metadata.first_name || 'Student',
@@ -192,13 +197,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile]);
 
-  // Subscribe to wallet changes to update bcoins in real-time  useEffect(() => {
+  // Subscribe to wallet changes to update bcoins in real-time
+  useEffect(() => {
     if (!user) return;
 
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
       const { data: wallet } = await supabase
-        .from<{ balance: number }>('bcoins_wallets') // 👈 Explicit generic type
+        .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
         .maybeSingle();
