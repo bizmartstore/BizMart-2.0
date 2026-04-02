@@ -1,97 +1,179 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { ShoppingBag, Eye, EyeOff, ArrowLeft, Mail, RefreshCw } from "lucide-react";
+import { Eye, EyeOff, Mail, RefreshCw, AlertCircle } from "lucide-react";
 
-const GRADE_LEVELS = ["Grade 7", "Grade 8", "Grade 9", "Grade 10", "Grade 11", "Grade 12"];
+const LOGO_URL = "https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png";
 
-export default function SignUpPage() {
+export default function LoginPage() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({
-    firstName: "", lastName: "", section: "", gradeLevel: "", school: "", email: "", password: "",
-  });
+  const location = useLocation();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [unconfirmed, setUnconfirmed] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleSignUp = async (e: React.FormEvent) => {
+  // Detect errors from the URL hash (e.g. after clicking an expired link)
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("error_code=otp_expired") || hash.includes("error=access_denied")) {
+      setUnconfirmed(true);
+      setErrorMsg("The verification link has expired or was already used. Please request a new one below.");
+      toast({ 
+        title: "Link Expired", 
+        description: "Please request a new verification link.", 
+        variant: "destructive" 
+      });
+      // Clean up the hash
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setUnconfirmed(false);
+    setErrorMsg(null);
     
-    const { data, error } = await supabase.auth.signUp({
-      email: form.email,
-      password: form.password,
-      options: {
-        data: {
-          first_name: form.firstName,
-          last_name: form.lastName,
-          section: form.section,
-          grade_level: form.gradeLevel,
-          school: form.school,
-        },
-        emailRedirectTo: `${window.location.origin}/login`,
-      },
-    });
-
-    if (error) {
-      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-    } else if (data.user) {
-      setIsSubmitted(true);
-      toast({ title: "Account created! 🎉", description: "Check your Gmail to verify your account." });
-    }
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
+    
+    if (error) {
+      if (error.message.toLowerCase().includes("email not confirmed")) {
+        setUnconfirmed(true);
+        setErrorMsg("You need to confirm your email before you can log in.");
+        toast({ 
+          title: "Email not verified", 
+          description: "Please check your Gmail to confirm your account.", 
+          variant: "destructive" 
+        });
+      } else {
+        toast({ title: "Login failed", description: error.message, variant: "destructive" });
+      }
+    } else {
+      toast({ title: "Welcome back! 🎉" });
+      if (data.user) {
+        if (data.user.email === 'sheethappenswithjaa@gmail.com') {
+          navigate("/admin");
+          return;
+        }
+        const { data: roleData } = await (supabase as any).rpc('get_user_role', { _user_id: data.user.id });
+        if (roleData === 'main_admin' || roleData === 'member_admin') {
+          navigate("/admin");
+          return;
+        }
+      }
+      navigate("/");
+    }
   };
 
-  if (isSubmitted) {
-    return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 text-center">
-        <Mail className="h-12 w-12 text-primary mb-4 animate-bounce" />
-        <h2 className="text-2xl font-extrabold mb-2">Check your Gmail!</h2>
-        <p className="text-sm text-muted-foreground mb-8">We've sent a verification link to <strong>{form.email}</strong>.</p>
-        <Button onClick={() => navigate("/login")} className="w-full rounded-xl font-bold">Go to Login</Button>
-      </div>
-    );
-  }
+  const handleResend = async () => {
+    if (!email) {
+      toast({ title: "Email required", description: "Please enter your email address first.", variant: "destructive" });
+      return;
+    }
+    setResending(true);
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: email,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+      }
+    });
+    setResending(false);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Link sent! 📧", description: "Check your Gmail inbox for the new verification link." });
+      setErrorMsg("A new link has been sent to your email. Please check your inbox.");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <div className="bg-primary px-4 py-6 rounded-b-[2rem]">
-        <button onClick={() => navigate(-1)} className="mb-3"><ArrowLeft className="h-5 w-5 text-white" /></button>
-        <h1 className="text-xl font-extrabold text-white">Create Account</h1>
+      <div className="bg-secondary px-6 pt-12 pb-10 rounded-b-[2rem] text-center">
+        <img src={LOGO_URL} alt="BizMart" className="h-14 mx-auto mb-2" />
+        <p className="text-secondary-foreground/70 text-sm">Your campus store, anytime!</p>
       </div>
-      <div className="flex-1 px-5 pt-5 pb-8 overflow-y-auto">
-        <form onSubmit={handleSignUp} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div><Label className="text-xs font-bold">Last Name</Label><Input value={form.lastName} onChange={e => setForm({...form, lastName: e.target.value})} required /></div>
-            <div><Label className="text-xs font-bold">First Name</Label><Input value={form.firstName} onChange={e => setForm({...form, firstName: e.target.value})} required /></div>
-          </div>
-          <div><Label className="text-xs font-bold">School</Label><Input value={form.school} onChange={e => setForm({...form, school: e.target.value})} required /></div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-xs font-bold">Grade Level</Label>
-              <select className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.gradeLevel} onChange={e => setForm({...form, gradeLevel: e.target.value})} required>
-                <option value="">Select</option>
-                {GRADE_LEVELS.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
+
+      <div className="flex-1 px-5 pt-8">
+        <h2 className="text-xl font-extrabold text-foreground mb-1">Welcome Back!</h2>
+        <p className="text-sm text-muted-foreground mb-6">Log in to continue shopping</p>
+
+        {unconfirmed && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <span className="text-xs font-bold text-destructive">Verification Required</span>
             </div>
-            <div><Label className="text-xs font-bold">Section</Label><Input value={form.section} onChange={e => setForm({...form, section: e.target.value})} required /></div>
+            <p className="text-[11px] text-destructive/80 mb-3 leading-relaxed">
+              {errorMsg || "You need to confirm your email before you can log in. Check your Gmail inbox for the verification link."}
+            </p>
+            <Button 
+              onClick={handleResend} 
+              disabled={resending}
+              variant="outline" 
+              size="sm" 
+              className="w-full h-9 text-[10px] font-bold border-destructive/30 text-destructive hover:bg-destructive/5"
+            >
+              {resending ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <RefreshCw className="h-3 w-3 mr-1.5" />}
+              Resend Verification Link
+            </Button>
           </div>
-          <div><Label className="text-xs font-bold">Email</Label><Input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required /></div>
-          <div>
-            <Label className="text-xs font-bold">Password</Label>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="email" className="text-xs font-bold">Email Address</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="student@school.edu"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password" className="text-xs font-bold">Password</Label>
             <div className="relative">
-              <Input type={showPassword ? "text" : "password"} value={form.password} onChange={e => setForm({...form, password: e.target.value})} required minLength={6} />
-              <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+              <Input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+              >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
-          <Button type="submit" className="w-full h-12 font-bold rounded-xl" disabled={loading}>{loading ? "Creating..." : "Sign Up"}</Button>
+
+          <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl" disabled={loading}>
+            {loading ? "Logging in..." : "Log In"}
+          </Button>
         </form>
+
+        <p className="text-center text-sm text-muted-foreground mt-6">
+          Don't have an account?{" "}
+          <Link to="/signup" className="text-primary font-bold">
+            Sign Up
+          </Link>
+        </p>
       </div>
     </div>
   );
