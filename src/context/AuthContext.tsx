@@ -59,14 +59,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: newProf, error: insertError } = await supabase
             .from("profiles")
             .insert({
-              id: currentUser.id,
+              user_id: currentUser.id,
               email: currentUser.email,
               first_name: metadata.first_name || '',
               last_name: metadata.last_name || '',
               school: metadata.school || '',
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
-              bcoins: 0
             })
             .select()
             .single();
