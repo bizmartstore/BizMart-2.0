@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: newProf, error: insertError } = await supabase
             .from("profiles")
             .insert({
-              id: currentUser.id,
+              user_id: currentUser.id,
               email: currentUser.email,
               first_name: metadata.first_name || '',
               last_name: metadata.last_name || '',
@@ -209,7 +209,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", user.id)
         .maybeSingle();
       if (wallet && profile) {
-        const walletBcoins = Number(wallet.balance);
+        // Type assertion since bcoins_wallets isn't in our generated types
+        const walletBcoins = Number((wallet as any).balance);
         if (profile.bcoins !== walletBcoins) {
           setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
         }
@@ -233,7 +234,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (payload.event === 'DELETE') {
             setProfile(prev => prev ? { ...prev, bcoins: 0 } : prev);
           } else if (payload.new) {
-            setProfile(prev => prev ? { ...prev, bcoins: payload.new.balance } : prev);
+            // Type assertion since bcoins_wallets isn't in our generated types
+            setProfile(prev => prev ? { ...prev, bcoins: Number((payload.new as any).balance) } : prev);
           }
         }
       )
