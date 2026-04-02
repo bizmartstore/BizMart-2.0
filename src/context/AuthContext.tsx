@@ -39,86 +39,90 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
     
     try {
-      // Use a Promise.race to ensure we don't hang forever on a slow DB query
-      const profilePromise = (async () => {
-        // 1. Try to fetch existing profile
-        let { data: profData, error: profError } = await (supabase as any)
+      // 1. Try to fetch existing profile
+      let { data: profData, error: profError } = await (supabase as any)
+        .from("profiles")
+        .select("*")
+        .eq("id", currentUser.id)
+        .maybeSingle();
+
+      if (profError) {
+        console.warn("[AuthContext] Profile fetch error:", profError.message);
+      }
+
+      const metadata = currentUser.user_metadata || {};
+
+      // 2. If profile is missing, create it
+      if (!profData && !profError) {
+        console.log("[AuthContext] Profile missing, creating...");
+        const { data: newProf, error: insertError } = await (supabase as any)
           .from("profiles")
-          .select("*")
-          .eq("id", currentUser.id)
-          .maybeSingle();
+          .insert({
+            user_id: currentUser.id,
+            email: currentUser.email,
+            first_name: metadata.first_name || '',
+            last_name: metadata.last_name || '',
+            school: metadata.school || null,
+            section: metadata.section || null,
+            grade_level: metadata.grade_level || null,
+            avatar_url: metadata.avatar_url || null,
+          })
+          .select()
+          .single();
+        
+        if (!insertError) profData = newProf;
+        else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+      }
 
-        if (profError) {
-          console.warn("[AuthContext] Profile fetch error:", profError.message);
-        }
+      // 3. Fetch role
+      const { data: roleData } = await (supabase as any)
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
 
-        const metadata = currentUser.user_metadata || {};
+      // 4. Fetch wallet balance (source of truth for BCoins)
+      const { data: wallet } = await (supabase as any)
+        .from("bcoins_wallets")
+        .select("balance")
+        .eq("user_id", currentUser.id)
+        .maybeSingle();
 
-        // 2. If profile is missing, create it
-        if (!profData && !profError) {
-          console.log("[AuthContext] Profile missing, creating...");
-          const { data: newProf, error: insertError } = await (supabase as any)
-            .from("profiles")
-            .insert({
-              user_id: currentUser.id,
-              email: currentUser.email,
-              first_name: metadata.first_name || '',
-              last_name: metadata.last_name || '',
-              school: metadata.school || null,
-              section: metadata.section || null,
-              grade_level: metadata.grade_level || null,
-              avatar_url: metadata.avatar_url || null,
-            })
-            .select()
-            .single();
-          
-          if (!insertError) profData = newProf;
-          else console.warn("[AuthContext] Profile creation failed:", insertError.message);
-        }
+      const { profData: finalProf, roleData: finalRole, wallet: finalWallet } = { profData, roleData, wallet };
 
-        // 3. Fetch role
-        const { data: roleData } = await (supabase as any)
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-
-        // 4. Fetch wallet balance (source of truth for BCoins)
-        const { data: wallet } = await (supabase as any)
-          .from("bcoins_wallets")
-          .select("balance")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-
-        return { profData, roleData, metadata, wallet };
-      })();
-
-      // Timeout after 3 seconds
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
-      );
-
-      const result = await Promise.race([profilePromise, timeoutPromise]) as any;
-      const { profData, roleData, metadata, wallet } = result;
+      // Determine role: use roleData if available, else 'customer'
+      const role = finalRole?.role || 'customer';
+      
+      // Save role to localStorage for this user (for fallback on future failures)
+      if (finalRole?.role) {
+        localStorage.setItem(`user_role_${currentUser.id}`, finalRole.role);
+      }
 
       setProfile({
         id: currentUser.id,
-        first_name: profData?.first_name || metadata.first_name || 'Student',
-        last_name: profData?.last_name || metadata.last_name || '',
-        section: profData?.section || metadata.section || 'N/A',
-        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
-        school: profData?.school || metadata.school || 'N/A',
-        email: profData?.email || currentUser.email || '',
-        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
-        bcoins: Number(wallet?.balance || profData?.bcoins || 0),  // Use wallet balance as source of truth
-        role: roleData?.role || 'customer',
+        first_name: finalProf?.first_name || metadata.first_name || 'Student',
+        last_name: finalProf?.last_name || metadata.last_name || '',
+        section: finalProf?.section || metadata.section || 'N/A',
+        grade_level: finalProf?.grade_level || metadata.grade_level || 'N/A',
+        school: finalProf?.school || metadata.school || 'N/A',
+        email: finalProf?.email || currentUser.email || '',
+        avatar_url: finalProf?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(finalWallet?.balance || finalProf?.bcoins || 0),
+        role,
       });
       
-      console.log("[AuthContext] Profile loaded successfully with bcoins:", Number(wallet?.balance || profData?.bcoins || 0));
+      console.log("[AuthContext] Profile loaded successfully with role:", role, "bcoins:", Number(finalWallet?.balance || finalProf?.bcoins || 0));
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      // Fallback to metadata if DB fails or times out
+      // Fallback: use metadata and stored role from localStorage
       const metadata = currentUser.user_metadata || {};
+      
+      // Try to get role from localStorage for this user (persisted from previous successful login)
+      const storedRole = localStorage.getItem(`user_role_${currentUser.id}`);
+      const role = storedRole || 'customer'; // Only fallback to 'customer' if no stored role exists
+      
+      console.log("[AuthContext] Using stored role from localStorage:", role);
+      
       setProfile({
         id: currentUser.id,
         first_name: metadata.first_name || 'Student',
@@ -129,7 +133,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: currentUser.email || '',
         avatar_url: metadata.avatar_url || null,
         bcoins: 0,
-        role: 'customer',
+        role,
       });
     }
   }, []);
@@ -151,6 +155,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         
         if (s?.user) {
+          // Check localStorage first for immediate role assignment
+          const storedRole = localStorage.getItem(`user_role_${s.user.id}`);
+          if (storedRole) {
+            console.log("[AuthContext] Using stored role from localStorage during init:", storedRole);
+            // Set a temporary profile with stored role while we fetch full profile
+            const metadata = s.user.user_metadata || {};
+            setProfile({
+              id: s.user.id,
+              first_name: metadata.first_name || 'Student',
+              last_name: metadata.last_name || '',
+              section: metadata.section || 'N/A',
+              grade_level: metadata.grade_level || 'N/A',
+              school: metadata.school || 'N/A',
+              email: s.user.email || '',
+              avatar_url: metadata.avatar_url || null,
+              bcoins: 0,
+              role: storedRole,
+            });
+          }
           await fetchProfile(s.user);
         }
       } catch (err) {
@@ -173,6 +196,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       
       if (s?.user) {
+        // Check localStorage first for immediate role assignment
+        const storedRole = localStorage.getItem(`user_role_${s.user.id}`);
+        if (storedRole) {
+          console.log("[AuthContext] Using stored role from localStorage during auth change:", storedRole);
+          const metadata = s.user.user_metadata || {};
+          setProfile({
+            id: s.user.id,
+            first_name: metadata.first_name || 'Student',
+            last_name: metadata.last_name || '',
+            section: metadata.section || 'N/A',
+            grade_level: metadata.grade_level || 'N/A',
+            school: metadata.school || 'N/A',
+            email: s.user.email || '',
+            avatar_url: metadata.avatar_url || null,
+            bcoins: 0,
+            role: storedRole,
+          });
+        }
         await fetchProfile(s.user);
       } else {
         setProfile(null);
@@ -181,19 +222,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Safety fallback: always stop loading after 6 seconds max
-    const safetyTimer = setTimeout(() => {
-      if (isMounted && loading) {
-        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
-        setLoading(false);
-      }
-    }, 6000);
-
     return () => {
       isMounted = false;
       mounted.current = false;
       subscription?.unsubscribe();
-      clearTimeout(safetyTimer);
     };
   }, [fetchProfile]);
 
@@ -209,7 +241,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", user.id)
         .maybeSingle();
       if (wallet && profile) {
-        // Type assertion since bcoins_wallets isn't in our generated types
         const walletBcoins = Number((wallet as any).balance);
         if (profile.bcoins !== walletBcoins) {
           setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
@@ -234,7 +265,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (payload.event === 'DELETE') {
             setProfile(prev => prev ? { ...prev, bcoins: 0 } : prev);
           } else if (payload.new) {
-            // Type assertion since bcoins_wallets isn't in our generated types
             setProfile(prev => prev ? { ...prev, bcoins: Number((payload.new as any).balance) } : prev);
           }
         }
@@ -251,6 +281,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     setSession(null);
     setProfile(null);
+    // Clear stored role for this user (optional, but keeps localStorage clean)
+    if (user) {
+      localStorage.removeItem(`user_role_${user.id}`);
+    }
   };
 
   return (
