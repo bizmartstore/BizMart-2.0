@@ -39,7 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
     
     try {
-      // 1. Try to fetch existing profile      let { data: profData, error: profError } = await supabase
+      // 1. Try to fetch existing profile
+      let { data: profData, error: profError } = await supabase
         .from("profiles")
         .select("*")
         .eq("id", currentUser.id)
@@ -47,9 +48,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profError) {
         console.warn("[AuthContext] Profile fetch error:", profError.message);
-        // Don't fallback to customer - keep profile as null to indicate loading
-        setProfile(null);
-        return;
       }
 
       const metadata = currentUser.user_metadata || {};
@@ -106,8 +104,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log("[AuthContext] Profile loaded successfully with role:", roleData?.role || 'customer');
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      // Keep profile as null during error - don't fallback to customer
-      setProfile(null);
+      // Fallback to metadata if DB fails
+      const metadata = currentUser.user_metadata || {};
+      setProfile({
+        id: currentUser.id,
+        first_name: metadata.first_name || 'Student',
+        last_name: metadata.last_name || '',
+        section: metadata.section || 'N/A',
+        grade_level: metadata.grade_level || 'N/A',
+        school: metadata.school || 'N/A',
+        email: currentUser.email || '',
+        avatar_url: metadata.avatar_url || null,
+        bcoins: 0,
+        role: 'customer',
+      });
     }
   }, []);
 
@@ -158,13 +168,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Increased safety timer to 30 seconds to prevent premature timeout on slow networks
+    // Safety fallback: always stop loading after 15 seconds max (increased from 6s to prevent premature redirects on slow networks)
     const safetyTimer = setTimeout(() => {
       if (isMounted && loading) {
-        console.warn("[AuthContext] Safety timeout triggered - keeping loading state");
-        // Don't force loading to false - let it wait for profile
+        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
+        setLoading(false);
       }
-    }, 30000);
+    }, 15000);
 
     return () => {
       isMounted = false;
