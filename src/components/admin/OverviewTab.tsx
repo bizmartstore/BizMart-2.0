@@ -98,26 +98,10 @@ export default function OverviewTab() {
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <ShoppingCart className="h-5 w-5 text-primary" />
-            <span className="text-xs font-bold text-muted-foreground">Total Orders</span>
+            <span className="text-xs font-bold text-muted-foreground">Product Orders</span>
           </div>
           <p className="text-2xl font-extrabold">{stats.totalOrders}</p>
           <p className="text-[10px] text-muted-foreground">{stats.pendingOrders} pending</p>
-        </div>
-        <div className="bg-card rounded-xl p-4 border border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="h-5 w-5 text-[hsl(var(--success))]" />
-            <span className="text-xs font-bold text-muted-foreground">Total Revenue</span>
-          </div>
-          <p className="text-2xl font-extrabold">₱{stats.totalRevenue.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground">From all sources</p>
-        </div>
-        <div className="bg-card rounded-xl p-4 border border-border">
-          <div className="flex items-center gap-2 mb-2">
-            <Users className="h-5 w-5 text-secondary" />
-            <span className="text-xs font-bold text-muted-foreground">Users</span>
-          </div>
-          <p className="text-2xl font-extrabold">{stats.totalUsers}</p>
-          <p className="text-[10px] text-muted-foreground">{stats.totalClubMembers} club members</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -126,6 +110,22 @@ export default function OverviewTab() {
           </div>
           <p className="text-2xl font-extrabold">{stats.totalPrintOrders}</p>
           <p className="text-[10px] text-muted-foreground">{stats.pendingPrintOrders} pending</p>
+        </div>
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <DollarSign className="h-5 w-5 text-[hsl(var(--success))]" />
+            <span className="text-xs font-bold text-muted-foreground">Total Revenue</span>
+          </div>
+          <p className="text-2xl font-extrabold">₱{stats.totalRevenue.toFixed(2)}</p>
+          <p className="text-[10px] text-muted-foreground">Products + Print</p>
+        </div>
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <Users className="h-5 w-5 text-secondary" />
+            <span className="text-xs font-bold text-muted-foreground">Users</span>
+          </div>
+          <p className="text-2xl font-extrabold">{stats.totalUsers}</p>
+          <p className="text-[10px] text-muted-foreground">{stats.totalClubMembers} club members</p>
         </div>
       </div>
 
@@ -140,8 +140,8 @@ export default function OverviewTab() {
           <p className="text-[10px] text-muted-foreground font-bold">GCash Transactions</p>
         </div>
         <div className="bg-card rounded-xl p-3 border border-border text-center">
-          <p className="text-lg font-extrabold text-warning">{stats.completedOrders}</p>
-          <p className="text-[10px] text-muted-foreground font-bold">Completed Orders</p>
+          <p className="text-lg font-extrabold text-warning">{stats.completedOrders + stats.completedPrintOrders}</p>
+          <p className="text-[10px] text-muted-foreground font-bold">Completed</p>
         </div>
       </div>
 
