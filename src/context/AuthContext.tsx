@@ -168,19 +168,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
-    // Safety fallback: always stop loading after 15 seconds max (increased from 6s to prevent premature redirects on slow networks)
-    const safetyTimer = setTimeout(() => {
-      if (isMounted && loading) {
-        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
-        setLoading(false);
-      }
-    }, 15000);
-
     return () => {
       isMounted = false;
       mounted.current = false;
       subscription?.unsubscribe();
-      clearTimeout(safetyTimer);
     };
   }, [fetchProfile]);
 
