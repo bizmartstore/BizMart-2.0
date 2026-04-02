@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let { data: profData, error: profError } = await supabase
           .from("profiles")
           .select("*")
-          .eq("id", currentUser.id)
+          .eq("user_id", currentUser.id)
           .maybeSingle();
 
         if (profError) {
@@ -53,20 +53,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         const metadata = currentUser.user_metadata || {};
 
-        // 2. If profile is missing, create it
+        // 2. If profile is missing, create it with user_id as FK
         if (!profData && !profError) {
           console.log("[AuthContext] Profile missing, creating...");
           const { data: newProf, error: insertError } = await supabase
             .from("profiles")
             .insert({
-              id: currentUser.id,
+              user_id: currentUser.id,
               email: currentUser.email,
               first_name: metadata.first_name || '',
               last_name: metadata.last_name || '',
               school: metadata.school || '',
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
-              bcoins: 0
+              bcoins: 0,
             })
             .select()
             .single();
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { profData, roleData, metadata } = result;
 
       setProfile({
-        id: currentUser.id,
+        id: profData?.id || currentUser.id,
         first_name: profData?.first_name || metadata.first_name || 'Student',
         last_name: profData?.last_name || metadata.last_name || '',
         section: profData?.section || metadata.section || 'N/A',

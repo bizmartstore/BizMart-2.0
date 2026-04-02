@@ -20,6 +20,7 @@ export type Database = {
           grade_level: string | null;
           section: string | null;
           avatar_url: string | null;
+          bcoins: number;
           created_at: string;
           updated_at: string;
         };
@@ -32,6 +33,7 @@ export type Database = {
           grade_level?: string | null;
           section?: string | null;
           avatar_url?: string | null;
+          bcoins?: number;
         };
         Update: {
           first_name?: string;
@@ -40,6 +42,7 @@ export type Database = {
           grade_level?: string | null;
           section?: string | null;
           avatar_url?: string | null;
+          bcoins?: number;
         };
       };
       job_postings: {
