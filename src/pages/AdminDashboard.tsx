@@ -43,6 +43,7 @@ export default function AdminDashboard() {
   const { isAdmin, isMainAdmin } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
+  const [refreshKey, setRefreshKey] = useState(0);
 
   // Wait for auth to be fully ready before evaluating access
   if (!isAuthReady) {
@@ -94,6 +95,11 @@ export default function AdminDashboard() {
     setActiveTab(defaultTab.id);
   }
 
+  const handleRefreshAll = () => {
+    setRefreshKey(prev => prev + 1);
+    toast.success("Dashboard refreshed!");
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
@@ -105,7 +111,7 @@ export default function AdminDashboard() {
               {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+          <Button size="sm" variant="outline" onClick={handleRefreshAll}>
             <RefreshCw className="h-4 w-4 mr-2" /> Refresh
           </Button>
         </div>
@@ -124,21 +130,23 @@ export default function AdminDashboard() {
             ))}
           </TabsList>
 
-          <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="sellers"><SellersTab /></TabsContent>
-          <TabsContent value="print"><PrintTab /></TabsContent>
-          <TabsContent value="messages"><MessagesTab /></TabsContent>
-          <TabsContent value="codes"><CodesTab /></TabsContent>
-          <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
-          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
-          <TabsContent value="gcash"><GCashTab /></TabsContent>
-          <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
-          <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
+          <div key={refreshKey}>
+            <TabsContent value="overview"><OverviewTab /></TabsContent>
+            <TabsContent value="orders"><OrdersTab /></TabsContent>
+            <TabsContent value="products"><ProductsTab /></TabsContent>
+            <TabsContent value="users"><UsersTab /></TabsContent>
+            <TabsContent value="sellers"><SellersTab /></TabsContent>
+            <TabsContent value="print"><PrintTab /></TabsContent>
+            <TabsContent value="messages"><MessagesTab /></TabsContent>
+            <TabsContent value="codes"><CodesTab /></TabsContent>
+            <TabsContent value="news"><NewsTab /></TabsContent>
+            <TabsContent value="club"><ClubTab /></TabsContent>
+            <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
+            <TabsContent value="gcash"><GCashTab /></TabsContent>
+            <TabsContent value="jobs"><JobsTab /></TabsContent>
+            <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
+            <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
+          </div>
         </Tabs>
       </div>
       <BottomNav />

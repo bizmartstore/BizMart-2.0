@@ -80,6 +80,7 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
         member_admin_earnings: memberAdminCommission,
         sold_by: user.id,
         customer_name: customerName.trim(),
+        status: "completed",
       });
 
       toast.success(`Sale completed! ₱${subtotal.toFixed(2)}`);
@@ -185,6 +186,7 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
         member_admin_earnings: totalCost * 0.5,
         sold_by: user.id,
         customer_name: customerName.trim(),
+        status: "completed",
       });
 
       toast.success(`Print sale completed! ₱${totalCost.toFixed(2)}`);
@@ -280,6 +282,12 @@ export default function POSTab({ role }: { role: string; onSaleComplete: () => v
 
   useEffect(() => { loadSales(); }, [loadSales]);
 
+  // Expose refresh function via callback
+  const handleSaleComplete = useCallback(() => {
+    loadSales();
+    if (onSaleComplete) onSaleComplete();
+  }, [loadSales, onSaleComplete]);
+
   return (
     <div className="space-y-4 pb-6">
       <div className="grid grid-cols-2 gap-2">
@@ -299,8 +307,8 @@ export default function POSTab({ role }: { role: string; onSaleComplete: () => v
           <TabsTrigger value="print" className="text-[10px] gap-1"><Printer className="h-3 w-3" />Printing</TabsTrigger>
           <TabsTrigger value="history" className="text-[10px] gap-1"><Receipt className="h-3 w-3" />History</TabsTrigger>
         </TabsList>
-        <TabsContent value="product"><ProductPOS role={role} onSaleComplete={loadSales} /></TabsContent>
-        <TabsContent value="print"><PrintPOS role={role} onSaleComplete={loadSales} /></TabsContent>
+        <TabsContent value="product"><ProductPOS role={role} onSaleComplete={handleSaleComplete} /></TabsContent>
+        <TabsContent value="print"><PrintPOS role={role} onSaleComplete={handleSaleComplete} /></TabsContent>
         <TabsContent value="history"><SalesHistory sales={sales} /></TabsContent>
       </Tabs>
     </div>
