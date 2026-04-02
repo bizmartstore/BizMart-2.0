@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Users, ShoppingCart, Printer, TrendingUp, DollarSign, Clock, CheckCircle2 } from "lucide-react";
+import { Package, Users, ShoppingCart, Printer, DollarSign, Clock } from "lucide-react";
 
 export default function OverviewTab() {
   const [stats, setStats] = useState({
@@ -15,8 +15,6 @@ export default function OverviewTab() {
     totalClubMembers: 0,
     totalGCashTransactions: 0,
     pendingGCashTransactions: 0,
-    totalPOSSales: 0,
-    posRevenue: 0,
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,11 +28,6 @@ export default function OverviewTab() {
       const pendingOrders = orders?.filter((o: any) => o.status === "pending").length || 0;
       const completedOrders = orders?.filter((o: any) => o.status === "completed").length || 0;
       const ordersRevenue = orders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.total || 0), 0) || 0;
-
-      // POS Sales stats (manual purchases)
-      const { data: posSales } = await (supabase as any).from("pos_sales").select("total, status");
-      const totalPOSSales = posSales?.length || 0;
-      const posRevenue = posSales?.reduce((sum: number, p: any) => sum + Number(p.total || 0), 0) || 0;
 
       // Print orders stats
       const { data: printOrders } = await (supabase as any).from("print_orders").select("status, cost");
@@ -56,24 +49,22 @@ export default function OverviewTab() {
       const totalGCashTransactions = gcashTxns?.length || 0;
       const pendingGCashTransactions = gcashTxns?.filter((t: any) => t.status === "pending").length || 0;
 
-      // Recent activity - combine orders, print orders, and pos sales
-      const [recentOrdersData, recentPrintData, recentPOSData] = await Promise.all([
+      // Recent activity - combine orders and print orders
+      const [recentOrdersData, recentPrintData] = await Promise.all([
         (supabase as any).from("orders").select("*").order("created_at", { ascending: false }).limit(3),
         (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }).limit(3),
-        (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }).limit(3),
       ]);
 
       const combined = [
         ...(recentOrdersData.data || []).map((o: any) => ({ ...o, type: 'order' })),
         ...(recentPrintData.data || []).map((p: any) => ({ ...p, type: 'print' })),
-        ...(recentPOSData.data || []).map((p: any) => ({ ...p, type: 'pos' })),
       ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
 
       setStats({
         totalOrders,
         pendingOrders,
         completedOrders,
-        totalRevenue: ordersRevenue + posRevenue + printRevenue, // Include all revenue sources
+        totalRevenue: ordersRevenue + printRevenue,
         totalUsers: totalUsers || 0,
         totalPrintOrders,
         pendingPrintOrders,
@@ -81,8 +72,6 @@ export default function OverviewTab() {
         totalClubMembers: totalClubMembers || 0,
         totalGCashTransactions,
         pendingGCashTransactions,
-        totalPOSSales,
-        posRevenue,
       });
       setRecentOrders(combined);
     } catch (e) {
@@ -106,8 +95,8 @@ export default function OverviewTab() {
             <ShoppingCart className="h-5 w-5 text-primary" />
             <span className="text-xs font-bold text-muted-foreground">Total Orders</span>
           </div>
-          <p className="text-2xl font-extrabold">{stats.totalOrders + stats.totalPOSSales}</p>
-          <p className="text-[10px] text-muted-foreground">{stats.pendingOrders} pending product orders</p>
+          <p className="text-2xl font-extrabold">{stats.totalOrders}</p>
+          <p className="text-[10px] text-muted-foreground">{stats.pendingOrders} pending</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -146,8 +135,8 @@ export default function OverviewTab() {
           <p className="text-[10px] text-muted-foreground font-bold">GCash Transactions</p>
         </div>
         <div className="bg-card rounded-xl p-3 border border-border text-center">
-          <p className="text-lg font-extrabold text-warning">{stats.totalPOSSales}</p>
-          <p className="text-[10px] text-muted-foreground font-bold">POS Sales</p>
+          <p className="text-lg font-extrabold text-warning">{stats.completedOrders}</p>
+          <p className="text-[10px] text-muted-foreground font-bold">Completed Orders</p>
         </div>
       </div>
 
@@ -161,21 +150,17 @@ export default function OverviewTab() {
         ) : (
           <div className="space-y-2">
             {recentOrders.map((item: any, idx: number) => {
-              const isPOS = item.type === 'pos';
               const isPrint = item.type === 'print';
               const isOrder = item.type === 'order';
               
               return (
                 <div key={`${item.type}-${item.id}-${idx}`} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
                   <div className="flex items-center gap-2">
-                    {isPOS && <ShoppingCart className="h-4 w-4 text-primary" />}
                     {isPrint && <Printer className="h-4 w-4 text-purple-500" />}
                     {isOrder && <Package className="h-4 w-4 text-secondary" />}
                     <div>
                       <p className="text-xs font-bold">
-                        {isPOS ? `POS: ${item.customer_name || 'Walk-in'}` : 
-                         isPrint ? `Print: ${item.file_name}` : 
-                         `Order: ${item.customer_name || 'Customer'}`}
+                        {isPrint ? `Print: ${item.file_name}` : `Order: ${item.customer_name || 'Customer'}`}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
                         #{item.id.slice(0, 8)} • {new Date(item.created_at).toLocaleDateString()}

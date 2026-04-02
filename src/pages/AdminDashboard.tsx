@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, Package, ShoppingCart, Printer, MessageCircle,
-  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket
+  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket, Award
 } from "lucide-react";
 import { toast } from "sonner";
 import OverviewTab from "@/components/admin/OverviewTab";
@@ -26,13 +26,16 @@ import SellersTab from "@/components/admin/SellersTab";
 import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
+import FreelancersTab from "@/components/admin/FreelancersTab";
 
-// Define which tabs member admins can access (removed POS)
+// Define which tabs member admins can access
 const MEMBER_ADMIN_ALLOWED_TABS = [
   "orders",
+  "print",
   "news",
   "gcash",
   "jobs",
+  "freelancers",
   "settings"
 ];
 
@@ -60,7 +63,7 @@ export default function AdminDashboard() {
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
 
-  // Define all available tabs (removed POS)
+  // Define all available tabs
   const allTabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingCart },
@@ -75,6 +78,7 @@ export default function AdminDashboard() {
     { id: "bcoins", label: "BCoins", icon: Coins },
     { id: "gcash", label: "GCash", icon: Coins },
     { id: "jobs", label: "Jobs", icon: Briefcase },
+    { id: "freelancers", label: "Freelancers", icon: Award },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -134,6 +138,7 @@ export default function AdminDashboard() {
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
+          <TabsContent value="freelancers"><FreelancersTab /></TabsContent>
           <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
         </Tabs>
       </div>
