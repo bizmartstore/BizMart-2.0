@@ -52,20 +52,32 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
 
   // Safety timeout for splash screen
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 5000);
+    const timer = setTimeout(() => setShowSplash(false), 4000);
     return () => clearTimeout(timer);
   }, []);
+
+  // Safety timeout for auth loading to prevent infinite white screen
+  useEffect(() => {
+    if (!showSplash && authLoading) {
+      const timer = setTimeout(() => {
+        console.warn("[App] Auth loading timeout - forcing ready state");
+        setAuthReady(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else if (!authLoading) {
+      setAuthReady(true);
+    }
+  }, [showSplash, authLoading]);
 
   if (showSplash) {
     return <SplashScreen onFinished={() => setShowSplash(false)} />;
   }
 
-  if (authLoading) {
+  if (!authReady) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
