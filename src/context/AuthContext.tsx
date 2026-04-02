@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -33,6 +33,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
@@ -82,7 +83,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
-        return { profData, roleData, metadata };
+        // 4. Fetch wallet balance (source of truth for BCoins)
+        const { data: wallet } = await supabase
+          .from("bcoins_wallets")
+          .select("balance")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        return { profData, roleData, metadata, wallet };
       })();
 
       // Timeout after 3 seconds
@@ -91,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       const result = await Promise.race([profilePromise, timeoutPromise]) as any;
-      const { profData, roleData, metadata } = result;
+      const { profData, roleData, metadata, wallet } = result;
 
       setProfile({
         id: currentUser.id,
@@ -102,11 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         school: profData?.school || metadata.school || 'N/A',
         email: profData?.email || currentUser.email || '',
         avatar_url: profData?.avatar_url || metadata.avatar_url || null,
-        bcoins: Number(profData?.bcoins || 0),
+        bcoins: Number(wallet?.balance || profData?.bcoins || 0),  // Use wallet balance as source of truth
         role: roleData?.role || 'customer',
       });
       
-      console.log("[AuthContext] Profile loaded successfully");
+      console.log("[AuthContext] Profile loaded successfully with bcoins:", Number(wallet?.balance || profData?.bcoins || 0));
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
       // Fallback to metadata if DB fails or times out
@@ -127,16 +135,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user);
+    if (user && mounted.current) await fetchProfile(user);
   };
 
   useEffect(() => {
-    let mounted = true;
+    let isMounted = true;
+    mounted.current = isMounted;
 
     const init = async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
-        if (!mounted) return;
+        if (!isMounted) return;
         
         setSession(s);
         setUser(s?.user ?? null);
@@ -147,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
       } finally {
-        if (mounted) {
+        if (isMounted) {
           setLoading(false);
           console.log("[AuthContext] Initialization complete");
         }
@@ -158,7 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
       console.log(`[AuthContext] Auth state changed: ${event}`);
-      if (!mounted) return;
+      if (!isMounted) return;
 
       setSession(s);
       setUser(s?.user ?? null);
@@ -174,18 +183,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Safety fallback: always stop loading after 6 seconds max
     const safetyTimer = setTimeout(() => {
-      if (mounted && loading) {
+      if (isMounted && loading) {
         console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
         setLoading(false);
       }
     }, 6000);
 
     return () => {
-      mounted = false;
+      isMounted = false;
+      mounted.current = false;
       subscription?.unsubscribe();
       clearTimeout(safetyTimer);
     };
   }, [fetchProfile]);
+
+  // Subscribe to wallet changes to update bcoins in real-time
+  useEffect(() => {
+    if (!user) return;
+
+    // First, sync current wallet balance to profile (handles out-of-sync scenarios)
+    const syncWallet = async () => {
+      const { data: wallet } = await supabase
+        .from("bcoins_wallets")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (wallet && profile) {
+        const walletBcoins = Number(wallet.balance);
+        if (profile.bcoins !== walletBcoins) {
+          setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
+        }
+      }
+    };
+
+    syncWallet();
+
+    const channel = supabase
+      .channel(`wallet-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bcoins_wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          if (!mounted.current) return;
+          if (payload.event === 'DELETE') {
+            setProfile(prev => prev ? { ...prev, bcoins: 0 } : prev);
+          } else if (payload.new) {
+            setProfile(prev => prev ? { ...prev, bcoins: payload.new.balance } : prev);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, profile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
