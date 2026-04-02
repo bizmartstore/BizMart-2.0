@@ -6,11 +6,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Save, Loader2, Zap, Store, DollarSign, Users } from "lucide-react";
+import { Save, Loader2, Zap, Store, DollarSign, Users, LogOut } from "lucide-react";
 import { useAppSettings } from "@/hooks/useAppSettings";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 export default function SettingsTab() {
   const { storeOpen, closeMessage, gcashFee, allSettings, loading: settingsLoading } = useAppSettings();
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const [settings, setSettings] = useState({
     storeOpen: storeOpen,
     closeMessage: closeMessage,
@@ -69,6 +73,16 @@ export default function SettingsTab() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      toast.error("Failed to logout");
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -116,6 +130,15 @@ export default function SettingsTab() {
         {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
         {isSaving ? "Saving..." : "Save Settings"}
       </Button>
+
+      <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4">
+        <h3 className="font-bold text-sm text-destructive mb-2">Danger Zone</h3>
+        <p className="text-[10px] text-muted-foreground mb-3">Log out of your admin account and return to the login page.</p>
+        <Button onClick={handleLogout} variant="destructive" className="w-full gap-2">
+          <LogOut className="h-4 w-4" />
+          Logout
+        </Button>
+      </div>
     </div>
   );
 }
