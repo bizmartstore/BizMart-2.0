@@ -1,6 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "sonner";
 import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
@@ -8,30 +8,30 @@ import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
 import { useState } from "react";
 
-// Pages
-import Index from "@/pages/Index";
-import LoginPage from "@/pages/LoginPage";
-import SignUpPage from "@/pages/SignUpPage";
-import CategoriesPage from "@/pages/CategoriesPage";
-import MarketplacePage from "@/pages/MarketplacePage";
-import ProductDetail from "@/pages/ProductDetail";
-import CartPage from "@/pages/CartPage";
-import OrdersPage from "@/pages/OrdersPage";
-import ProfilePage from "@/pages/ProfilePage";
-import BCoinsPage from "@/pages/BCoinsPage";
-import GCashPage from "@/pages/GCashPage";
-import ClubPage from "@/pages/ClubPage";
-import MessagesPage from "@/pages/MessagesPage";
-import SellersPage from "@/pages/SellersPage";
-import StoreViewPage from "@/pages/StoreViewPage";
-import SellerStorePage from "@/pages/SellerStorePage";
-import JobsPage from "@/pages/JobsPage";
-import JobPostPage from "@/pages/JobPostPage";
-import JobDetailPage from "@/pages/JobDetailPage";
-import FreelancerApplyPage from "@/pages/FreelancerApplyPage";
-import AdminDashboard from "@/pages/AdminDashboard";
-import NotFound from "@/pages/NotFound";
-import SearchPage from "@/pages/SearchPage";
+// Pages (using named imports to match file exports)
+import { Index } from "@/pages/Index";
+import { LoginPage } from "@/pages/LoginPage";
+import { SignUpPage } from "@/pages/SignUpPage";
+import { CategoriesPage } from "@/pages/CategoriesPage";
+import { MarketplacePage } from "@/pages/MarketplacePage";
+import { ProductDetail } from "@/pages/ProductDetail";
+import { CartPage } from "@/pages/CartPage";
+import { OrdersPage } from "@/pages/OrdersPage";
+import { ProfilePage } from "@/pages/ProfilePage";
+import { BCoinsPage } from "@/pages/BCoinsPage";
+import { GCashPage } from "@/pages/GCashPage";
+import { ClubPage } from "@/pages/ClubPage";
+import { MessagesPage } from "@/pages/MessagesPage";
+import { SellersPage } from "@/pages/SellersPage";
+import { StoreViewPage } from "@/pages/StoreViewPage";
+import { SellerStorePage } from "@/pages/SellerStorePage";
+import { JobsPage } from "@/pages/JobsPage";
+import { JobPostPage } from "@/pages/JobPostPage";
+import { JobDetailPage } from "@/pages/JobDetailPage";
+import { FreelancerApplyPage } from "@/pages/FreelancerApplyPage";
+import { AdminDashboard } from "@/pages/AdminDashboard";
+import { NotFound } from "@/pages/NotFound";
+import { SearchPage } from "@/pages/SearchPage";
 
 const queryClient = new QueryClient();
 

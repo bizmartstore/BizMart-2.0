@@ -15,8 +15,8 @@ import SellersTab from "@/components/admin/SellersTab";
 import CodesTab from "@/components/admin/CodesTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import NewsTab from "@/components/admin/NewsTab";
-import AdminMessagesTab from "@/components/admin/AdminMessagesTab";
-import POSTab from "@/components/admin/POSTab";
+import { AdminMessagesTab } from "@/components/admin/AdminMessagesTab";
+import { POSTab } from "@/components/admin/POSTab";
 import JobsTab from "@/components/admin/JobsTab";
 
 export default function AdminDashboard() {
