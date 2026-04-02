@@ -51,23 +51,36 @@ export default function AdminDashboard() {
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
 
-  const tabs = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "orders", label: "Orders", icon: ShoppingCart },
-    { id: "products", label: "Products", icon: Package },
-    { id: "users", label: "Users", icon: Users },
-    { id: "sellers", label: "Sellers", icon: Crown },
-    { id: "print", label: "Print", icon: Printer },
-    { id: "messages", label: "Messages", icon: MessageCircle },
-    { id: "codes", label: "Codes", icon: Ticket },
-    { id: "news", label: "News", icon: Bell },
-    { id: "club", label: "Club", icon: Crown },
-    { id: "bcoins", label: "BCoins", icon: Coins },
-    { id: "gcash", label: "GCash", icon: Coins },
-    { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "pos", label: "POS", icon: ShoppingCart },
-    { id: "settings", label: "Settings", icon: Settings },
+  // Define tabs with their permissions
+  const allTabs = [
+    { id: "overview", label: "Overview", icon: BarChart3, roles: ["main_admin", "member_admin"] },
+    { id: "orders", label: "Orders", icon: ShoppingCart, roles: ["main_admin", "member_admin"] },
+    { id: "products", label: "Products", icon: Package, roles: ["main_admin", "member_admin"] },
+    { id: "users", label: "Users", icon: Users, roles: ["main_admin"] },
+    { id: "sellers", label: "Sellers", icon: Crown, roles: ["main_admin"] },
+    { id: "print", label: "Print", icon: Printer, roles: ["main_admin", "member_admin"] },
+    { id: "messages", label: "Messages", icon: MessageCircle, roles: ["main_admin", "member_admin"] },
+    { id: "codes", label: "Codes", icon: Ticket, roles: ["main_admin"] },
+    { id: "news", label: "News", icon: Bell, roles: ["main_admin", "member_admin"] },
+    { id: "club", label: "Club", icon: Crown, roles: ["main_admin"] },
+    { id: "bcoins", label: "BCoins", icon: Coins, roles: ["main_admin"] },
+    { id: "gcash", label: "GCash", icon: Coins, roles: ["main_admin", "member_admin"] },
+    { id: "jobs", label: "Jobs", icon: Briefcase, roles: ["main_admin", "member_admin"] },
+    { id: "pos", label: "POS", icon: ShoppingCart, roles: ["main_admin", "member_admin"] },
+    { id: "settings", label: "Settings", icon: Settings, roles: ["main_admin"] },
   ];
+
+  // Filter tabs based on user role
+  const allowedTabs = allTabs.filter(tab => 
+    tab.roles.includes(isMainAdmin ? "main_admin" : "member_admin")
+  );
+
+  // Set first allowed tab as default if current tab is not allowed
+  useEffect(() => {
+    if (!allowedTabs.find(t => t.id === activeTab)) {
+      setActiveTab(allowedTabs[0]?.id || "overview");
+    }
+  }, [activeTab, allowedTabs]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -87,7 +100,7 @@ export default function AdminDashboard() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
-            {tabs.map((tab) => (
+            {allowedTabs.map((tab) => (
               <TabsTrigger 
                 key={tab.id} 
                 value={tab.id} 
@@ -102,18 +115,18 @@ export default function AdminDashboard() {
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="sellers"><SellersTab /></TabsContent>
+          {allowedTabs.find(t => t.id === "users") && <TabsContent value="users"><UsersTab /></TabsContent>}
+          {allowedTabs.find(t => t.id === "sellers") && <TabsContent value="sellers"><SellersTab /></TabsContent>}
           <TabsContent value="print"><PrintTab /></TabsContent>
           <TabsContent value="messages"><MessagesTab /></TabsContent>
-          <TabsContent value="codes"><CodesTab /></TabsContent>
+          {allowedTabs.find(t => t.id === "codes") && <TabsContent value="codes"><CodesTab /></TabsContent>}
           <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
-          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
+          {allowedTabs.find(t => t.id === "club") && <TabsContent value="club"><ClubTab /></TabsContent>}
+          {allowedTabs.find(t => t.id === "bcoins") && <TabsContent value="bcoins"><BCoinsTab /></TabsContent>}
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
           <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
-          <TabsContent value="settings"><SettingsTab /></TabsContent>
+          {allowedTabs.find(t => t.id === "settings") && <TabsContent value="settings"><SettingsTab /></TabsContent>}
         </Tabs>
       </div>
       <BottomNav />

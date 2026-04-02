@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Search, Shield, Crown, User, RefreshCw, AlertCircle } from "lucide-react";
+import { useAdmin } from "@/hooks/useAdmin";
 
 export default function UsersTab() {
+  const { isMainAdmin } = useAdmin();
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -42,6 +44,12 @@ export default function UsersTab() {
   useEffect(() => { load(); }, [load]);
 
   const assignRole = async (userId: string, role: string) => {
+    // Only main_admin can assign roles
+    if (!isMainAdmin) {
+      toast.error("Only main admin can modify user roles");
+      return;
+    }
+
     try {
       await (supabase as any).from("user_roles").delete().eq("user_id", userId);
       if (role !== "customer") {
@@ -101,16 +109,22 @@ export default function UsersTab() {
               <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
               <p className="text-[9px] text-muted-foreground">{u.school} • {u.grade_level} - {u.section}</p>
             </div>
-            <Select value={u.role} onValueChange={(v) => assignRole(u.user_id, v)}>
-              <SelectTrigger className="w-28 h-8 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="customer">Customer</SelectItem>
-                <SelectItem value="member_admin">Member Admin</SelectItem>
-                <SelectItem value="main_admin">Main Admin</SelectItem>
-              </SelectContent>
-            </Select>
+            {isMainAdmin ? (
+              <Select value={u.role} onValueChange={(v) => assignRole(u.user_id, v)}>
+                <SelectTrigger className="w-28 h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="customer">Customer</SelectItem>
+                  <SelectItem value="member_admin">Member Admin</SelectItem>
+                  <SelectItem value="main_admin">Main Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <span className="text-[10px] text-muted-foreground font-medium px-2 py-1 bg-muted rounded-md">
+                {u.role} (Read-only)
+              </span>
+            )}
           </div>
         ))}
         {filtered.length === 0 && !loading && (

@@ -8,8 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Save, Loader2, Zap, Store, DollarSign, Users } from "lucide-react";
 import { useAppSettings } from "@/hooks/useAppSettings";
+import { useAdmin } from "@/hooks/useAdmin";
 
 export default function SettingsTab() {
+  const { isMainAdmin } = useAdmin();
   const { storeOpen, closeMessage, gcashFee, allSettings, loading: settingsLoading } = useAppSettings();
   const [settings, setSettings] = useState({
     storeOpen: storeOpen,
@@ -26,6 +28,11 @@ export default function SettingsTab() {
   }, [allSettings]);
 
   const saveSettings = async () => {
+    if (!isMainAdmin) {
+      toast.error("Only main admin can modify settings");
+      return;
+    }
+
     setIsSaving(true);
     try {
       const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
@@ -57,6 +64,11 @@ export default function SettingsTab() {
   };
 
   const triggerFlashSale = async () => {
+    if (!isMainAdmin) {
+      toast.error("Only main admin can trigger flash sales");
+      return;
+    }
+
     try {
       const { data } = await supabase.functions.invoke("rotate-flash-sale");
       if (data?.rotated) {
@@ -68,6 +80,18 @@ export default function SettingsTab() {
       toast.error(e.message || "Failed to trigger flash sale");
     }
   };
+
+  if (!isMainAdmin) {
+    return (
+      <div className="space-y-4">
+        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 text-center">
+          <Settings className="h-8 w-8 text-warning mx-auto mb-2" />
+          <h3 className="font-bold text-sm text-warning mb-1">Main Admin Only</h3>
+          <p className="text-[11px] text-muted-foreground">System settings management is restricted to main administrators only.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, Store, RefreshCw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAdmin } from "@/hooks/useAdmin";
 
 export default function SellersTab() {
+  const { isMainAdmin } = useAdmin();
   const [sellers, setSellers] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
   const [search, setSearch] = useState("");
@@ -67,6 +69,12 @@ export default function SellersTab() {
   useEffect(() => { load(); }, [load]);
 
   const updateApplication = async (id: string, status: string, notes: string = "") => {
+    // Only main_admin can update applications
+    if (!isMainAdmin) {
+      toast.error("Only main admin can manage seller applications");
+      return;
+    }
+
     setUpdating(id);
     try {
       await (supabase as any)
@@ -83,6 +91,12 @@ export default function SellersTab() {
   };
 
   const toggleSeller = async (id: string, active: boolean) => {
+    // Only main_admin can activate/deactivate sellers
+    if (!isMainAdmin) {
+      toast.error("Only main admin can modify seller status");
+      return;
+    }
+
     setUpdating(id);
     try {
       await (supabase as any)
@@ -129,6 +143,11 @@ export default function SellersTab() {
               <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
+          {!isMainAdmin && (
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-2">
+              <p className="text-[10px] text-warning font-semibold">⚠️ Member admins can view sellers but cannot modify them.</p>
+            </div>
+          )}
           <div className="space-y-2 max-h-[500px] overflow-y-auto">
             {filteredSellers.map(s => {
               const profile = profilesMap[s.user_id];
@@ -159,16 +178,22 @@ export default function SellersTab() {
                   {s.store_saying && <p className="text-[10px] text-primary italic mb-2">"{s.store_saying}"</p>}
                   {s.location && <p className="text-[10px] text-muted-foreground mb-2">📍 {s.location}</p>}
                   <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant={s.is_active ? "destructive" : "default"}
-                      onClick={() => toggleSeller(s.id, s.is_active)}
-                      disabled={updating === s.id}
-                      className="flex-1 text-[10px]"
-                    >
-                      {updating === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
-                      {s.is_active ? "Deactivate" : "Activate"}
-                    </Button>
+                    {isMainAdmin ? (
+                      <Button
+                        size="sm"
+                        variant={s.is_active ? "destructive" : "default"}
+                        onClick={() => toggleSeller(s.id, s.is_active)}
+                        disabled={updating === s.id}
+                        className="flex-1 text-[10px]"
+                      >
+                        {updating === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+                        {s.is_active ? "Deactivate" : "Activate"}
+                      </Button>
+                    ) : (
+                      <Button size="sm" variant="outline" disabled className="flex-1 text-[10px]">
+                        Member Admin (Read-only)
+                      </Button>
+                    )}
                   </div>
                 </div>
               );
@@ -196,6 +221,11 @@ export default function SellersTab() {
               <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
             </Button>
           </div>
+          {!isMainAdmin && (
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-2">
+              <p className="text-[10px] text-warning font-semibold">⚠️ Member admins can view applications but cannot approve/reject them.</p>
+            </div>
+          )}
           <div className="space-y-2 max-h-[500px] overflow-y-auto">
             {filteredApps.map(app => {
               const profile = profilesMap[app.user_id];
@@ -217,7 +247,7 @@ export default function SellersTab() {
                     </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mb-2 line-clamp-2">{app.reason}</p>
-                  {app.status === "pending" && (
+                  {app.status === "pending" && isMainAdmin && (
                     <div className="flex gap-2">
                       <Button
                         size="sm"
@@ -239,6 +269,9 @@ export default function SellersTab() {
                         Reject
                       </Button>
                     </div>
+                  )}
+                  {app.status === "pending" && !isMainAdmin && (
+                    <p className="text-[10px] text-muted-foreground italic">Only main admin can approve/reject</p>
                   )}
                   {app.admin_notes && (
                     <p className="text-[10px] text-muted-foreground mt-2">Admin note: {app.admin_notes}</p>
