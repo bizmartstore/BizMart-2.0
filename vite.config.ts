@@ -13,8 +13,15 @@ export default defineConfig(() => ({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "inline",
+      injectRegister: "auto",
       strategies: "generateSW",
+      workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
+        navigateFallback: null,
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+      },
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",
