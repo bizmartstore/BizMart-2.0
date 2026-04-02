@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/context/AuthContext";
 
+/**
+ * Redirects authenticated admin users to /admin if they land on customer pages.
+ */
 export default function AdminAutoRedirect() {
   const { user, loading: authLoading } = useAuth();
   const { isAdmin, loading: roleLoading } = useAdmin();
@@ -10,11 +13,20 @@ export default function AdminAutoRedirect() {
   const location = useLocation();
 
   useEffect(() => {
-    if (authLoading || roleLoading) return;
-    if (!user || !isAdmin) return;
+    // Wait for both auth and role loading to complete
+    if (authLoading || roleLoading) {
+      return;
+    }
 
+    if (!user || !isAdmin) {
+      return;
+    }
+
+    // Only redirect from customer-facing pages, not from admin or auth pages
     const adminPaths = ["/admin", "/login", "/signup"];
-    if (adminPaths.some((p) => location.pathname.startsWith(p))) return;
+    if (adminPaths.some((p) => location.pathname.startsWith(p))) {
+      return;
+    }
 
     console.log('[AdminAutoRedirect] Redirecting admin to /admin');
     navigate("/admin", { replace: true });

@@ -34,86 +34,109 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
-  const profileRef = useRef<Profile | null>(null);
-  const roleRef = useRef<string>('customer');
-
-  useEffect(() => {
-    profileRef.current = profile;
-  }, [profile]);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
     
     try {
-      const { data: profData } = await (supabase as any)
-        .from("profiles")
-        .select("*")
-        .eq("id", currentUser.id)
-        .maybeSingle();
-
-      const metadata = currentUser.user_metadata || {};
-
-      let finalProfData = profData;
-      if (!profData) {
-        console.log("[AuthContext] Profile missing, creating...");
-        const { data: newProf } = await (supabase as any)
+      // Use a Promise.race to ensure we don't hang forever on a slow DB query
+      const profilePromise = (async () => {
+        // 1. Try to fetch existing profile
+        let { data: profData, error: profError } = await supabase
           .from("profiles")
-          .insert({
-            id: currentUser.id,
-            email: currentUser.email,
-            first_name: metadata.first_name || '',
-            last_name: metadata.last_name || '',
-            school: metadata.school || '',
-            section: metadata.section || '',
-            grade_level: metadata.grade_level || '',
-            bcoins: 0
-          } as any)
-          .select()
-          .single();
-        
-        if (newProf) finalProfData = newProf;
-      }
+          .select("*")
+          .eq("id", currentUser.id)
+          .maybeSingle();
 
-      const { data: roleData } = await (supabase as any)
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
+        if (profError) {
+          console.warn("[AuthContext] Profile fetch error:", profError.message);
+        }
 
-      const { data: wallet } = await (supabase as any)
-        .from("bcoins_wallets")
-        .select("balance")
-        .eq("user_id", currentUser.id)
-        .maybeSingle();
+        const metadata = currentUser.user_metadata || {};
 
-      const previousRole = roleRef.current;
-      const newProfile: Profile = {
+        // 2. If profile is missing, create it
+        if (!profData && !profError) {
+          console.log("[AuthContext] Profile missing, creating...");
+          const { data: newProf, error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: currentUser.id,
+              email: currentUser.email,
+              first_name: metadata.first_name || '',
+              last_name: metadata.last_name || '',
+              school: metadata.school || '',
+              section: metadata.section || '',
+              grade_level: metadata.grade_level || '',
+              bcoins: 0
+            })
+            .select()
+            .single();
+          
+          if (!insertError) profData = newProf;
+          else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+        }
+
+        // 3. Fetch role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        // 4. Fetch wallet balance (source of truth for BCoins)
+        const { data: wallet } = await supabase
+          .from("bcoins_wallets")
+          .select("balance")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        return { profData, roleData, metadata, wallet };
+      })();
+
+      // Timeout after 3 seconds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
+      );
+
+      const result = await Promise.race([profilePromise, timeoutPromise]) as any;
+      const { profData, roleData, metadata, wallet } = result;
+
+      setProfile({
         id: currentUser.id,
-        first_name: finalProfData?.first_name || metadata.first_name || 'Student',
-        last_name: finalProfData?.last_name || metadata.last_name || '',
-        section: finalProfData?.section || metadata.section || 'N/A',
-        grade_level: finalProfData?.grade_level || metadata.grade_level || 'N/A',
-        school: finalProfData?.school || metadata.school || 'N/A',
-        email: finalProfData?.email || currentUser.email || '',
-        avatar_url: finalProfData?.avatar_url || metadata.avatar_url || null,
-        bcoins: Number(wallet?.balance || finalProfData?.bcoins || 0),
-        role: roleData?.role || previousRole || 'customer',
-      };
+        first_name: profData?.first_name || metadata.first_name || 'Student',
+        last_name: profData?.last_name || metadata.last_name || '',
+        section: profData?.section || metadata.section || 'N/A',
+        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
+        school: profData?.school || metadata.school || 'N/A',
+        email: profData?.email || currentUser.email || '',
+        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(wallet?.balance || profData?.bcoins || 0),  // Use wallet balance as source of truth
+        role: roleData?.role || 'customer',
+      });
       
-      roleRef.current = newProfile.role;
-      setProfile(newProfile);
-      console.log("[AuthContext] Profile loaded successfully with role:", newProfile.role);
+      console.log("[AuthContext] Profile loaded successfully with bcoins:", Number(wallet?.balance || profData?.bcoins || 0));
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      console.log("[AuthContext] Keeping existing role:", roleRef.current);
+      // Fallback to metadata if DB fails or times out
+      const metadata = currentUser.user_metadata || {};
+      setProfile({
+        id: currentUser.id,
+        first_name: metadata.first_name || 'Student',
+        last_name: metadata.last_name || '',
+        section: metadata.section || 'N/A',
+        grade_level: metadata.grade_level || 'N/A',
+        school: metadata.school || 'N/A',
+        email: currentUser.email || '',
+        avatar_url: metadata.avatar_url || null,
+        bcoins: 0,
+        role: 'customer',
+      });
     }
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    if (user && mounted.current) {
-      await fetchProfile(user);
-    }
-  }, [user, fetchProfile]);
+  const refreshProfile = async () => {
+    if (user && mounted.current) await fetchProfile(user);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -123,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!isMounted) return;
+        
         setSession(s);
         setUser(s?.user ?? null);
         
@@ -157,18 +181,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     });
 
+    // Safety fallback: always stop loading after 6 seconds max
+    const safetyTimer = setTimeout(() => {
+      if (isMounted && loading) {
+        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
+        setLoading(false);
+      }
+    }, 6000);
+
     return () => {
       isMounted = false;
       mounted.current = false;
       subscription?.unsubscribe();
+      clearTimeout(safetyTimer);
     };
   }, [fetchProfile]);
 
+  // Subscribe to wallet changes to update bcoins in real-time
   useEffect(() => {
     if (!user) return;
 
+    // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
-      const { data: wallet } = await (supabase as any)
+      const { data: wallet } = await supabase
         .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)

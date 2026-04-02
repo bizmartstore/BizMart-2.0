@@ -11,7 +11,6 @@ import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
-import { Loader2 } from "lucide-react";
 
 // Pages
 import Index from "@/pages/Index";
@@ -52,86 +51,17 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  const [authReady, setAuthReady] = useState(false);
-
-  // Persist query client to localStorage to prevent empty state on restart
-  useEffect(() => {
-    const hydrate = () => {
-      try {
-        const persisted = localStorage.getItem('query-cache');
-        if (persisted) {
-          const parsed = JSON.parse(persisted);
-          const timestamp = parsed._timestamp || 0;
-          if (Date.now() - timestamp < 1000 * 60 * 60 * 12) { // 12 hours
-            queryClient.setState(parsed);
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to hydrate query cache', e);
-      }
-    };
-
-    const persist = () => {
-      try {
-        const state = queryClient.getState();
-        const toPersist = {
-          ...state,
-          _timestamp: Date.now(),
-        };
-        localStorage.setItem('query-cache', JSON.stringify(toPersist));
-      } catch (e) {
-        console.warn('Failed to persist query cache', e);
-      }
-    };
-
-    // Hydrate on start
-    hydrate();
-
-    // Persist on unload and beforeunload
-    window.addEventListener('beforeunload', persist);
-    window.addEventListener('unload', persist);
-
-    // Also persist every 5 minutes to avoid losing too much data if browser crashes
-    const interval = setInterval(persist, 5 * 60 * 1000);
-    return () => {
-      window.removeEventListener('beforeunload', persist);
-      window.removeEventListener('unload', persist);
-      clearInterval(interval);
-    };
-  }, []); // Empty deps to run once
 
   // Safety timeout for splash screen
   useEffect(() => {
-    const timer = setTimeout(() => setShowSplash(false), 4000);
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 5000);
     return () => clearTimeout(timer);
   }, []);
 
-  // Safety timeout for auth loading to prevent infinite white screen
-  useEffect(() => {
-    if (!showSplash && authLoading) {
-      const timer = setTimeout(() => {
-        console.warn("[App] Auth loading timeout - forcing ready state");
-        setAuthReady(true);
-      }, 3000);
-      return () => clearTimeout(timer);
-    } else if (!authLoading) {
-      setAuthReady(true);
-    }
-  }, [showSplash, authLoading]);
-
-  if (showSplash) {
+  if (showSplash || authLoading) {
     return <SplashScreen onFinished={() => setShowSplash(false)} />;
-  }
-
-  if (!authReady) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading your account...</p>
-        </div>
-      </div>
-    );
   }
 
   return (
