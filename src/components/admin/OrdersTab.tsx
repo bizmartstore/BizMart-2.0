@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,32 +13,36 @@ export default function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
+  const loadOrders = useCallback(async () => {
+    try {
+      const [ordersData, printData, posData] = await Promise.all([
+        (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
+        (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
+        (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
+      ]);
+
+      const combined = [
+        ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
+        ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
+        ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
+      ];
+      setOrders(combined);
+    } catch (e) {
+      console.error("Failed to load orders:", e);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
 
-    const loadOrders = async () => {
+    const fetchOrders = async () => {
       if (!isMounted) return;
       setLoading(true);
-      try {
-        const [ordersData, printData, posData] = await Promise.all([
-          (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
-          (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
-          (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
-        ]);
-
-        const combined = [
-          ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
-          ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
-          ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
-        ];
-        setOrders(combined);
-      } catch (e) {
-        console.error("Failed to load orders:", e);
-      }
+      await loadOrders();
       if (isMounted) setLoading(false);
     };
 
-    loadOrders();
+    fetchOrders();
 
     const channel = supabase
       .channel("admin-orders-realtime")
@@ -60,7 +64,7 @@ export default function OrdersTab() {
       isMounted = false;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [loadOrders]);
 
   const updateStatus = async (orderId: string, newStatus: string, orderType: string) => {
     // Optimistic UI update
@@ -106,7 +110,7 @@ export default function OrdersTab() {
       toast.success(`${orderType === 'pos' ? 'POS' : orderType === 'print' ? 'Print' : 'Order'} ${newStatus}!`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
-      // Revert on error
+      // Revert on error by reloading
       loadOrders();
     }
   };
