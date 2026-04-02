@@ -42,10 +42,11 @@ export default function AdminDashboard() {
     );
   }
 
-  // If not admin, redirect
-  if (!isAdmin) {
+  // CRITICAL FIX: Only redirect if we are definitively NOT an admin after auth is ready.
+  // If profile.role is null/undefined during a transient fetch, we wait instead of redirecting.
+  if (profile && !isAdmin) {
     console.log('[AdminDashboard] User is not admin, redirecting...');
-    navigate("/");
+    navigate("/", { replace: true });
     return null;
   }
 
