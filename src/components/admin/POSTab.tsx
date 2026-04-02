@@ -61,28 +61,33 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
   const removeItem = (id: string) => setCart(prev => prev.filter(c => c.id !== id));
 
   const subtotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
+  const mainAdminCommission = Number((subtotal * 0.10).toFixed(2));
+  const memberAdminCommission = Number((subtotal * 0.10).toFixed(2));
+  const sellerEarnings = Number((subtotal - mainAdminCommission - memberAdminCommission).toFixed(2));
 
   const completeSale = async () => {
     if (cart.length === 0) return;
     if (!user) return;
     setSubmitting(true);
     try {
-      const { error } = await (supabase as any).from("pos_sales").insert({
-        status: "completed",
+      await (supabase as any).from("pos_sales").insert({
+        sale_type: "product",
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity, image: c.image })),
+        subtotal,
         total: subtotal,
+        main_admin_commission: mainAdminCommission,
+        seller_earnings: sellerEarnings,
+        member_admin_earnings: memberAdminCommission,
         sold_by: user.id,
+        customer_name: customerName.trim(),
       });
-
-      if (error) throw error;
 
       toast.success(`Sale completed! ₱${subtotal.toFixed(2)}`);
       setCart([]);
       setCustomerName("");
       onSaleComplete();
     } catch (e: any) {
-      console.error("POS sale error:", e);
-      toast.error(e.message || "Failed to complete sale");
+      toast.error(e.message);
     }
     setSubmitting(false);
   };
@@ -133,13 +138,13 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
               </div>
             ))}
           </div>
-          <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional - not saved)" className="text-xs h-8" />
+          <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional)" className="text-xs h-8" />
           <div className="bg-muted/50 rounded-lg p-2 space-y-0.5">
             <div className="flex justify-between text-[10px]"><span className="text-muted-foreground">Total</span><span className="font-bold">₱{subtotal.toFixed(2)}</span></div>
           </div>
           <Button onClick={completeSale} disabled={submitting} className="w-full gap-1 font-extrabold">
             <Receipt className="h-4 w-4" />
-            {submitting ? "Processing..." : `Complete Sale — ₱{subtotal.toFixed(2)}`}
+            {submitting ? "Processing..." : `Complete Sale — ₱${subtotal.toFixed(2)}`}
           </Button>
         </div>
       )}
@@ -168,24 +173,25 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
     if (!user) return;
     setSubmitting(true);
     try {
-      const { error } = await (supabase as any).from("pos_sales").insert({
-        status: "completed",
+      await (supabase as any).from("pos_sales").insert({
+        sale_type: "print",
         items: [
           ...(bwPages > 0 ? [{ name: `B&W ${pageSize}`, quantity: bwPages, price: PRICING.bw[pageSize] }] : []),
           ...(coloredPages > 0 ? [{ name: `Colored ${pageSize}`, quantity: coloredPages, price: PRICING.colored[pageSize] }] : []),
         ],
+        subtotal: totalCost,
         total: totalCost,
+        main_admin_commission: totalCost * 0.5,
+        member_admin_earnings: totalCost * 0.5,
         sold_by: user.id,
+        customer_name: customerName.trim(),
       });
-
-      if (error) throw error;
 
       toast.success(`Print sale completed! ₱${totalCost.toFixed(2)}`);
       setBwPages(0); setColoredPages(0); setCustomerName("");
       onSaleComplete();
     } catch (e: any) {
-      console.error("Print POS sale error:", e);
-      toast.error(e.message || "Failed to complete print sale");
+      toast.error(e.message);
     }
     setSubmitting(false);
   };
@@ -220,7 +226,7 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
           </div>
         </div>
       </div>
-      <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional - not saved)" className="text-xs h-8" />
+      <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional)" className="text-xs h-8" />
       {totalCost > 0 && (
         <Button onClick={completeSale} disabled={submitting} className="w-full bg-primary text-white font-extrabold rounded-xl">
           <Receipt className="h-4 w-4 mr-2" />{submitting ? "Processing..." : `Complete Print Sale — ₱${totalCost.toFixed(2)}`}
@@ -260,27 +266,16 @@ export default function POSTab({ role }: { role: string; onSaleComplete: () => v
   const [sales, setSales] = useState<any[]>([]);
   const [stats, setStats] = useState({ totalSales: 0, totalRevenue: 0 });
 
-  const loadSales = useCallback(async () => {
-    try {
-      // Fetch without server-side ordering to avoid potential 400 errors
-      const { data, error } = await (supabase as any).from("pos_sales").select("*");
-      if (error) {
-        console.error("POS sales load error:", error);
-        toast.error("Failed to load sales: " + error.message);
-        return;
-      }
-      const all = (data || []).sort((a: any, b: any) => 
-        new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      );
-      setSales(all.slice(0, 100));
-      setStats({
-        totalSales: all.length,
-        totalRevenue: all.reduce((s: number, r: any) => s + Number(r.total || 0), 0),
+  const loadSales = useCallback(() => {
+    (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }).limit(100)
+      .then(({ data }: any) => {
+        const all = data || [];
+        setSales(all);
+        setStats({
+          totalSales: all.length,
+          totalRevenue: all.reduce((s: number, r: any) => s + Number(r.total), 0),
+        });
       });
-    } catch (e: any) {
-      console.error("POS sales exception:", e);
-      toast.error("Failed to load sales history");
-    }
   }, []);
 
   useEffect(() => { loadSales(); }, [loadSales]);
