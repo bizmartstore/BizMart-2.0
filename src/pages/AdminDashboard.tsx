@@ -1,9 +1,7 @@
-"use client";
-
-import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
@@ -30,46 +28,12 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import POSTab from "@/components/admin/POSTab";
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
   const { user, profile, isAuthReady } = useAuth();
   const { isAdmin, isMainAdmin } = useAdmin();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Define tabs with their permissions
-  const allTabs = useMemo(() => [
-    { id: "overview", label: "Overview", icon: BarChart3, roles: ["main_admin", "member_admin"] },
-    { id: "orders", label: "Orders", icon: ShoppingCart, roles: ["main_admin", "member_admin"] },
-    { id: "products", label: "Products", icon: Package, roles: ["main_admin", "member_admin"] },
-    { id: "users", label: "Users", icon: Users, roles: ["main_admin"] },
-    { id: "sellers", label: "Sellers", icon: Crown, roles: ["main_admin"] },
-    { id: "print", label: "Print", icon: Printer, roles: ["main_admin", "member_admin"] },
-    { id: "messages", label: "Messages", icon: MessageCircle, roles: ["main_admin", "member_admin"] },
-    { id: "codes", label: "Codes", icon: Ticket, roles: ["main_admin"] },
-    { id: "news", label: "News", icon: Bell, roles: ["main_admin", "member_admin"] },
-    { id: "club", label: "Club", icon: Crown, roles: ["main_admin"] },
-    { id: "bcoins", label: "BCoins", icon: Coins, roles: ["main_admin"] },
-    { id: "gcash", label: "GCash", icon: Coins, roles: ["main_admin", "member_admin"] },
-    { id: "jobs", label: "Jobs", icon: Briefcase, roles: ["main_admin", "member_admin"] },
-    { id: "pos", label: "POS", icon: ShoppingCart, roles: ["main_admin", "member_admin"] },
-    { id: "settings", label: "Settings", icon: Settings, roles: ["main_admin"] },
-  ], []);
-
-  // Filter tabs based on user role
-  const allowedTabs = useMemo(() => 
-    allTabs.filter(tab => 
-      tab.roles.includes(isMainAdmin ? "main_admin" : "member_admin")
-    ),
-    [allTabs, isMainAdmin]
-  );
-
-  // Set first allowed tab as default if current tab is not allowed
-  useEffect(() => {
-    if (allowedTabs.length > 0 && !allowedTabs.find(t => t.id === activeTab)) {
-      setActiveTab(allowedTabs[0].id);
-    }
-  }, [activeTab, allowedTabs]);
-
-  // Show loading state while auth is initializing
+  // Wait for auth to be fully ready before evaluating access
   if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -86,6 +50,37 @@ export default function AdminDashboard() {
   }
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
+
+  // Define tabs with their permissions
+  const allTabs = [
+    { id: "overview", label: "Overview", icon: BarChart3, roles: ["main_admin", "member_admin"] },
+    { id: "orders", label: "Orders", icon: ShoppingCart, roles: ["main_admin", "member_admin"] },
+    { id: "products", label: "Products", icon: Package, roles: ["main_admin", "member_admin"] },
+    { id: "users", label: "Users", icon: Users, roles: ["main_admin"] },
+    { id: "sellers", label: "Sellers", icon: Crown, roles: ["main_admin"] },
+    { id: "print", label: "Print", icon: Printer, roles: ["main_admin", "member_admin"] },
+    { id: "messages", label: "Messages", icon: MessageCircle, roles: ["main_admin", "member_admin"] },
+    { id: "codes", label: "Codes", icon: Ticket, roles: ["main_admin"] },
+    { id: "news", label: "News", icon: Bell, roles: ["main_admin", "member_admin"] },
+    { id: "club", label: "Club", icon: Crown, roles: ["main_admin"] },
+    { id: "bcoins", label: "BCoins", icon: Coins, roles: ["main_admin"] },
+    { id: "gcash", label: "GCash", icon: Coins, roles: ["main_admin", "member_admin"] },
+    { id: "jobs", label: "Jobs", icon: Briefcase, roles: ["main_admin", "member_admin"] },
+    { id: "pos", label: "POS", icon: ShoppingCart, roles: ["main_admin", "member_admin"] },
+    { id: "settings", label: "Settings", icon: Settings, roles: ["main_admin"] },
+  ];
+
+  // Filter tabs based on user role
+  const allowedTabs = allTabs.filter(tab => 
+    tab.roles.includes(isMainAdmin ? "main_admin" : "member_admin")
+  );
+
+  // Set first allowed tab as default if current tab is not allowed
+  useEffect(() => {
+    if (!allowedTabs.find(t => t.id === activeTab)) {
+      setActiveTab(allowedTabs[0]?.id || "overview");
+    }
+  }, [activeTab, allowedTabs]);
 
   return (
     <div className="min-h-screen bg-background pb-20">
