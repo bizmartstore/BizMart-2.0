@@ -33,7 +33,6 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Wait for auth, role loading, AND ensure profile actually exists before checking admin status
   if (authLoading || roleLoading || !profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -42,7 +41,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // If not admin, redirect
   if (!isAdmin) {
     console.log('[AdminDashboard] User is not admin, redirecting...');
     navigate("/");
