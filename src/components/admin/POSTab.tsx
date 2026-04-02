@@ -72,6 +72,7 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
     try {
       await (supabase as any).from("pos_sales").insert({
         sale_type: "product",
+        status: "completed",
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity, image: c.image })),
         subtotal,
         total: subtotal,
@@ -175,6 +176,7 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
     try {
       await (supabase as any).from("pos_sales").insert({
         sale_type: "print",
+        status: "completed",
         items: [
           ...(bwPages > 0 ? [{ name: `B&W ${pageSize}`, quantity: bwPages, price: PRICING.bw[pageSize] }] : []),
           ...(coloredPages > 0 ? [{ name: `Colored ${pageSize}`, quantity: coloredPages, price: PRICING.colored[pageSize] }] : []),
