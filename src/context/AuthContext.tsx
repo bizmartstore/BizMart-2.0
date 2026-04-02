@@ -42,7 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
-    // Deduplicate: if a fetch is already in progress, return the existing promise
     if (fetchProfileRef.current) {
       return fetchProfileRef.current;
     }
@@ -142,26 +141,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Check if still valid
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        // Fallback: Only apply if we don't already have a valid profile
-        // This prevents downgrading an admin to customer on network blips
-        setProfile(prev => {
-          if (prev && prev.role !== 'customer') return prev; // Keep existing admin profile
-          
-          const metadata = currentUser.user_metadata || {};
-          const storedRole = localStorage.getItem(`user_role_${currentUser.id}`);
-          return {
-            id: currentUser.id,
-            first_name: metadata.first_name || 'Student',
-            last_name: metadata.last_name || '',
-            section: metadata.section || 'N/A',
-            grade_level: metadata.grade_level || 'N/A',
-            school: metadata.school || 'N/A',
-            email: currentUser.email || '',
-            avatar_url: metadata.avatar_url || null,
-            bcoins: 0,
-            role: storedRole || 'customer',
-          };
-        });
+        // IMPORTANT: Do NOT set a fallback profile that downgrades admin to customer
+        // Instead, keep the existing profile if it exists, or just log the error
+        // The profile will be re-fetched on next auth state change or manual refresh
+        console.warn("[AuthContext] Keeping existing profile (if any) due to fetch error");
       } finally {
         if (fetchProfileRef.current === fetchPromise) {
           fetchProfileRef.current = null;
@@ -175,7 +158,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user && mountedRef.current) {
-      fetchProfileRef.current = null;
+      fetchProfileRef.current = null; // Force new fetch
       await fetchProfile(user);
     }
   };
@@ -192,7 +175,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         
         if (s?.user) {
-          await fetchProfile(s.user);
+          try {
+            await fetchProfile(s.user);
+          } catch (err) {
+            // On init error, don't set a fallback profile
+            // Just leave profile as null and let it be fetched later
+            console.warn("[AuthContext] Init profile fetch failed, will retry");
+          }
         }
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
@@ -215,8 +204,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       
       if (event === 'SIGNED_IN' && s?.user) {
-        await fetchProfile(s.user);
-        setIsAuthReady(true);
+        try {
+          await fetchProfile(s.user);
+        } catch (err) {
+          // Don't set fallback profile on sign-in error
+          console.warn("[AuthContext] Sign-in profile fetch failed");
+        } finally {
+          setIsAuthReady(true);
+        }
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         setIsAuthReady(true);
