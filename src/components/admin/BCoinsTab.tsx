@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, RefreshCw, Gift, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Gift, Loader2 } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function BCoinsTab() {
@@ -11,45 +11,47 @@ export default function BCoinsTab() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: redemptionsData, error } = await (supabase as any)
-        .from("bcoins_redemptions")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      
-      const userIds = redemptionsData?.map((r: any) => r.user_id).filter(Boolean) || [];
-      let enriched = redemptionsData || [];
-      
-      if (userIds.length > 0) {
-        const { data: profs } = await (supabase as any)
-          .from("profiles")
-          .select("user_id, first_name, last_name, email")
-          .in("user_id", userIds);
-        
-        const profileMap = new Map(profs?.map((p: any) => [p.user_id, p]));
-        enriched = redemptionsData.map((r: any) => ({
-          ...r,
-          profiles: profileMap.get(r.user_id) || null,
-        }));
-      }
-      
-      setRedemptions(enriched);
-    } catch (e: any) {
-      console.error("Failed to load redemptions:", e);
-      toast.error("Failed to load redemptions: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Real-time subscription for BCoins redemptions
   useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      if (!isMounted) return;
+      setLoading(true);
+      try {
+        const { data: redemptionsData, error } = await (supabase as any)
+          .from("bcoins_redemptions")
+          .select("*")
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        
+        const userIds = redemptionsData?.map((r: any) => r.user_id).filter(Boolean) || [];
+        let enriched = redemptionsData || [];
+        
+        if (userIds.length > 0) {
+          const { data: profs } = await (supabase as any)
+            .from("profiles")
+            .select("user_id, first_name, last_name, email")
+            .in("user_id", userIds);
+          
+          const profileMap = new Map(profs?.map((p: any) => [p.user_id, p]));
+          enriched = redemptionsData.map((r: any) => ({
+            ...r,
+            profiles: profileMap.get(r.user_id) || null,
+          }));
+        }
+        
+        setRedemptions(enriched);
+      } catch (e: any) {
+        console.error("Failed to load redemptions:", e);
+        toast.error("Failed to load redemptions: " + e.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    load();
+
     const channel = supabase
       .channel("admin-bcoins-redemptions-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => {
@@ -58,8 +60,11 @@ export default function BCoinsTab() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [load]);
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
@@ -114,7 +119,6 @@ export default function BCoinsTab() {
       });
 
       toast.success(`Redemption ${status}!`);
-      // Real-time will trigger automatically
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
     } finally {
@@ -132,23 +136,18 @@ export default function BCoinsTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {Object.entries(statusCounts).map(([key, count]) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
-            </button>
-          ))}
-        </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {Object.entries(statusCounts).map(([key, count]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+              filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+          </button>
+        ))}
       </div>
 
       {loading ? (

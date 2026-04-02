@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, RefreshCw, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function GCashTab() {
@@ -11,45 +11,47 @@ export default function GCashTab() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: txData, error } = await (supabase as any)
-        .from("gcash_transactions")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-      
-      const userIds = txData?.map((t: any) => t.user_id).filter(Boolean) || [];
-      let enriched = txData || [];
-      
-      if (userIds.length > 0) {
-        const { data: profs } = await (supabase as any)
-          .from("profiles")
-          .select("user_id, first_name, last_name, email")
-          .in("user_id", userIds);
-        
-        const profileMap = new Map(profs?.map((p: any) => [p.user_id, p]));
-        enriched = txData.map((t: any) => ({
-          ...t,
-          profiles: profileMap.get(t.user_id) || null,
-        }));
-      }
-      
-      setTransactions(enriched);
-    } catch (e: any) {
-      console.error("Failed to load transactions:", e);
-      toast.error("Failed to load transactions: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Real-time subscription for GCash transactions
   useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      if (!isMounted) return;
+      setLoading(true);
+      try {
+        const { data: txData, error } = await (supabase as any)
+          .from("gcash_transactions")
+          .select("*")
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        
+        const userIds = txData?.map((t: any) => t.user_id).filter(Boolean) || [];
+        let enriched = txData || [];
+        
+        if (userIds.length > 0) {
+          const { data: profs } = await (supabase as any)
+            .from("profiles")
+            .select("user_id, first_name, last_name, email")
+            .in("user_id", userIds);
+          
+          const profileMap = new Map(profs?.map((p: any) => [p.user_id, p]));
+          enriched = txData.map((t: any) => ({
+            ...t,
+            profiles: profileMap.get(t.user_id) || null,
+          }));
+        }
+        
+        setTransactions(enriched);
+      } catch (e: any) {
+        console.error("Failed to load transactions:", e);
+        toast.error("Failed to load transactions: " + e.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    load();
+
     const channel = supabase
       .channel("admin-gcash-transactions-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => {
@@ -58,8 +60,11 @@ export default function GCashTab() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [load]);
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
@@ -80,7 +85,6 @@ export default function GCashTab() {
         .update({ status })
         .eq("id", id);
 
-      // Award BCoins when GCash transaction is completed
       if (status === "completed" && tx.user_id) {
         await sendNotification({
           title: "🪙 BCoins Earned!",
@@ -102,7 +106,6 @@ export default function GCashTab() {
       });
 
       toast.success(`Transaction ${status}!`);
-      // Real-time will trigger automatically
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
     } finally {
@@ -120,23 +123,18 @@ export default function GCashTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {Object.entries(statusCounts).map(([key, count]) => (
-            <button
-              key={key}
-              onClick={() => setFilter(key)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}
-            >
-              {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
-            </button>
-          ))}
-        </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {Object.entries(statusCounts).map(([key, count]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+              filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+          </button>
+        ))}
       </div>
 
       {loading ? (

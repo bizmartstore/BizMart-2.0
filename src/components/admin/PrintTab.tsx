@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Printer, RefreshCw, FileText, Truck, MapPin, User, Search, Eye } from "lucide-react";
+import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 import { Input } from "@/components/ui/input";
 
@@ -13,48 +13,50 @@ export default function PrintTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data: printData, error } = await (supabase as any)
-        .from("print_orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (error) throw error;
-
-      const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
-      let profileMap: Record<string, any> = {};
-      
-      if (userIds.length > 0) {
-        const { data: profiles } = await (supabase as any)
-          .from("profiles")
-          .select("user_id, first_name, last_name, grade_level, section")
-          .in("user_id", userIds);
-        
-        if (profiles) {
-          profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
-        }
-      }
-
-      const enriched = (printData || []).map((order: any) => ({
-        ...order,
-        customer: profileMap[order.user_id] || null,
-      }));
-
-      setOrders(enriched);
-    } catch (e: any) {
-      console.error("Failed to load print orders:", e);
-      toast.error("Failed to load print orders: " + e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Real-time subscription for print orders
   useEffect(() => {
+    let isMounted = true;
+
+    const load = async () => {
+      if (!isMounted) return;
+      setLoading(true);
+      try {
+        const { data: printData, error } = await (supabase as any)
+          .from("print_orders")
+          .select("*")
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+
+        const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
+        let profileMap: Record<string, any> = {};
+        
+        if (userIds.length > 0) {
+          const { data: profiles } = await (supabase as any)
+            .from("profiles")
+            .select("user_id, first_name, last_name, grade_level, section")
+            .in("user_id", userIds);
+          
+          if (profiles) {
+            profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
+          }
+        }
+
+        const enriched = (printData || []).map((order: any) => ({
+          ...order,
+          customer: profileMap[order.user_id] || null,
+        }));
+
+        setOrders(enriched);
+      } catch (e: any) {
+        console.error("Failed to load print orders:", e);
+        toast.error("Failed to load print orders: " + e.message);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    load();
+
     const channel = supabase
       .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
@@ -62,9 +64,12 @@ export default function PrintTab() {
         load();
       })
       .subscribe();
-    
-    return () => { supabase.removeChannel(channel); };
-  }, [load]);
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -195,12 +200,9 @@ export default function PrintTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, file, or section..." className="pl-9 text-xs h-9" />
-        </div>
-        <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-3 w-3" /></Button>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search by name, file, or section..." className="pl-9 text-xs h-9" />
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -212,52 +214,56 @@ export default function PrintTab() {
         ))}
       </div>
 
-      <div className="space-y-2 max-h-[500px] overflow-y-auto">
-        {filtered.map(order => {
-          const cust = order.customer;
-          const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown";
-          const custGrade = cust?.grade_level || "N/A";
-          const custSection = cust?.section || "N/A";
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full" /></div>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {filtered.map(order => {
+            const cust = order.customer;
+            const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown";
+            const custGrade = cust?.grade_level || "N/A";
+            const custSection = cust?.section || "N/A";
 
-          return (
-            <div key={order.id} className="bg-card rounded-xl border border-border p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2 flex-1 min-w-0">
-                  <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                  <span className="font-bold text-xs truncate">{order.file_name}</span>
+            return (
+              <div key={order.id} className="bg-card rounded-xl border border-border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="font-bold text-xs truncate">{order.file_name}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                    order.status === 'pending' ? 'bg-warning/20 text-warning' :
+                    order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                    'bg-primary/20 text-primary'
+                  }`}>{order.status}</span>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                  order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
-                  order.status === 'pending' ? 'bg-warning/20 text-warning' :
-                  order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
-                  'bg-primary/20 text-primary'
-                }`}>{order.status}</span>
-              </div>
 
-              <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
-                <User className="h-3 w-3 flex-shrink-0" />
-                <span className="font-bold text-foreground">{custName}</span>
-                <span>•</span>
-                <span>{custGrade} - {custSection}</span>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
-                  <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+                <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
+                  <User className="h-3 w-3 flex-shrink-0" />
+                  <span className="font-bold text-foreground">{custName}</span>
                   <span>•</span>
-                  <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
+                  <span>{custGrade} - {custSection}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
-                  <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                    <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+                    <span>•</span>
+                    <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
+                    <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+                  </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>}
-      </div>
+            );
+          })}
+          {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>}
+        </div>
+      )}
     </div>
   );
 }
