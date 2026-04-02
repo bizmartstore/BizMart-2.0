@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Store, RefreshCw, Eye } from "lucide-react";
+import { Search, Store, RefreshCw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SellersTab() {
@@ -11,13 +11,12 @@ export default function SellersTab() {
   const [applications, setApplications] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [selectedApp, setSelectedApp] = useState<any>(null);
+  const [updating, setUpdating] = useState<string | null>(null);
   const [profilesMap, setProfilesMap] = useState<Record<string, any>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Load seller profiles
       const { data: sellerData, error: sellerError } = await (supabase as any)
         .from("seller_profiles")
         .select("*")
@@ -26,7 +25,6 @@ export default function SellersTab() {
       if (sellerError) throw sellerError;
       setSellers(sellerData || []);
 
-      // Load applications (if table exists) - handle 404 gracefully
       try {
         const { data: appData, error: appError } = await (supabase as any)
           .from("seller_applications")
@@ -34,8 +32,7 @@ export default function SellersTab() {
           .order("created_at", { ascending: false });
         
         if (appError) {
-          // Table might not exist yet (404)
-          console.warn("seller_applications table not found or error:", appError.message);
+          console.warn("seller_applications table not found:", appError.message);
           setApplications([]);
         } else {
           setApplications(appData || []);
@@ -45,7 +42,6 @@ export default function SellersTab() {
         setApplications([]);
       }
 
-      // Fetch all profiles for sellers and applicants
       const sellerUserIds = (sellerData || []).map((s: any) => s.user_id).filter(Boolean);
       const appUserIds = (applications || []).map((a: any) => a.user_id).filter(Boolean);
       const allUserIds = [...new Set([...sellerUserIds, ...appUserIds])];
@@ -66,28 +62,39 @@ export default function SellersTab() {
     } finally {
       setLoading(false);
     }
-  }, [applications]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const updateApplication = async (id: string, status: string, notes: string = "") => {
+    setUpdating(id);
     try {
-      await (supabase as any).from("seller_applications").update({ status, admin_notes: notes }).eq("id", id);
+      await (supabase as any)
+        .from("seller_applications")
+        .update({ status, admin_notes: notes })
+        .eq("id", id);
       toast.success(`Application ${status}`);
-      setSelectedApp(null);
       load();
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
+    } finally {
+      setUpdating(null);
     }
   };
 
   const toggleSeller = async (id: string, active: boolean) => {
+    setUpdating(id);
     try {
-      await (supabase as any).from("seller_profiles").update({ is_active: !active }).eq("id", id);
+      await (supabase as any)
+        .from("seller_profiles")
+        .update({ is_active: !active })
+        .eq("id", id);
       toast.success(`Seller ${!active ? "activated" : "deactivated"}`);
       load();
     } catch (e: any) {
       toast.error(e.message || "Failed to toggle seller");
+    } finally {
+      setUpdating(null);
     }
   };
 
@@ -103,7 +110,7 @@ export default function SellersTab() {
     <Tabs defaultValue="sellers">
       <TabsList className="w-full grid grid-cols-2 mb-4">
         <TabsTrigger value="sellers" className="gap-1"><Store className="h-3 w-3" /> Sellers</TabsTrigger>
-        <TabsTrigger value="applications" className="gap-1"><Eye className="h-3 w-3" /> Applications</TabsTrigger>
+        <TabsTrigger value="applications" className="gap-1"><Store className="h-3 w-3" /> Applications</TabsTrigger>
       </TabsList>
 
       <TabsContent value="sellers">
@@ -111,7 +118,12 @@ export default function SellersTab() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search sellers..." className="pl-9 text-xs h-9" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search sellers..."
+                className="pl-9 text-xs h-9"
+              />
             </div>
             <Button size="sm" variant="outline" onClick={load} disabled={loading}>
               <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
@@ -125,28 +137,45 @@ export default function SellersTab() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <div className="w-10 h-10 rounded-lg bg-accent overflow-hidden flex items-center justify-center">
-                        {s.store_image ? <img src={s.store_image} className="w-full h-full object-cover" alt="" /> : <Store className="h-5 w-5 text-primary" />}
+                        {s.store_image ? (
+                          <img src={s.store_image} className="w-full h-full object-cover" alt="" />
+                        ) : (
+                          <Store className="h-5 w-5 text-primary" />
+                        )}
                       </div>
                       <div>
                         <p className="font-bold text-xs">{s.store_name || "Unnamed Store"}</p>
-                        <p className="text-[10px] text-muted-foreground">{profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown'}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown'}
+                        </p>
                       </div>
                     </div>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${s.is_active ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-muted text-muted-foreground'}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      s.is_active ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-muted text-muted-foreground'
+                    }`}>
                       {s.is_active ? "Active" : "Inactive"}
                     </span>
                   </div>
                   {s.store_saying && <p className="text-[10px] text-primary italic mb-2">"{s.store_saying}"</p>}
                   {s.location && <p className="text-[10px] text-muted-foreground mb-2">📍 {s.location}</p>}
                   <div className="flex gap-2">
-                    <Button size="sm" variant={s.is_active ? "destructive" : "default"} onClick={() => toggleSeller(s.id, s.is_active)} className="flex-1 text-[10px]">
+                    <Button
+                      size="sm"
+                      variant={s.is_active ? "destructive" : "default"}
+                      onClick={() => toggleSeller(s.id, s.is_active)}
+                      disabled={updating === s.id}
+                      className="flex-1 text-[10px]"
+                    >
+                      {updating === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
                       {s.is_active ? "Deactivate" : "Activate"}
                     </Button>
                   </div>
                 </div>
               );
             })}
-            {filteredSellers.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No sellers found</p>}
+            {filteredSellers.length === 0 && !loading && (
+              <p className="text-center text-xs text-muted-foreground py-8">No sellers found</p>
+            )}
           </div>
         </div>
       </TabsContent>
@@ -156,7 +185,12 @@ export default function SellersTab() {
           <div className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search applications..." className="pl-9 text-xs h-9" />
+              <Input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search applications..."
+                className="pl-9 text-xs h-9"
+              />
             </div>
             <Button size="sm" variant="outline" onClick={load} disabled={loading}>
               <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
@@ -169,27 +203,52 @@ export default function SellersTab() {
                 <div key={app.id} className="bg-card rounded-xl border border-border p-3">
                   <div className="flex items-center justify-between mb-2">
                     <div>
-                      <p className="font-bold text-xs">{profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User'}</p>
+                      <p className="font-bold text-xs">
+                        {profile ? `${profile.first_name} ${profile.last_name}` : 'Unknown User'}
+                      </p>
                       <p className="text-[10px] text-muted-foreground">{app.business_type}</p>
                     </div>
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                       app.status === 'approved' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                       app.status === 'pending' ? 'bg-warning/20 text-warning' :
                       'bg-destructive/20 text-destructive'
-                    }`}>{app.status}</span>
+                    }`}>
+                      {app.status}
+                    </span>
                   </div>
                   <p className="text-[10px] text-muted-foreground mb-2 line-clamp-2">{app.reason}</p>
                   {app.status === "pending" && (
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => updateApplication(app.id, "approved")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
-                      <Button size="sm" variant="destructive" onClick={() => updateApplication(app.id, "rejected")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
+                      <Button
+                        size="sm"
+                        onClick={() => updateApplication(app.id, "approved")}
+                        disabled={updating === app.id}
+                        className="gap-1 flex-1"
+                      >
+                        {updating === app.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                        Approve
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => updateApplication(app.id, "rejected")}
+                        disabled={updating === app.id}
+                        className="gap-1 flex-1"
+                      >
+                        {updating === app.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+                        Reject
+                      </Button>
                     </div>
                   )}
-                  {app.admin_notes && <p className="text-[10px] text-muted-foreground mt-2">Admin note: {app.admin_notes}</p>}
+                  {app.admin_notes && (
+                    <p className="text-[10px] text-muted-foreground mt-2">Admin note: {app.admin_notes}</p>
+                  )}
                 </div>
               );
             })}
-            {filteredApps.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No applications found</p>}
+            {filteredApps.length === 0 && !loading && (
+              <p className="text-center text-xs text-muted-foreground py-8">No applications found</p>
+            )}
           </div>
         </div>
       </TabsContent>
