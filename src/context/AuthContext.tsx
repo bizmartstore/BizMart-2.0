@@ -36,10 +36,12 @@ export const AuthContext = createContext<{
   user: any | null;
   profile: any | null;
   loading: boolean;
+  signOut: () => Promise<void>;
 }>({
   user: null,
   profile: null,
   loading: true,
+  signOut: async () => {},
 });
 
 export function useAuth() {
@@ -54,75 +56,95 @@ function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: currentUser } = supabase.auth.getUser();
-    setUser(currentUser);
+    const loadUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUser(user);
 
-    const { data: profileData, error: profError } = supabase
-      .from("profiles")
-      .select("*")
-      .eq("user_id", currentUser?.id)
-      .single();
+        if (user) {
+          const { data: profileData, error: profError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("user_id", user.id)
+            .single();
 
-    if (!profError && profileData) {
-      setProfile(profileData);
-    } else {
-      // 2. If profile is missing, create it
-      if (!profileData && !profError) {
-        console.log("[AuthContext] Profile missing, creating...");
-        const { data: newProf, error: insertError } = supabase
-          .from("profiles")
-          .insert({
-            user_id: currentUser?.id!,
-            email: currentUser?.email!,
-            first_name: metadata?.first_name || "",
-            last_name: metadata?.last_name || "",
-            school: metadata?.school || "",
-            section: metadata?.section || "",
-            grade_level: metadata?.grade_level || "",
-            bcoins: 0,
-          })
-          .select()
-          .single();
+          if (!profError && profileData) {
+            setProfile(profileData);
+          } else {
+            // 2. If profile is missing, create it
+            if (!profileData && !profError) {
+              console.log("[AuthContext] Profile missing, creating...");
+              const { data: newProf, error: insertError } = await supabase
+                .from("profiles")
+                .insert({
+                  user_id: user.id,
+                  email: user.email,
+                  first_name: "",
+                  last_name: "",
+                  school: "",
+                  section: "",
+                  grade_level: "",
+                  bcoins: 0,
+                })
+                .select()
+                .single();
 
-        if (!insertError) setProfile(newProf);
-        else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+              if (!insertError) setProfile(newProf);
+              else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+            }
+          }
+        } else {
+          setProfile(null);
+        }
+      } catch (error) {
+        console.error("[AuthContext] Error loading user:", error);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+
+    loadUser();
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         setUser(session?.user ?? null);
-        // Refresh profile on any auth change
-        const { data: profileData, error: profError } = supabase
-          .from("profiles")
-          .select("*")
-          .eq("user_id", session?.user?.id)
-          .single();
+        
+        if (session?.user) {
+          const { data: profileData, error: profError } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("user_id", session.user.id)
+            .single();
 
-        if (!profError && profileData) {
-          setProfile(profileData);
-        } else {
-          if (!profileData && !profError) {
-            console.log("[AuthContext] Profile missing, creating...");
-            const { data: newProf, error: insertError } = supabase
-              .from("profiles")
-              .insert({
-                user_id: session?.user?.id!,
-                email: session?.user?.email!,
-                first_name: metadata?.first_name || "",
-                last_name: session?.user?.last_name || "",
-                school: metadata?.school || "",
-                section: metadata?.section || "",
-                grade_level: metadata?.grade_level || "",
-                bcoins: 0,
-              })
-              .select()
-              .single();
+          if (!profError && profileData) {
+            setProfile(profileData);
+          } else {
+            if (!profileData && !profError) {
+              console.log("[AuthContext] Profile missing, creating...");
+              const { data: newProf, error: insertError } = await supabase
+                .from("profiles")
+                .insert({
+                  user_id: session.user.id,
+                  email: session.user.email,
+                  first_name: "",
+                  last_name: "",
+                  school: "",
+                  section: "",
+                  grade_level: "",
+                  bcoins: 0,
+                })
+                .select()
+                .single();
 
-            if (!insertError) setProfile(newProf);
-            else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+              if (!insertError) setProfile(newProf);
+              else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+            }
           }
+        } else {
+          setProfile(null);
         }
       }
     );
@@ -131,12 +153,13 @@ function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, []);
-  
-  // Dummy metadata object – replace with real values or remove if not used
-  const metadata: any = {};
+
+  const signOut = async () => {
+    await supabase.auth.signOut();
+  };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
