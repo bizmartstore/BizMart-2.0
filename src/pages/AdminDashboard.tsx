@@ -26,15 +26,13 @@ import SellersTab from "@/components/admin/SellersTab";
 import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
-import POSTab from "@/components/admin/POSTab";
 
-// Define which tabs member admins can access
+// Define which tabs member admins can access (removed POS)
 const MEMBER_ADMIN_ALLOWED_TABS = [
   "orders",
   "news",
   "gcash",
   "jobs",
-  "pos",
   "settings"
 ];
 
@@ -62,7 +60,7 @@ export default function AdminDashboard() {
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
 
-  // Define all available tabs
+  // Define all available tabs (removed POS)
   const allTabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingCart },
@@ -77,7 +75,6 @@ export default function AdminDashboard() {
     { id: "bcoins", label: "BCoins", icon: Coins },
     { id: "gcash", label: "GCash", icon: Coins },
     { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "pos", label: "POS", icon: ShoppingCart },
     { id: "settings", label: "Settings", icon: Settings },
   ];
 
@@ -111,7 +108,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
             {availableTabs.map((tab) => (
               <TabsTrigger 
                 key={tab.id} 
@@ -137,7 +134,6 @@ export default function AdminDashboard() {
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
           <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
         </Tabs>
       </div>
