@@ -7,12 +7,12 @@ import { sendNotification } from "@/lib/notifications";
 
 export default function GCashTab() {
   const [transactions, setTransactions] = useState<any[]>([]);
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState<"all" | "pending" | "completed" | "rejected">("all");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await (supabase as any).from("gcash_transactions").select("*, profiles(first_name, last_name, email)").order("created_at", { ascending: false });
+    const { data } = await (supabase as any).from("gcash_transactions").select("*").order("created_at", { ascending: false });
     setTransactions(data || []);
     setLoading(false);
   }, []);
@@ -54,11 +54,11 @@ export default function GCashTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {Object.entries(statusCounts).map(([key, count]) => (
+          {["all", "pending", "completed", "rejected"].map(key => (
             <button key={key} onClick={() => setFilter(key)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-              }`}>{key.charAt(0).toUpperCase() + key.slice(1)} ({count})</button>
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+              {key.charAt(0).toUpperCase() + key.slice(1)} ({filterCounts[key] ?? 0})
+            </button>
           ))}
         </div>
         <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-3 w-3" /></Button>
@@ -68,19 +68,13 @@ export default function GCashTab() {
         {filtered.map(tx => (
           <div key={tx.id} className="bg-card rounded-xl border border-border p-3">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2">
-                {tx.type === "cash_in" ? <ArrowDownCircle className="h-5 w-5 text-[hsl(var(--success))]" /> : <ArrowUpCircle className="h-5 w-5 text-destructive" />}
-                <div>
-                  <p className="font-bold text-xs">{tx.profiles?.first_name} {tx.profiles?.last_name}</p>
-                  <p className="text-[10px] text-muted-foreground">{tx.gcash_number} → {tx.admin_gcash_number}</p>
-                </div>
+              {tx.type === "cash_in" ? <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" /> : <ArrowUpCircle className="h-4 w-4 text-destructive" />}
+              <div>
+                <span className="font-bold text-xs">{tx.type.replace('_', ' ')}</span>
+                <span className="text-[10px] text-muted-foreground">{tx.gcash_number}</span>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                tx.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
-                tx.status === 'pending' ? 'bg-warning/20 text-warning' :
-                'bg-destructive/20 text-destructive'
-              }`}>{tx.status}</span>
             </div>
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${tx.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : tx.status === 'pending' ? 'bg-warning/20 text-warning' : 'bg-destructive/20 text-destructive'}`}>{tx.status}</span>
             <div className="grid grid-cols-3 gap-2 text-center mb-2">
               <div className="bg-muted rounded-lg p-1.5">
                 <span className="text-sm font-extrabold block">₱{Number(tx.amount).toFixed(2)}</span>
@@ -98,8 +92,8 @@ export default function GCashTab() {
             {tx.reference_number && <p className="text-[10px] text-muted-foreground mb-2">Ref: {tx.reference_number}</p>}
             {tx.status === "pending" && (
               <div className="flex gap-2">
-                <Button size="sm" onClick={() => updateStatus(tx.id, "completed")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
-                <Button size="sm" variant="destructive" onClick={() => updateStatus(tx.id, "rejected")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
+                <Button size="sm" onClick={() => updateStatus(id, "completed")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
+                <Button size="sm" variant="destructive" onClick={() => updateStatus(id, "rejected")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
               </div>
             )}
           </div>

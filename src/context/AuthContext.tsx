@@ -54,22 +54,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  /* ---------- Helper: load profile once we know a user ----------------------- */
+  /* ---------- Helper: safe setState ----------------------------------- */
+  const setStateSafe = <T>(updater: (s: T) => T) {
+    if (mountedRef.current) updater(undefined as any);
+  }
+
+  /* ---------- Load profile once we know a user ----------------------- */
   const loadProfile = useCallback(async (currentUser: User) => {
     if (!mountedRef.current) return;
 
     try {
       // 1️⃣ Try to fetch an existing profile row
       const { data: profData, error: profErr } = await supabase
-        .from("profiles")
+        .from<Profile>("profiles")
         .select("*")
         .eq("id", currentUser.id)
         .single();
 
       // 2️⃣ If it does not exist, create a minimal one (prevents later errors)
       if (!profData) {
-        const { data: created, error: createErr } = await supabase
-          .from("profiles")
+        const { data: created, error: createErr } = await supabase          .from<Profile>("profiles")
           .insert({
             id: currentUser.id,
             email: currentUser.email,
@@ -91,14 +95,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // 3️⃣ Pull role from the user_roles table (fallback to "customer")
       const { data: roleData, error: roleErr } = await supabase
-        .from("user_roles")
+        .from<{ role: string }>("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .single();
 
       // 4️⃣ Pull BCoins balance (optional but handy)
       const { data: wallet, error: walletErr } = await supabase
-        .from("bcoins_wallets")
+        .from<{ balance: number }>("bcoins_wallets")
         .select("balance")
         .eq("user_id", currentUser.id)
         .single();
@@ -149,8 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       async (_event, newSession) => {
         if (!mountedRef.current) return;
 
-        // Update local state
-        setUser(newSession?.user ?? null);
+        // Update local state        setUser(newSession?.user ?? null);
         setSession(newSession);
 
         // Refresh profile whenever the user changes
@@ -161,7 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Cleanup – crucial! prevents the endless listener that caused the freeze
     return () => {
       mountedRef.current = false;
-      subscription?.remove();
+      subscription?.unsubscribe?.();
     };
   }, [user]);
 
@@ -175,7 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   /* ---------- Expose helpers ------------------------------------------ */
-  const refreshProfile = useCallback(loadProfile, []);
+  const refreshProfile = useCallback(() => loadProfile(user ?? { id: "" }), []);
 
   return (
     <AuthContext.Provider
