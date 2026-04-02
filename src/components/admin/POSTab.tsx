@@ -80,7 +80,6 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
         seller_earnings: sellerEarnings,
         member_admin_earnings: memberAdminCommission,
         sold_by: user.id,
-        customer_name: customerName.trim() || null,
       });
 
       if (error) throw error;
@@ -189,7 +188,6 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
         main_admin_commission: totalCost * 0.5,
         member_admin_earnings: totalCost * 0.5,
         sold_by: user.id,
-        customer_name: customerName.trim() || null,
       });
 
       if (error) throw error;
@@ -234,7 +232,7 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
           </div>
         </div>
       </div>
-      <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional)" className="text-xs h-8" />
+      <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional - not saved)" className="text-xs h-8" />
       {totalCost > 0 && (
         <Button onClick={completeSale} disabled={submitting} className="w-full bg-primary text-white font-extrabold rounded-xl">
           <Receipt className="h-4 w-4 mr-2" />{submitting ? "Processing..." : `Complete Print Sale — ₱${totalCost.toFixed(2)}`}
