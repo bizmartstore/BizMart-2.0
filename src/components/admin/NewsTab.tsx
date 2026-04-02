@@ -156,7 +156,7 @@ export default function NewsTab() {
     setEditId(item.id);
     setTitle(item.title);
     setContent(item.content);
-    setImages(item.images?.length ? item.images : item.image_url ? [item.image_url] : []);
+    setImages(item.images?.length ? item.images : [item.image_url || '']);
     setCategory(item.category);
     setShowForm(true);
   };
@@ -231,7 +231,7 @@ export default function NewsTab() {
         <div className="bg-card rounded-xl border border-border p-4 space-y-3 shadow-md animate-in slide-in-from-top-2">
           <div className="flex items-center justify-between">
             <span className="font-bold text-xs">{editId ? "Edit" : "New"} News</span>
-            <button onClick={resetForm}><X className="h-4 w-4" /></button>
+            <button onClick={resetForm} className="p-1.5"><X className="h-4 w-4" /></button>
           </div>
           <div>
             <Label className="text-xs">Title</Label>
@@ -245,27 +245,28 @@ export default function NewsTab() {
           <div>
             <Label className="text-xs">Images</Label>
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
-            <div className="flex flex-wrap gap-2 mt-1.5">
-              {images.map((url, i) => (
-                <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-border group">
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeImage(i)}
-                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
-              </button>
-            </div>
+            {images.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-1.5">
+                {images.map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-lg border border-border group">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeImage(i)}
+                      className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                    >
+                      <X className="h-4 w-4 text-white" />
+                    </button>
+                  </div>
+                ))}
+                <button                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
+                  <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <div>
@@ -305,13 +306,18 @@ export default function NewsTab() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
                   <div>
                     <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
                     <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
                     <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
                   </div>
-                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+                  <div className="flex items-center gap-1">
+                    <span className="text-[9px] text-muted-foreground">{new Date(item.created_at).toLocaleDateString()}</span>
+                    <span className="text-[9px] text-muted-foreground">
+                      {item.is_active ? "Active" : "Inactive"}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-2 mt-1.5">
                   <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
