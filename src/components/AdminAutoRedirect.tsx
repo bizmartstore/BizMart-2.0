@@ -5,19 +5,21 @@ import { useAuth } from "@/context/AuthContext";
 
 /**
  * Redirects authenticated admin users to /admin if they land on customer pages.
+ * Only evaluates after isAuthReady is true to prevent race conditions.
  */
 export default function AdminAutoRedirect() {
-  const { user, loading: authLoading } = useAuth();
-  const { isAdmin, loading: roleLoading } = useAdmin();
+  const { user, isAuthReady } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Wait for both auth and role loading to complete
-    if (authLoading || roleLoading) {
+    // Block until auth and profile are fully resolved
+    if (!isAuthReady) {
       return;
     }
 
+    // If not an admin, do nothing
     if (!user || !isAdmin) {
       return;
     }
@@ -30,7 +32,7 @@ export default function AdminAutoRedirect() {
 
     console.log('[AdminAutoRedirect] Redirecting admin to /admin');
     navigate("/admin", { replace: true });
-  }, [user, isAdmin, authLoading, roleLoading, location.pathname, navigate]);
+  }, [user, isAdmin, isAuthReady, location.pathname, navigate]);
 
   return null;
 }

@@ -28,13 +28,13 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import POSTab from "@/components/admin/POSTab";
 
 export default function AdminDashboard() {
-  const { user, profile, loading: authLoading } = useAuth();
-  const { isAdmin, isMainAdmin, loading: roleLoading } = useAdmin();
+  const { user, profile, isAuthReady } = useAuth();
+  const { isAdmin, isMainAdmin } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Wait for both auth and role loading
-  if (authLoading || roleLoading) {
+  // Wait for auth to be fully ready before evaluating access
+  if (!isAuthReady) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
