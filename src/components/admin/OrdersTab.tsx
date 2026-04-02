@@ -15,19 +15,23 @@ export default function OrdersTab() {
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
-    const [ordersData, printData, posData] = await Promise.all([
-      (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
-      (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
-      (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
-    ]);
+    try {
+      const [ordersData, printData, posData] = await Promise.all([
+        (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
+        (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
+        (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
+      ]);
 
-    const combined = [
-      ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
-      ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
-      ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
-    ];
+      const combined = [
+        ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
+        ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
+        ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
+      ];
 
-    setOrders(combined);
+      setOrders(combined);
+    } catch (e) {
+      console.error("Failed to load orders:", e);
+    }
     setLoading(false);
   }, []);
 
@@ -91,7 +95,6 @@ export default function OrdersTab() {
       }
 
       toast.success(`${orderType === 'pos' ? 'POS' : orderType === 'print' ? 'Print' : 'Order'} ${newStatus}!`);
-      // No need to call loadOrders() - realtime will trigger automatically
       if (selectedOrder?.id === orderId) setSelectedOrder(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");

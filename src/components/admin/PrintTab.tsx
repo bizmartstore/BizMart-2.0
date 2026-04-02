@@ -16,7 +16,6 @@ export default function PrintTab() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // 1. Fetch print orders
       const { data: printData, error } = await (supabase as any)
         .from("print_orders")
         .select("*")
@@ -24,7 +23,6 @@ export default function PrintTab() {
       
       if (error) throw error;
 
-      // 2. Fetch customer profiles for all user_ids
       const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
       let profileMap: Record<string, any> = {};
       
@@ -39,7 +37,6 @@ export default function PrintTab() {
         }
       }
 
-      // 3. Merge orders with profiles
       const enriched = (printData || []).map((order: any) => ({
         ...order,
         customer: profileMap[order.user_id] || null,
@@ -54,10 +51,10 @@ export default function PrintTab() {
     }
   }, []);
 
-  useEffect(() => { 
-    load(); 
-    
-    // Real-time subscription for print orders
+  useEffect(() => { load(); }, [load]);
+
+  // Real-time subscription for print orders
+  useEffect(() => {
     const channel = supabase
       .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
@@ -86,7 +83,6 @@ export default function PrintTab() {
       });
 
       toast.success(`Print order ${newStatus}!`);
-      // Real-time will trigger automatically
       if (selectedOrder?.id === orderId) setSelectedOrder(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
@@ -136,7 +132,6 @@ export default function PrintTab() {
             }`}>{selectedOrder.status.toUpperCase()}</span>
           </div>
 
-          {/* Customer Details */}
           <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
             <div className="flex items-center gap-2">
@@ -148,7 +143,6 @@ export default function PrintTab() {
             </p>
           </div>
 
-          {/* Delivery Details */}
           <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {selectedOrder.delivery_type === 'delivery' ? (
@@ -163,7 +157,6 @@ export default function PrintTab() {
             </span>
           </div>
 
-          {/* Print Details */}
           <div className="grid grid-cols-4 gap-2 text-center">
             <div className="bg-muted rounded-lg p-2">
               <span className="text-sm font-extrabold block">{selectedOrder.total_pages}</span>
@@ -241,7 +234,6 @@ export default function PrintTab() {
                 }`}>{order.status}</span>
               </div>
 
-              {/* Customer Info */}
               <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
                 <User className="h-3 w-3 flex-shrink-0" />
                 <span className="font-bold text-foreground">{custName}</span>
@@ -249,7 +241,6 @@ export default function PrintTab() {
                 <span>{custGrade} - {custSection}</span>
               </div>
 
-              {/* Delivery & Cost */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,7 @@ import {
   Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket, Award
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -44,6 +45,69 @@ export default function AdminDashboard() {
   const { isAdmin, isMainAdmin } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
+  const [pendingCounts, setPendingCounts] = useState({
+    orders: 0,
+    print: 0,
+    gcash: 0,
+    bcoins: 0,
+    messages: 0,
+  });
+
+  // Load pending counts
+  const loadPendingCounts = useCallback(async () => {
+    try {
+      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.all([
+        (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      ]);
+
+      setPendingCounts({
+        orders: ordersRes.count || 0,
+        print: printRes.count || 0,
+        gcash: gcashRes.count || 0,
+        bcoins: bcoinsRes.count || 0,
+        messages: 0, // Messages handled separately
+      });
+    } catch (e) {
+      console.error("Failed to load pending counts:", e);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    if (isAuthReady && isAdmin) {
+      loadPendingCounts();
+    }
+  }, [isAuthReady, isAdmin, loadPendingCounts]);
+
+  // Global realtime subscriptions for pending counts
+  useEffect(() => {
+    if (!isAuthReady || !isAdmin) return;
+
+    const channel = supabase
+      .channel("admin-pending-counts-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        console.log("[AdminDashboard] orders changed, updating counts...");
+        loadPendingCounts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+        console.log("[AdminDashboard] print_orders changed, updating counts...");
+        loadPendingCounts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => {
+        console.log("[AdminDashboard] gcash_transactions changed, updating counts...");
+        loadPendingCounts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => {
+        console.log("[AdminDashboard] bcoins_redemptions changed, updating counts...");
+        loadPendingCounts();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [isAuthReady, isAdmin, loadPendingCounts]);
 
   // Wait for auth to be fully ready before evaluating access
   if (!isAuthReady) {
@@ -63,23 +127,23 @@ export default function AdminDashboard() {
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
 
-  // Define all available tabs
+  // Define all available tabs with badges
   const allTabs = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "orders", label: "Orders", icon: ShoppingCart },
-    { id: "products", label: "Products", icon: Package },
-    { id: "users", label: "Users", icon: Users },
-    { id: "sellers", label: "Sellers", icon: Crown },
-    { id: "print", label: "Print", icon: Printer },
-    { id: "messages", label: "Messages", icon: MessageCircle },
-    { id: "codes", label: "Codes", icon: Ticket },
-    { id: "news", label: "News", icon: Bell },
-    { id: "club", label: "Club", icon: Crown },
-    { id: "bcoins", label: "BCoins", icon: Coins },
-    { id: "gcash", label: "GCash", icon: Coins },
-    { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "freelancers", label: "Freelancers", icon: Award },
-    { id: "settings", label: "Settings", icon: Settings },
+    { id: "overview", label: "Overview", icon: BarChart3, badge: 0 },
+    { id: "orders", label: "Orders", icon: ShoppingCart, badge: pendingCounts.orders },
+    { id: "products", label: "Products", icon: Package, badge: 0 },
+    { id: "users", label: "Users", icon: Users, badge: 0 },
+    { id: "sellers", label: "Sellers", icon: Crown, badge: 0 },
+    { id: "print", label: "Print", icon: Printer, badge: pendingCounts.print },
+    { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingCounts.messages },
+    { id: "codes", label: "Codes", icon: Ticket, badge: 0 },
+    { id: "news", label: "News", icon: Bell, badge: 0 },
+    { id: "club", label: "Club", icon: Crown, badge: 0 },
+    { id: "bcoins", label: "BCoins", icon: Coins, badge: pendingCounts.bcoins },
+    { id: "gcash", label: "GCash", icon: Coins, badge: pendingCounts.gcash },
+    { id: "jobs", label: "Jobs", icon: Briefcase, badge: 0 },
+    { id: "freelancers", label: "Freelancers", icon: Award, badge: 0 },
+    { id: "settings", label: "Settings", icon: Settings, badge: 0 },
   ];
 
   // Filter tabs based on role
@@ -90,7 +154,6 @@ export default function AdminDashboard() {
   // Set default active tab based on role if current one is not allowed
   const currentTabAllowed = availableTabs.some(tab => tab.id === activeTab);
   if (!currentTabAllowed && availableTabs.length > 0) {
-    // Prefer "overview" if available, otherwise use first allowed tab
     const defaultTab = availableTabs.find(tab => tab.id === "overview") || availableTabs[0];
     setActiveTab(defaultTab.id);
   }
@@ -106,7 +169,7 @@ export default function AdminDashboard() {
               {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+          <Button size="sm" variant="outline" onClick={() => { loadPendingCounts(); window.location.reload(); }}>
             <RefreshCw className="h-4 w-4 mr-2" /> Refresh
           </Button>
         </div>
@@ -117,9 +180,16 @@ export default function AdminDashboard() {
               <TabsTrigger 
                 key={tab.id} 
                 value={tab.id} 
-                className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto"
+                className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto relative"
               >
-                <tab.icon className="h-4 w-4" />
+                <div className="relative">
+                  <tab.icon className="h-4 w-4" />
+                  {tab.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[8px] font-extrabold rounded-full h-3.5 min-w-3.5 flex items-center justify-center px-0.5 animate-pulse">
+                      {tab.badge > 9 ? "9+" : tab.badge}
+                    </span>
+                  )}
+                </div>
                 <span className="hidden sm:inline">{tab.label}</span>
               </TabsTrigger>
             ))}
