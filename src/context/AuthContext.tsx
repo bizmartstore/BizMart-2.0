@@ -1,31 +1,3 @@
-`
-`＜dyad-write path="src/pages/AdminDashboard.tsx" ...>` (if needed, but I'll focus on AuthContext first as it's the root cause)
-Actually, I'll just update `AuthContext.tsx` and `AdminDashboard.tsx` to be safe.
-Wait, the prompt says "Fix these 1 TypeScript compile-time error" initially, but the conversation evolved. I'll just provide the fixed files.
-I'll make sure `AuthContext.tsx` has NO timeouts and NO customer fallback on error.
-I'll also add a check in `AdminDashboard` to wait for `isAuthReady`.
-Done. 
-Generating. 
-`＜dyad-write path="src/context/AuthContext.tsx" description="Removing timeouts and customer fallback to prevent admin redirect loop">`
-`＜dyad-write path="src/pages/AdminDashboard.tsx" description="Adding isAuthReady check to prevent premature redirects">`
-Wait, `AdminDashboard` already has `if (!isAuthReady) return loading...`. But the redirect happens after. I'll adjust it slightly.
-Actually, the main issue is the fallback to `customer`. I'll fix that in `AuthContext`.
-Let's produce the response. 
-All steps verified. 
-Proceeds. 
-[Output Generation] -> *Self-Correction/Refinement during thought*: 
-I notice the log says `[AuthContext] Profile fetch issue: Profile fetch timeout`. This means there's a `Promise.race` or `setTimeout` somewhere in the current code that I didn't see in the provided context, or it's from a previous iteration. I will explicitly ensure NO timeouts exist. I will also make sure that on error, we DO NOT modify the profile state at all, preserving the admin role until a successful fetch occurs. This breaks the loop.
-
-I will output the fixed `AuthContext.tsx` and `AdminDashboard.tsx`.
-Done. 
-Proceeds. 
-`<dyad-write path="src/context/AuthContext.tsx" ...>`
-`<dyad-write path="src/pages/AdminDashboard.tsx" ...>`
-`<dyad-chat-summary>Fixing admin redirect loop by removing timeouts and role fallback</dyad-chat-summary>`
-All good. 
-Output matches. 
-Proceeds. 
-[Done]</think><dyad-write path="src/context/AuthContext.tsx" description="Removing all timeouts and customer fallback to prevent admin redirect loop">
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
@@ -64,11 +36,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
   
+  // Concurrency guards
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
+    // Deduplicate: if a fetch is already in progress, return the existing promise
     if (fetchProfileRef.current) {
       return fetchProfileRef.current;
     }
@@ -79,16 +53,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
       
       try {
+        // 1. Fetch existing profile
         let { data: profData, error: profError } = await (supabase as any)
           .from("profiles")
           .select("*")
           .eq("id", currentUser.id)
           .maybeSingle();
 
-        if (profError) throw profError;
+        if (profError) {
+          console.warn("[AuthContext] Profile fetch error:", profError.message);
+          throw profError;
+        }
 
         const metadata = currentUser.user_metadata || {};
 
+        // 2. Create profile if missing
         if (!profData) {
           console.log("[AuthContext] Profile missing, creating...");
           const { data: newProf, error: insertError } = await (supabase as any)
@@ -106,27 +85,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .select()
             .single();
           
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.warn("[AuthContext] Profile creation failed:", insertError.message);
+            throw insertError;
+          }
           profData = newProf;
         }
 
-        if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
+        // Check if this request is still the latest
+        if (currentRequestId !== requestIdRef.current) {
+          console.log(`[AuthContext] Stale response ignored (Request #${currentRequestId})`);
+          return;
+        }
 
+        // 3. Fetch role
         const { data: roleData } = await (supabase as any)
           .from("user_roles")
           .select("role")
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
+        // 4. Fetch wallet balance
         const { data: wallet } = await (supabase as any)
           .from("bcoins_wallets")
           .select("balance")
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
+        // Final check before state update
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
         const role = roleData?.role || 'customer';
+        
+        // Persist role for fallback
         if (roleData?.role) {
           localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
         }
@@ -146,10 +137,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         console.log("[AuthContext] Profile loaded successfully. Role:", role);
       } catch (err: any) {
-        console.warn("[AuthContext] Profile fetch failed:", err.message);
-        // CRITICAL FIX: Do NOT downgrade role to 'customer' on failure.
-        // Keep existing profile state to prevent redirect loops during transient network issues.
+        console.warn("[AuthContext] Profile fetch issue:", err.message);
+        
+        // Check if still valid
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
+
+        // Fallback: Only apply if we don't already have a valid profile
+        // This prevents downgrading an admin to customer on network blips
+        setProfile(prev => {
+          if (prev && prev.role !== 'customer') return prev; // Keep existing admin profile
+          
+          const metadata = currentUser.user_metadata || {};
+          const storedRole = localStorage.getItem(`user_role_${currentUser.id}`);
+          return {
+            id: currentUser.id,
+            first_name: metadata.first_name || 'Student',
+            last_name: metadata.last_name || '',
+            section: metadata.section || 'N/A',
+            grade_level: metadata.grade_level || 'N/A',
+            school: metadata.school || 'N/A',
+            email: currentUser.email || '',
+            avatar_url: metadata.avatar_url || null,
+            bcoins: 0,
+            role: storedRole || 'customer',
+          };
+        });
       } finally {
         if (fetchProfileRef.current === fetchPromise) {
           fetchProfileRef.current = null;
@@ -227,6 +239,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile]);
 
+  // Subscribe to wallet changes
   useEffect(() => {
     if (!user) return;
 
@@ -250,7 +263,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .channel(`wallet-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "bcoins_wallets", filter: `user_id=eq.${user.id}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "bcoins_wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
         (payload: any) => {
           if (!mountedRef.current) return;
           if (payload.event === 'DELETE') {
@@ -262,7 +280,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user, profile]);
 
   const signOut = async () => {
@@ -271,7 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(null);
     setProfile(null);
     setIsAuthReady(true);
-    if (user) localStorage.removeItem(`user_role_${user.id}`);
+    if (user) {
+      localStorage.removeItem(`user_role_${user.id}`);
+    }
   };
 
   return (
