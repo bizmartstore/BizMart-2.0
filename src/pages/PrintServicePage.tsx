@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -16,8 +16,8 @@ import {
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set worker source
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.mjs`;
+// Set worker source using a more reliable CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 const PRICING = {
   short: { bw: 3.00, color: 8.00 },
@@ -67,12 +67,12 @@ export default function PrintServicePage() {
   const [uploading, setUploading] = useState(false);
 
   // Set default pickup date/time
-  useState(() => {
+  useEffect(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     setPickupDate(tomorrow.toISOString().split('T')[0]);
     setPickupTime("10:00");
-  });
+  }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -122,8 +122,15 @@ export default function PrintServicePage() {
   const analyzePDF = async (pdfFile: File) => {
     setAnalyzing(true);
     try {
+      // Use pdfjsLib directly with proper worker configuration
       const arrayBuffer = await pdfFile.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      // Create a new PDF document
+      const pdf = await pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        useSystemFonts: true
+      }).promise;
+      
       const numPages = pdf.numPages;
       const pageInfos: PageInfo[] = [];
 
