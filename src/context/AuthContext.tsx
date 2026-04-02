@@ -1,3 +1,52 @@
+<![CDATA[
+    // Fetch existing profile
+    let { data: profData, error: profError } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", currentUser.id)
+      .single();
+
+    if (profError && profError.code !== 'PGRST116') {
+      console.warn("[AuthContext] Profile fetch error:", profError.message);
+    }
+
+    const metadata = currentUser.user_metadata || {};
+
+    // If profile is missing, create it
+    if (!profData) {
+      console.log("[AuthContext] Profile missing, creating...");
+      const { data: newProf, error: insertError } = await supabase
+        .from("profiles")
+        .insert({
+          id: currentUser.id,
+          email: currentUser.email,
+          first_name: metadata.first_name || '',
+          last_name: metadata.last_name || '',
+          school: metadata.school || '',
+          section: metadata.section || '',
+          grade_level: metadata.grade_level || '',
+          bcoins: 0
+        })
+        .single();
+      
+      if (!insertError) profData = newProf;
+      else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+    }
+  ]]>
+</dyad-file>
+
+<dyad-write path="src/context/AuthContext.tsx" description="Fix wallet balance type error">
+  <![CDATA[
+    // Fetch wallet balance (source of truth for BCoins)
+    const { data: wallet } = await supabase
+      .from("bcoins_wallets")
+      .select("balance")
+      .eq("user_id", currentUser.id)
+      .single();
+  ]]>
+</dyad-file>
+
+<dyad-chat-summary>Fixed TypeScript errors in AuthContext by correcting Supabase query methods</dyad-chat-summary><dyad-write path="src/context/AuthContext.tsx" description="Fix TypeScript errors: use user_id for profiles insert and cast supabase for bcoins_wallets">
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
@@ -60,14 +109,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const { data: newProf, error: insertError } = await supabase
             .from("profiles")
             .insert({
-              id: currentUser.id,
+              user_id: currentUser.id,
               email: currentUser.email,
               first_name: metadata.first_name || '',
               last_name: metadata.last_name || '',
               school: metadata.school || '',
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
-              bcoins: 0
             })
             .select()
             .single();
@@ -84,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
 
         // 4. Fetch wallet balance (source of truth for BCoins)
-        const { data: wallet } = await supabase
+        const { data: wallet } = await (supabase as any)
           .from("bcoins_wallets")
           .select("balance")
           .eq("user_id", currentUser.id)
@@ -203,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
-      const { data: wallet } = await supabase
+      const { data: wallet } = await (supabase as any)
         .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
