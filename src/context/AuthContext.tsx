@@ -35,7 +35,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
   const profileRef = useRef<Profile | null>(null);
-  const roleRef = useRef<string>('customer'); // <-- Track role separately  // Keep ref in sync with latest profile  useEffect(() => {
+  const roleRef = useRef<string>('customer');
+
+  // Keep ref in sync with latest profile
+  useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
 
@@ -103,8 +106,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: roleData?.role || previousRole || 'customer',
       };
       
-      // Store role permanently      roleRef.current = newProfile.role;
-      
+      // Store role permanently
+      roleRef.current = newProfile.role;
       setProfile(newProfile);
       console.log("[AuthContext] Profile loaded successfully with role:", newProfile.role);
     } catch (err: any) {
@@ -114,9 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const refreshProfile = async () => {
-    if (user && mounted.current) await fetchProfile(user);
-  };
+  const refreshProfile = useCallback(async () => {
+    if (user && mounted.current) {
+      await fetchProfile(user);
+    }
+  }, [user, fetchProfile]);
 
   useEffect(() => {
     let isMounted = true;
@@ -126,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!isMounted) return;
-                setSession(s);
+        setSession(s);
         setUser(s?.user ?? null);
         
         if (s?.user) {
