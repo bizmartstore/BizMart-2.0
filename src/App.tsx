@@ -54,6 +54,52 @@ function AppContent() {
   const [showSplash, setShowSplash] = useState(true);
   const [authReady, setAuthReady] = useState(false);
 
+  // Persist query client to localStorage to prevent empty state on restart
+  useEffect(() => {
+    const hydrate = () => {
+      try {
+        const persisted = localStorage.getItem('query-cache');
+        if (persisted) {
+          const parsed = JSON.parse(persisted);
+          const timestamp = parsed._timestamp || 0;
+          if (Date.now() - timestamp < 1000 * 60 * 60 * 12) { // 12 hours
+            queryClient.setState(parsed);
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to hydrate query cache', e);
+      }
+    };
+
+    const persist = () => {
+      try {
+        const state = queryClient.getState();
+        const toPersist = {
+          ...state,
+          _timestamp: Date.now(),
+        };
+        localStorage.setItem('query-cache', JSON.stringify(toPersist));
+      } catch (e) {
+        console.warn('Failed to persist query cache', e);
+      }
+    };
+
+    // Hydrate on start
+    hydrate();
+
+    // Persist on unload and beforeunload
+    window.addEventListener('beforeunload', persist);
+    window.addEventListener('unload', persist);
+
+    // Also persist every 5 minutes to avoid losing too much data if browser crashes
+    const interval = setInterval(persist, 5 * 60 * 1000);
+    return () => {
+      window.removeEventListener('beforeunload', persist);
+      window.removeEventListener('unload', persist);
+      clearInterval(interval);
+    };
+  }, []); // Empty deps to run once
+
   // Safety timeout for splash screen
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 4000);
