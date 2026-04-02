@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Printer, RefreshCw, FileText } from "lucide-react";
+import { CheckCircle2, XCircle, Printer, RefreshCw, FileText, Truck, MapPin } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function PrintTab() {
@@ -80,6 +80,32 @@ export default function PrintTab() {
                 'bg-primary/20 text-primary'
               }`}>{order.status}</span>
             </div>
+
+            {/* Customer Details */}
+            <div className="bg-muted/30 rounded-lg p-2 mb-2 space-y-0.5">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider">Customer</p>
+              <p className="text-xs font-semibold text-foreground">{order.customer_name || "Unknown User"}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {order.customer_grade_level || "N/A"} • {order.customer_section || "N/A"}
+              </p>
+              <p className="text-[10px] text-muted-foreground">{order.user_email || order.customer_contact || "No contact"}</p>
+            </div>
+
+            {/* Delivery Details */}
+            <div className="bg-muted/30 rounded-lg p-2 mb-2 flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                {order.delivery_type === 'delivery' ? (
+                  <Truck className="h-3.5 w-3.5 text-primary" />
+                ) : (
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                )}
+                <span className="text-[10px] font-bold capitalize text-foreground">{order.delivery_type || 'pickup'}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {order.pickup_date || "N/A"} at {order.pickup_time || "N/A"}
+              </span>
+            </div>
+
             <div className="grid grid-cols-4 gap-2 text-center mb-2">
               <div className="bg-muted rounded-lg p-1.5">
                 <span className="text-sm font-extrabold block">{order.total_pages}</span>
@@ -98,7 +124,7 @@ export default function PrintTab() {
                 <span className="text-[9px] text-muted-foreground">Cost</span>
               </div>
             </div>
-            <p className="text-[10px] text-muted-foreground mb-2">{order.user_email || "User"} • {new Date(order.created_at).toLocaleString()}</p>
+            <p className="text-[10px] text-muted-foreground mb-2">{new Date(order.created_at).toLocaleString()}</p>
             <div className="flex gap-2">
               {order.status === "pending" && (
                 <>
