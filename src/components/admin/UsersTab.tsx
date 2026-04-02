@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Shield, Crown, User, RefreshCw, AlertCircle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Search, Shield, Crown, User, RefreshCw, AlertCircle } from "lucide-react";
 
 export default function UsersTab() {
-  const { user, profile } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -56,8 +56,8 @@ export default function UsersTab() {
 
   const filtered = users.filter(u => 
     !search || 
-    `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase()) || 
-    u.email.toLowerCase().includes(search.toLowerCase()) || 
+    `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+    u.email.toLowerCase().includes(search.toLowerCase()) ||
     (u.section || "").toLowerCase().includes(search.toLowerCase())
   );
 
@@ -74,7 +74,7 @@ export default function UsersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="pl-9 text-xs h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className="h-3 w-3" /></Button>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /></Button>
       </div>
 
       {dbError && (
@@ -112,8 +112,17 @@ export default function UsersTab() {
               </SelectContent>
             </Select>
           </div>
-        ))} 
-        {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No users found</p>}
+        ))}
+        {filtered.length === 0 && !loading && (
+          <div className="text-center py-8">
+            <User className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-xs font-bold text-muted-foreground">No users found</p>
+            <p className="text-[10px] text-muted-foreground mt-1 max-w-xs mx-auto">
+              If you created accounts but they don't appear here, the Supabase <code className="bg-muted px-1 rounded">handle_new_user</code> trigger might be missing or disabled. 
+              This trigger automatically creates a <code className="bg-muted px-1 rounded">profiles</code> row when a user signs up.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
