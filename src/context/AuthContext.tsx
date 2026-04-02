@@ -121,7 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
         }
 
-        // ONLY update profile on successful database query
+        // Update profile with fresh DB data
         setProfile({
           id: currentUser.id,
           first_name: profData.first_name || metadata.first_name || 'Student',
@@ -142,11 +142,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Check if still valid
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        // CRITICAL: Do NOT set any fallback profile on error
-        // Keep the existing profile (if any) to preserve admin role
-        // The profile will be re-fetched on next auth state change or manual refresh
-        console.warn("[AuthContext] Fetch failed - keeping existing profile (if any)");
-        // No setProfile call here - this preserves the existing profile
+        // CRITICAL: Do NOT clear or downgrade the profile on error.
+        // The provisional profile (set immediately on sign-in) remains intact.
+        console.warn("[AuthContext] Fetch failed - keeping existing provisional profile");
       } finally {
         if (fetchProfileRef.current === fetchPromise) {
           fetchProfileRef.current = null;
@@ -177,13 +175,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         
         if (s?.user) {
-          try {
-            await fetchProfile(s.user);
-          } catch (err) {
-            // On init error, don't set any fallback profile
-            // Just leave profile as null and let it be fetched later
-            console.warn("[AuthContext] Init profile fetch failed, will retry");
-          }
+          // Set provisional profile immediately from localStorage + metadata
+          const storedRole = localStorage.getItem(`user_role_${s.user.id}`) || 'customer';
+          setProfile({
+            id: s.user.id,
+            first_name: s.user.user_metadata?.first_name || 'User',
+            last_name: s.user.user_metadata?.last_name || '',
+            section: s.user.user_metadata?.section || 'N/A',
+            grade_level: s.user.user_metadata?.grade_level || 'N/A',
+            school: s.user.user_metadata?.school || 'N/A',
+            email: s.user.email || '',
+            avatar_url: s.user.user_metadata?.avatar_url || null,
+            bcoins: 0,
+            role: storedRole,
+          });
+          
+          // Then fetch fresh data from DB
+          await fetchProfile(s.user);
         }
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
@@ -206,14 +214,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       
       if (event === 'SIGNED_IN' && s?.user) {
-        try {
-          await fetchProfile(s.user);
-        } catch (err) {
-          // Don't set fallback profile on sign-in error
-          console.warn("[AuthContext] Sign-in profile fetch failed");
-        } finally {
-          setIsAuthReady(true);
-        }
+        // IMMEDIATELY set provisional profile so AdminDashboard doesn't redirect
+        const storedRole = localStorage.getItem(`user_role_${s.user.id}`) || 'customer';
+        setProfile({
+          id: s.user.id,
+          first_name: s.user.user_metadata?.first_name || 'User',
+          last_name: s.user.user_metadata?.last_name || '',
+          section: s.user.user_metadata?.section || 'N/A',
+          grade_level: s.user.user_metadata?.grade_level || 'N/A',
+          school: s.user.user_metadata?.school || 'N/A',
+          email: s.user.email || '',
+          avatar_url: s.user.user_metadata?.avatar_url || null,
+          bcoins: 0,
+          role: storedRole,
+        });
+        setIsAuthReady(true);
+        
+        // Fetch fresh data in background
+        fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         setIsAuthReady(true);
