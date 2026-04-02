@@ -61,9 +61,6 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
   const removeItem = (id: string) => setCart(prev => prev.filter(c => c.id !== id));
 
   const subtotal = cart.reduce((sum, c) => sum + c.price * c.quantity, 0);
-  const mainAdminCommission = Number((subtotal * 0.10).toFixed(2));
-  const memberAdminCommission = Number((subtotal * 0.10).toFixed(2));
-  const sellerEarnings = Number((subtotal - mainAdminCommission - memberAdminCommission).toFixed(2));
 
   const completeSale = async () => {
     if (cart.length === 0) return;
@@ -76,9 +73,6 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
         items: cart.map(c => ({ id: c.id, name: c.name, price: c.price, quantity: c.quantity, image: c.image })),
         subtotal,
         total: subtotal,
-        main_admin_commission: mainAdminCommission,
-        seller_earnings: sellerEarnings,
-        member_admin_earnings: memberAdminCommission,
         sold_by: user.id,
       });
 
@@ -141,7 +135,7 @@ function ProductPOS({ role, onSaleComplete }: { role: string; onSaleComplete: ()
               </div>
             ))}
           </div>
-          <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional)" className="text-xs h-8" />
+          <Input value={customerName} onChange={e => setCustomerName(e.target.value)} placeholder="Customer name (optional - not saved)" className="text-xs h-8" />
           <div className="bg-muted/50 rounded-lg p-2 space-y-0.5">
             <div className="flex justify-between text-[10px]"><span className="text-muted-foreground">Total</span><span className="font-bold">₱{subtotal.toFixed(2)}</span></div>
           </div>
@@ -185,8 +179,6 @@ function PrintPOS({ role, onSaleComplete }: { role: string; onSaleComplete: () =
         ],
         subtotal: totalCost,
         total: totalCost,
-        main_admin_commission: totalCost * 0.5,
-        member_admin_earnings: totalCost * 0.5,
         sold_by: user.id,
       });
 
