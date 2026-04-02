@@ -11,6 +11,8 @@ export default function OverviewTab() {
     totalUsers: 0,
     totalPrintOrders: 0,
     pendingPrintOrders: 0,
+    completedPrintOrders: 0,
+    printRevenue: 0,
     totalSellers: 0,
     totalClubMembers: 0,
     totalGCashTransactions: 0,
@@ -33,6 +35,7 @@ export default function OverviewTab() {
       const { data: printOrders } = await (supabase as any).from("print_orders").select("status, cost");
       const totalPrintOrders = printOrders?.length || 0;
       const pendingPrintOrders = printOrders?.filter((o: any) => o.status === "pending").length || 0;
+      const completedPrintOrders = printOrders?.filter((o: any) => o.status === "completed").length || 0;
       const printRevenue = printOrders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.cost || 0), 0) || 0;
 
       // Users
@@ -68,6 +71,8 @@ export default function OverviewTab() {
         totalUsers: totalUsers || 0,
         totalPrintOrders,
         pendingPrintOrders,
+        completedPrintOrders,
+        printRevenue,
         totalSellers: totalSellers || 0,
         totalClubMembers: totalClubMembers || 0,
         totalGCashTransactions,
@@ -137,6 +142,31 @@ export default function OverviewTab() {
         <div className="bg-card rounded-xl p-3 border border-border text-center">
           <p className="text-lg font-extrabold text-warning">{stats.completedOrders}</p>
           <p className="text-[10px] text-muted-foreground font-bold">Completed Orders</p>
+        </div>
+      </div>
+
+      {/* Print Service Stats */}
+      <div className="bg-card rounded-xl border border-border p-4">
+        <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
+          <Printer className="h-4 w-4 text-purple-500" /> Print Service Statistics
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="bg-muted/30 rounded-lg p-3 text-center">
+            <p className="text-xl font-extrabold text-foreground">{stats.totalPrintOrders}</p>
+            <p className="text-[10px] text-muted-foreground">Total Print Orders</p>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-3 text-center">
+            <p className="text-xl font-extrabold text-warning">{stats.pendingPrintOrders}</p>
+            <p className="text-[10px] text-muted-foreground">Pending</p>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-3 text-center">
+            <p className="text-xl font-extrabold text-[hsl(var(--success))]">{stats.completedPrintOrders}</p>
+            <p className="text-[10px] text-muted-foreground">Completed</p>
+          </div>
+          <div className="bg-muted/30 rounded-lg p-3 text-center">
+            <p className="text-xl font-extrabold text-primary">₱{stats.printRevenue.toFixed(2)}</p>
+            <p className="text-[10px] text-muted-foreground">Print Revenue</p>
+          </div>
         </div>
       </div>
 
