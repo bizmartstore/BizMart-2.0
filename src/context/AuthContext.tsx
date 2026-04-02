@@ -34,6 +34,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
+  const profileRef = useRef<Profile | null>(null);
+
+  // Keep ref in sync with latest profile
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
@@ -84,7 +90,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      setProfile({
+      // Use previous role as fallback if role query fails
+      const previousRole = profileRef.current?.role;
+      const newProfile: Profile = {
         id: currentUser.id,
         first_name: finalProfData?.first_name || metadata.first_name || 'Student',
         last_name: finalProfData?.last_name || metadata.last_name || '',
@@ -94,13 +102,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: finalProfData?.email || currentUser.email || '',
         avatar_url: finalProfData?.avatar_url || metadata.avatar_url || null,
         bcoins: Number(wallet?.balance || finalProfData?.bcoins || 0),
-        role: roleData?.role || 'customer',
-      });
+        role: roleData?.role || previousRole || 'customer',
+      };
       
-      console.log("[AuthContext] Profile loaded successfully with role:", roleData?.role || 'customer');
+      setProfile(newProfile);
+      console.log("[AuthContext] Profile loaded successfully with role:", newProfile.role);
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      // Fallback to metadata if DB fails
+      // If we already have a profile, keep it (don't downgrade role on temporary failures)
+      if (profileRef.current) {
+        console.log("[AuthContext] Keeping existing profile due to fetch error");
+        return;
+      }
+      // Fallback to metadata if DB fails and no existing profile
       const metadata = currentUser.user_metadata || {};
       setProfile({
         id: currentUser.id,
