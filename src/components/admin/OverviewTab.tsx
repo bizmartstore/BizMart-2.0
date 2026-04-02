@@ -15,6 +15,8 @@ export default function OverviewTab() {
     totalClubMembers: 0,
     totalGCashTransactions: 0,
     pendingGCashTransactions: 0,
+    totalPOSSales: 0,
+    posRevenue: 0,
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -22,21 +24,26 @@ export default function OverviewTab() {
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      // Orders stats
+      // Orders stats (product orders)
       const { data: orders } = await (supabase as any).from("orders").select("status, total");
       const totalOrders = orders?.length || 0;
       const pendingOrders = orders?.filter((o: any) => o.status === "pending").length || 0;
       const completedOrders = orders?.filter((o: any) => o.status === "completed").length || 0;
-      // FIX: Only count revenue from completed orders
-      const totalRevenue = orders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.total || 0), 0) || 0;
+      const ordersRevenue = orders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.total || 0), 0) || 0;
+
+      // POS Sales stats (manual purchases)
+      const { data: posSales } = await (supabase as any).from("pos_sales").select("total, status");
+      const totalPOSSales = posSales?.length || 0;
+      const posRevenue = posSales?.reduce((sum: number, p: any) => sum + Number(p.total || 0), 0) || 0;
+
+      // Print orders stats
+      const { data: printOrders } = await (supabase as any).from("print_orders").select("status, cost");
+      const totalPrintOrders = printOrders?.length || 0;
+      const pendingPrintOrders = printOrders?.filter((o: any) => o.status === "pending").length || 0;
+      const printRevenue = printOrders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.cost || 0), 0) || 0;
 
       // Users
       const { count: totalUsers } = await (supabase as any).from("profiles").select("*", { count: "exact", head: true });
-
-      // Print orders
-      const { data: printOrders } = await (supabase as any).from("print_orders").select("status");
-      const totalPrintOrders = printOrders?.length || 0;
-      const pendingPrintOrders = printOrders?.filter((o: any) => o.status === "pending").length || 0;
 
       // Sellers
       const { count: totalSellers } = await (supabase as any).from("seller_profiles").select("*", { count: "exact", head: true }).eq("is_active", true);
@@ -49,18 +56,35 @@ export default function OverviewTab() {
       const totalGCashTransactions = gcashTxns?.length || 0;
       const pendingGCashTransactions = gcashTxns?.filter((t: any) => t.status === "pending").length || 0;
 
-      // Recent orders
-      const { data: recent } = await (supabase as any).from("orders").select("*").order("created_at", { ascending: false }).limit(5);
+      // Recent activity - combine orders, print orders, and pos sales
+      const [recentOrdersData, recentPrintData, recentPOSData] = await Promise.all([
+        (supabase as any).from("orders").select("*").order("created_at", { ascending: false }).limit(3),
+        (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }).limit(3),
+        (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }).limit(3),
+      ]);
+
+      const combined = [
+        ...(recentOrdersData.data || []).map((o: any) => ({ ...o, type: 'order' })),
+        ...(recentPrintData.data || []).map((p: any) => ({ ...p, type: 'print' })),
+        ...(recentPOSData.data || []).map((p: any) => ({ ...p, type: 'pos' })),
+      ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
 
       setStats({
-        totalOrders, pendingOrders, completedOrders, totalRevenue,
+        totalOrders,
+        pendingOrders,
+        completedOrders,
+        totalRevenue: ordersRevenue + posRevenue + printRevenue, // Include all revenue sources
         totalUsers: totalUsers || 0,
-        totalPrintOrders, pendingPrintOrders,
+        totalPrintOrders,
+        pendingPrintOrders,
         totalSellers: totalSellers || 0,
         totalClubMembers: totalClubMembers || 0,
-        totalGCashTransactions, pendingGCashTransactions,
+        totalGCashTransactions,
+        pendingGCashTransactions,
+        totalPOSSales,
+        posRevenue,
       });
-      setRecentOrders(recent || []);
+      setRecentOrders(combined);
     } catch (e) {
       console.error("Failed to load stats:", e);
     }
@@ -82,16 +106,16 @@ export default function OverviewTab() {
             <ShoppingCart className="h-5 w-5 text-primary" />
             <span className="text-xs font-bold text-muted-foreground">Total Orders</span>
           </div>
-          <p className="text-2xl font-extrabold">{stats.totalOrders}</p>
-          <p className="text-[10px] text-muted-foreground">{stats.pendingOrders} pending</p>
+          <p className="text-2xl font-extrabold">{stats.totalOrders + stats.totalPOSSales}</p>
+          <p className="text-[10px] text-muted-foreground">{stats.pendingOrders} pending product orders</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
             <DollarSign className="h-5 w-5 text-[hsl(var(--success))]" />
-            <span className="text-xs font-bold text-muted-foreground">Revenue</span>
+            <span className="text-xs font-bold text-muted-foreground">Total Revenue</span>
           </div>
           <p className="text-2xl font-extrabold">₱{stats.totalRevenue.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground">{stats.completedOrders} completed</p>
+          <p className="text-[10px] text-muted-foreground">From all sources</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -122,36 +146,56 @@ export default function OverviewTab() {
           <p className="text-[10px] text-muted-foreground font-bold">GCash Transactions</p>
         </div>
         <div className="bg-card rounded-xl p-3 border border-border text-center">
-          <p className="text-lg font-extrabold text-warning">{stats.pendingGCashTransactions}</p>
-          <p className="text-[10px] text-muted-foreground font-bold">Pending GCash</p>
+          <p className="text-lg font-extrabold text-warning">{stats.totalPOSSales}</p>
+          <p className="text-[10px] text-muted-foreground font-bold">POS Sales</p>
         </div>
       </div>
 
-      {/* Recent Orders */}
+      {/* Recent Activity */}
       <div className="bg-card rounded-xl border border-border p-4">
         <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-primary" /> Recent Orders
+          <Clock className="h-4 w-4 text-primary" /> Recent Activity
         </h3>
         {recentOrders.length === 0 ? (
-          <p className="text-xs text-muted-foreground text-center py-4">No orders yet</p>
+          <p className="text-xs text-muted-foreground text-center py-4">No recent activity</p>
         ) : (
           <div className="space-y-2">
-            {recentOrders.map((order) => (
-              <div key={order.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
-                <div>
-                  <p className="text-xs font-bold">{order.customer_name || "Customer"}</p>
-                  <p className="text-[10px] text-muted-foreground">#{order.id.slice(0, 8)}</p>
+            {recentOrders.map((item: any, idx: number) => {
+              const isPOS = item.type === 'pos';
+              const isPrint = item.type === 'print';
+              const isOrder = item.type === 'order';
+              
+              return (
+                <div key={`${item.type}-${item.id}-${idx}`} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    {isPOS && <ShoppingCart className="h-4 w-4 text-primary" />}
+                    {isPrint && <Printer className="h-4 w-4 text-purple-500" />}
+                    {isOrder && <Package className="h-4 w-4 text-secondary" />}
+                    <div>
+                      <p className="text-xs font-bold">
+                        {isPOS ? `POS: ${item.customer_name || 'Walk-in'}` : 
+                         isPrint ? `Print: ${item.file_name}` : 
+                         `Order: ${item.customer_name || 'Customer'}`}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        #{item.id.slice(0, 8)} • {new Date(item.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-bold text-primary">₱{Number(item.total || item.cost || 0).toFixed(2)}</p>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      item.status === 'completed' || item.status === 'confirmed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                      item.status === 'pending' ? 'bg-warning/20 text-warning' :
+                      item.status === 'rejected' || item.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
+                      'bg-primary/20 text-primary'
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-bold text-primary">₱{Number(order.total).toFixed(2)}</p>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                    order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
-                    order.status === 'pending' ? 'bg-warning/20 text-warning' :
-                    'bg-muted text-muted-foreground'
-                  }`}>{order.status}</span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
