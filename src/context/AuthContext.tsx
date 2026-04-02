@@ -248,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         await fetchProfile(s.user);
         setIsAuthReady(true);
-      } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+      } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         setIsAuthReady(true);
         requestIdRef.current++; // Invalidate any pending requests
