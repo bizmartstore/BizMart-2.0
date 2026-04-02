@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
-    // Deduplicate: if a fetch is already in progress for this user, return the existing promise
+    // Deduplicate: if a fetch is already in progress, return the existing promise
     if (fetchProfileRef.current) {
       return fetchProfileRef.current;
     }
@@ -92,14 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           profData = newProf;
         }
 
-        // Check if this request is still the latest (stale response check)
+        // Check if this request is still the latest
         if (currentRequestId !== requestIdRef.current) {
           console.log(`[AuthContext] Stale response ignored (Request #${currentRequestId})`);
           return;
         }
-
-        // Check if component is still mounted
-        if (!mountedRef.current) return;
 
         // 3. Fetch role
         const { data: roleData } = await (supabase as any)
@@ -115,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
-        // Final staleness check before state update
+        // Final check before state update
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
         const role = roleData?.role || 'customer';
@@ -125,7 +122,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
         }
 
-        // Always update with fresh data - this is the single source of truth
         setProfile({
           id: currentUser.id,
           first_name: profData.first_name || metadata.first_name || 'Student',
@@ -143,10 +139,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err: any) {
         console.warn("[AuthContext] Profile fetch issue:", err.message);
         
-        // Re-throw to let caller handle fallback
-        throw err;
+        // Check if still valid
+        if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
+
+        // Fallback: Only apply if we don't already have a valid profile
+        // This prevents downgrading an admin to customer on network blips
+        setProfile(prev => {
+          if (prev && prev.role !== 'customer') return prev; // Keep existing admin profile
+          
+          const metadata = currentUser.user_metadata || {};
+          const storedRole = localStorage.getItem(`user_role_${currentUser.id}`);
+          return {
+            id: currentUser.id,
+            first_name: metadata.first_name || 'Student',
+            last_name: metadata.last_name || '',
+            section: metadata.section || 'N/A',
+            grade_level: metadata.grade_level || 'N/A',
+            school: metadata.school || 'N/A',
+            email: currentUser.email || '',
+            avatar_url: metadata.avatar_url || null,
+            bcoins: 0,
+            role: storedRole || 'customer',
+          };
+        });
       } finally {
-        // Clear the ref so future fetches can proceed
         if (fetchProfileRef.current === fetchPromise) {
           fetchProfileRef.current = null;
         }
@@ -159,7 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user && mountedRef.current) {
-      fetchProfileRef.current = null; // Force new fetch
+      fetchProfileRef.current = null;
       await fetchProfile(user);
     }
   };
@@ -176,25 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         
         if (s?.user) {
-          try {
-            await fetchProfile(s.user);
-          } catch (err) {
-            // Fallback profile on fetch failure
-            const metadata = s.user.user_metadata || {};
-            const storedRole = localStorage.getItem(`user_role_${s.user.id}`);
-            setProfile({
-              id: s.user.id,
-              first_name: metadata.first_name || 'Student',
-              last_name: metadata.last_name || '',
-              section: metadata.section || 'N/A',
-              grade_level: metadata.grade_level || 'N/A',
-              school: metadata.school || 'N/A',
-              email: s.user.email || '',
-              avatar_url: metadata.avatar_url || null,
-              bcoins: 0,
-              role: storedRole || 'customer',
-            });
-          }
+          await fetchProfile(s.user);
         }
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
@@ -217,38 +215,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       
       if (event === 'SIGNED_IN' && s?.user) {
-        try {
-          await fetchProfile(s.user);
-        } catch (err) {
-          // Fallback profile on fetch failure
-          const metadata = s.user.user_metadata || {};
-          const storedRole = localStorage.getItem(`user_role_${s.user.id}`);
-          setProfile({
-            id: s.user.id,
-            first_name: metadata.first_name || 'Student',
-            last_name: metadata.last_name || '',
-            section: metadata.section || 'N/A',
-            grade_level: metadata.grade_level || 'N/A',
-            school: metadata.school || 'N/A',
-            email: s.user.email || '',
-            avatar_url: metadata.avatar_url || null,
-            bcoins: 0,
-            role: storedRole || 'customer',
-          });
-        } finally {
-          setIsAuthReady(true);
-        }
+        await fetchProfile(s.user);
+        setIsAuthReady(true);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         setIsAuthReady(true);
-        requestIdRef.current++; // Invalidate any pending requests
+        requestIdRef.current++;
         fetchProfileRef.current = null;
       } else if (event === 'TOKEN_REFRESHED' && s?.user) {
-        // Token refresh doesn't need profile refetch, just update session
         setSession(s);
       } else {
-        // For other events (INITIAL_SESSION, PASSWORD_RECOVERY, USER_UPDATED, MFA_CHALLENGE_VERIFIED)
-        // We don't change profile, but mark as ready if not already
         setIsAuthReady(prev => prev || true);
       }
       
@@ -257,7 +233,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mountedRef.current = false;
-      requestIdRef.current++; // Invalidate pending requests on unmount
+      requestIdRef.current++;
       fetchProfileRef.current = null;
       subscription?.unsubscribe();
     };
