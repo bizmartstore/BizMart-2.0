@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, CheckCheck, Image, ImageUpload, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 
 const DEFAULT_NEWS = [
   {
@@ -85,10 +84,7 @@ export default function NewsTab() {
         const ext = file.name.split(".").pop();
         const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         
-        const { error: uploadError } = await supabase.storage
-          .from("news-images")
-          .upload(path, file);
-        
+        const { error: uploadError } = await supabase.storage.from("news-images").upload(path, file);
         if (uploadError) {
           console.error("Upload error:", uploadError);
           toast.error(`Upload failed for ${file.name}: ${uploadError.message}`);
@@ -137,9 +133,7 @@ export default function NewsTab() {
         if (error) throw error;
         toast.success("News updated!");
       } else {
-        const { error } = await (supabase as any)
-          .from("news_updates")
-          .insert(payload);
+        const { error } = await (supabase as any).from("news_updates").insert(payload);
         if (error) throw error;
         toast.success("News published!");
       }
@@ -189,14 +183,8 @@ export default function NewsTab() {
     let added = 0;
     try {
       for (const item of DEFAULT_NEWS) {
-        const { data: existing, error: checkError } = await (supabase as any)
-          .from("news_updates")
-          .select("id")
-          .eq("title", item.title)
-          .maybeSingle();
-        
+        const { data: existing, error: checkError } = await (supabase as any).from("news_updates").select("id").eq("title", item.title).maybeSingle();
         if (checkError) throw checkError;
-
         if (!existing) {
           const { error: insertError } = await (supabase as any).from("news_updates").insert(item);
           if (insertError) throw insertError;
@@ -218,11 +206,11 @@ export default function NewsTab() {
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-sm">News & Updates</h3>
         <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={syncDefaults} disabled={syncing} className="text-xs h-8 gap-1">
+          <Button size="sm" variant="outline" onClick={syncDefaults} disabled={syncing} className="text-xs gap-1">
             {syncing ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             Sync Defaults
           </Button>
-          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs h-8">
+          <Button size="sm" onClick={() => { resetForm(); setShowForm(true); }} className="text-xs gap-1">
             <Plus className="h-3 w-3 mr-1" /> Add News
           </Button>
         </div>
@@ -236,13 +224,12 @@ export default function NewsTab() {
           </div>
           <div>
             <Label className="text-xs">Title</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} className="text-xs" placeholder="News headline..." />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="News headline..." />
           </div>
           <div>
             <Label className="text-xs">Content</Label>
-            <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="text-xs" rows={4} placeholder="Full news content..." />
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Full news content..." rows={4} />
           </div>
-
           <div>
             <Label className="text-xs">Images</Label>
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleUpload} />
@@ -257,18 +244,17 @@ export default function NewsTab() {
                     <X className="h-4 w-4 text-white" />
                   </button>
                 </div>
-              ))}
+              </div>
               <button
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                className="w-16 h-16 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors"
               >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <ImageUpload className="h-4 w-4" />}
+                <span className="text-[8px] text-muted-foreground">{uploading ? "..." : "Add"}</span>
               </button>
             </div>
           </div>
-
           <div>
             <Label className="text-xs">Category</Label>
             <Select value={category} onValueChange={setCategory}>
@@ -281,55 +267,62 @@ export default function NewsTab() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleSave} className="w-full text-xs" disabled={uploading || saving}>
-            {saving ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
-            {editId ? "Update" : "Publish"}
-          </Button>
+          <div>
+            <Label className="text-xs">Description</Label>
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="Describe the news..." rows={2} />
+          </div>
+          <div className="pt-4">
+            <Button type="submit" className="w-full h-12 font-bold rounded-xl" disabled={saving}>
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Publish"
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
 
-      <div className="space-y-2">
-        {news.map((item) => {
-          const allImages = item.images?.length ? item.images : item.image_url ? [item.image_url] : [];
-          return (
-            <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
-              {allImages.length > 0 && (
-                <div className="flex gap-1 flex-shrink-0">
-                  {allImages.slice(0, 3).map((url, i) => (
-                    <img key={i} src={url} alt="" className="w-10 h-10 rounded-lg object-cover" />
-                  ))}
-                  {allImages.length > 3 && (
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
-                      +{allImages.length - 3}
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
-                    <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1">{item.content}</p>
+      {showForm && (
+        <div className="space-y-2">
+          {news.map((item) => {
+            const allImages = item.images?.length ? item.images : item.image_url ? [item.image_url] : [];
+            return (
+              <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
+                {allImages.length > 0 && (
+                  <div className="flex gap-1 flex-shrink-0">
+                    {allImages.slice(0, 3).map((url, i) => (
+                      <img key={i} src={url} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                    ))}
+                    {allImages.length > 3 && (
+                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+                        +{allImages.length - 3}
+                      </div>
+                    )}
                   </div>
-                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
-                </div>
-                <div className="flex gap-2 mt-1.5">
-                  <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
-                    <Edit2 className="h-3 w-3" /> Edit
-                  </button>
-                  <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
-                    <Trash2 className="h-3 w-3" /> Delete
-                  </button>
-                </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-[9px] font-bold uppercase text-primary">{item.category}</span>
+                        <h4 className="text-xs font-bold text-foreground line-clamp-1">{item.title}</h4>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2">{item.content}</p>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5">
+                        <span className="text-[10px] text-muted-foreground">{item.status === 'active' ? 'Active' : 'Inactive'}</span>
+                        <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
+                          <Edit2 className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          );
-        })}
-        {news.length === 0 && (
-          <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
-            <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">No news yet. Click "Sync Defaults" to load sample news.</p>
+            )}
+            {news.length === 0 && (
+              <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
+                <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">No news yet. Click "Sync Defaults" to load sample news.</p>
+              </div>
+            )}
           </div>
         )}
       </div>
