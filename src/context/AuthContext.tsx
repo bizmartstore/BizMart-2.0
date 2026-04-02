@@ -1,18 +1,9 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  ReactNode,
-  useCallback,
-  useRef,
-} from "react";
+"use client";
+
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-/* --------------------------------------------------------------------- */
-/*  Types                                                               */
-/* --------------------------------------------------------------------- */
 export interface Profile {
   id: string;
   first_name: string;
@@ -26,7 +17,7 @@ export interface Profile {
   role: string;
 }
 
-export interface AuthContextType {
+interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
@@ -35,165 +26,205 @@ export interface AuthContextType {
   refreshProfile: () => Promise<void>;
 }
 
-/* --------------------------------------------------------------------- */
-/*  Context creation                                                    */
-/* --------------------------------------------------------------------- */
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-/* --------------------------------------------------------------------- */
-/*  Provider                                                             */
-/* --------------------------------------------------------------------- */
 export function AuthProvider({ children }: { children: ReactNode }) {
-  /* ---------- State --------------------------------------------------- */
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const mounted = useRef(true);
+  const profileRef = useRef<Profile | null>(null);
+  const roleRef = useRef<string>('customer');
 
-  /* ---------- Ref to keep track of un‑mounted state ------------------- */
-  const mountedRef = useRef(true);
-  useEffect(() => () => { mountedRef.current = false; }, []);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
-  /* ---------- Helper: safe setState ----------------------------------- */
-  const setStateSafe = <T>(updater: (s: T) => T) {
-    if (mountedRef.current) updater(undefined as any);
-  }
-
-  /* ---------- Load profile once we know a user ----------------------- */
-  const loadProfile = useCallback(async (currentUser: User) => {
-    if (!mountedRef.current) return;
-
+  const fetchProfile = useCallback(async (currentUser: User) => {
+    console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
+    
     try {
-      // 1️⃣ Try to fetch an existing profile row
-      const { data: profData, error: profErr } = await supabase
-        .from<Profile>("profiles")
+      const { data: profData } = await (supabase as any)
+        .from("profiles")
         .select("*")
         .eq("id", currentUser.id)
-        .single();
+        .maybeSingle();
 
-      // 2️⃣ If it does not exist, create a minimal one (prevents later errors)
+      const metadata = currentUser.user_metadata || {};
+
+      let finalProfData = profData;
       if (!profData) {
-        const { data: created, error: createErr } = await supabase          .from<Profile>("profiles")
+        console.log("[AuthContext] Profile missing, creating...");
+        const { data: newProf } = await (supabase as any)
+          .from("profiles")
           .insert({
             id: currentUser.id,
             email: currentUser.email,
-            first_name: currentUser.user_metadata?.first_name ?? "",
-            last_name: currentUser.user_metadata?.last_name ?? "",
-            school: currentUser.user_metadata?.school ?? "",
-            grade_level: currentUser.user_metadata?.grade_level ?? "",
-            section: currentUser.user_metadata?.section ?? "",
-            avatar_url: currentUser.user_metadata?.avatar_url ?? null,
-            bcoins: 0,
-          })
+            first_name: metadata.first_name || '',
+            last_name: metadata.last_name || '',
+            school: metadata.school || '',
+            section: metadata.section || '',
+            grade_level: metadata.grade_level || '',
+            bcoins: 0
+          } as any)
           .select()
           .single();
-
-        if (createErr) throw createErr;
-        setProfile(created as Profile);
-        return;
+        
+        if (newProf) finalProfData = newProf;
       }
 
-      // 3️⃣ Pull role from the user_roles table (fallback to "customer")
-      const { data: roleData, error: roleErr } = await supabase
-        .from<{ role: string }>("user_roles")
+      const { data: roleData } = await (supabase as any)
+        .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
-        .single();
+        .maybeSingle();
 
-      // 4️⃣ Pull BCoins balance (optional but handy)
-      const { data: wallet, error: walletErr } = await supabase
-        .from<{ balance: number }>("bcoins_wallets")
+      const { data: wallet } = await (supabase as any)
+        .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", currentUser.id)
-        .single();
+        .maybeSingle();
 
-      const finalProfile: Profile = {
+      const previousRole = roleRef.current;
+      const newProfile: Profile = {
         id: currentUser.id,
-        first_name: profData?.first_name ?? currentUser.user_metadata?.first_name ?? "",
-        last_name: profData?.last_name ?? currentUser.user_metadata?.last_name ?? "",
-        section: profData?.section ?? currentUser.user_metadata?.section ?? "",
-        grade_level: profData?.grade_level ?? currentUser.user_metadata?.grade_level ?? "",
-        school: profData?.school ?? currentUser.user_metadata?.school ?? "",
-        email: profData?.email ?? currentUser.email ?? "",
-        avatar_url: profData?.avatar_url ?? currentUser.user_metadata?.avatar_url ?? null,
-        bcoins: Number(wallet?.balance ?? profData?.bcoins ?? 0),
-        role: roleData?.role ?? "customer",
+        first_name: finalProfData?.first_name || metadata.first_name || 'Student',
+        last_name: finalProfData?.last_name || metadata.last_name || '',
+        section: finalProfData?.section || metadata.section || 'N/A',
+        grade_level: finalProfData?.grade_level || metadata.grade_level || 'N/A',
+        school: finalProfData?.school || metadata.school || 'N/A',
+        email: finalProfData?.email || currentUser.email || '',
+        avatar_url: finalProfData?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(wallet?.balance || finalProfData?.bcoins || 0),
+        role: roleData?.role || previousRole || 'customer',
       };
-
-      setProfile(finalProfile);
-    } catch (e: any) {
-      console.warn("[AuthContext] Profile load error:", e.message);
+      
+      roleRef.current = newProfile.role;
+      setProfile(newProfile);
+      console.log("[AuthContext] Profile loaded successfully with role:", newProfile.role);
+    } catch (err: any) {
+      console.warn("[AuthContext] Profile fetch issue:", err.message);
+      console.log("[AuthContext] Keeping existing role:", roleRef.current);
     }
   }, []);
 
-  /* ---------- Initialise – run once ----------------------------------- */
+  const refreshProfile = useCallback(async () => {
+    if (user && mounted.current) {
+      await fetchProfile(user);
+    }
+  }, [user, fetchProfile]);
+
   useEffect(() => {
-    // Supabase will give us the *initial* session (may be null on first load)
+    let isMounted = true;
+    mounted.current = isMounted;
+
     const init = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session?.user) {
-          setUser(session.user);
-          setSession(session);
-          await loadProfile(session.user);
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        setSession(s);
+        setUser(s?.user ?? null);
+        
+        if (s?.user) {
+          await fetchProfile(s.user);
         }
-      } catch (e) {
-        console.error("[AuthProvider] Session fetch failed:", e);
+      } catch (err) {
+        console.error("[AuthContext] Init error:", err);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+          console.log("[AuthContext] Initialization complete");
+        }
       }
     };
+
     init();
-  }, []);
 
-  /* ---------- Real‑time listener -------------------------------------- */
-  useEffect(() => {
-    if (!user) return; // no session → nothing to listen to
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, newSession) => {
-        if (!mountedRef.current) return;
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log(`[AuthContext] Auth state changed: ${event}`);
+      if (!isMounted) return;
 
-        // Update local state        setUser(newSession?.user ?? null);
-        setSession(newSession);
-
-        // Refresh profile whenever the user changes
-        await loadProfile(newSession?.user ?? null);
+      setSession(s);
+      setUser(s?.user ?? null);
+      
+      if (s?.user) {
+        await fetchProfile(s.user);
+      } else {
+        setProfile(null);
       }
-    );
+      
+      setLoading(false);
+    });
 
-    // Cleanup – crucial! prevents the endless listener that caused the freeze
     return () => {
-      mountedRef.current = false;
-      subscription?.unsubscribe?.();
+      isMounted = false;
+      mounted.current = false;
+      subscription?.unsubscribe();
     };
-  }, [user]);
+  }, [fetchProfile]);
 
-  /* ---------- Sign‑out ------------------------------------------------ */
+  useEffect(() => {
+    if (!user) return;
+
+    const syncWallet = async () => {
+      const { data: wallet } = await (supabase as any)
+        .from("bcoins_wallets")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (wallet && profile) {
+        const walletBcoins = Number(wallet.balance);
+        if (profile.bcoins !== walletBcoins) {
+          setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
+        }
+      }
+    };
+
+    syncWallet();
+
+    const channel = supabase
+      .channel(`wallet-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bcoins_wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          if (!mounted.current) return;
+          if (payload.event === 'DELETE') {
+            setProfile(prev => prev ? { ...prev, bcoins: 0 } : prev);
+          } else if (payload.new) {
+            setProfile(prev => prev ? { ...prev, bcoins: payload.new.balance } : prev);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, profile]);
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
-    setLoading(false);
   };
 
-  /* ---------- Expose helpers ------------------------------------------ */
-  const refreshProfile = useCallback(() => loadProfile(user ?? { id: "" }), []);
-
   return (
-    <AuthContext.Provider
-      value={{ user, session, profile, loading, signOut, refreshProfile }}
-    >
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-/* --------------------------------------------------------------------- */
-/*  Hook for consuming components                                        */
-/* --------------------------------------------------------------------- */
 export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within AuthProvider");
-  return ctx;
+  const context = useContext(AuthContext);
+  if (!context) throw new Error("useAuth must be used within AuthProvider");
+  return context;
 }

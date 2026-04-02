@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Users, ShoppingCart, Printer, MessageCircle, Crown, Coins, AlertCircle, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Package, Users, ShoppingCart, Printer, TrendingUp, DollarSign, Clock, CheckCircle2, RefreshCw } from "lucide-react";
 
 export default function OverviewTab() {
   const [stats, setStats] = useState({
@@ -58,17 +58,12 @@ export default function OverviewTab() {
       const { data: recent } = await (supabase as any).from("orders").select("*").order("created_at", { ascending: false }).limit(5);
 
       setStats({
-        totalOrders,
-        pendingOrders,
-        completedOrders,
-        totalRevenue,
+        totalOrders, pendingOrders, completedOrders, totalRevenue,
         totalUsers: totalUsers || 0,
-        totalPrintOrders: totalPrintOrders,
-        pendingPrintOrders: pendingPrintOrders,
+        totalPrintOrders, pendingPrintOrders,
         totalSellers: totalSellers || 0,
         totalClubMembers: totalClubMembers || 0,
-        totalGCashTransactions: totalGCashTransactions,
-        pendingGCashTransactions: pendingGCashTransactions,
+        totalGCashTransactions, pendingGCashTransactions,
       });
       setRecentOrders(recent || []);
       setLastUpdated(new Date());
@@ -79,8 +74,19 @@ export default function OverviewTab() {
     }
   }, []);
 
+  // Load on mount
   useEffect(() => {
     loadStats();
+  }, [loadStats]);
+
+  // Auto-refresh when window gains focus
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log("[OverviewTab] Window focused, refreshing stats...");
+      loadStats();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
   }, [loadStats]);
 
   if (loading) {
@@ -161,15 +167,16 @@ export default function OverviewTab() {
             {recentOrders.map((order) => (
               <div key={order.id} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
                 <div>
-                  <span className="text-xs font-bold">{order.customer_name || "Customer"}</span>
-                  <span className="text-[10px] text-muted-foreground">#{order.id.slice(0, 8)}</span>
+                  <p className="text-xs font-bold">{order.customer_name || "Customer"}</p>
+                  <p className="text-[10px] text-muted-foreground">#{order.id.slice(0, 8)}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-bold text-primary">₱{Number(order.total).toFixed(2)}</span>
-                  <p className="text-[9px] text-[hsl(var(--success))] font-bold">
-                    {order.status === "completed" ? "Completed" : "Pending"}
-                  </p>
-                </div>
+                  <p className="text-xs font-bold text-primary">₱{Number(order.total).toFixed(2)}</p>
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                    order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                    order.status === 'pending' ? 'bg-warning/20 text-warning' :
+                    'bg-muted text-muted-foreground'
+                  }`}>{order.status}</span>
                 </div>
               </div>
             ))}
