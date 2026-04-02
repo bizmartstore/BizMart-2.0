@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw } from "lucide-react";
 import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function OrdersTab() {
@@ -12,13 +12,14 @@ export default function OrdersTab() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const loadOrders = useCallback(async () => {
+  const loadOrders = useCallback(async (showToast = false) => {
     try {
       const [ordersData, printData, posData] = await Promise.all([
-        (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
-        (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
-        (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
+        supabase.from("orders").select("*").order("created_at", { ascending: false }),
+        supabase.from("print_orders").select("*").order("created_at", { ascending: false }),
+        supabase.from("pos_sales").select("*").order("created_at", { ascending: false }),
       ]);
 
       const combined = [
@@ -27,23 +28,28 @@ export default function OrdersTab() {
         ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
       ];
       setOrders(combined);
+      
+      if (showToast && ordersData.error) {
+        toast.error("Failed to load some orders");
+      }
     } catch (e) {
       console.error("Failed to load orders:", e);
+      if (showToast) {
+        toast.error("Failed to load orders");
+      }
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
+  // Initial load on mount
   useEffect(() => {
-    let isMounted = true;
+    loadOrders();
+  }, [loadOrders]);
 
-    const fetchOrders = async () => {
-      if (!isMounted) return;
-      setLoading(true);
-      await loadOrders();
-      if (isMounted) setLoading(false);
-    };
-
-    fetchOrders();
-
+  // Real-time subscription
+  useEffect(() => {
     const channel = supabase
       .channel("admin-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
@@ -58,10 +64,17 @@ export default function OrdersTab() {
         console.log("[OrdersTab] pos_sales changed, reloading...");
         loadOrders();
       })
-      .subscribe();
+      .subscribe((status, error) => {
+        if (error) {
+          console.error("[OrdersTab] Real-time subscription error:", error);
+          toast.error("Real-time connection failed. Using fallback polling.");
+          // Fallback: poll every 10 seconds if real-time fails
+          const interval = setInterval(() => loadOrders(), 10000);
+          return () => clearInterval(interval);
+        }
+      });
 
     return () => {
-      isMounted = false;
       supabase.removeChannel(channel);
     };
   }, [loadOrders]);
@@ -78,10 +91,14 @@ export default function OrdersTab() {
       if (orderType === "print") table = "print_orders";
       if (orderType === "pos") table = "pos_sales";
 
-      const { data: order } = await (supabase as any).from(table).select("*").eq("id", orderId).maybeSingle();
-      if (!order) return;
+      const { data: order } = await supabase.from(table).select("*").eq("id", orderId).maybeSingle();
+      if (!order) {
+        toast.error("Order not found");
+        return;
+      }
 
-      await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
+      const { error } = await supabase.from(table).update({ status: newStatus }).eq("id", orderId);
+      if (error) throw error;
       
       if (newStatus === "completed" && orderType !== 'pos' && order.user_id) {
         const bcoins = Number(order.bcoins_earned || 0);
@@ -113,6 +130,11 @@ export default function OrdersTab() {
       // Revert on error by reloading
       loadOrders();
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    loadOrders();
   };
 
   const filtered = orders.filter(o => {
@@ -163,7 +185,7 @@ export default function OrdersTab() {
           </div>
           
           <div className="bg-muted/30 rounded-lg p-3 space-y-1">
-            <p className="text-[10px] font-bold text-muted-foreground">ITEMS</p>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">ITEMS</p>
             {items.map((item: any, i: number) => (
               <div key={i} className="flex justify-between text-xs">
                 <span>{item.name} ×{item.quantity}</span>
@@ -224,9 +246,26 @@ export default function OrdersTab() {
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search all orders (products, print, POS)..." className="pl-9 text-xs h-9" />
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            placeholder="Search all orders (products, print, POS)..." 
+            className="pl-9 text-xs h-9" 
+          />
+        </div>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleRefresh} 
+          disabled={refreshing}
+          className="gap-1"
+        >
+          <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -241,7 +280,9 @@ export default function OrdersTab() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full" /></div>
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
       ) : (
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
           {filtered.map(order => {
