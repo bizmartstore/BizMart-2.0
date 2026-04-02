@@ -25,6 +25,7 @@ import GCashTab from "@/components/admin/GCashTab";
 import SellersTab from "@/components/admin/SellersTab";
 import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
+import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import POSTab from "@/components/admin/POSTab";
 
 // Define which tabs member admins can access
@@ -33,7 +34,8 @@ const MEMBER_ADMIN_ALLOWED_TABS = [
   "news",
   "gcash",
   "jobs",
-  "pos"
+  "pos",
+  "settings"
 ];
 
 export default function AdminDashboard() {
@@ -122,7 +124,6 @@ export default function AdminDashboard() {
             ))}
           </TabsList>
 
-          {/* All tab contents remain the same - they'll only be accessible if the tab is shown */}
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
@@ -137,7 +138,7 @@ export default function AdminDashboard() {
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
           <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
-          <TabsContent value="settings"><SettingsTab /></TabsContent>
+          <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
         </Tabs>
       </div>
       <BottomNav />
