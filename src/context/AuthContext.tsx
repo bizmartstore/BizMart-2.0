@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               section: metadata.section || null,
               grade_level: metadata.grade_level || null,
               avatar_url: metadata.avatar_url || null,
-            } as const)
+            })
             .select()
             .single();
           
