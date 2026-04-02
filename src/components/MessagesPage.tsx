@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
       .order("last_message_at", { ascending: false });
     setConversations(convos || []);
 
-    // Fetch profiles for other participants
+    // Fetch profiles for other participants using id (not user_id)
     const otherIds = (convos || []).map((c: any) =>
       c.participant_1 === user.id ? c.participant_2 : c.participant_1
     );
@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
       const { data: profs } = await supabase
         .from("profiles")
         .select("*")
-        .in("id", otherIds); // Use id, not user_id
+        .in("id", otherIds); // Use id
       const map: Record<string, any> = {};
       (profs || []).forEach((p: any) => { map[p.id] = p; }); // Use p.id
       setProfiles(map);

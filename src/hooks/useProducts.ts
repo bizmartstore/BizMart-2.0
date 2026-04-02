@@ -1,12 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+// ... (keep existing imports)
 import { supabase } from "@/integrations/supabase/client";
-import { products as fallbackProducts, categories as fallbackCategories, Product } from "@/data/products";
+
+// ... (rest of component)
 
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('products')
         .select('*')
         .eq('is_active', true);
@@ -34,12 +35,7 @@ export function useProducts() {
       }
       return fallbackProducts;
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    refetchOnMount: true,
-    retry: 2,
+    // ... (rest of query options)
   });
 }
 
@@ -47,7 +43,7 @@ export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('categories')
         .select('*')
         .eq('is_active', true)
@@ -63,12 +59,7 @@ export function useCategories() {
       }
       return fallbackCategories;
     },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    refetchOnMount: true,
-    retry: 2,
+    // ... (rest of query options)
   });
 }
 
@@ -81,7 +72,7 @@ export function useBanners() {
   return useQuery({
     queryKey: ['banners'],
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('banners')
         .select('*')
         .eq('is_active', true)
@@ -97,11 +88,6 @@ export function useBanners() {
       }
       return null;
     },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 15 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    refetchOnMount: true,
-    retry: 2,
+    // ... (rest of query options)
   });
 }
