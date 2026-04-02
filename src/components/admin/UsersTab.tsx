@@ -13,7 +13,6 @@ export default function UsersTab() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
-  const [updating, setUpdating] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,22 +50,15 @@ export default function UsersTab() {
       return;
     }
 
-    setUpdating(userId);
     try {
-      const { data, error } = await supabase.functions.invoke("manage-user-role", {
-        body: { user_id: userId, role },
-      });
-      
-      if (error) throw error;
-      if (!data.success) throw new Error(data.error || "Failed to update role");
-      
+      await (supabase as any).from("user_roles").delete().eq("user_id", userId);
+      if (role !== "customer") {
+        await (supabase as any).from("user_roles").insert({ user_id: userId, role });
+      }
       toast.success(`Role updated to ${role}`);
       load();
     } catch (e: any) {
-      console.error("Role update error:", e);
       toast.error(e.message || "Failed to update role");
-    } finally {
-      setUpdating(null);
     }
   };
 
@@ -90,9 +82,7 @@ export default function UsersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="pl-9 text-xs h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /></Button>
       </div>
 
       {dbError && (
@@ -102,18 +92,6 @@ export default function UsersTab() {
             <p className="text-xs font-bold text-destructive">Database Error</p>
             <p className="text-[10px] text-destructive/80 mt-0.5">{dbError}</p>
           </div>
-        </div>
-      )}
-
-      {!isMainAdmin && (
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-3">
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="h-4 w-4 text-warning" />
-            <p className="text-xs font-bold text-warning">Member Admin Access</p>
-          </div>
-          <p className="text-[10px] text-muted-foreground">
-            You can view users but only main admin can modify roles. Role modification controls are disabled.
-          </p>
         </div>
       )}
 
@@ -132,11 +110,7 @@ export default function UsersTab() {
               <p className="text-[9px] text-muted-foreground">{u.school} • {u.grade_level} - {u.section}</p>
             </div>
             {isMainAdmin ? (
-              <Select 
-                value={u.role} 
-                onValueChange={(v) => assignRole(u.user_id, v)}
-                disabled={updating === u.user_id}
-              >
+              <Select value={u.role} onValueChange={(v) => assignRole(u.user_id, v)}>
                 <SelectTrigger className="w-28 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
