@@ -126,11 +126,6 @@ export default function PrintServicePage() {
     setAnalyzing(true);
     setPdfError(null);
     try {
-      // Test if PDF.js worker is loaded
-      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
-        throw new Error("PDF.js worker not configured");
-      }
-
       // Use pdfjsLib directly with proper worker configuration
       const arrayBuffer = await pdfFile.arrayBuffer();
       
@@ -138,8 +133,6 @@ export default function PrintServicePage() {
       const pdf = await pdfjsLib.getDocument({ 
         data: arrayBuffer,
         useSystemFonts: true,
-        // Disable webGL for better compatibility
-        enableWebGL: false,
       }).promise;
       
       const numPages = pdf.numPages;
