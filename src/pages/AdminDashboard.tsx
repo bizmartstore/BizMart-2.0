@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, Package, ShoppingCart, Printer, MessageCircle,
-  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket
+  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket, LogOut
 } from "lucide-react";
 import { toast } from "sonner";
 import OverviewTab from "@/components/admin/OverviewTab";
@@ -28,7 +28,7 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import POSTab from "@/components/admin/POSTab";
 
 export default function AdminDashboard() {
-  const { user, profile, isAuthReady } = useAuth();
+  const { user, profile, isAuthReady, signOut } = useAuth();
   const { isAdmin, isMainAdmin } = useAdmin();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
@@ -50,6 +50,16 @@ export default function AdminDashboard() {
   }
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      toast.success("Logged out successfully");
+      navigate("/login");
+    } catch (error) {
+      toast.error("Failed to logout");
+    }
+  };
 
   const tabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
@@ -80,9 +90,14 @@ export default function AdminDashboard() {
               {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
             </p>
           </div>
-          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
-            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+            </Button>
+            <Button size="sm" variant="destructive" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" /> Logout
+            </Button>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
