@@ -11,6 +11,7 @@ import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
+import { Loader2 } from "lucide-react";
 
 // Pages
 import Index from "@/pages/Index";
@@ -60,8 +61,19 @@ function AppContent() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (showSplash || authLoading) {
+  if (showSplash) {
     return <SplashScreen onFinished={() => setShowSplash(false)} />;
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading your account...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
