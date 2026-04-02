@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Users, ShoppingCart, Printer, TrendingUp, DollarSign, Clock, CheckCircle2, RefreshCw } from "lucide-react";
+import { Package, Users, ShoppingCart, Printer, TrendingUp, DollarSign, Clock, CheckCircle2 } from "lucide-react";
 
 export default function OverviewTab() {
   const [stats, setStats] = useState({
@@ -18,27 +18,23 @@ export default function OverviewTab() {
   });
   const [recentOrders, setRecentOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
 
   const loadStats = useCallback(async () => {
     setLoading(true);
     try {
-      // Orders stats - fetch all orders
-      const { data: orders, error: ordersError } = await (supabase as any).from("orders").select("status, total");
-      if (ordersError) throw ordersError;
-      
+      // Orders stats
+      const { data: orders } = await (supabase as any).from("orders").select("status, total");
       const totalOrders = orders?.length || 0;
       const pendingOrders = orders?.filter((o: any) => o.status === "pending").length || 0;
       const completedOrders = orders?.filter((o: any) => o.status === "completed").length || 0;
-      // Only count revenue from completed orders
+      // FIX: Only count revenue from completed orders
       const totalRevenue = orders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.total || 0), 0) || 0;
 
       // Users
       const { count: totalUsers } = await (supabase as any).from("profiles").select("*", { count: "exact", head: true });
 
       // Print orders
-      const { data: printOrders, error: printError } = await (supabase as any).from("print_orders").select("status");
-      if (printError) throw printError;
+      const { data: printOrders } = await (supabase as any).from("print_orders").select("status");
       const totalPrintOrders = printOrders?.length || 0;
       const pendingPrintOrders = printOrders?.filter((o: any) => o.status === "pending").length || 0;
 
@@ -49,8 +45,7 @@ export default function OverviewTab() {
       const { count: totalClubMembers } = await (supabase as any).from("club_memberships").select("*", { count: "exact", head: true }).eq("status", "active");
 
       // GCash
-      const { data: gcashTxns, error: gcashError } = await (supabase as any).from("gcash_transactions").select("status");
-      if (gcashError) throw gcashError;
+      const { data: gcashTxns } = await (supabase as any).from("gcash_transactions").select("status");
       const totalGCashTransactions = gcashTxns?.length || 0;
       const pendingGCashTransactions = gcashTxns?.filter((t: any) => t.status === "pending").length || 0;
 
@@ -66,28 +61,13 @@ export default function OverviewTab() {
         totalGCashTransactions, pendingGCashTransactions,
       });
       setRecentOrders(recent || []);
-      setLastUpdated(new Date());
     } catch (e) {
       console.error("Failed to load stats:", e);
-    } finally {
-      setLoading(false);
     }
+    setLoading(false);
   }, []);
 
-  // Load on mount
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  // Auto-refresh when window gains focus
-  useEffect(() => {
-    const handleFocus = () => {
-      console.log("[OverviewTab] Window focused, refreshing stats...");
-      loadStats();
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, [loadStats]);
+  useEffect(() => { loadStats(); }, [loadStats]);
 
   if (loading) {
     return <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
@@ -95,14 +75,6 @@ export default function OverviewTab() {
 
   return (
     <div className="space-y-4">
-      {/* Refresh indicator */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Last updated: {lastUpdated.toLocaleTimeString()}</span>
-        <button onClick={loadStats} className="flex items-center gap-1 hover:text-primary transition-colors">
-          <RefreshCw className="h-3 w-3" /> Refresh
-        </button>
-      </div>
-
       {/* Main Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl p-4 border border-border">
