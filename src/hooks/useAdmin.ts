@@ -1,148 +1,35 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useAdmin } from "@/hooks/useAdmin";
-import { useNavigate } from "react-router-dom";
 
-import TopBar from "@/components/TopBar";
-import BottomNav from "@/components/BottomNav";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-import {
-  Users, Package, ShoppingCart, Printer, MessageCircle,
-  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket
-} from "lucide-react";
-
-import OverviewTab from "@/components/admin/OverviewTab";
-import OrdersTab from "@/components/admin/OrdersTab";
-import ProductsTab from "@/components/admin/ProductsTab";
-import UsersTab from "@/components/admin/UsersTab";
-import PrintTab from "@/components/admin/PrintTab";
-import MessagesTab from "@/components/admin/AdminMessagesTab";
-import CodesTab from "@/components/admin/CodesTab";
-import NewsTab from "@/components/admin/NewsTab";
-import ClubTab from "@/components/admin/ClubTab";
-import BCoinsTab from "@/components/admin/BCoinsTab";
-import GCashTab from "@/components/admin/GCashTab";
-import SellersTab from "@/components/admin/SellersTab";
-import JobsTab from "@/components/admin/JobsTab";
-import SettingsTab from "@/components/admin/SettingsTab";
-import POSTab from "@/components/admin/POSTab";
-
-export default function AdminDashboard() {
-  const { profile, loading: authLoading } = useAuth();
-  const { isAdmin, isMainAdmin, loading: roleLoading } = useAdmin();
+/**
+ * Redirects authenticated admin users to /admin if they land on customer pages.
+ */
+export default function AdminAutoRedirect() {
+  const { user, loading: authLoading } = useAuth();
+  const { isAdmin, loading: roleLoading } = useAuth(); // assuming useAuth provides isAdmin/isMainAdmin
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const [activeTab, setActiveTab] = useState("overview");
-
-  // ✅ SAFE REDIRECT (runs AFTER render, not during)
   useEffect(() => {
-    if (!authLoading && !roleLoading && profile && !isAdmin) {
-      console.log('[AdminDashboard] User is not admin, redirecting...');
-      navigate("/");
+    // Wait for both auth and role loading to complete
+    if (authLoading || roleLoading) {
+      return;
     }
-  }, [authLoading, roleLoading, profile, isAdmin, navigate]);
 
-  // ✅ WAIT until auth + profile are READY
-  if (authLoading || roleLoading || !profile) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    );
-  }
+    if (!user || !isAdmin) {
+      return;
+    }
 
-  // ✅ Prevent UI flicker before redirect triggers
-  if (!isAdmin) return null;
+    // Only redirect from customer-facing pages, not from admin or auth pages
+    const adminPaths = ["/admin", "/login", "/signup"];
+    if (adminPaths.some((p) => location.pathname.startsWith(p))) {
+      return;
+    }
 
-  console.log(
-    '[AdminDashboard] Admin access granted. Role:',
-    isMainAdmin ? 'main_admin' : 'member_admin'
-  );
+    console.log("[AdminAutoRedirect] Redirecting admin to /admin");
+    navigate("/admin", { replace: true });
+  }, [user, isAdmin, authLoading, roleLoading, location.pathname, navigate]);
 
-  const tabs = [
-    { id: "overview", label: "Overview", icon: BarChart3 },
-    { id: "orders", label: "Orders", icon: ShoppingCart },
-    { id: "products", label: "Products", icon: Package },
-    { id: "users", label: "Users", icon: Users },
-    { id: "sellers", label: "Sellers", icon: Crown },
-    { id: "print", label: "Print", icon: Printer },
-    { id: "messages", label: "Messages", icon: MessageCircle },
-    { id: "codes", label: "Codes", icon: Ticket },
-    { id: "news", label: "News", icon: Bell },
-    { id: "club", label: "Club", icon: Crown },
-    { id: "bcoins", label: "BCoins", icon: Coins },
-    { id: "gcash", label: "GCash", icon: Coins },
-    { id: "jobs", label: "Jobs", icon: Briefcase },
-    { id: "pos", label: "POS", icon: ShoppingCart },
-    { id: "settings", label: "Settings", icon: Settings },
-  ];
-
-  return (
-    <div className="min-h-screen bg-background pb-20">
-      <TopBar />
-
-      <div className="px-4 mt-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="font-extrabold text-xl text-foreground">
-              Admin Dashboard
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
-            </p>
-          </div>
-
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
-          </Button>
-        </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
-            {tabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto"
-              >
-                <tab.icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="sellers"><SellersTab /></TabsContent>
-          <TabsContent value="print"><PrintTab /></TabsContent>
-          <TabsContent value="messages"><MessagesTab /></TabsContent>
-          <TabsContent value="codes"><CodesTab /></TabsContent>
-          <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
-          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
-          <TabsContent value="gcash"><GCashTab /></TabsContent>
-          <TabsContent value="jobs"><JobsTab /></TabsContent>
-
-          <TabsContent value="pos">
-            <POSTab
-              role={isMainAdmin ? "main_admin" : "member_admin"}
-              onSaleComplete={() => {}}
-            />
-          </TabsContent>
-
-          <TabsContent value="settings"><SettingsTab /></TabsContent>
-        </Tabs>
-      </div>
-
-      <BottomNav />
-    </div>
-  );
+  return null;
 }
