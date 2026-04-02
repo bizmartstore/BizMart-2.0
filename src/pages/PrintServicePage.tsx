@@ -52,6 +52,7 @@ function isPageColored(imageData: ImageData, threshold = 0.01): boolean {
 export default function PrintServicePage() {
   const { user, profile } = useAuth();
   const { storeOpen, gcashFee } = useAppSettings();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [file, setFile] = useState<File | null>(null);
