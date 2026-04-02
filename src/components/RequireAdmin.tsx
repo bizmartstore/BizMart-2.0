@@ -5,23 +5,31 @@ import { useAdmin } from "@/hooks/useAdmin";
 
 /**
  * Component to wrap admin-only routes.
- * If user is not admin, redirect to admin dashboard.
+ * If user is not admin, redirect to home with a message.
  */
-export default function RequireAdmin({ children }) {
+export default function RequireAdmin({ children }: { children: React.ReactNode }) {
   const { isAdmin, loading } = useAdmin();
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     if (loading) return;
-    // Check if user is NOT admin (including case where role might be missing)
+    
     if (!isAdmin) {
-      // Prevent redirect loops by checking current path      if (!location.pathname.startsWith("/admin")) {
-        navigate("/admin", { replace: true });
-      }
+      // Clear any admin flags if user is not actually admin
+      localStorage.removeItem("isAdminLoggedIn");
+      localStorage.removeItem("adminRole");
+      
+      // Redirect to home with a flag to show access denied
+      navigate("/", { replace: true, state: { accessDenied: true } });
     }
   }, [isAdmin, loading, location.pathname, navigate]);
 
-  // Render children only if user IS admin  return isAdmin ? children : null;
+  // Only render children if user IS admin
+  if (!isAdmin && !loading) {
+    return null;
+  }
+
+  return <>{children}</>;
 }
 ]]>

@@ -3,26 +3,29 @@ import { useAuth } from "@/context/AuthContext";
 
 /**
  * Hook to expose admin role information.
- * Uses stored localStorage flag if present (set on admin login) 
- * otherwise falls back to role from profile.
+ * Prioritizes localStorage flag (set on admin login) for instant recognition,
+ * then falls back to profile role from database.
  */
 export function useAdmin() {
   const { profile, loading: authLoading } = useAuth();
   
   // Check localStorage first - this persists across page refreshes
-  const storedAdminFlag = localStorage.getItem("isAdminLoggedIn");
-  const roleFromStorage = storedAdminFlag === "true";
+  const storedIsAdmin = localStorage.getItem("isAdminLoggedIn") === "true";
+  const storedRole = localStorage.getItem("adminRole");
   
-  // Use role from storage if admin flag is set, otherwise fall back to profile role
-  const role = storedAdminFlag === "true" 
-    ? storedAdminFlag 
-    : (profile?.role || null);
+  // Determine admin status with priority: localStorage > profile role
+  const isAdmin = storedIsAdmin || 
+                  profile?.role === "main_admin" || 
+                  profile?.role === "member_admin";
   
+  const isMainAdmin = profile?.role === "main_admin" || storedRole === "main_admin";
+  const isMemberAdmin = profile?.role === "member_admin" || storedRole === "member_admin";
+
   return {
-    role,
-    isAdmin: storedAdminFlag === "true" || (profile?.role === "main_admin" || profile?.role === "member_admin"),
-    isMainAdmin: profile?.role === "main_admin",
-    isMemberAdmin: profile?.role === "member_admin",
+    role: storedRole || profile?.role || null,
+    isAdmin,
+    isMainAdmin,
+    isMemberAdmin,
     loading: authLoading,
   };
 }

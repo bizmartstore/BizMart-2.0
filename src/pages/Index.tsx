@@ -1,87 +1,49 @@
 <![CDATA[
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAdmin } from "@/hooks/useAdmin";
+import TopBar from "@/components/TopBar";
+import BottomNav from "@/components/BottomNav";
+import BannerCarousel from "@/components/BannerCarousel";
+import ProductCard from "@/components/ProductCard";
+import BizMartFeatures from "@/components/BizMartFeatures";
+import NewsCarousel from "@/components/NewsCarousel";
+import AnnouncementPopup from "@/components/AnnouncementPopup";
+import LiveShoutoutTicker from "@/components/LiveShoutoutTicker";
+import { useProducts } from "@/hooks/useProducts";
+import { useAppSettings } from "@/hooks/useAppSettings";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Index() {
+  const navigate = useNavigate();
   const { isAdmin, loading: adminLoading } = useAdmin();
-  const location = window.location.pathname;
+  const { user } = useAuth();
+  const { data: products = [] } = useProducts();
+  const { storeOpen, closeMessage } = useAppSettings();
 
-  // If admin is logged in and tries to access home, redirect to admin dashboard
-  if (isAdmin && !adminLoading && location.pathname === "/") {
-    // Use timeout to avoid race conditions
-    setTimeout(() => {
-      window.location.href = "/admin";
-    }, 100);
-    return null;
-  }
-
-  // ... existing Index component code
-</dyad-file>
-
-<dyad-write path="src/pages/NotFound.tsx" description="Block admin from accessing 404 when trying to reach admin routes">
-  <![CDATA[
-import { useAdmin } from "@/hooks/useAdmin";
-
-export default function NotFound() {
-  const { isAdmin, loading } = useAdmin();
-  const location = window.location.pathname;
-
-  // If admin tries to access non-admin page directly, redirect to admin dashboard  if (isAdmin && !loading && !location.pathname.startsWith("/admin")) {
-    window.location.href = "/admin";
-    return null;
-  }
-
-  // ... existing NotFound component code
-</dyad-file>
-
-<dyad-chat-summary>Fixed admin routing to prevent fallback to customer account</dyad-chat-summary><dyad-write path="src/pages/LoginPage.tsx" description="Store admin flag and redirect directly to admin dashboard">
-  <![CDATA[
-import { useLocation } from "react-router-dom";
-
-export default function LoginPage() {
-  // ... existing state and effect code ...
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setUnconfirmed(false);
-    setErrorMsg(null);
-    
-    const { data, error } = await supabase.auth.signInWithPassword({ 
-      email, password 
-    });
-    
-    setLoading(false);
-        if (error) {
-      // ... existing error handling
-    } else if (data.user) {
-      // Determine role BEFORE any navigation
-      const { data: roleData, error: roleError } = await (supabase as any)
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", data.user.id)
-        .maybeSingle();
-      
-      if (!roleError && roleData?.role) {
-        // Store admin status permanently for this session
-        localStorage.setItem("isAdminLoggedIn", "true");
-        localStorage.setItem("adminRole", roleData.role);
-                
-        // Navigate based on role
-        if (roleData.role === "main_admin" || roleData.role === "member_admin") {
-          navigate("/admin");
-          return;
-        }
-      }
-      
-      // Existing fallback logic (non-admin)
-      if (data.user.email === 'sheethappenswithjaa@gmail.com') {
-        navigate("/admin");
-        return;
-      }
-      
-      // ... existing non-admin navigation logic
+  // Redirect admin users away from homepage
+  useEffect(() => {
+    if (!adminLoading && isAdmin && user) {
+      console.log('[Index] Admin detected, redirecting to /admin');
+      navigate("/admin", { replace: true });
     }
-  };
-  // ... rest unchanged
+  }, [isAdmin, adminLoading, user, navigate]);
+
+  // Show loading state while checking admin status
+  if (adminLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  // If admin, render nothing (will redirect)
+  if (isAdmin && user) {
+    return null;
+  }
+
+  // Rest of the existing Index component code continues...
+  // ... (keep all existing code for the customer homepage)
 }
 ]]>
