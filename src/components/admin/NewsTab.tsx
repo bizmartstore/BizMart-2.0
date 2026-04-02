@@ -113,8 +113,7 @@ export default function NewsTab() {
   };
 
   const handleSave = async () => {
-    if (!title.trim() || !content.trim()) { 
-      toast.error("Title and content are required"); 
+    if (!title.trim() || !content.trim()) {       toast.error("Title and content are required"); 
       return; 
     }
     
@@ -193,8 +192,7 @@ export default function NewsTab() {
           .select("id")
           .eq("title", item.title)
           .maybeSingle();
-        
-        if (checkError) throw checkError;
+                if (checkError) throw checkError;
 
         if (!existing) {
           const { error: insertError } = await (supabase as any).from("news_updates").insert(item);

@@ -1,12 +1,7 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { Toaster } from "@/components/ui/toaster";
-import { Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { createRoot } from "react-dom/client";
+import App from "./App.tsx";
+import "./index.css";
+import TooltipProvider from "@/components/ui/tooltip";
 import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
@@ -35,83 +30,3 @@ import JobDetailPage from "@/pages/JobDetailPage";
 import FreelancerApplyPage from "@/pages/FreelancerApplyPage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: true,
-      retry: 1,
-    },
-  },
-});
-
-function AppContent() {
-  const { loading: authLoading } = useAuth();
-  const [showSplash, setShowSplash] = useState(true);
-
-  // Safety timeout for splash screen
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (showSplash || authLoading) {
-    return <SplashScreen onFinished={() => setShowSplash(false)} />;
-  }
-
-  return (
-    <>
-      <PWARegister />
-      <Toaster />
-      <Sonner />
-      <TooltipProvider>
-        <BrowserRouter>
-          <AdminAutoRedirect />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
-            <Route path="/categories" element={<CategoriesPage />} />
-            <Route path="/marketplace" element={<MarketplacePage />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/bcoins" element={<BCoinsPage />} />
-            <Route path="/gcash" element={<GCashPage />} />
-            <Route path="/club" element={<ClubPage />} />
-            <Route path="/messages" element={<MessagesPage />} />
-            <Route path="/sellers" element={<SellersPage />} />
-            <Route path="/store/:sellerId" element={<StoreViewPage />} />
-            <Route path="/seller-store" element={<SellerStorePage />} />
-            <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/jobs/post" element={<JobPostPage />} />
-            <Route path="/jobs/:id" element={<JobDetailPage />} />
-            <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </>
-  );
-}
-
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <CartProvider>
-          <AppContent />
-        </CartProvider>
-      </AuthProvider>
-    </QueryClientProvider>
-  );
-}
-
-export default App;

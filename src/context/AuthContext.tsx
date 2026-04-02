@@ -1,9 +1,19 @@
-const fetchProfile = useCallback(async (currentUser: User) => {
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { User } from "next-auth";
+import { useNavigate } from "react-router-dom";
+
+export function useAuth() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
+
+  // Increased timeout to prevent "Profile fetch timeout" warning
+  const fetchProfile = useCallback(async (currentUser: User) => {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
     
     try {
-      // Use a Promise.race to ensure we don't hang forever on a slow DB query
-      const profilePromise = (async () => {
+      // Use a Promise.race to ensure we don't hang forever on a slow DB query      const profilePromise = (async () => {
         // 1. Try to fetch existing profile
         let { data: profData, error: profError } = await supabase
           .from("profiles")
@@ -30,8 +40,7 @@ const fetchProfile = useCallback(async (currentUser: User) => {
               school: metadata.school || '',
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
-              bcoins: 0
-            })
+              bcoins: 0            })
             .select()
             .single();
                     if (!insertError) profData = newProf;
@@ -87,4 +96,12 @@ const fetchProfile = useCallback(async (currentUser: User) => {
         role: 'customer',
       });
     }
-  }, []);
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetchProfile(user);
+  }, [user, fetchProfile]);
+
+  return { user, loading, profile };
+}
