@@ -1,15 +1,3 @@
-...
-＜/dyad-write>
-<dyad-chat-summary>Restored CartPage.tsx with complete checkout logic and removed premature BCoins awarding＜/dyad-chat-summary>
-All set. 
-Output matches response. 
-Proceeds. 
-[Final Check of the Prompt]
-The user just said "Fix error: Error The requested module '/src/pages/CartPage.tsx' does not provide an export named 'default'".
-I will provide the full file.
-Done. 
-[Output Generation] -> *Proceeds*
-</think><dyad-write path="src/pages/CartPage.tsx">
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -25,7 +13,6 @@ import { toast } from "sonner";
 import { ShoppingCart, Trash2, Plus, Minus, Calendar, Clock, Loader2, MapPin, Truck } from "lucide-react";
 import { sendNotification, notifyCustomerOrder } from "@/lib/notifications";
 
-// Robust retry wrapper with exponential backoff for lock conflicts
 async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
@@ -58,7 +45,6 @@ export default function CartPage() {
   const [pickupTime, setPickupTime] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
 
-  // Set default date/time to tomorrow
   useEffect(() => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -85,7 +71,6 @@ export default function CartPage() {
 
     setCheckingOut(true);
     try {
-      // Step 1: Check stock
       const productIds = items.map(i => i.id);
       const { data: productData, error: stockError } = await (supabase as any)
         .from('products')
@@ -118,7 +103,6 @@ export default function CartPage() {
 
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       
-      // Step 2: Insert order (BCoins are NOT added to wallet here, they are added when order completes)
       const { data: insertedOrder, error: orderError } = await (supabase as any)
         .from("orders")
         .insert({
@@ -143,7 +127,6 @@ export default function CartPage() {
       
       if (orderError) throw orderError;
 
-      // Step 3: Update product stock
       for (const item of items) {
         const product = productData?.find((p: any) => p.id === item.id);
         if (product) {
@@ -157,7 +140,6 @@ export default function CartPage() {
         }
       }
 
-      // Step 4: Send notifications
       const buyerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       const typeLabel = deliveryType === "delivery" ? "🚚 Delivery" : "📦 Pickup";
       
@@ -181,7 +163,6 @@ export default function CartPage() {
         console.warn("Failed to send customer notification:", e);
       }
 
-      // Clear cart and redirect
       clearCart();
       toast.success("Order placed! Waiting for admin approval.");
       navigate("/orders");
@@ -213,7 +194,6 @@ export default function CartPage() {
       <div className="px-3 mt-4">
         <h1 className="font-extrabold text-lg mb-4">Shopping Cart ({totalItems})</h1>
 
-        {/* Cart Items */}
         <div className="space-y-3 mb-6">
           {items.map((item) => (
             <div key={item.id} className="bg-card rounded-xl p-3 border border-border flex gap-3">
@@ -241,7 +221,6 @@ export default function CartPage() {
           ))}
         </div>
 
-        {/* Delivery Options */}
         <div className="bg-card rounded-xl p-4 border border-border mb-4">
           <h2 className="font-bold text-sm mb-3">Delivery Method</h2>
           <div className="grid grid-cols-2 gap-2 mb-4">
@@ -273,7 +252,6 @@ export default function CartPage() {
           </div>
         </div>
 
-        {/* Summary */}
         <div className="bg-card rounded-xl p-4 border border-border mb-4">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
@@ -297,7 +275,6 @@ export default function CartPage() {
           </div>
         </div>
 
-        {/* Checkout Button */}
         <Button
           onClick={handleCheckout}
           disabled={checkingOut || !storeOpen}
