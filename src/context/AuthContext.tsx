@@ -35,9 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
   const profileRef = useRef<Profile | null>(null);
-
-  // Keep ref in sync with latest profile
-  useEffect(() => {
+  const roleRef = useRef<string>('customer'); // <-- Track role separately  // Keep ref in sync with latest profile  useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
 
@@ -91,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       // Use previous role as fallback if role query fails
-      const previousRole = profileRef.current?.role;
+      const previousRole = roleRef.current;
       const newProfile: Profile = {
         id: currentUser.id,
         first_name: finalProfData?.first_name || metadata.first_name || 'Student',
@@ -105,29 +103,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: roleData?.role || previousRole || 'customer',
       };
       
+      // Store role permanently      roleRef.current = newProfile.role;
+      
       setProfile(newProfile);
       console.log("[AuthContext] Profile loaded successfully with role:", newProfile.role);
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      // If we already have a profile, keep it (don't downgrade role on temporary failures)
-      if (profileRef.current) {
-        console.log("[AuthContext] Keeping existing profile due to fetch error");
-        return;
-      }
-      // Fallback to metadata if DB fails and no existing profile
-      const metadata = currentUser.user_metadata || {};
-      setProfile({
-        id: currentUser.id,
-        first_name: metadata.first_name || 'Student',
-        last_name: metadata.last_name || '',
-        section: metadata.section || 'N/A',
-        grade_level: metadata.grade_level || 'N/A',
-        school: metadata.school || 'N/A',
-        email: currentUser.email || '',
-        avatar_url: metadata.avatar_url || null,
-        bcoins: 0,
-        role: 'customer',
-      });
+      // Keep previous role on error - DO NOT downgrade to 'customer'
+      console.log("[AuthContext] Keeping existing role:", roleRef.current);
     }
   }, []);
 
@@ -143,8 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!isMounted) return;
-        
-        setSession(s);
+                setSession(s);
         setUser(s?.user ?? null);
         
         if (s?.user) {
