@@ -12,12 +12,12 @@ import { toast } from "sonner";
 import { 
   Printer, Upload, FileText, Check, X, Calendar, Clock, 
   MapPin, Truck, Loader2, ChevronDown, ChevronUp, Eye, Trash2,
-  Info, HelpCircle, ShieldCheck, Zap
+  Info, HelpCircle, ShieldCheck, Zap, AlertCircle
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set worker source using a more reliable CDN
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set worker source using jsdelivr CDN (more reliable for ES modules)
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 const PRICING = {
   short: { bw: 3.00, color: 8.00 },
@@ -65,6 +65,7 @@ export default function PrintServicePage() {
   const [submitting, setSubmitting] = useState(false);
   const [showPageSelector, setShowPageSelector] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   // Set default pickup date/time
   useEffect(() => {
@@ -92,11 +93,13 @@ export default function PrintServicePage() {
     setFileName(selectedFile.name);
     setPages([]);
     setFileUrl(null);
+    setPdfError(null);
     await uploadFile(selectedFile);
   };
 
   const uploadFile = async (pdfFile: File) => {
     setUploading(true);
+    setPdfError(null);
     try {
       const ext = "pdf";
       const path = `print-files/${user?.id}/${Date.now()}.${ext}`;
@@ -121,14 +124,22 @@ export default function PrintServicePage() {
 
   const analyzePDF = async (pdfFile: File) => {
     setAnalyzing(true);
+    setPdfError(null);
     try {
+      // Test if PDF.js worker is loaded
+      if (!pdfjsLib.GlobalWorkerOptions.workerSrc) {
+        throw new Error("PDF.js worker not configured");
+      }
+
       // Use pdfjsLib directly with proper worker configuration
       const arrayBuffer = await pdfFile.arrayBuffer();
       
       // Create a new PDF document
       const pdf = await pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        useSystemFonts: true
+        useSystemFonts: true,
+        // Disable webGL for better compatibility
+        enableWebGL: false,
       }).promise;
       
       const numPages = pdf.numPages;
@@ -154,7 +165,18 @@ export default function PrintServicePage() {
       toast.success(`PDF analyzed: ${numPages} pages detected`);
     } catch (e: any) {
       console.error("PDF analysis failed:", e);
-      toast.error("Failed to analyze PDF. Please try again.");
+      let errorMsg = "Failed to analyze PDF. ";
+      if (e.message?.includes("worker")) {
+        errorMsg += "PDF.js worker failed to load. This might be a network issue. Please try again or contact support.";
+      } else if (e.message?.includes("Password")) {
+        errorMsg += "The PDF is password protected. Please remove the password and try again.";
+      } else if (e.message?.includes("format")) {
+        errorMsg += "The file is not a valid PDF. Please upload a proper PDF file.";
+      } else {
+        errorMsg += "Please try again or contact support if the problem persists.";
+      }
+      setPdfError(errorMsg);
+      toast.error(errorMsg);
     }
     setAnalyzing(false);
   };
@@ -233,6 +255,7 @@ export default function PrintServicePage() {
 
   const removeFile = () => {
     setFile(null); setFileName(""); setFileUrl(null); setPages([]);
+    setPdfError(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -317,6 +340,13 @@ export default function PrintServicePage() {
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
+            </div>
+          )}
+          
+          {pdfError && (
+            <div className="mt-3 bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-destructive">{pdfError}</p>
             </div>
           )}
         </div>
