@@ -48,6 +48,19 @@ export default function BCoinsTab() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Real-time subscription for BCoins redemptions
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-bcoins-redemptions-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => {
+        console.log("[BCoinsTab] bcoins_redemptions changed, reloading...");
+        load();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
+
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
     try {
@@ -101,7 +114,7 @@ export default function BCoinsTab() {
       });
 
       toast.success(`Redemption ${status}!`);
-      load();
+      // Real-time will trigger automatically
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
     } finally {

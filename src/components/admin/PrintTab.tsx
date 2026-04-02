@@ -57,10 +57,11 @@ export default function PrintTab() {
   useEffect(() => { 
     load(); 
     
-    // Realtime subscription for instant updates
+    // Real-time subscription for print orders
     const channel = supabase
-      .channel("print-orders-realtime")
+      .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+        console.log("[PrintTab] print_orders changed, reloading...");
         load();
       })
       .subscribe();
@@ -85,7 +86,7 @@ export default function PrintTab() {
       });
 
       toast.success(`Print order ${newStatus}!`);
-      load();
+      // Real-time will trigger automatically
       if (selectedOrder?.id === orderId) setSelectedOrder(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to update");

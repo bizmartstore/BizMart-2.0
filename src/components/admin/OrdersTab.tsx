@@ -33,6 +33,27 @@ export default function OrdersTab() {
 
   useEffect(() => { loadOrders(); }, [loadOrders]);
 
+  // Real-time subscriptions for all order tables
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-orders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        console.log("[OrdersTab] orders changed, reloading...");
+        loadOrders();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+        console.log("[OrdersTab] print_orders changed, reloading...");
+        loadOrders();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "pos_sales" }, () => {
+        console.log("[OrdersTab] pos_sales changed, reloading...");
+        loadOrders();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [loadOrders]);
+
   const updateStatus = async (orderId: string, newStatus: string, orderType: string) => {
     try {
       let table = "orders";
@@ -70,7 +91,7 @@ export default function OrdersTab() {
       }
 
       toast.success(`${orderType === 'pos' ? 'POS' : orderType === 'print' ? 'Print' : 'Order'} ${newStatus}!`);
-      loadOrders();
+      // No need to call loadOrders() - realtime will trigger automatically
       if (selectedOrder?.id === orderId) setSelectedOrder(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
@@ -165,18 +186,18 @@ export default function OrdersTab() {
           <div className="flex flex-wrap gap-2">
             {selectedOrder.status === "pending" && (
               <>
-                <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "approved", selectedOrder.order_type)} className="gap-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
-                <Button size="sm" variant="destructive" onClick={() => updateStatus(selectedOrder.id, "rejected", selectedOrder.order_type)} className="gap-1"><XCircle className="h-3 w-3" /> Reject</Button>
+                <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "approved", selectedOrder.order_type)} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
+                <Button size="sm" variant="destructive" onClick={() => updateStatus(selectedOrder.id, "rejected", selectedOrder.order_type)} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
               </>
             )}
             {selectedOrder.status === "approved" && (
-              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "ready", selectedOrder.order_type)} className="gap-1"><Truck className="h-3 w-3" /> Mark Ready</Button>
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "ready", selectedOrder.order_type)} className="gap-1 flex-1"><Truck className="h-3 w-3" /> Mark Ready</Button>
             )}
             {selectedOrder.status === "ready" && (
-              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed", selectedOrder.order_type)} className="gap-1"><CheckCircle2 className="h-3 w-3" /> Complete</Button>
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed", selectedOrder.order_type)} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Complete</Button>
             )}
             {["pending", "approved", "ready"].includes(selectedOrder.status) && (
-              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled", selectedOrder.order_type)} className="gap-1"><XCircle className="h-3 w-3" /> Cancel</Button>
+              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled", selectedOrder.order_type)} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Cancel</Button>
             )}
           </div>
         </div>

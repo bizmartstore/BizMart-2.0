@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, RefreshCw, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
-import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
+import { sendNotification } from "@/lib/notifications";
 
 export default function GCashTab() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -48,6 +48,19 @@ export default function GCashTab() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Real-time subscription for GCash transactions
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-gcash-transactions-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => {
+        console.log("[GCashTab] gcash_transactions changed, reloading...");
+        load();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
+
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
     try {
@@ -69,7 +82,14 @@ export default function GCashTab() {
 
       // Award BCoins when GCash transaction is completed
       if (status === "completed" && tx.user_id) {
-        await notifyCustomerBCoins(tx.user_id, 1, "GCash transaction completed");
+        await sendNotification({
+          title: "🪙 BCoins Earned!",
+          message: `You earned 1 BCoin for completing your ₱${tx.amount} GCash ${tx.type.replace('_', ' ')}!`,
+          type: "bcoins_earned",
+          userId: tx.user_id,
+          link: "/bcoins",
+          icon: "🪙"
+        });
       }
 
       await sendNotification({
@@ -82,7 +102,7 @@ export default function GCashTab() {
       });
 
       toast.success(`Transaction ${status}!`);
-      load();
+      // Real-time will trigger automatically
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
     } finally {

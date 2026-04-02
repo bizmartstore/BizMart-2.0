@@ -87,6 +87,43 @@ export default function OverviewTab() {
 
   useEffect(() => { loadStats(); }, [loadStats]);
 
+  // Real-time subscriptions for all stats tables
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-overview-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        console.log("[OverviewTab] orders changed, reloading stats...");
+        loadStats();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+        console.log("[OverviewTab] print_orders changed, reloading stats...");
+        loadStats();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => {
+        console.log("[OverviewTab] gcash_transactions changed, reloading stats...");
+        loadStats();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => {
+        console.log("[OverviewTab] bcoins_redemptions changed, reloading stats...");
+        loadStats();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => {
+        console.log("[OverviewTab] profiles changed, reloading stats...");
+        loadStats();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "seller_profiles" }, () => {
+        console.log("[OverviewTab] seller_profiles changed, reloading stats...");
+        loadStats();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "club_memberships" }, () => {
+        console.log("[OverviewTab] club_memberships changed, reloading stats...");
+        loadStats();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [loadStats]);
+
   if (loading) {
     return <div className="flex justify-center py-12"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
   }
