@@ -1,7 +1,10 @@
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+"use client";
+
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
-interface UserProfile {
+export interface Profile {
   id: string;
   first_name: string;
   last_name: string;
@@ -15,80 +18,187 @@ interface UserProfile {
 }
 
 interface AuthContextType {
-  user: UserProfile | null;
+  user: User | null;
+  session: Session | null;
+  profile: Profile | null;
   loading: boolean;
-  profile: UserProfile | null;
+  signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<UserProfile | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
 
-  const fetchProfile = useCallback(async (userId: string, email: string, metadata: any) => {
+  const fetchProfile = useCallback(async (currentUser: User) => {
+    console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
+    
     try {
-      // Cast to any to bypass strict Supabase schema cache type errors
-      const { data: profData } = await (supabase as any).from("profiles").select("*").eq("id", userId).maybeSingle();
+      // Use a Promise.race to ensure we don't hang forever on a slow DB query
+      const profilePromise = (async () => {
+        // 1. Try to fetch existing profile
+        let { data: profData, error: profError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", currentUser.id)
+          .maybeSingle();
 
-      if (!profData) {
-        const { data: newProf } = await (supabase as any).from("profiles").insert({
-          id: userId, email, first_name: metadata.first_name || '', last_name: metadata.last_name || '',
-          school: metadata.school || '', section: metadata.section || '', grade_level: metadata.grade_level || '', bcoins: 0
-        }).select().single();
-        if (newProf) profData = newProf;
-      }
+        if (profError) {
+          console.warn("[AuthContext] Profile fetch error:", profError.message);
+        }
 
-      const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+        const metadata = currentUser.user_metadata || {};
 
-      // Safely extract with fallbacks
-      const p = profData || {};
-      const r = roleData || {};
+        // 2. If profile is missing, create it
+        if (!profData && !profError) {
+          console.log("[AuthContext] Profile missing, creating...");
+          const { data: newProf, error: insertError } = await supabase
+            .from("profiles")
+            .insert({
+              id: currentUser.id,
+              email: currentUser.email,
+              first_name: metadata.first_name || '',
+              last_name: metadata.last_name || '',
+              school: metadata.school || '',
+              section: metadata.section || '',
+              grade_level: metadata.grade_level || '',
+              bcoins: 0
+            })
+            .select()
+            .single();
+          
+          if (!insertError) profData = newProf;
+          else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+        }
 
-      const newProfile: UserProfile = {
-        id: userId,
-        first_name: p.first_name || metadata.first_name || 'Student',
-        last_name: p.last_name || metadata.last_name || '',
-        section: p.section || metadata.section || 'N/A',
-        grade_level: p.grade_level || metadata.grade_level || 'N/A',
-        school: p.school || metadata.school || 'N/A',
-        email: p.email || email || '',
-        avatar_url: p.avatar_url || metadata.avatar_url || null,
-        bcoins: Number(p.bcoins || 0),
-        role: r.role || 'customer',
-      };
-      setProfile(newProfile);
-      setUser(newProfile);
+        // 3. Fetch role
+        const { data: roleData } = await supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", currentUser.id)
+          .maybeSingle();
+
+        return { profData, roleData, metadata };
+      })();
+
+      // Timeout after 3 seconds
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
+      );
+
+      const result = await Promise.race([profilePromise, timeoutPromise]) as any;
+      const { profData, roleData, metadata } = result;
+
+      setProfile({
+        id: currentUser.id,
+        first_name: profData?.first_name || metadata.first_name || 'Student',
+        last_name: profData?.last_name || metadata.last_name || '',
+        section: profData?.section || metadata.section || 'N/A',
+        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
+        school: profData?.school || metadata.school || 'N/A',
+        email: profData?.email || currentUser.email || '',
+        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(profData?.bcoins || 0),
+        role: roleData?.role || 'customer',
+      });
+      
+      console.log("[AuthContext] Profile loaded successfully");
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      const fallback: UserProfile = {
-        id: userId, first_name: metadata.first_name || 'Student', last_name: metadata.last_name || '',
-        section: metadata.section || 'N/A', grade_level: metadata.grade_level || 'N/A',
-        school: metadata.school || 'N/A', email: email || '', avatar_url: metadata.avatar_url || null,
-        bcoins: 0, role: 'customer',
-      };
-      setProfile(fallback);
-      setUser(fallback);
+      // Fallback to metadata if DB fails or times out
+      const metadata = currentUser.user_metadata || {};
+      setProfile({
+        id: currentUser.id,
+        first_name: metadata.first_name || 'Student',
+        last_name: metadata.last_name || '',
+        section: metadata.section || 'N/A',
+        grade_level: metadata.grade_level || 'N/A',
+        school: metadata.school || 'N/A',
+        email: currentUser.email || '',
+        avatar_url: metadata.avatar_url || null,
+        bcoins: 0,
+        role: 'customer',
+      });
     }
   }, []);
 
+  const refreshProfile = async () => {
+    if (user) await fetchProfile(user);
+  };
+
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) fetchProfile(session.user.id, session.user.email || '', session.user.user_metadata || {});
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mounted) return;
+        
+        setSession(s);
+        setUser(s?.user ?? null);
+        
+        if (s?.user) {
+          await fetchProfile(s.user);
+        }
+      } catch (err) {
+        console.error("[AuthContext] Init error:", err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          console.log("[AuthContext] Initialization complete");
+        }
+      }
+    };
+
+    init();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log(`[AuthContext] Auth state changed: ${event}`);
+      if (!mounted) return;
+
+      setSession(s);
+      setUser(s?.user ?? null);
+      
+      if (s?.user) {
+        await fetchProfile(s.user);
+      } else {
+        setProfile(null);
+      }
+      
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) fetchProfile(session.user.id, session.user.email || '', session.user.user_metadata || {});
-      else { setUser(null); setProfile(null); }
-      setLoading(false);
-    });
+    // Safety fallback: always stop loading after 6 seconds max
+    const safetyTimer = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("[AuthContext] Safety timeout triggered - forcing loading to false");
+        setLoading(false);
+      }
+    }, 6000);
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
+      clearTimeout(safetyTimer);
+    };
   }, [fetchProfile]);
 
-  return <AuthContext.Provider value={{ user, loading, profile }}>{children}</AuthContext.Provider>;
+  const signOut = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {

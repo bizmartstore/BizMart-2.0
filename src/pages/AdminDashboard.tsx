@@ -1,83 +1,122 @@
-import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
+import BottomNav from "@/components/BottomNav";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Users, Package, ShoppingCart, Printer, MessageCircle,
+  Crown, Coins, Settings, BarChart3, Bell, RefreshCw, Briefcase, Ticket
+} from "lucide-react";
+import { toast } from "sonner";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
 import UsersTab from "@/components/admin/UsersTab";
 import PrintTab from "@/components/admin/PrintTab";
-import GCashTab from "@/components/admin/GCashTab";
-import BCoinsTab from "@/components/admin/BCoinsTab";
-import ClubTab from "@/components/admin/ClubTab";
-import SellersTab from "@/components/admin/SellersTab";
+import MessagesTab from "@/components/admin/AdminMessagesTab";
 import CodesTab from "@/components/admin/CodesTab";
-import SettingsTab from "@/components/admin/SettingsTab";
 import NewsTab from "@/components/admin/NewsTab";
-import { AdminMessagesTab } from "@/components/admin/AdminMessagesTab";
-import { POSTab } from "@/components/admin/POSTab";
+import ClubTab from "@/components/admin/ClubTab";
+import BCoinsTab from "@/components/admin/BCoinsTab";
+import GCashTab from "@/components/admin/GCashTab";
+import SellersTab from "@/components/admin/SellersTab";
 import JobsTab from "@/components/admin/JobsTab";
+import SettingsTab from "@/components/admin/SettingsTab";
+import POSTab from "@/components/admin/POSTab";
 
 export default function AdminDashboard() {
-  const { role, loading: roleLoading, isAdmin } = useAdmin();
+  const { user, profile, loading: authLoading } = useAuth();
+  const { isAdmin, isMainAdmin, loading: roleLoading } = useAdmin();
   const navigate = useNavigate();
-  const location = useLocation();
   const [activeTab, setActiveTab] = useState("overview");
 
-  useEffect(() => {
-    if (!roleLoading && !isAdmin) {
-      navigate("/", { replace: true });
-    }
-  }, [roleLoading, isAdmin, navigate]);
+  // Wait for both auth and role loading
+  if (authLoading || roleLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
-  useEffect(() => {
-    const tab = new URLSearchParams(location.search).get("tab");
-    if (tab) setActiveTab(tab);
-  }, [location.search]);
+  // If not admin, redirect
+  if (!isAdmin) {
+    console.log('[AdminDashboard] User is not admin, redirecting...');
+    navigate("/");
+    return null;
+  }
 
-  if (roleLoading || !isAdmin) return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: BarChart3 },
+    { id: "orders", label: "Orders", icon: ShoppingCart },
+    { id: "products", label: "Products", icon: Package },
+    { id: "users", label: "Users", icon: Users },
+    { id: "sellers", label: "Sellers", icon: Crown },
+    { id: "print", label: "Print", icon: Printer },
+    { id: "messages", label: "Messages", icon: MessageCircle },
+    { id: "codes", label: "Codes", icon: Ticket },
+    { id: "news", label: "News", icon: Bell },
+    { id: "club", label: "Club", icon: Crown },
+    { id: "bcoins", label: "BCoins", icon: Coins },
+    { id: "gcash", label: "GCash", icon: Coins },
+    { id: "jobs", label: "Jobs", icon: Briefcase },
+    { id: "pos", label: "POS", icon: ShoppingCart },
+    { id: "settings", label: "Settings", icon: Settings },
+  ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20">
       <TopBar />
-      <div className="p-4 max-w-6xl mx-auto">
-        <h1 className="text-2xl font-extrabold mb-4">Admin Dashboard</h1>
+      <div className="px-4 mt-4">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="font-extrabold text-xl text-foreground">Admin Dashboard</h1>
+            <p className="text-xs text-muted-foreground">
+              {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => window.location.reload()}>
+            <RefreshCw className="h-4 w-4 mr-2" /> Refresh
+          </Button>
+        </div>
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 mb-4 h-auto p-1">
-            <TabsTrigger value="overview" className="text-[10px]">Overview</TabsTrigger>
-            <TabsTrigger value="orders" className="text-[10px]">Orders</TabsTrigger>
-            <TabsTrigger value="products" className="text-[10px]">Products</TabsTrigger>
-            <TabsTrigger value="users" className="text-[10px]">Users</TabsTrigger>
-            <TabsTrigger value="print" className="text-[10px]">Print</TabsTrigger>
-            <TabsTrigger value="gcash" className="text-[10px]">GCash</TabsTrigger>
-            <TabsTrigger value="bcoins" className="text-[10px]">BCoins</TabsTrigger>
-            <TabsTrigger value="club" className="text-[10px]">Club</TabsTrigger>
-            <TabsTrigger value="sellers" className="text-[10px]">Sellers</TabsTrigger>
-            <TabsTrigger value="codes" className="text-[10px]">Codes</TabsTrigger>
-            <TabsTrigger value="news" className="text-[10px]">News</TabsTrigger>
-            <TabsTrigger value="messages" className="text-[10px]">Messages</TabsTrigger>
-            <TabsTrigger value="pos" className="text-[10px]">POS</TabsTrigger>
-            <TabsTrigger value="jobs" className="text-[10px]">Jobs</TabsTrigger>
-            <TabsTrigger value="settings" className="text-[10px]">Settings</TabsTrigger>
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+            {tabs.map((tab) => (
+              <TabsTrigger 
+                key={tab.id} 
+                value={tab.id} 
+                className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto"
+              >
+                <tab.icon className="h-4 w-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </TabsTrigger>
+            ))}
           </TabsList>
+
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="print"><PrintTab /></TabsContent>
-          <TabsContent value="gcash"><GCashTab /></TabsContent>
-          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="sellers"><SellersTab /></TabsContent>
+          <TabsContent value="print"><PrintTab /></TabsContent>
+          <TabsContent value="messages"><MessagesTab /></TabsContent>
           <TabsContent value="codes"><CodesTab /></TabsContent>
           <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="messages"><AdminMessagesTab /></TabsContent>
-          <TabsContent value="pos"><POSTab /></TabsContent>
+          <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
+          <TabsContent value="gcash"><GCashTab /></TabsContent>
           <TabsContent value="jobs"><JobsTab /></TabsContent>
+          <TabsContent value="pos"><POSTab role={isMainAdmin ? "main_admin" : "member_admin"} onSaleComplete={() => {}} /></TabsContent>
           <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
+      <BottomNav />
     </div>
   );
 }
