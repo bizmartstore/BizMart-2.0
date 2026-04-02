@@ -12,64 +12,22 @@ export default function ClubTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      // 1. Fetch memberships
-      const { data: memberships, error: memError } = await (supabase as any)
-        .from("club_memberships")
-        .select("*")
-        .order("created_at", { ascending: false });
-      
-      if (memError) throw memError;
-
-      // 2. Fetch profiles for all user_ids
-      const userIds = (memberships || []).map((m: any) => m.user_id).filter(Boolean);
-      let profileMap: Record<string, any> = {};
-      
-      if (userIds.length > 0) {
-        const { data: profiles, error: profError } = await (supabase as any)
-          .from("profiles")
-          .select("user_id, first_name, last_name, email, school, grade_level, section")
-          .in("user_id", userIds);
-        
-        if (profError) {
-          console.warn("Failed to fetch profiles:", profError);
-        } else {
-          profileMap = {};
-          (profiles || []).forEach((p: any) => { profileMap[p.user_id] = p; });
-        }
-      }
-
-      // 3. Merge memberships with profiles
-      const enriched = (memberships || []).map((m: any) => ({
-        ...m,
-        profiles: profileMap[m.user_id] || null,
-      }));
-
-      setMembers(enriched);
-    } catch (e: any) {
-      console.error("Failed to load club members:", e);
-      toast.error("Failed to load club members: " + e.message);
-    } finally {
-      setLoading(false);
-    }
+    const { data } = await (supabase as any).from("club_memberships").select("*, profiles(first_name, last_name, email, school, grade_level, section)").order("created_at", { ascending: false });
+    setMembers(data || []);
+    setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const updateMembership = async (id: string, status: string) => {
-    try {
-      await (supabase as any).from("club_memberships").update({ status }).eq("id", id);
-      toast.success(`Membership ${status}`);
-      load();
-    } catch (e: any) {
-      toast.error(e.message || "Failed to update membership");
-    }
+    await (supabase as any).from("club_memberships").update({ status }).eq("id", id);
+    toast.success(`Membership ${status}`);
+    load();
   };
 
   const filtered = members.filter(m => 
     !search || 
     (m.profiles?.first_name || "").toLowerCase().includes(search.toLowerCase()) ||
-    (m.profiles?.last_name || "").toLowerCase().includes(search.toLowerCase()) ||
     (m.profiles?.email || "").toLowerCase().includes(search.toLowerCase()) ||
     m.control_number.toLowerCase().includes(search.toLowerCase())
   );
@@ -81,9 +39,7 @@ export default function ClubTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search members..." className="pl-9 text-xs h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <Button size="sm" variant="outline" onClick={load}><RefreshCw className="h-3 w-3" /></Button>
       </div>
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
@@ -95,10 +51,8 @@ export default function ClubTab() {
                   {m.membership_type === "premium" ? <Star className="h-4 w-4 text-warning" /> : <Crown className="h-4 w-4 text-primary" />}
                 </div>
                 <div>
-                  <p className="font-bold text-xs">
-                    {m.profiles ? `${m.profiles.first_name} ${m.profiles.last_name}` : 'Unknown User'}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">{m.profiles?.email || 'No email'}</p>
+                  <p className="font-bold text-xs">{m.profiles?.first_name} {m.profiles?.last_name}</p>
+                  <p className="text-[10px] text-muted-foreground">{m.profiles?.email}</p>
                 </div>
               </div>
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${

@@ -4,10 +4,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, RefreshCw, Gift, Loader2 } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
-import { useAdmin } from "@/hooks/useAdmin";
 
 export default function BCoinsTab() {
-  const { isMainAdmin } = useAdmin();
   const [redemptions, setRedemptions] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -51,12 +49,6 @@ export default function BCoinsTab() {
   useEffect(() => { load(); }, [load]);
 
   const updateStatus = async (id: string, status: string) => {
-    // Only main_admin can update redemptions
-    if (!isMainAdmin) {
-      toast.error("Only main admin can approve/reject redemptions");
-      return;
-    }
-
     setUpdating(id);
     try {
       const { data: redemption } = await (supabase as any)
@@ -124,18 +116,6 @@ export default function BCoinsTab() {
     completed: redemptions.filter(r => r.status === "completed").length,
     rejected: redemptions.filter(r => r.status === "rejected").length,
   };
-
-  if (!isMainAdmin) {
-    return (
-      <div className="space-y-3">
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 text-center">
-          <Gift className="h-8 w-8 text-warning mx-auto mb-2" />
-          <h3 className="font-bold text-sm text-warning mb-1">Main Admin Only</h3>
-          <p className="text-[11px] text-muted-foreground">BCoins redemption management is restricted to main administrators only.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3">

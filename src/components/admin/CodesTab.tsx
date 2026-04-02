@@ -6,10 +6,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Plus, Copy, RefreshCw, Ticket, Store } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAdmin } from "@/hooks/useAdmin";
 
 export default function CodesTab() {
-  const { isMainAdmin } = useAdmin();
   const [clubCodes, setClubCodes] = useState<any[]>([]);
   const [sellerCodes, setSellerCodes] = useState<any[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -26,12 +24,6 @@ export default function CodesTab() {
   useEffect(() => { loadCodes(); }, [loadCodes]);
 
   const generateCodes = async (type: "club" | "seller") => {
-    // Only main_admin can generate codes
-    if (!isMainAdmin) {
-      toast.error("Only main admin can generate codes");
-      return;
-    }
-
     setGenerating(true);
     try {
       const codes = [];
@@ -57,18 +49,6 @@ export default function CodesTab() {
     navigator.clipboard.writeText(code);
     toast.success("Code copied!");
   };
-
-  if (!isMainAdmin) {
-    return (
-      <div className="space-y-3">
-        <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 text-center">
-          <Ticket className="h-8 w-8 text-warning mx-auto mb-2" />
-          <h3 className="font-bold text-sm text-warning mb-1">Main Admin Only</h3>
-          <p className="text-[11px] text-muted-foreground">Code generation and management is restricted to main administrators only.</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <Tabs defaultValue="club">
