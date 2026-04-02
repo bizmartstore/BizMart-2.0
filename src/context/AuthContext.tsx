@@ -54,18 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
   useEffect(() => () => { mountedRef.current = false; }, []);
 
-  /* ---------- Helper: safe setState ----------------------------------- */
-  const setStateSafe = <T>(updater: (s: T) => T) {
-    if (mountedRef.current) updater(undefined as any);
-  }
-
   /* ---------- Helper: load profile once we know a user ----------------------- */
   const loadProfile = useCallback(async (currentUser: User) => {
     if (!mountedRef.current) return;
 
     try {
       // 1️⃣ Try to fetch an existing profile row
-      const { data: profData, error: profErr } = await supabase        .from("profiles")
+      const { data: profData, error: profErr } = await supabase
+        .from("profiles")
         .select("*")
         .eq("id", currentUser.id)
         .single();
@@ -94,7 +90,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // 3️⃣ Pull role from the user_roles table (fallback to "customer")
-      const { data: roleData, error: roleErr } = await supabase        .from("user_roles")
+      const { data: roleData, error: roleErr } = await supabase
+        .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .single();
@@ -147,7 +144,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /* ---------- Real‑time listener -------------------------------------- */
   useEffect(() => {
-    if (!user) return; // no session → nothing to listen to    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    if (!user) return; // no session → nothing to listen to
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, newSession) => {
         if (!mountedRef.current) return;
 
