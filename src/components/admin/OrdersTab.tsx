@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,11 +13,9 @@ export default function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
-      // Use Promise.allSettled to prevent one missing table from breaking the whole load
       const [ordersRes, printRes, posRes] = await Promise.allSettled([
         supabase.from("orders").select("*").order("created_at", { ascending: false }),
         supabase.from("print_orders").select("*").order("created_at", { ascending: false }),
@@ -29,66 +27,35 @@ export default function OrdersTab() {
       const posData = posRes.status === 'fulfilled' && !posRes.value.error ? posRes.value.data || [] : [];
 
       const combined = [
-        ...ordersData.map((o: any) => ({ ...o, order_type: 'product' })),
-        ...printData.map((p: any) => ({ ...p, order_type: 'print' })),
-        ...posData.map((p: any) => ({ ...p, order_type: 'pos' })),
+        ...ordersData.map((o: any) => ({ ...o, order_type: 'product' as const })),
+        ...printData.map((p: any) => ({ ...p, order_type: 'print' as const })),
+        ...posData.map((p: any) => ({ ...p, order_type: 'pos' as const })),
       ];
       setOrders(combined);
-      
-      if (showToast && (ordersRes.status === 'rejected' || ordersRes.value?.error)) {
-        toast.error("Failed to load some orders");
-      }
     } catch (e) {
       console.error("Failed to load orders:", e);
-      if (showToast) toast.error("Failed to load orders");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   }, []);
 
-  // Initial load on mount
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
 
-  // Real-time subscription + Polling fallback
   useEffect(() => {
     const channel = supabase
       .channel("admin-orders-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        console.log("[OrdersTab] orders changed, reloading...");
-        loadOrders();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
-        console.log("[OrdersTab] print_orders changed, reloading...");
-        loadOrders();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "pos_sales" }, () => {
-        console.log("[OrdersTab] pos_sales changed, reloading...");
-        loadOrders();
-      })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log("[OrdersTab] Real-time subscription active");
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn("[OrdersTab] Real-time channel error, relying on polling");
-        }
-      });
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadOrders())
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadOrders())
+      .on("postgres_changes", { event: "*", schema: "public", table: "pos_sales" }, () => loadOrders())
+      .subscribe();
 
-    // Polling fallback every 10 seconds to guarantee updates even if real-time fails or tab is unmounted/remounted
-    pollIntervalRef.current = setInterval(() => {
-      loadOrders();
-    }, 10000);
-
-    return () => {
-      supabase.removeChannel(channel);
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [loadOrders]);
 
   const updateStatus = async (orderId: string, newStatus: string, orderType: string) => {
-    // Optimistic UI update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
@@ -99,14 +66,14 @@ export default function OrdersTab() {
       if (orderType === "print") table = "print_orders";
       if (orderType === "pos") table = "pos_sales";
 
-      const { data: order } = await supabase.from(table).select("*").eq("id", orderId).maybeSingle();
-      if (!order) {
+      const { data: order, error: fetchError } = await supabase.from(table).select("*").eq("id", orderId).maybeSingle();
+      if (fetchError || !order) {
         toast.error("Order not found");
         return;
       }
 
-      const { error } = await supabase.from(table).update({ status: newStatus }).eq("id", orderId);
-      if (error) throw error;
+      const { error: updateError } = await supabase.from(table).update({ status: newStatus }).eq("id", orderId);
+      if (updateError) throw updateError;
       
       if (newStatus === "completed" && orderType !== 'pos' && order.user_id) {
         const bcoins = Number(order.bcoins_earned || 0);
