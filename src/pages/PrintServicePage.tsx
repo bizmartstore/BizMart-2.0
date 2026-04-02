@@ -174,7 +174,7 @@ export default function PrintServicePage() {
 
     setSubmitting(true);
     try {
-      // Only insert columns that actually exist in the print_orders table
+      // Insert with all required columns including maintenance_fee
       const { data, error } = await (supabase as any).from("print_orders").insert({
         user_id: user.id,
         file_name: fileName,
@@ -184,6 +184,8 @@ export default function PrintServicePage() {
         colored_pages: colorPages,
         page_size: paperSize,
         cost: totalCost,
+        maintenance_fee: 0, // Required NOT NULL column
+        delivery_fee: deliveryFee,
         status: "pending",
         delivery_type: deliveryType,
         pickup_date: pickupDate,
