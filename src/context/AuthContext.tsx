@@ -64,11 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               email: currentUser.email,
               first_name: metadata.first_name || '',
               last_name: metadata.last_name || '',
-              school: metadata.school || '',
-              section: metadata.section || '',
-              grade_level: metadata.grade_level || '',
-              bcoins: 0
-            })
+              school: metadata.school || null,
+              section: metadata.section || null,
+              grade_level: metadata.grade_level || null,
+              avatar_url: metadata.avatar_url || null,
+            } as const)
             .select()
             .single();
           
