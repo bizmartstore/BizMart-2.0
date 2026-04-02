@@ -1,18 +1,3 @@
-`
-Done. 
-Proceeds. 
-(Self-Correction/Refinement during thought)
-I notice the `handleSave` function in the previous attempt already had the safety timer. The issue is that the DB call itself is hanging. This strongly suggests a network issue, RLS policy blocking, or a missing column causing Postgres to wait.
-To fix this definitively, I will:
-1. Add a `console.log` of the exact payload.
-2. Use `Promise.race` with a 5-second timeout directly on the DB call.
-3. Explicitly catch and log the Supabase error.
-4. Ensure `setSaving(false)` is guaranteed.
-5. Change `images` to `images.length > 0 ? images : []` to avoid potential `null` vs array type conflicts in Postgres.
-6. Add `.select()` to the insert to ensure it returns immediately.
-
-Let's write it out carefully. 
-All good.</think><dyad-write path="src/components/admin/NewsTab.tsx" description="Fixing publish hang by adding explicit payload logging, safer array handling, direct DB timeout wrapper, and guaranteed state cleanup">
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -168,31 +153,30 @@ export default function NewsTab() {
         title: title.trim(),
         content: content.trim(),
         image_url: images[0] || null,
-        // Use empty array instead of null to prevent Postgres type mismatch hangs
-        images: images.length > 0 ? images : [],
+        // Always send array (empty or with values) to match column type
+        images: images,
         category,
         is_active: true,
       };
 
       console.log("[NewsTab] Saving payload:", payload);
 
-      const dbCall = editId
-        ? (supabase as any).from("news_updates").update({ ...payload, updated_at: new Date().toISOString() }).eq("id", editId).select()
-        : (supabase as any).from("news_updates").insert(payload).select();
+      // Remove .select() to reduce overhead and potential lock issues
+      const baseQuery = editId
+        ? (supabase as any).from("news_updates").update(payload).eq("id", editId)
+        : (supabase as any).from("news_updates").insert(payload);
 
-      // Timeout wrapper to prevent infinite hanging on network/DB issues
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error("Database operation timed out. Please try again.")), 5000)
-      );
+      // Add a small delay to ensure any previous transactions complete
+      await new Promise(resolve => setTimeout(resolve, 100));
 
-      const { data, error } = await Promise.race([dbCall, timeoutPromise]) as any;
+      const { error } = await baseQuery;
       
       if (error) {
         console.error("[NewsTab] DB Error:", error);
         throw error;
       }
       
-      console.log("[NewsTab] Save successful:", data);
+      console.log("[NewsTab] Save successful");
       toast.success(editId ? "News updated!" : "News published!");
       resetForm();
       load();
