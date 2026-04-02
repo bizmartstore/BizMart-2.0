@@ -9,7 +9,7 @@ import TopBar from "@/components/TopBar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { RefreshCw, Loader2, Shield, Crown, Users, ShoppingCart, Printer, DollarSign, TrendingUp, Package, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { RefreshCw, Loader2, Shield, Crown, Users, ShoppingCart, Printer, DollarSign, TrendingUp, Package, Clock, CheckCircle2, AlertCircle, Briefcase, MessageCircle } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -80,14 +80,10 @@ export default function AdminDashboard() {
               onClick={async () => {
                 try {
                   await supabase.auth.signOut();
-                  toast({ title: "Logged out successfully" });
+                  toast.success("Logged out successfully");
                   navigate('/login');
                 } catch (error: any) {
-                  toast({ 
-                    title: "Logout failed", 
-                    description: error.message, 
-                    variant: "destructive" 
-                  });
+                  toast.error("Logout failed: " + error.message);
                 }
               }}
               className="gap-2"
