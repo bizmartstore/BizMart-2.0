@@ -33,8 +33,8 @@ export default function AdminDashboard() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
 
-  // Wait for both auth and role loading
-  if (authLoading || roleLoading) {
+  // Wait for auth, role loading, AND ensure profile actually exists before checking admin status
+  if (authLoading || roleLoading || !profile) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
