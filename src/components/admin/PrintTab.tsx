@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Search, CheckCircle2, XCircle, FileText, Truck, MapPin, User, Eye, Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function PrintTab() {
@@ -13,6 +13,7 @@ export default function PrintTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -51,6 +52,7 @@ export default function PrintTab() {
       toast.error("Failed to load print orders. Check console for details.");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -59,8 +61,6 @@ export default function PrintTab() {
   }, [load]);
 
   useEffect(() => {
-    if (!load) return;
-    
     const channel = supabase
       .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
@@ -69,50 +69,54 @@ export default function PrintTab() {
       })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [load]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
-    // Optimistic UI update
+    // Optimistic update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
     }
 
     try {
-      const { data: order } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
-      if (!order) {
-        toast.error("Order not found");
+      const { data: order, error: fetchError } = await supabase.from("print_orders").select("*").eq("id", orderId).maybeSingle();
+      if (fetchError || !order) {
+        toast.error("Print order not found");
         return;
       }
 
-      const { error } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
-      if (error) throw error;
+      const { error: updateError } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
+      if (updateError) throw updateError;
       
-      await sendNotification({
-        title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
-        message: `Your print request for "${order.file_name}" is now ${newStatus}.`,
-        type: "print_status",
-        userId: order.user_id,
-        link: "/orders",
-        icon: "🖨️"
-      });
+      if (order.user_id) {
+        await sendNotification({
+          title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
+          message: `Your print request for "${order.file_name}" is now ${newStatus}.`,
+          type: "print_status",
+          userId: order.user_id,
+          link: "/orders",
+          icon: "🖨️"
+        });
+      }
 
       toast.success(`Print order ${newStatus}!`);
     } catch (e: any) {
-      toast.error(e.message || "Failed to update order");
-      // Revert on error by reloading
-      load();
+      toast.error(e.message || "Failed to update print order");
+      load(); // Revert by reloading
     }
+  };
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    load();
   };
 
   const filtered = orders.filter(o => {
     const matchFilter = filter === "all" || o.status === filter;
-    const custName = o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : "";
     const matchSearch = !search || 
-      custName.toLowerCase().includes(search.toLowerCase()) ||
+      (o.customer?.first_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (o.customer?.last_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (o.customer?.section || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
@@ -124,6 +128,7 @@ export default function PrintTab() {
     approved: orders.filter(o => o.status === "approved").length,
     completed: orders.filter(o => o.status === "completed").length,
     rejected: orders.filter(o => o.status === "rejected").length,
+    canceled: orders.filter(o => o.status === "canceled").length,
   };
 
   if (selectedOrder) {
@@ -147,7 +152,7 @@ export default function PrintTab() {
             <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
               selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
               selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' :
-              selectedOrder.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+              selectedOrder.status === 'rejected' || selectedOrder.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
               selectedOrder.status === 'approved' ? 'bg-primary/20 text-primary' :
               'bg-muted text-muted-foreground'
             }`}>{selectedOrder.status.toUpperCase()}</span>
@@ -205,10 +210,10 @@ export default function PrintTab() {
               </>
             )}
             {selectedOrder.status === "approved" && (
-              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 w-full"><CheckCircle2 className="h-3 w-3" /> Mark Complete</Button>
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Complete</Button>
             )}
             {["pending", "approved"].includes(selectedOrder.status) && (
-              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Cancel</Button>
+              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Cancel</Button>
             )}
           </div>
         </div>
@@ -218,24 +223,26 @@ export default function PrintTab() {
 
   return (
     <div className="space-y-3">
-      {dbError && (
-        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
-          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-xs font-bold text-destructive">Database Error</p>
-            <p className="text-[10px] text-destructive/80 mt-0.5">{dbError}</p>
-          </div>
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            placeholder="Search by name, file, or section..." 
+            className="pl-9 text-xs h-9" 
+          />
         </div>
-      )}
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input 
-          value={search} 
-          onChange={e => setSearch(e.target.value)} 
-          placeholder="Search by name, file, or section..." 
-          className="pl-9 text-xs h-9" 
-        />
+        <Button 
+          size="sm" 
+          variant="outline" 
+          onClick={handleRefresh} 
+          disabled={refreshing}
+          className="gap-1"
+        >
+          <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+          Refresh
+        </Button>
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -245,12 +252,19 @@ export default function PrintTab() {
             onClick={() => setFilter(key)}
             className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
               filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
-          </button>
+            }`}>{key.charAt(0).toUpperCase() + key.slice(1)} ({count})</button>
         ))}
       </div>
+
+      {dbError && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-destructive">Database Error</p>
+            <p className="text-[10px] text-destructive/80 mt-0.5">{dbError}</p>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-12">
@@ -274,7 +288,7 @@ export default function PrintTab() {
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                     order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                     order.status === 'pending' ? 'bg-warning/20 text-warning' :
-                    order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                    order.status === 'rejected' || order.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
                     order.status === 'approved' ? 'bg-primary/20 text-primary' :
                     'bg-muted text-muted-foreground'
                   }`}>
