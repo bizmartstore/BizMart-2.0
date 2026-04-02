@@ -81,7 +81,6 @@ export default function NewsTab() {
     const newUrls: string[] = [];
     
     try {
-      // Verify session is valid before attempting upload
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Session expired. Please refresh the page or log in again.");
@@ -92,7 +91,6 @@ export default function NewsTab() {
         const ext = file.name.split(".").pop();
         const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         
-        // Add a timeout to prevent hanging on network/auth issues
         const uploadPromise = supabase.storage
           .from("news-images")
           .upload(path, file, { upsert: false });
@@ -135,36 +133,54 @@ export default function NewsTab() {
     }
     
     setSaving(true);
+    
+    // Safety timeout to guarantee UI never gets stuck
+    const safetyTimer = setTimeout(() => {
+      console.warn("[NewsTab] Save operation timed out, forcing UI reset");
+      setSaving(false);
+      toast.error("Operation took too long. Please try again.");
+    }, 8000);
+
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Session expired. Please refresh and log in again.");
+        return;
+      }
+
+      // Safely format payload for Postgres
       const payload = {
         title: title.trim(),
         content: content.trim(),
         image_url: images[0] || null,
-        images,
+        // Send null for empty arrays to prevent type mismatch hangs
+        images: images.length > 0 ? images : null,
         category,
         is_active: true,
       };
 
+      let result;
       if (editId) {
-        const { error } = await (supabase as any)
+        result = await (supabase as any)
           .from("news_updates")
           .update({ ...payload, updated_at: new Date().toISOString() })
           .eq("id", editId);
-        if (error) throw error;
-        toast.success("News updated!");
       } else {
-        const { error } = await (supabase as any)
+        result = await (supabase as any)
           .from("news_updates")
           .insert(payload);
-        if (error) throw error;
-        toast.success("News published!");
       }
+      
+      if (result?.error) throw result.error;
+      
+      toast.success(editId ? "News updated!" : "News published!");
       resetForm();
       load();
     } catch (e: any) {
       console.error("Save error:", e);
-      toast.error("Failed to save: " + e.message);
+      toast.error("Failed to save: " + (e.message || "Unknown error"));
     } finally {
+      clearTimeout(safetyTimer);
       setSaving(false);
     }
   };
