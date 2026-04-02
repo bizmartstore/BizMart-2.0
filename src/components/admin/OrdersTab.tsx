@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, CheckCircle2, XCircle, Truck, Package, RefreshCw, Eye, ShoppingCart, Printer } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer } from "lucide-react";
 import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function OrdersTab() {
@@ -13,32 +13,33 @@ export default function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [ordersData, printData, posData] = await Promise.all([
-        (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
-        (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
-        (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
-      ]);
-
-      const combined = [
-        ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
-        ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
-        ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
-      ];
-
-      setOrders(combined);
-    } catch (e) {
-      console.error("Failed to load orders:", e);
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { loadOrders(); }, [loadOrders]);
-
-  // Real-time subscriptions for all order tables
   useEffect(() => {
+    let isMounted = true;
+
+    const loadOrders = async () => {
+      if (!isMounted) return;
+      setLoading(true);
+      try {
+        const [ordersData, printData, posData] = await Promise.all([
+          (supabase as any).from("orders").select("*").order("created_at", { ascending: false }),
+          (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }),
+          (supabase as any).from("pos_sales").select("*").order("created_at", { ascending: false }),
+        ]);
+
+        const combined = [
+          ...(ordersData.data || []).map((o: any) => ({ ...o, order_type: 'product' })),
+          ...(printData.data || []).map((p: any) => ({ ...p, order_type: 'print' })),
+          ...(posData.data || []).map((p: any) => ({ ...p, order_type: 'pos' })),
+        ];
+        setOrders(combined);
+      } catch (e) {
+        console.error("Failed to load orders:", e);
+      }
+      if (isMounted) setLoading(false);
+    };
+
+    loadOrders();
+
     const channel = supabase
       .channel("admin-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
@@ -55,10 +56,19 @@ export default function OrdersTab() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [loadOrders]);
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const updateStatus = async (orderId: string, newStatus: string, orderType: string) => {
+    // Optimistic UI update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+
     try {
       let table = "orders";
       if (orderType === "print") table = "print_orders";
@@ -69,7 +79,6 @@ export default function OrdersTab() {
 
       await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       
-      // Award BCoins when order is completed
       if (newStatus === "completed" && orderType !== 'pos' && order.user_id) {
         const bcoins = Number(order.bcoins_earned || 0);
         if (bcoins > 0) {
@@ -95,9 +104,10 @@ export default function OrdersTab() {
       }
 
       toast.success(`${orderType === 'pos' ? 'POS' : orderType === 'print' ? 'Print' : 'Order'} ${newStatus}!`);
-      if (selectedOrder?.id === orderId) setSelectedOrder(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
+      // Revert on error
+      loadOrders();
     }
   };
 
@@ -210,12 +220,9 @@ export default function OrdersTab() {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search all orders (products, print, POS)..." className="pl-9 text-xs h-9" />
-        </div>
-        <Button size="sm" variant="outline" onClick={loadOrders}><RefreshCw className="h-3 w-3" /></Button>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search all orders (products, print, POS)..." className="pl-9 text-xs h-9" />
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto pb-1">
@@ -229,52 +236,56 @@ export default function OrdersTab() {
         ))}
       </div>
 
-      <div className="space-y-2 max-h-[500px] overflow-y-auto">
-        {filtered.map(order => {
-          const isPOS = order.order_type === 'pos';
-          const isPrint = order.order_type === 'print';
-          const items = order.items || [];
-          
-          return (
-            <div key={order.id} className="bg-card rounded-xl border border-border p-3 flex items-center justify-between">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  {isPOS && <ShoppingCart className="h-4 w-4 text-primary flex-shrink-0" />}
-                  {isPrint && <Printer className="h-4 w-4 text-purple-500 flex-shrink-0" />}
-                  {!isPOS && !isPrint && <Package className="h-4 w-4 text-secondary flex-shrink-0" />}
-                  <span className="text-xs font-bold truncate">
-                    {isPOS ? `POS: ${order.customer_name || 'Walk-in'}` : 
-                     isPrint ? `Print: ${order.file_name}` : 
-                     order.customer_name || "Customer"}
-                  </span>
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                    order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
-                    order.status === 'pending' ? 'bg-warning/20 text-warning' :
-                    order.status === 'rejected' || order.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
-                    'bg-primary/20 text-primary'
-                  }`}>{order.status}</span>
-                </div>
-                <p className="text-[10px] text-muted-foreground">
-                  #{order.id.slice(0, 8)} • {new Date(order.created_at).toLocaleDateString()}
-                  {isPOS && <span className="ml-1 text-primary">• POS Sale</span>}
-                  {isPrint && <span className="ml-1 text-purple-500">• Print</span>}
-                </p>
-                {isPOS && items.length > 0 && (
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {items.slice(0, 2).map((i: any) => i.name).join(', ')}
-                    {items.length > 2 && ` +${items.length - 2} more`}
+      {loading ? (
+        <div className="flex justify-center py-12"><div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full" /></div>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {filtered.map(order => {
+            const isPOS = order.order_type === 'pos';
+            const isPrint = order.order_type === 'print';
+            const items = order.items || [];
+            
+            return (
+              <div key={order.id} className="bg-card rounded-xl border border-border p-3 flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {isPOS && <ShoppingCart className="h-4 w-4 text-primary flex-shrink-0" />}
+                    {isPrint && <Printer className="h-4 w-4 text-purple-500 flex-shrink-0" />}
+                    {!isPOS && !isPrint && <Package className="h-4 w-4 text-secondary flex-shrink-0" />}
+                    <span className="text-xs font-bold truncate">
+                      {isPOS ? `POS: ${order.customer_name || 'Walk-in'}` : 
+                       isPrint ? `Print: ${order.file_name}` : 
+                       order.customer_name || "Customer"}
+                    </span>
+                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                      order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                      order.status === 'pending' ? 'bg-warning/20 text-warning' :
+                      order.status === 'rejected' || order.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
+                      'bg-primary/20 text-primary'
+                    }`}>{order.status}</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    #{order.id.slice(0, 8)} • {new Date(order.created_at).toLocaleDateString()}
+                    {isPOS && <span className="ml-1 text-primary">• POS Sale</span>}
+                    {isPrint && <span className="ml-1 text-purple-500">• Print</span>}
                   </p>
-                )}
+                  {isPOS && items.length > 0 && (
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      {items.slice(0, 2).map((i: any) => i.name).join(', ')}
+                      {items.length > 2 && ` +${items.length - 2} more`}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-primary">₱{Number(order.total || order.cost || 0).toFixed(2)}</span>
+                  <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-primary">₱{Number(order.total || order.cost || 0).toFixed(2)}</span>
-                <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
-              </div>
-            </div>
-          );
-        })}
-        {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
-      </div>
+            );
+          })}
+          {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
+        </div>
+      )}
     </div>
   );
 }

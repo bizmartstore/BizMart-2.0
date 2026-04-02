@@ -72,6 +72,12 @@ export default function PrintTab() {
   }, []);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
+    // Optimistic UI update
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+
     try {
       const { data: order } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
       if (!order) return;
@@ -88,9 +94,10 @@ export default function PrintTab() {
       });
 
       toast.success(`Print order ${newStatus}!`);
-      if (selectedOrder?.id === orderId) setSelectedOrder(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to update");
+      // Revert on error
+      load();
     }
   };
 
