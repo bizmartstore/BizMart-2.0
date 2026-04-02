@@ -1,55 +1,3 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-
-// --- Cart Context ---
-export interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  category: string;
-  quantity: number;
-}
-
-export interface CartContextType {
-  items: CartItem[];
-  addItem: (item: Omit<CartItem, "quantity">) => void;
-  removeItem: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
-  clearCart: () => void;
-  totalItems: number;
-  totalPrice: number;
-}
-
-const CartContext = createContext<CartContextType | undefined>(undefined);
-
-export function useCart() {
-  const context = useContext(CartContext);
-  if (!context) throw new Error("useCart must be used within CartProvider");
-  return context;
-}
-
-// --- Auth Context ---
-export const AuthContext = createContext<{
-  user: any | null;
-  profile: any | null;
-  loading: boolean;
-  signOut: () => Promise<void>;
-}>({
-  user: null,
-  profile: null,
-  loading: true,
-  signOut: async () => {},
-});
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error("useAuth must be used within AuthProvider");
-  return context;
-}
-
 function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -165,4 +113,4 @@ function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export default AuthProvider;
+export { AuthProvider, useAuth };
