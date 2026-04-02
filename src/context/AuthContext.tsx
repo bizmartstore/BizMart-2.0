@@ -52,9 +52,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
       
       try {
-        // 1. Fetch existing profile with timeout
+        // 1. Fetch existing profile with aggressive timeout
         let profData: any = null;
-        let profError: any = null;
         
         const profilePromise = (supabase as any)
           .from("profiles")
@@ -63,29 +62,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .maybeSingle();
           
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error("Profile fetch timed out")), 5000)
+          setTimeout(() => reject(new Error("Profile fetch timed out")), 3000)
         );
         
         try {
           const result = await Promise.race([profilePromise, timeoutPromise]) as any;
           profData = result.data;
-          profError = result.error;
         } catch (err: any) {
           console.warn("[AuthContext] Profile fetch timeout or error:", err.message);
-          profError = err;
-        }
-
-        if (profError) {
-          console.warn("[AuthContext] Profile fetch error:", profError.message);
         }
 
         const metadata = currentUser.user_metadata || {};
 
-        // 2. Create profile if missing
+        // 2. Create profile if missing (with timeout)
         if (!profData) {
           console.log("[AuthContext] Profile missing, creating...");
           try {
-            const { data: newProf, error: insertError } = await (supabase as any)
+            const createPromise = (supabase as any)
               .from("profiles")
               .insert({
                 user_id: currentUser.id,
@@ -99,14 +92,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               })
               .select()
               .single();
+              
+            const createTimeout = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error("Profile creation timed out")), 3000)
+            );
             
-            if (insertError) {
-              console.warn("[AuthContext] Profile creation failed:", insertError.message);
-            } else {
-              profData = newProf;
-            }
+            const createResult = await Promise.race([createPromise, createTimeout]) as any;
+            if (createResult.data) profData = createResult.data;
           } catch (err: any) {
-            console.warn("[AuthContext] Profile creation error:", err.message);
+            console.warn("[AuthContext] Profile creation failed:", err.message);
           }
         }
 
@@ -126,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .maybeSingle();
             
           const roleTimeout = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Role fetch timed out")), 3000)
+            setTimeout(() => reject(new Error("Role fetch timed out")), 2000)
           );
           
           const roleResult = await Promise.race([rolePromise, roleTimeout]) as any;
@@ -145,7 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .maybeSingle();
             
           const walletTimeout = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error("Wallet fetch timed out")), 3000)
+            setTimeout(() => reject(new Error("Wallet fetch timed out")), 2000)
           );
           
           const walletResult = await Promise.race([walletPromise, walletTimeout]) as any;
@@ -233,17 +227,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(s);
         setUser(s?.user ?? null);
         
+        // Mark auth as ready immediately after getting session
+        // Don't wait for profile fetch to complete
+        setLoading(false);
+        setIsAuthReady(true);
+        console.log("[AuthContext] Auth ready. Session:", !!s);
+        
         if (s?.user) {
-          // Fetch profile (will set profile from DB or localStorage fallback)
-          await fetchProfile(s.user);
+          // Fetch profile in background (won't block UI)
+          fetchProfile(s.user);
         }
       } catch (err) {
         console.error("[AuthContext] Init error:", err);
-      } finally {
+        // Ensure we don't get stuck on error
         if (mountedRef.current) {
           setLoading(false);
           setIsAuthReady(true);
-          console.log("[AuthContext] Initialization complete. isAuthReady=true");
         }
       }
     };
@@ -258,11 +257,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(s?.user ?? null);
       
       if (event === 'SIGNED_IN' && s?.user) {
-        // Fetch profile (will set profile from DB or localStorage fallback)
-        await fetchProfile(s.user);
+        // Mark ready immediately
+        setLoading(false);
         setIsAuthReady(true);
+        // Fetch profile in background
+        fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
+        setLoading(false);
         setIsAuthReady(true);
         requestIdRef.current++;
         fetchProfileRef.current = null;
@@ -270,13 +272,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(s);
       } else if (event === 'INITIAL_SESSION') {
         // Already handled in init(), but ensure ready state
+        setLoading(false);
         setIsAuthReady(true);
       } else {
         // For any other event, ensure we're marked as ready
+        setLoading(false);
         setIsAuthReady(prev => prev || true);
       }
-      
-      setLoading(false);
     });
 
     return () => {
