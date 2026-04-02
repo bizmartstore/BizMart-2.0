@@ -203,8 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
-      const { data: wallet } = await supabase
-        .from("bcoins_wallets")
+      const { data: wallet } = await supabase        .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
         .maybeSingle();
