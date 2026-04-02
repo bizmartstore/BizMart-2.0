@@ -2,9 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Search, Store, CheckCircle2, XCircle, RefreshCw, Eye } from "lucide-react";
+import { Search, Store, RefreshCw, Eye } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function SellersTab() {
@@ -27,7 +26,7 @@ export default function SellersTab() {
       if (sellerError) throw sellerError;
       setSellers(sellerData || []);
 
-      // Load applications (if table exists)
+      // Load applications (if table exists) - handle 404 gracefully
       try {
         const { data: appData, error: appError } = await (supabase as any)
           .from("seller_applications")
@@ -35,13 +34,13 @@ export default function SellersTab() {
           .order("created_at", { ascending: false });
         
         if (appError) {
-          // Table might not exist yet
-          console.warn("seller_applications table not found:", appError.message);
+          // Table might not exist yet (404)
+          console.warn("seller_applications table not found or error:", appError.message);
           setApplications([]);
         } else {
           setApplications(appData || []);
         }
-      } catch (e) {
+      } catch (e: any) {
         console.warn("Failed to load seller applications:", e);
         setApplications([]);
       }
@@ -54,7 +53,7 @@ export default function SellersTab() {
       if (allUserIds.length > 0) {
         const { data: profs } = await (supabase as any)
           .from("profiles")
-          .select("*")
+          .select("user_id, first_name, last_name, email")
           .in("user_id", allUserIds);
         
         const map: Record<string, any> = {};
@@ -67,7 +66,7 @@ export default function SellersTab() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applications]);
 
   useEffect(() => { load(); }, [load]);
 

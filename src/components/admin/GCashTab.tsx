@@ -12,9 +12,39 @@ export default function GCashTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await (supabase as any).from("gcash_transactions").select("*, profiles(first_name, last_name, email)").order("created_at", { ascending: false });
-    setTransactions(data || []);
-    setLoading(false);
+    try {
+      // Fetch transactions first
+      const { data: txData, error } = await (supabase as any)
+        .from("gcash_transactions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      // Then fetch profiles separately
+      const userIds = txData?.map((t: any) => t.user_id).filter(Boolean) || [];
+      let enrichedTransactions = txData || [];
+      
+      if (userIds.length > 0) {
+        const { data: profs } = await (supabase as any)
+          .from("profiles")
+          .select("user_id, first_name, last_name, email")
+          .in("user_id", userIds);
+        
+        const profileMap = new Map(profs?.map((p: any) => [p.user_id, p]));
+        enrichedTransactions = txData.map((t: any) => ({
+          ...t,
+          profiles: profileMap.get(t.user_id) || null,
+        }));
+      }
+      
+      setTransactions(enrichedTransactions);
+    } catch (e: any) {
+      console.error("Failed to load transactions:", e);
+      toast.error("Failed to load transactions: " + e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { load(); }, [load]);
