@@ -11,13 +11,19 @@ export default function AdminAutoRedirect() {
 
   useEffect(() => {
     if (authLoading || roleLoading) return;
-    if (!user || !isAdmin) return;
-
-    const adminPaths = ["/admin", "/login", "/signup"];
-    if (adminPaths.some((p) => location.pathname.startsWith(p))) return;
-
-    console.log('[AdminAutoRedirect] Redirecting admin to /admin');
-    navigate("/admin", { replace: true });
+    
+    // If user is admin and NOT on an admin page, redirect to admin
+    if (user && isAdmin) {
+      const isAdminPage = 
+        location.pathname.startsWith('/admin') || 
+        location.pathname === '/login' || 
+        location.pathname === '/signup';
+      
+      if (!isAdminPage) {
+        console.log('[AdminAutoRedirect] Admin on public page, redirecting to /admin');
+        navigate('/admin', { replace: true });
+      }
+    }
   }, [user, isAdmin, authLoading, roleLoading, location.pathname, navigate]);
 
   return null;
