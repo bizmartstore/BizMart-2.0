@@ -21,8 +21,32 @@ ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 ALTER TABLE public.news_updates 
 ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
--- Enable RLS if not already enabled (optional, but recommended)
+-- Enable RLS
 ALTER TABLE public.news_updates ENABLE ROW LEVEL SECURITY;
 
--- Create storage bucket for news images if it doesn't exist (will be created automatically on first upload)
--- This is just a note: the bucket name is "news-images" based on the code
+-- Create policy to allow admins to perform all operations on news_updates
+-- This uses the get_user_role function to check if the user is an admin
+CREATE POLICY "Admins can manage news" ON public.news_updates
+FOR ALL
+USING (
+  EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = auth.uid() 
+    AND role IN ('main_admin', 'member_admin')
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.user_roles 
+    WHERE user_id = auth.uid() 
+    AND role IN ('main_admin', 'member_admin')
+  )
+);
+
+-- Create policy to allow public read access to active news only
+CREATE POLICY "Public can view active news" ON public.news_updates
+FOR SELECT
+USING (is_active = true);
+
+-- Optional: Allow service role to bypass RLS (already bypasses by default, but explicit)
+-- This is just for documentation - service role automatically bypasses RLS
