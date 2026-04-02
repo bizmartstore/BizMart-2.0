@@ -1,150 +1,127 @@
-"use client";
-
-import { useState, useEffect } from "react";
-import TopBar from "@/components/TopBar";
-import BottomNav from "@/components/BottomNav";
+import { ArrowLeft, Settings, ChevronRight, Package, Heart, HelpCircle, LogOut, GraduationCap, Coins, ShoppingCart, Loader2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import BottomNav from "@/components/BottomNav";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, CheckCheck, RefreshCw, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
-  const { user, profile, loading: authLoading } = useAuth();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [bcoins, setBcoins] = useState<number>(0); // NEW: BCoins balance
+  const navigate = useNavigate();
+  const { totalItems } = useCart();
+  const { user, profile, signOut, loading: authLoading } = useAuth();
+  const [orderCount, setOrderCount] = useState(0);
 
-  // Load profile and BCoins balance
   useEffect(() => {
     if (!user) return;
-    setLoading(true);
-
-    // 1️⃣ Fetch profile data
-    const { data: profileData, error: profileError } = supabase
-      .from('profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error('Profile fetch error:', profileError);
-      setLoading(false);
-      return;
-    }
-
-    // 2️⃣ Fetch BCoins balance from bcoins_wallets    const { data: walletData, error: walletError } = supabase
-      .from('bcoins_wallets')
-      .select('balance')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!walletError) {
-      setBcoins(walletData?.balance ?? 0);
-    }
-
-    setProfile(profileData as any);
-    setLoading(false);
+    (supabase as any).from('orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+      .then(({ count }: any) => setOrderCount(count || 0));
   }, [user]);
 
-  if (loading || !profile) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  // Use the fetched balance directly in the UI
-  const balance = bcoins;
+  if (!user) {
+    navigate("/login");
+    return null;
+  }
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/login");
+  };
+
+  const menuItems = [
+    { icon: Package, label: "My Orders", badge: orderCount > 0 ? String(orderCount) : undefined, action: () => navigate("/orders") },
+    { icon: Coins, label: "My BCoins", action: () => navigate("/bcoins") },
+    { icon: ShoppingCart, label: "Cart", badge: totalItems > 0 ? String(totalItems) : undefined, action: () => navigate("/cart") },
+    { icon: Heart, label: "Wishlist" },
+    { icon: HelpCircle, label: "Help Center" },
+    { icon: Settings, label: "Settings" },
+  ];
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <TopBar />
-      <div className="px-4 mt-4">
-        {/* Header */}
-        <div className="flex items-center gap-2 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search users..."
-              className="pl-9 text-sm h-9 rounded-xl"
-          />
+      <div className="bg-secondary px-4 pt-6 pb-8 rounded-b-3xl">
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={() => navigate(-1)} className="p-1">
+            <ArrowLeft className="h-5 w-5 text-secondary-foreground" />
+          </button>
+          <span className="text-secondary-foreground font-bold text-sm">Student Dashboard</span>
+          <button className="p-1"><Settings className="h-5 w-5 text-secondary-foreground" /></button>
         </div>
-      </div>
-
-      {/* Profile Display */}
-      <div className="bg-card rounded-xl p-4 border border-border shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-            {profile?.avatar_url ? (
-              <img src={profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
-            ) : <User className="h-8 w-8 text-primary" />
+          <div className="h-16 w-16 rounded-full bg-secondary-foreground/20 flex items-center justify-center text-2xl">
+            {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full rounded-full object-cover" alt="" /> : "🎓"}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="font-bold text-sm leading-tight">{profile?.first_name} {profile?.last_name}</div>
-            <p className="text-sm text-muted-foreground">{profile?.school} • {profile?.grade_level} - {profile?.section}</p>
-            <p className="text-sm text-muted-foreground">{profile?.email}</p>
-          </div>
-        </div>
-
-        {/* BCoins Display */}
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] font-semibold">BCoins</span>
-          <span className="text-sm font-bold text-primary">{balance.toFixed(1)}</span>
-        </div>
-      </div>
-
-      {/* My Info Fields */}
-      <div className="space-y-2 max-h-[500px] overflow-y-auto">
-        <div className="bg-card rounded-xl border border-border p-3">
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-muted rounded-lg p-1.5">
-              <span className="text-sm font-bold">🪙</span>
-              <span className="text-sm font-bold">{balance.toFixed(1)}</span>
-            </div>
-            <div className="bg-muted rounded-lg p-1.5">
-              <span className="text-sm font-bold">School</span>
-              <p className="text-[10px] text-muted-foreground">{profile?.school}</p>
-            </div>
-            <div className="bg-muted rounded-lg p-1.5">
-              <span className="text-sm font-bold">Grade</span>
-              <p className="text-[10px] text-muted-foreground">{profile?.grade_level}</p>
-            </div>
-            <div className="bg-muted rounded-lg p-1.5">
-              <span className="text-sm font-bold">Section</span>
-              <p className="text-[10px] text-muted-foreground">{profile?.section}</p>
-            </div>
+          <div>
+            <h2 className="text-secondary-foreground font-bold text-lg">
+              {profile?.first_name ? `${profile.first_name} ${profile.last_name}` : "Student"}
+            </h2>
+            <p className="text-secondary-foreground/70 text-xs">{profile?.email || user.email}</p>
           </div>
         </div>
       </div>
 
-      {/* Edit Profile Section */}
-      <div className="bg-card rounded-xl p-3 border border-border space-y-2">
-        <div className="grid grid-cols-2 gap-2">
-          <div><Label className="text-[10px]">First Name</Label><Input value={profile?.first_name || ""} onChange={e => setProfile({...profile, first_name: e.target.value})} placeholder="John" className="text-sm" /></div>
-          <div><Label className="text-[10px]">Last Name</Label><Input value={profile?.last_name || ""} onChange={e => setProfile({...profile, last_name: e.target.value})} placeholder="Doe" className="text-sm" /></div>
-          <div><Label className="text-[10px]">Email</Label><Input value={profile?.email || ""} onChange={e => setProfile({...profile, email: e.target.value})} placeholder="john@school.edu" className="text-sm" /></div>
-          <div><Label className="text-[10px]">Password</Label><Input type="password" value={profile?.password || ""} onChange={e => setProfile({...profile, password: e.target.value})} placeholder="••••••" className="text-sm" /></div>
-          <div><Label className="text-[10px]">New Password (optional)</Label><Input type="password" value={profile?.password || ""} onChange={e => setProfile({...profile, password: e.target.value})} placeholder="••••••" className="text-sm" /></div>
-          <Button onClick={() => setProfile(profile)} className="w-full gap-1">Cancel</Button>
-          <Button onClick={() => {
-            // Simple password change logic (no backend call in this snippet)
-            setProfile(profile);
-          }} className="w-full gap-1">Save</Button>
+      <div className="mx-3 -mt-4 bg-card rounded-xl shadow-sm border border-border p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <GraduationCap className="h-4 w-4 text-primary" />
+          <span className="text-xs font-bold text-foreground">Student Information</span>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">School</p>
+            <p className="text-xs font-bold text-foreground truncate">{profile?.school || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">Grade Level</p>
+            <p className="text-xs font-bold text-foreground">{profile?.grade_level || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">Section</p>
+            <p className="text-xs font-bold text-foreground">{profile?.section || "Not provided"}</p>
+          </div>
+          <div>
+            <p className="text-[10px] text-muted-foreground font-medium">BCoins</p>
+            <p className="text-xs font-bold text-primary">{Number(profile?.bcoins || 0).toFixed(1)} 🪙</p>
+          </div>
         </div>
       </div>
 
-      <div className="space-y-3">
-        {/* ... existing profile info sections ... */}
+      <div className="mx-3 mt-3 bg-card rounded-xl shadow-sm border border-border p-4 grid grid-cols-3 gap-4">
+        {[
+          { label: "In Cart", value: totalItems, action: () => navigate("/cart") },
+          { label: "Orders", value: orderCount, action: () => navigate("/orders") },
+          { label: "BCoins", value: Number(profile?.bcoins || 0).toFixed(1), action: () => navigate("/bcoins") },
+        ].map((stat) => (
+          <button key={stat.label} onClick={stat.action} className="text-center">
+            <p className="text-lg font-extrabold text-primary">{stat.value}</p>
+            <p className="text-[10px] text-muted-foreground font-medium">{stat.label}</p>
+          </button>
+        ))}
       </div>
 
+      <div className="mx-3 mt-3 bg-card rounded-xl border border-border overflow-hidden">
+        {menuItems.map((item, i) => (
+          <button key={item.label} onClick={item.action} className={`w-full flex items-center gap-3 px-4 py-3.5 ${i < menuItems.length - 1 ? "border-b border-border" : ""}`}>
+            <item.icon className="h-5 w-5 text-primary" />
+            <span className="flex-1 text-left text-sm font-semibold">{item.label}</span>
+            {item.badge && <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+
+      <div className="mx-3 mt-3">
+        <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 bg-card rounded-xl border border-border text-destructive font-semibold text-sm">
+          <LogOut className="h-4 w-4" /> Log Out
+        </button>
+      </div>
       <BottomNav />
     </div>
   );
