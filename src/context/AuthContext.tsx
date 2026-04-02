@@ -41,8 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Use a Promise.race to ensure we don't hang forever on a slow DB query
       const profilePromise = (async () => {
-        // 1. Try to fetch existing profile
-        let { data: profData, error: profError } = await supabase
+        // 1. Try to fetch existing profile        let { data: profData, error: profError } = await supabase
           .from("profiles")
           .select("*")
           .eq("id", currentUser.id)
@@ -68,7 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               section: metadata.section || null,
               grade_level: metadata.grade_level || null,
               avatar_url: metadata.avatar_url || null,
-            })
+            } as any) // Explicitly cast to any to avoid TS overload error
             .select()
             .single();
           
@@ -93,8 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { profData, roleData, metadata, wallet };
       })();
 
-      // Timeout after 3 seconds
-      const timeoutPromise = new Promise((_, reject) => 
+      // Timeout after 3 seconds      const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
       );
 
@@ -171,8 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setSession(s);
       setUser(s?.user ?? null);
-      
-      if (s?.user) {
+            if (s?.user) {
         await fetchProfile(s.user);
       } else {
         setProfile(null);
@@ -203,7 +200,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
-      const { data: wallet } = await supabase        .from("bcoins_wallets")
+      const { data: wallet } = await supabase
+        .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
         .maybeSingle();
@@ -233,8 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (payload.event === 'DELETE') {
             setProfile(prev => prev ? { ...prev, bcoins: 0 } : prev);
           } else if (payload.new) {
-            // Type assertion since bcoins_wallets isn't in our generated types
-            setProfile(prev => prev ? { ...prev, bcoins: Number((payload.new as any).balance) } : prev);
+            // Type assertion since bcoins_wallets isn't in our generated types            setProfile(prev => prev ? { ...prev, bcoins: Number((payload.new as any).balance) } : prev);
           }
         }
       )
