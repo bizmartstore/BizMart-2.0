@@ -126,6 +126,7 @@ export default function NewsTab() {
         image_url: images[0] || null,
         images,
         category,
+        is_active: true,
       };
 
       if (editId) {
