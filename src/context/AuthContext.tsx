@@ -39,7 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
     
     try {
-      // Use a Promise.race to ensure we don't hang forever on a slow DB query      const profilePromise = (async () => {
+      // Use a Promise.race to ensure we don't hang forever on a slow DB query
+      const profilePromise = (async () => {
         // 1. Try to fetch existing profile
         let { data: profData, error: profError } = await supabase
           .from("profiles")
@@ -148,7 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(s);
         setUser(s?.user ?? null);
-                if (s?.user) {
+        
+        if (s?.user) {
           await fetchProfile(s.user);
         }
       } catch (err) {
