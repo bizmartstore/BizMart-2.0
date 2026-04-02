@@ -1,13 +1,12 @@
-// ... (keep existing imports)
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-
-// ... (rest of component)
+import { products as fallbackProducts, categories as fallbackCategories, Product } from "@/data/products";
 
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('products')
         .select('*')
         .eq('is_active', true);
@@ -35,7 +34,12 @@ export function useProducts() {
       }
       return fallbackProducts;
     },
-    // ... (rest of query options)
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }
 
@@ -43,7 +47,7 @@ export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('categories')
         .select('*')
         .eq('is_active', true)
@@ -59,7 +63,12 @@ export function useCategories() {
       }
       return fallbackCategories;
     },
-    // ... (rest of query options)
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }
 
@@ -72,7 +81,7 @@ export function useBanners() {
   return useQuery({
     queryKey: ['banners'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from('banners')
         .select('*')
         .eq('is_active', true)
@@ -88,6 +97,11 @@ export function useBanners() {
       }
       return null;
     },
-    // ... (rest of query options)
+    staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }

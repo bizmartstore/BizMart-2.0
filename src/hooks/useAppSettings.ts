@@ -1,12 +1,17 @@
-// ... (keep existing imports)
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-// ... (rest of component)
+export function useAppSettings() {
+  const [storeOpen, setStoreOpen] = useState(true);
+  const [closeMessage, setCloseMessage] = useState("");
+  const [gcashFee, setGcashFee] = useState(10);
+  const [allSettings, setAllSettings] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const loadSettings = useCallback(async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.from('app_settings').select('*');
+      const { data, error } = await (supabase as any).from('app_settings').select('*');
       
       if (error) {
         console.warn('Failed to load app settings:', error);
@@ -31,4 +36,9 @@ import { supabase } from "@/integrations/supabase/client";
     }
   }, []);
 
-// ... (rest of component)
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  return { storeOpen, closeMessage, gcashFee, allSettings, loading, refetch: loadSettings };
+}

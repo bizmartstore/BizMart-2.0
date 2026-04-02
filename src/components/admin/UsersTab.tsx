@@ -16,19 +16,10 @@ export default function UsersTab() {
     setLoading(true);
     setDbError(null);
     try {
-      // Fetch profiles directly - they are already linked by id to auth.users
-      const { data: profiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("first_name");
-      
+      const { data: profiles, error: profilesError } = await (supabase as any).from("profiles").select("*").order("first_name");
       if (profilesError) throw profilesError;
       
-      // Fetch roles separately
-      const { data: roles, error: rolesError } = await supabase
-        .from("user_roles")
-        .select("*");
-      
+      const { data: roles, error: rolesError } = await (supabase as any).from("user_roles").select("*");
       if (rolesError) throw rolesError;
       
       const roleMap: Record<string, string> = {};
@@ -36,7 +27,7 @@ export default function UsersTab() {
       
       const enriched = (profiles || []).map((p: any) => ({
         ...p,
-        role: roleMap[p.id] || "customer", // Use p.id, not p.user_id
+        role: roleMap[p.user_id] || "customer",
       }));
       setUsers(enriched);
     } catch (e: any) {
@@ -52,11 +43,9 @@ export default function UsersTab() {
 
   const assignRole = async (userId: string, role: string) => {
     try {
-      // Delete existing role
-      await supabase.from("user_roles").delete().eq("user_id", userId);
-      
+      await (supabase as any).from("user_roles").delete().eq("user_id", userId);
       if (role !== "customer") {
-        await supabase.from("user_roles").insert({ user_id: userId, role });
+        await (supabase as any).from("user_roles").insert({ user_id: userId, role });
       }
       toast.success(`Role updated to ${role}`);
       load();
@@ -85,9 +74,7 @@ export default function UsersTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="pl-9 text-xs h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading}>
-          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
-        </Button>
+        <Button size="sm" variant="outline" onClick={load} disabled={loading}><RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} /></Button>
       </div>
 
       {dbError && (
@@ -102,7 +89,7 @@ export default function UsersTab() {
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
         {filtered.map(u => (
-          <div key={u.id} className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
+          <div key={u.user_id} className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
               {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full rounded-full object-cover" alt="" /> : <User className="h-5 w-5 text-muted-foreground" />}
             </div>
@@ -114,7 +101,7 @@ export default function UsersTab() {
               <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
               <p className="text-[9px] text-muted-foreground">{u.school} • {u.grade_level} - {u.section}</p>
             </div>
-            <Select value={u.role} onValueChange={(v) => assignRole(u.id, v)}>
+            <Select value={u.role} onValueChange={(v) => assignRole(u.user_id, v)}>
               <SelectTrigger className="w-28 h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>

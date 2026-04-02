@@ -1,2 +1,5 @@
-// ... (keep existing imports)
-// No Supabase usage, no changes needed
+"use client"
+
+import { Toaster as Sonner } from "sonner"
+
+export { Sonner }
