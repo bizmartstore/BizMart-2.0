@@ -16,10 +16,9 @@ import {
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Configure PDF.js worker with a reliable CDN
-// Using unpkg which is more reliable for PDF.js worker files
-const PDFJS_VERSION = (pdfjsLib as any).version || '5.6.207';
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.js`;
+// Configure PDF.js worker with a reliable CDN (cdnjs)
+// Using cdnjs which has proper CORS headers and reliable hosting
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.6.205/pdf.worker.min.js`;
 
 const PRICING = {
   short: { bw: 3.00, color: 8.00 },
