@@ -35,8 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const mounted = useRef(true);
   const profileRef = useRef<Profile | null>(null);
-  const roleRef = useRef<string>('customer');
 
+  // Keep ref in sync with latest profile
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
@@ -45,6 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
     
     try {
+      // 1. Try to fetch existing profile
       const { data: profData } = await (supabase as any)
         .from("profiles")
         .select("*")
@@ -53,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const metadata = currentUser.user_metadata || {};
 
+      // 2. If profile is missing, create it
       let finalProfData = profData;
       if (!profData) {
         console.log("[AuthContext] Profile missing, creating...");
@@ -67,26 +69,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             section: metadata.section || '',
             grade_level: metadata.grade_level || '',
             bcoins: 0
-          } as any)
+          })
           .select()
           .single();
         
         if (newProf) finalProfData = newProf;
       }
 
+      // 3. Fetch role
       const { data: roleData } = await (supabase as any)
         .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
+      // 4. Fetch wallet balance (source of truth for BCoins)
       const { data: wallet } = await (supabase as any)
         .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
-      const previousRole = roleRef.current;
+      // Use previous role as fallback if role query fails
+      const previousRole = profileRef.current?.role;
       const newProfile: Profile = {
         id: currentUser.id,
         first_name: finalProfData?.first_name || metadata.first_name || 'Student',
@@ -100,20 +105,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role: roleData?.role || previousRole || 'customer',
       };
       
-      roleRef.current = newProfile.role;
       setProfile(newProfile);
       console.log("[AuthContext] Profile loaded successfully with role:", newProfile.role);
     } catch (err: any) {
       console.warn("[AuthContext] Profile fetch issue:", err.message);
-      console.log("[AuthContext] Keeping existing role:", roleRef.current);
+      // If we already have a profile, keep it (don't downgrade role on temporary failures)
+      if (profileRef.current) {
+        console.log("[AuthContext] Keeping existing profile due to fetch error");
+        return;
+      }
+      // Fallback to metadata if DB fails and no existing profile
+      const metadata = currentUser.user_metadata || {};
+      setProfile({
+        id: currentUser.id,
+        first_name: metadata.first_name || 'Student',
+        last_name: metadata.last_name || '',
+        section: metadata.section || 'N/A',
+        grade_level: metadata.grade_level || 'N/A',
+        school: metadata.school || 'N/A',
+        email: currentUser.email || '',
+        avatar_url: metadata.avatar_url || null,
+        bcoins: 0,
+        role: 'customer',
+      });
     }
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    if (user && mounted.current) {
-      await fetchProfile(user);
-    }
-  }, [user, fetchProfile]);
+  const refreshProfile = async () => {
+    if (user && mounted.current) await fetchProfile(user);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -123,6 +143,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!isMounted) return;
+        
         setSession(s);
         setUser(s?.user ?? null);
         
@@ -164,9 +185,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile]);
 
+  // Subscribe to wallet changes to update bcoins in real-time
   useEffect(() => {
     if (!user) return;
 
+    // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
       const { data: wallet } = await (supabase as any)
         .from("bcoins_wallets")
