@@ -3,12 +3,6 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@supabase/supabase-js";
-
-/* ---------- TYPE DEFINITIONS ---------- */
-type Profiles = Database["public"]["profiles"];
-type BcoinsWallet = Database["public"]["bcoins_wallets"];
-type UserRoles = Database["public"]["user_roles"];
 
 export interface Profile {
   id: string;
@@ -43,12 +37,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const fetchProfile = useCallback(async (currentUser: User) => {
     console.log(`[AuthContext] Fetching profile for: ${currentUser.email}`);
-        try {
+    
+    try {
       // Use a Promise.race to ensure we don't hang forever on a slow DB query
       const profilePromise = (async () => {
         // 1. Try to fetch existing profile
         let { data: profData, error: profError } = await supabase
-          .from<Profiles>('profiles')
+          .from("profiles")
           .select("*")
           .eq("id", currentUser.id)
           .maybeSingle();
@@ -62,7 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 2. If profile is missing, create it
         if (!profData && !profError) {
           console.log("[AuthContext] Profile missing, creating...");
-          const { data: newProf, error: insertError } = await supabase            .from<Profiles>('profiles')
+          const { data: newProf, error: insertError } = await supabase
+            .from("profiles")
             .insert({
               user_id: currentUser.id,
               email: currentUser.email,
@@ -71,7 +67,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               school: metadata.school || '',
               section: metadata.section || '',
               grade_level: metadata.grade_level || '',
-              bcoins: 0            })
+              bcoins: 0
+            })
             .select()
             .single();
           
@@ -79,15 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           else console.warn("[AuthContext] Profile creation failed:", insertError.message);
         }
 
-        // 3. Fetch role        const { data: roleData } = await supabase
-          .from<UserRoles>('user_roles')
+        // 3. Fetch role
+        const { data: roleData } = await supabase
+          .from("user_roles")
           .select("role")
           .eq("user_id", currentUser.id)
           .maybeSingle();
 
         // 4. Fetch wallet balance (source of truth for BCoins)
         const { data: wallet } = await supabase
-          .from<BcoinsWallet>('bcoins_wallets')
+          .from("bcoins_wallets")
           .select("balance")
           .eq("user_id", currentUser.id)
           .maybeSingle();
@@ -151,7 +149,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         
         setSession(s);
         setUser(s?.user ?? null);
-                if (s?.user) {
+        
+        if (s?.user) {
           await fetchProfile(s.user);
         }
       } catch (err) {
@@ -205,12 +204,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
       const { data: wallet } = await supabase
-        .from<BcoinsWallet>('bcoins_wallets')
+        .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
         .maybeSingle();
       if (wallet && profile) {
-        // Type assertion since bcoins_wallets isn't in our generated types        const walletBcoins = Number((wallet as any).balance);
+        // Type assertion since bcoins_wallets isn't in our generated types
+        const walletBcoins = Number((wallet as any).balance);
         if (profile.bcoins !== walletBcoins) {
           setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
         }
@@ -219,7 +219,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     syncWallet();
 
-    const channel = supabase      .channel(`wallet-${user.id}`)
+    const channel = supabase
+      .channel(`wallet-${user.id}`)
       .on(
         "postgres_changes",
         {
