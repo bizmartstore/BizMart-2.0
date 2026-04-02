@@ -60,12 +60,14 @@ export default function LoginPage() {
     } else {
       toast({ title: "Welcome back! 🎉" });
       if (data.user) {
-        if (data.user.email === 'sheethappenswithjaa@gmail.com') {
-          navigate("/admin");
-          return;
-        }
-        const { data: roleData } = await (supabase as any).rpc('get_user_role', { _user_id: data.user.id });
-        if (roleData === 'main_admin' || roleData === 'member_admin') {
+        // Check user role from database (no hardcoded email checks)
+        const { data: roleRecord } = await (supabase as any)
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", data.user.id)
+          .maybeSingle();
+          
+        if (roleRecord?.role === 'main_admin' || roleRecord?.role === 'member_admin') {
           navigate("/admin");
           return;
         }
