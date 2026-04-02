@@ -52,16 +52,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
       
       try {
-        // 1. Fetch existing profile
-        let { data: profData, error: profError } = await (supabase as any)
+        // 1. Fetch existing profile with timeout
+        let profData: any = null;
+        let profError: any = null;
+        
+        const profilePromise = (supabase as any)
           .from("profiles")
           .select("*")
           .eq("id", currentUser.id)
           .maybeSingle();
+          
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Profile fetch timed out")), 5000)
+        );
+        
+        try {
+          const result = await Promise.race([profilePromise, timeoutPromise]) as any;
+          profData = result.data;
+          profError = result.error;
+        } catch (err: any) {
+          console.warn("[AuthContext] Profile fetch timeout or error:", err.message);
+          profError = err;
+        }
 
         if (profError) {
           console.warn("[AuthContext] Profile fetch error:", profError.message);
-          throw profError;
         }
 
         const metadata = currentUser.user_metadata || {};
@@ -69,26 +84,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 2. Create profile if missing
         if (!profData) {
           console.log("[AuthContext] Profile missing, creating...");
-          const { data: newProf, error: insertError } = await (supabase as any)
-            .from("profiles")
-            .insert({
-              user_id: currentUser.id,
-              email: currentUser.email,
-              first_name: metadata.first_name || '',
-              last_name: metadata.last_name || '',
-              school: metadata.school || null,
-              section: metadata.section || null,
-              grade_level: metadata.grade_level || null,
-              avatar_url: metadata.avatar_url || null,
-            })
-            .select()
-            .single();
-          
-          if (insertError) {
-            console.warn("[AuthContext] Profile creation failed:", insertError.message);
-            throw insertError;
+          try {
+            const { data: newProf, error: insertError } = await (supabase as any)
+              .from("profiles")
+              .insert({
+                user_id: currentUser.id,
+                email: currentUser.email,
+                first_name: metadata.first_name || '',
+                last_name: metadata.last_name || '',
+                school: metadata.school || null,
+                section: metadata.section || null,
+                grade_level: metadata.grade_level || null,
+                avatar_url: metadata.avatar_url || null,
+              })
+              .select()
+              .single();
+            
+            if (insertError) {
+              console.warn("[AuthContext] Profile creation failed:", insertError.message);
+            } else {
+              profData = newProf;
+            }
+          } catch (err: any) {
+            console.warn("[AuthContext] Profile creation error:", err.message);
           }
-          profData = newProf;
         }
 
         // Check if this request is still the latest
@@ -97,19 +116,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 3. Fetch role
-        const { data: roleData } = await (supabase as any)
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
+        // 3. Fetch role with timeout
+        let roleData: any = null;
+        try {
+          const rolePromise = (supabase as any)
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", currentUser.id)
+            .maybeSingle();
+            
+          const roleTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Role fetch timed out")), 3000)
+          );
+          
+          const roleResult = await Promise.race([rolePromise, roleTimeout]) as any;
+          roleData = roleResult.data;
+        } catch (err: any) {
+          console.warn("[AuthContext] Role fetch error:", err.message);
+        }
 
-        // 4. Fetch wallet balance
-        const { data: wallet } = await (supabase as any)
-          .from("bcoins_wallets")
-          .select("balance")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
+        // 4. Fetch wallet balance with timeout
+        let wallet: any = null;
+        try {
+          const walletPromise = (supabase as any)
+            .from("bcoins_wallets")
+            .select("balance")
+            .eq("user_id", currentUser.id)
+            .maybeSingle();
+            
+          const walletTimeout = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error("Wallet fetch timed out")), 3000)
+          );
+          
+          const walletResult = await Promise.race([walletPromise, walletTimeout]) as any;
+          wallet = walletResult.data;
+        } catch (err: any) {
+          console.warn("[AuthContext] Wallet fetch error:", err.message);
+        }
 
         // Final check before state update
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
@@ -121,17 +164,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
         }
 
-        // Update profile with fresh DB data
+        // Update profile with fresh DB data or fallback
         setProfile({
           id: currentUser.id,
-          first_name: profData.first_name || metadata.first_name || 'Student',
-          last_name: profData.last_name || metadata.last_name || '',
-          section: profData.section || metadata.section || 'N/A',
-          grade_level: profData.grade_level || metadata.grade_level || 'N/A',
-          school: profData.school || metadata.school || 'N/A',
-          email: profData.email || currentUser.email || '',
-          avatar_url: profData.avatar_url || metadata.avatar_url || null,
-          bcoins: Number(wallet?.balance || profData.bcoins || 0),
+          first_name: profData?.first_name || metadata.first_name || 'Student',
+          last_name: profData?.last_name || metadata.last_name || '',
+          section: profData?.section || metadata.section || 'N/A',
+          grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
+          school: profData?.school || metadata.school || 'N/A',
+          email: profData?.email || currentUser.email || '',
+          avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+          bcoins: Number(wallet?.balance || profData?.bcoins || 0),
           role,
         });
         
@@ -183,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const init = async () => {
       try {
+        console.log("[AuthContext] Starting initialization...");
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mountedRef.current) return;
         
@@ -199,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (mountedRef.current) {
           setLoading(false);
           setIsAuthReady(true);
-          console.log("[AuthContext] Initialization complete");
+          console.log("[AuthContext] Initialization complete. isAuthReady=true");
         }
       }
     };
@@ -224,7 +268,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchProfileRef.current = null;
       } else if (event === 'TOKEN_REFRESHED' && s?.user) {
         setSession(s);
+      } else if (event === 'INITIAL_SESSION') {
+        // Already handled in init(), but ensure ready state
+        setIsAuthReady(true);
       } else {
+        // For any other event, ensure we're marked as ready
         setIsAuthReady(prev => prev || true);
       }
       
@@ -244,16 +292,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     const syncWallet = async () => {
-      const { data: wallet } = await (supabase as any)
-        .from("bcoins_wallets")
-        .select("balance")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (wallet && profile) {
-        const walletBcoins = Number((wallet as any).balance);
-        if (profile.bcoins !== walletBcoins) {
-          setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
+      try {
+        const { data: wallet } = await (supabase as any)
+          .from("bcoins_wallets")
+          .select("balance")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (wallet && profile) {
+          const walletBcoins = Number((wallet as any).balance);
+          if (profile.bcoins !== walletBcoins) {
+            setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
+          }
         }
+      } catch (err) {
+        console.warn("[AuthContext] Wallet sync error:", err);
       }
     };
 
