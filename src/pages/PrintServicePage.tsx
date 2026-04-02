@@ -174,9 +174,7 @@ export default function PrintServicePage() {
 
     setSubmitting(true);
     try {
-      const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
-      
-      // Only include columns that exist in the print_orders table
+      // Only insert columns that actually exist in the print_orders table
       const { data, error } = await (supabase as any).from("print_orders").insert({
         user_id: user.id,
         file_name: fileName,
@@ -190,18 +188,16 @@ export default function PrintServicePage() {
         delivery_type: deliveryType,
         pickup_date: pickupDate,
         pickup_time: pickupTime,
-        customer_name: customerName,
-        customer_section: profile?.section ?? null,
-        customer_grade_level: profile?.grade_level ?? null,
       }).select().single();
 
       if (error) throw error;
 
       // Notify admin
       const { sendNotification } = await import("@/lib/notifications");
+      const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       await sendNotification({
         title: "🖨️ New Print Request",
-        message: `${customerName} (${profile?.grade_level || ''} - ${profile?.section || ''}) submitted a print request for ${fileName} (${selectedPages.length} pages, ₱${totalCost.toFixed(2)})`,
+        message: `${customerName} submitted a print request for ${fileName} (${selectedPages.length} pages, ₱${totalCost.toFixed(2)})`,
         type: "new_print_order",
         targetRole: "admin",
         link: "/admin?tab=print",
@@ -373,7 +369,7 @@ export default function PrintServicePage() {
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {showPageSelector ? "Hide" : "Show"} Page Selection ({selectedPages.length} selected)
                 </span>
-                {showPageSelector ? <ChevronDown className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showPageSelector ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
 
               {showPageSelector && (

@@ -15,9 +15,43 @@ export default function PrintTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const { data } = await (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false });
-    setOrders(data || []);
-    setLoading(false);
+    try {
+      // 1. Fetch print orders
+      const { data: printData, error } = await (supabase as any)
+        .from("print_orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+
+      // 2. Fetch customer profiles for all user_ids
+      const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
+      let profileMap: Record<string, any> = {};
+      
+      if (userIds.length > 0) {
+        const { data: profiles } = await (supabase as any)
+          .from("profiles")
+          .select("user_id, first_name, last_name, grade_level, section")
+          .in("user_id", userIds);
+        
+        if (profiles) {
+          profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
+        }
+      }
+
+      // 3. Merge orders with profiles
+      const enriched = (printData || []).map((order: any) => ({
+        ...order,
+        customer: profileMap[order.user_id] || null,
+      }));
+
+      setOrders(enriched);
+    } catch (e: any) {
+      console.error("Failed to load print orders:", e);
+      toast.error("Failed to load print orders: " + e.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => { 
@@ -60,10 +94,11 @@ export default function PrintTab() {
 
   const filtered = orders.filter(o => {
     const matchFilter = filter === "all" || o.status === filter;
+    const custName = o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : "";
     const matchSearch = !search || 
-      (o.customer_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      custName.toLowerCase().includes(search.toLowerCase()) ||
       (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (o.customer_section || "").toLowerCase().includes(search.toLowerCase());
+      (o.customer?.section || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
@@ -76,6 +111,11 @@ export default function PrintTab() {
   };
 
   if (selectedOrder) {
+    const cust = selectedOrder.customer;
+    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custGrade = cust?.grade_level || "N/A";
+    const custSection = cust?.section || "N/A";
+
     return (
       <div className="space-y-3">
         <button onClick={() => setSelectedOrder(null)} className="text-xs text-primary font-bold">← Back to Print Orders</button>
@@ -100,10 +140,10 @@ export default function PrintTab() {
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
-              <span className="text-xs font-bold text-foreground">{selectedOrder.customer_name || "Unknown User"}</span>
+              <span className="text-xs font-bold text-foreground">{custName}</span>
             </div>
             <p className="text-[10px] text-muted-foreground">
-              {selectedOrder.customer_grade_level || "N/A"} • {selectedOrder.customer_section || "N/A"}
+              {custGrade} • {custSection}
             </p>
           </div>
 
@@ -179,44 +219,51 @@ export default function PrintTab() {
       </div>
 
       <div className="space-y-2 max-h-[500px] overflow-y-auto">
-        {filtered.map(order => (
-          <div key={order.id} className="bg-card rounded-xl border border-border p-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 flex-1 min-w-0">
-                <FileText className="h-4 w-4 text-primary flex-shrink-0" />
-                <span className="font-bold text-xs truncate">{order.file_name}</span>
+        {filtered.map(order => {
+          const cust = order.customer;
+          const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown";
+          const custGrade = cust?.grade_level || "N/A";
+          const custSection = cust?.section || "N/A";
+
+          return (
+            <div key={order.id} className="bg-card rounded-xl border border-border p-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="font-bold text-xs truncate">{order.file_name}</span>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                  order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                  order.status === 'pending' ? 'bg-warning/20 text-warning' :
+                  order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                  'bg-primary/20 text-primary'
+                }`}>{order.status}</span>
               </div>
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
-                order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
-                order.status === 'pending' ? 'bg-warning/20 text-warning' :
-                order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
-                'bg-primary/20 text-primary'
-              }`}>{order.status}</span>
-            </div>
 
-            {/* Customer Info */}
-            <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
-              <User className="h-3 w-3 flex-shrink-0" />
-              <span className="font-bold text-foreground">{order.customer_name || "Unknown"}</span>
-              <span>•</span>
-              <span>{order.customer_grade_level || "N/A"} - {order.customer_section || "N/A"}</span>
-            </div>
-
-            {/* Delivery & Cost */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
-                <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+              {/* Customer Info */}
+              <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
+                <User className="h-3 w-3 flex-shrink-0" />
+                <span className="font-bold text-foreground">{custName}</span>
                 <span>•</span>
-                <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
+                <span>{custGrade} - {custSection}</span>
               </div>
-              <div className="flex items-center gap-2">
-                <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
-                <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+
+              {/* Delivery & Cost */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                  {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                  <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+                  <span>•</span>
+                  <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
+                  <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && !loading && <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>}
       </div>
     </div>
