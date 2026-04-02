@@ -20,7 +20,19 @@ export default function PrintTab() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { 
+    load(); 
+    
+    // Realtime subscription for instant updates
+    const channel = supabase
+      .channel("print-orders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+        load();
+      })
+      .subscribe();
+    
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -93,7 +105,6 @@ export default function PrintTab() {
             <p className="text-[10px] text-muted-foreground">
               {selectedOrder.customer_grade_level || "N/A"} • {selectedOrder.customer_section || "N/A"}
             </p>
-            <p className="text-[10px] text-muted-foreground">{selectedOrder.user_email || selectedOrder.customer_contact || "No contact"}</p>
           </div>
 
           {/* Delivery Details */}

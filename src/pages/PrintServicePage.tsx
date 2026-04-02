@@ -13,9 +13,8 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { 
   Printer, Upload, FileText, Check, Calendar, Clock, 
-  MapPin, Truck, Loader2, ChevronDown, ChevronUp, Eye, Trash2,
-  Info, HelpCircle, ShieldCheck, Zap, AlertCircle, FileCheck,
-  ArrowRight, ArrowLeft, Package, DollarSign
+  MapPin, Truck, Loader2, ChevronDown, ChevronUp,
+  AlertCircle, FileCheck, ArrowRight, ArrowLeft, Package, DollarSign
 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
@@ -176,6 +175,8 @@ export default function PrintServicePage() {
     setSubmitting(true);
     try {
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
+      
+      // Only include columns that exist in the print_orders table
       const { data, error } = await (supabase as any).from("print_orders").insert({
         user_id: user.id,
         file_name: fileName,
@@ -192,8 +193,6 @@ export default function PrintServicePage() {
         customer_name: customerName,
         customer_section: profile?.section ?? null,
         customer_grade_level: profile?.grade_level ?? null,
-        customer_contact: profile?.email ?? null,
-        user_email: profile?.email ?? user?.email,
       }).select().single();
 
       if (error) throw error;
@@ -202,7 +201,7 @@ export default function PrintServicePage() {
       const { sendNotification } = await import("@/lib/notifications");
       await sendNotification({
         title: "🖨️ New Print Request",
-        message: `${customerName} submitted a print request for ${fileName} (${selectedPages.length} pages, ₱${totalCost.toFixed(2)})`,
+        message: `${customerName} (${profile?.grade_level || ''} - ${profile?.section || ''}) submitted a print request for ${fileName} (${selectedPages.length} pages, ₱${totalCost.toFixed(2)})`,
         type: "new_print_order",
         targetRole: "admin",
         link: "/admin?tab=print",
@@ -212,6 +211,7 @@ export default function PrintServicePage() {
       toast.success("Print request submitted! Waiting for admin approval.");
       navigate("/orders");
     } catch (e: any) {
+      console.error("Print submission error:", e);
       toast.error(e.message || "Failed to submit print request");
     }
     setSubmitting(false);
@@ -373,7 +373,7 @@ export default function PrintServicePage() {
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {showPageSelector ? "Hide" : "Show"} Page Selection ({selectedPages.length} selected)
                 </span>
-                {showPageSelector ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showPageSelector ? <ChevronDown className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
 
               {showPageSelector && (
