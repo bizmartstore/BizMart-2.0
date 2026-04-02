@@ -27,6 +27,15 @@ import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import POSTab from "@/components/admin/POSTab";
 
+// Define which tabs member admins can access
+const MEMBER_ADMIN_ALLOWED_TABS = [
+  "orders",
+  "news",
+  "gcash",
+  "jobs",
+  "pos"
+];
+
 export default function AdminDashboard() {
   const { user, profile, isAuthReady } = useAuth();
   const { isAdmin, isMainAdmin } = useAdmin();
@@ -51,7 +60,8 @@ export default function AdminDashboard() {
 
   console.log('[AdminDashboard] Admin access granted. Role:', isMainAdmin ? 'main_admin' : 'member_admin');
 
-  const tabs = [
+  // Define all available tabs
+  const allTabs = [
     { id: "overview", label: "Overview", icon: BarChart3 },
     { id: "orders", label: "Orders", icon: ShoppingCart },
     { id: "products", label: "Products", icon: Package },
@@ -68,6 +78,19 @@ export default function AdminDashboard() {
     { id: "pos", label: "POS", icon: ShoppingCart },
     { id: "settings", label: "Settings", icon: Settings },
   ];
+
+  // Filter tabs based on role
+  const availableTabs = isMainAdmin 
+    ? allTabs 
+    : allTabs.filter(tab => MEMBER_ADMIN_ALLOWED_TABS.includes(tab.id));
+
+  // Set default active tab based on role if current one is not allowed
+  const currentTabAllowed = availableTabs.some(tab => tab.id === activeTab);
+  if (!currentTabAllowed && availableTabs.length > 0) {
+    // Prefer "overview" if available, otherwise use first allowed tab
+    const defaultTab = availableTabs.find(tab => tab.id === "overview") || availableTabs[0];
+    setActiveTab(defaultTab.id);
+  }
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -87,7 +110,7 @@ export default function AdminDashboard() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
-            {tabs.map((tab) => (
+            {availableTabs.map((tab) => (
               <TabsTrigger 
                 key={tab.id} 
                 value={tab.id} 
@@ -99,6 +122,7 @@ export default function AdminDashboard() {
             ))}
           </TabsList>
 
+          {/* All tab contents remain the same - they'll only be accessible if the tab is shown */}
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
