@@ -81,13 +81,28 @@ export default function NewsTab() {
     const newUrls: string[] = [];
     
     try {
+      // Verify session is valid before attempting upload
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Session expired. Please refresh the page or log in again.");
+        return;
+      }
+
       for (const file of Array.from(files)) {
         const ext = file.name.split(".").pop();
         const path = `news/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         
-        const { error: uploadError } = await supabase.storage
+        // Add a timeout to prevent hanging on network/auth issues
+        const uploadPromise = supabase.storage
           .from("news-images")
-          .upload(path, file);
+          .upload(path, file, { upsert: false });
+          
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Upload timed out. Check your connection or session.")), 15000)
+        );
+        
+        const result = await Promise.race([uploadPromise, timeoutPromise]) as any;
+        const { error: uploadError } = result;
         
         if (uploadError) {
           console.error("Upload error:", uploadError);
@@ -101,7 +116,8 @@ export default function NewsTab() {
       setImages(prev => [...prev, ...newUrls]);
       if (newUrls.length > 0) toast.success(`Uploaded ${newUrls.length} image(s)`);
     } catch (e: any) {
-      toast.error("Upload process failed: " + e.message);
+      console.error("Upload process failed:", e);
+      toast.error("Upload process failed: " + (e.message || "Unknown error"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
