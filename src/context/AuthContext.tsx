@@ -40,22 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     try {
       // 1. Try to fetch existing profile
-      let { data: profData, error: profError } = await supabase
+      const { data: profData } = await (supabase as any)
         .from("profiles")
         .select("*")
         .eq("id", currentUser.id)
         .maybeSingle();
 
-      if (profError) {
-        console.warn("[AuthContext] Profile fetch error:", profError.message);
-      }
-
       const metadata = currentUser.user_metadata || {};
 
       // 2. If profile is missing, create it
-      if (!profData && !profError) {
+      let finalProfData = profData;
+      if (!profData) {
         console.log("[AuthContext] Profile missing, creating...");
-        const { data: newProf, error: insertError } = await supabase
+        const { data: newProf } = await (supabase as any)
           .from("profiles")
           .insert({
             id: currentUser.id,
@@ -70,19 +67,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .select()
           .single();
         
-        if (!insertError) profData = newProf;
-        else console.warn("[AuthContext] Profile creation failed:", insertError.message);
+        if (newProf) finalProfData = newProf;
       }
 
       // 3. Fetch role
-      const { data: roleData } = await supabase
+      const { data: roleData } = await (supabase as any)
         .from("user_roles")
         .select("role")
         .eq("user_id", currentUser.id)
         .maybeSingle();
 
       // 4. Fetch wallet balance (source of truth for BCoins)
-      const { data: wallet } = await supabase
+      const { data: wallet } = await (supabase as any)
         .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", currentUser.id)
@@ -90,14 +86,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setProfile({
         id: currentUser.id,
-        first_name: profData?.first_name || metadata.first_name || 'Student',
-        last_name: profData?.last_name || metadata.last_name || '',
-        section: profData?.section || metadata.section || 'N/A',
-        grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
-        school: profData?.school || metadata.school || 'N/A',
-        email: profData?.email || currentUser.email || '',
-        avatar_url: profData?.avatar_url || metadata.avatar_url || null,
-        bcoins: Number(wallet?.balance || profData?.bcoins || 0),  // Use wallet balance as source of truth
+        first_name: finalProfData?.first_name || metadata.first_name || 'Student',
+        last_name: finalProfData?.last_name || metadata.last_name || '',
+        section: finalProfData?.section || metadata.section || 'N/A',
+        grade_level: finalProfData?.grade_level || metadata.grade_level || 'N/A',
+        school: finalProfData?.school || metadata.school || 'N/A',
+        email: finalProfData?.email || currentUser.email || '',
+        avatar_url: finalProfData?.avatar_url || metadata.avatar_url || null,
+        bcoins: Number(wallet?.balance || finalProfData?.bcoins || 0),
         role: roleData?.role || 'customer',
       });
       
@@ -181,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // First, sync current wallet balance to profile (handles out-of-sync scenarios)
     const syncWallet = async () => {
-      const { data: wallet } = await supabase
+      const { data: wallet } = await (supabase as any)
         .from("bcoins_wallets")
         .select("balance")
         .eq("user_id", user.id)
