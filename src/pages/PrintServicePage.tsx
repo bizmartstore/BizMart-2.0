@@ -17,6 +17,10 @@ import {
   AlertCircle, FileCheck, ArrowRight, ArrowLeft, Package, DollarSign
 } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 const PRICING = {
   short: { bw: 3.00, color: 8.00, label: "Short / A4" },
@@ -49,6 +53,19 @@ export default function PrintServicePage() {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Get today's date in YYYY-MM-DD format
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // Calculate minimum time (10 minutes from now) and end of day
+  const { minTimeString, endOfDayString, initialTime } = useMemo(() => {
+    const now = new Date();
+    const minTime = new Date(now.getTime() + 10 * 60000); // 10 minutes from now
+    const minTimeString = minTime.toTimeString().slice(0, 5);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const endOfDayString = endOfDay.toTimeString().slice(0, 5);
+    return { minTimeString, endOfDayString, initialTime: minTimeString };
+  }, []);
+
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [file, setFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
@@ -57,40 +74,12 @@ export default function PrintServicePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [paperSize, setPaperSize] = useState<PaperSize>("short");
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
-  const [pickupDate, setPickupDate] = useState("");
-  const [pickupTime, setPickupTime] = useState("");
+  const [pickupDate, setPickupDate] = useState(today);
+  const [pickupTime, setPickupTime] = useState(initialTime);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showPageSelector, setShowPageSelector] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setPickupDate(tomorrow.toISOString().split("T")[0]);
-    setPickupTime("10:00");
-  }, []);
-
-  const minTime = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    if (pickupDate === today) {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() + 10);
-      return now.toTimeString().slice(0, 5);
-    }
-    return "00:00";
-  }, [pickupDate]);
-
-  const minTimeForStep3 = useMemo(() => {
-    if (step < 3) return "00:00";
-    const today = new Date().toISOString().split("T")[0];
-    if (pickupDate === today) {
-      const now = new Date();
-      now.setMinutes(now.getMinutes() + 10);
-      return now.toTimeString().slice(0, 5);
-    }
-    return "00:00";
-  }, [step, pickupDate]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -132,7 +121,7 @@ export default function PrintServicePage() {
     setPdfError(null);
     try {
       const arrayBuffer = await pdfFile.arrayBuffer();
-      const pdf = await (window as any).pdfjsLib.getDocument({ data: arrayBuffer, useSystemFonts: true }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, useSystemFonts: true }).promise;
       const numPages = pdf.numPages;
       const pageInfos: PageInfo[] = [];
       const maxPages = Math.min(numPages, 50);
@@ -182,11 +171,20 @@ export default function PrintServicePage() {
       toast.error("Please select pickup/delivery date and time");
       return;
     }
+    
+    // Validate: date must be today
+    if (pickupDate !== today) {
+      toast.error("Pickup/delivery must be scheduled for today only");
+      return;
+    }
+    
+    // Validate: time must be at least 10 minutes from now
     const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
-    const minDT = new Date();
-    minDT.setMinutes(minDT.getMinutes() + 10);
+    const now = new Date();
+    const minDT = new Date(now.getTime() + 10 * 60000);
+    
     if (selectedDT < minDT) {
-      toast.error("Please select a time at least 10 minutes from now to allow for preparation.");
+      toast.error("Pickup time must be at least 10 minutes from now");
       return;
     }
 
@@ -480,12 +478,26 @@ export default function PrintServicePage() {
               {/* Date & Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</Label>
-                  <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="text-xs h-8" />
+                  <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
+                  <Input 
+                    type="date" 
+                    value={pickupDate} 
+                    onChange={(e) => setPickupDate(e.target.value)}
+                    min={today}
+                    max={today}
+                    className="text-xs h-8" 
+                  />
                 </div>
                 <div>
-                  <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time</Label>
-                  <Input type="time" value={pickupTime} min={minTime} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-8" />
+                  <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time (Min 10 min ahead)</Label>
+                  <Input 
+                    type="time" 
+                    value={pickupTime} 
+                    min={minTimeString}
+                    max={endOfDayString}
+                    onChange={(e) => setPickupTime(e.target.value)} 
+                    className="text-xs h-8" 
+                  />
                 </div>
               </div>
 
