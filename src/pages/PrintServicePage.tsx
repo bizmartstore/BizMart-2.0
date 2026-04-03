@@ -310,7 +310,7 @@ export default function PrintServicePage() {
 
               {/* Pricing Info */}
               <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-950/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
                   <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase">Short / A4</p>
                   <p className="text-xs font-bold text-foreground mt-1">B&W: ₱3.00/page</p>
                   <p className="text-xs font-bold text-foreground mt-1">Color: ₱8.00/page</p>
@@ -386,7 +386,7 @@ export default function PrintServicePage() {
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {showPageSelector ? "Hide" : "Show"} Page Selection ({selectedPages.length} selected)
                 </span>
-                {showPageSelector ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {showPageSelector && <ChevronUp className="h-4 w-4" />}
               </button>
 
               {showPageSelector && (
@@ -458,8 +458,7 @@ export default function PrintServicePage() {
                     <MapPin className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <span className="text-xs font-bold">Pickup</span>
                   </button>
-                  <button
-                    onClick={() => setDeliveryType("delivery")}
+                  <button                    onClick={() => setDeliveryType("delivery")}
                     className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
                   >
                     <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
@@ -478,8 +477,7 @@ export default function PrintServicePage() {
                   <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time (Min 10 min ahead)</Label>
                   <Input 
                     type="time" 
-                    value={pickupTime} 
-                    min={minTimeString} 
+                    value={pickupTime}                     min={minTimeString} 
                     max={endOfDayString} 
                     onChange={(e) => setPickupTime(e.target.value)} 
                     className="text-xs h-8"                   />
@@ -488,8 +486,7 @@ export default function PrintServicePage() {
 
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-                  <ArrowLeft className="h-3 w-3 mr-1" /> Back
-                </Button>
+                  <ArrowLeft className="h-3 w-3 mr-1" /> Back                </Button>
                 <Button onClick={() => setStep(4)} className="flex-1">
                   Next <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
@@ -503,8 +500,7 @@ export default function PrintServicePage() {
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
             <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
               <h2 className="font-bold text-sm flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-primary" /> Order Summary
-              </h2>
+                <DollarSign className="h-4 w-4 text-primary" /> Order Summary              </h2>
 
               {/* File Info */}
               <div className="bg-muted/30 rounded-lg p-3 flex items-center gap-3">
