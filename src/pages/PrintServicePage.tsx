@@ -171,15 +171,7 @@ export default function PrintServicePage() {
       return;
     }
     
-    // Enforce that the date must be today (cannot be tomorrow or later)
-    // Since the date input is disabled/readonly, we double‑check:
-    if (today !== today) {
-      // This condition will never be true, but kept for clarity
-      toast.error("Invalid date selected.");
-      return;
-    }
-
-    // Ensure time is at least 10 minutes from now
+    // Validate: time must be at least 10 minutes from now
     const selectedDT = new Date(`${today}T${pickupTime}`);
     const now = new Date();
     const minDT = new Date(now.getTime() + 10 * 60000);
@@ -278,7 +270,7 @@ export default function PrintServicePage() {
               </div>
               {i < 3 && <div className={`flex-1 h-0.5 mx-2 ${step > s.num ? 'bg-primary' : 'bg-border'}`} />}
             </div>
-          </div>
+          ))}
         </div>
 
         {/* Step 1: Upload */}
@@ -304,7 +296,7 @@ export default function PrintServicePage() {
                       <span className="w-4 h-4 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                       <span className="text-[11px] text-muted-foreground">{txt}</span>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
@@ -313,9 +305,9 @@ export default function PrintServicePage() {
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
                   <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase">Short / A4</p>
                   <p className="text-xs font-bold text-foreground mt-1">B&W: ₱3.00/page</p>
-                  <p className="text-xs font-bold text-foreground mt-1">Color: ₱8.00/page</p>
+                  <p className="text-xs font-bold text-foreground">Color: ₱8.00/page</p>
                 </div>
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-950/20 rounded-xl p-3 border border-purple-200 dark:border-purple-800">
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/20 rounded-xl p-3 border border-purple-200 dark:border-purple-800">
                   <p className="text-[9px] font-bold text-purple-600 dark:text-purple-400 uppercase">Long (8.5x13)</p>
                   <p className="text-xs font-bold text-foreground mt-1">B&W: ₱5.00/page</p>
                   <p className="text-xs font-bold text-foreground">Color: ₱10.00/page</p>
@@ -400,20 +392,29 @@ export default function PrintServicePage() {
                       <button
                         key={p.pageNumber}
                         onClick={() => togglePage(idx)}
-                        className="w-full flex items-center justify-between p-2 rounded-lg border transition-all ${
+                        className={`w-full flex items-center justify-between p-2 rounded-lg border transition-all ${
                           p.selected ? 'border-primary bg-primary/5' : 'border-border opacity-50'
-                        }">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded border flex items-center justify-center {p.selected ? 'bg-primary border-primary' : 'border-border'}">
-                              {p.selected && <Check className="h-3 w-3 text-primary-foreground" />}
-                            </div>
-                            <span className="text-xs font-bold">Page {p.pageNumber}</span>
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-5 h-5 rounded border flex items-center justify-center ${p.selected ? 'bg-primary border-primary' : 'border-border'}`}>
+                            {p.selected && <Check className="h-3 w-3 text-primary-foreground" />}
                           </div>
-                        </button>
-                      </div>
-                    </div>
+                          <span className="text-xs font-bold">Page {p.pageNumber}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
+
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
+                  <ArrowLeft className="h-3 w-3 mr-1" /> Back
+                </Button>
+                <Button onClick={() => setStep(3)} className="flex-1">
+                  Next <ArrowRight className="h-3 w-3 ml-1" />
+                </Button>
               </div>
             </div>
           </div>
@@ -440,9 +441,7 @@ export default function PrintServicePage() {
                       }`}
                     >
                       <p className="text-xs font-bold text-foreground">{val.label}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        B&W ₱{val.bw} · Color ₱{val.color}
-                      </p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">B&W ₱{val.bw} · Color ₱{val.color}</p>
                     </button>
                   ))}
                 </div>
@@ -452,7 +451,8 @@ export default function PrintServicePage() {
               <div>
                 <Label className="text-xs font-bold mb-2 block">Delivery Method</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button                    onClick={() => setDeliveryType("pickup")}
+                  <button
+                    onClick={() => setDeliveryType("pickup")}
                     className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
                   >
                     <MapPin className="h-5 w-5 mx-auto mb-1 text-primary" />
@@ -479,10 +479,11 @@ export default function PrintServicePage() {
                   <Input 
                     type="time" 
                     value={pickupTime} 
-                    min={minTimeString} 
-                    max={endOfDayString} 
+                    min={minTimeString}
+                    max={endOfDayString}
                     onChange={(e) => setPickupTime(e.target.value)} 
-                    className="text-xs h-8"                   />
+                    className="text-xs h-8" 
+                  />
                 </div>
               </div>
 
@@ -520,18 +521,22 @@ export default function PrintServicePage() {
               {/* Breakdown */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-bold">₱{totalPrice.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Paper Size</span>
+                  <span className="font-bold">{PRICING[paperSize].label}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-muted-foreground">BCoins Earned</span>
+                  <span className="font-bold">+{(totalCost * 0.10).toFixed(1)} 🪙</span>
                 </div>
                 {deliveryFee > 0 && (
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Delivery Fee</span>
                     <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
                   </div>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-border">
+                )}
+                <div className="border-t border-border pt-2 flex justify-between">
                   <span className="font-bold text-foreground">Total</span>
-                  <span className="font-extrabold text-primary text-lg">₱{grandTotal.toFixed(2)}</span>
+                  <span className="font-extrabold text-primary text-lg">₱{totalCost.toFixed(2)}</span>
                 </div>
               </div>
 
@@ -539,9 +544,7 @@ export default function PrintServicePage() {
               <div className="bg-muted/30 rounded-lg p-3 flex items-center gap-2">
                 {deliveryType === "delivery" ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
                 <span className="text-xs font-bold capitalize">{deliveryType}</span>
-                <span className="text-[10px] text-muted-foreground">
-                  • {today} at {pickupTime}
-                </span>
+                <span className="text-[10px] text-muted-foreground">• {today} at {pickupTime}</span>
               </div>
 
               <div className="flex gap-2">
