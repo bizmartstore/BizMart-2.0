@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ export default function PrintTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [dbError, setDbError] = useState<string | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,18 +60,27 @@ export default function PrintTab() {
   }, [load]);
 
   useEffect(() => {
-    if (!load) return;
-    
     const channel = supabase
       .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
         console.log("[PrintTab] print_orders changed, reloading...");
         load();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("[PrintTab] Real-time subscription active");
+        } else if (status === 'CHANNEL_ERROR') {
+          console.warn("[PrintTab] Real-time channel error, relying on polling");
+        }
+      });
+
+    pollIntervalRef.current = setInterval(() => {
+      load();
+    }, 10000);
 
     return () => {
       supabase.removeChannel(channel);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
   }, [load]);
 
