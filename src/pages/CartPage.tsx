@@ -1,3 +1,6 @@
+...
+＜/dyad-write>
+<dyad-chat-summary>Adding strict today-only date validation to CartPage checkout</dyad-chat-summary></think><dyad-write path="src/pages/CartPage.tsx">
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -73,6 +76,12 @@ export default function CartPage() {
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
     if (items.length === 0) { toast.error("Cart is empty"); return; }
+
+    // Validate: date must be today
+    if (pickupDate !== today) {
+      toast.error("Pickup/delivery must be scheduled for today only");
+      return;
+    }
 
     const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
     const minDT = new Date();
@@ -255,11 +264,11 @@ export default function CartPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</Label>
+              <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
               <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} min={today} max={today} className="text-xs h-8" />
             </div>
             <div>
-              <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time</Label>
+              <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time (Min 10 min ahead)</Label>
               <Input type="time" value={pickupTime} min={minTimeString} max={endOfDayString} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-8" />
             </div>
           </div>
