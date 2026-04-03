@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,14 +13,20 @@ export default function OrdersTab() {
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const requestIdRef = useRef(0);
 
-  const loadOrders = useCallback(async (showToast = false) => {
+  const loadOrders = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
+    setLoading(true);
     try {
       const [ordersRes, printRes, posRes] = await Promise.allSettled([
         supabase.from("orders").select("*").order("created_at", { ascending: false }),
         supabase.from("print_orders").select("*").order("created_at", { ascending: false }),
         supabase.from("pos_sales").select("*").order("created_at", { ascending: false }),
       ]);
+
+      // Only update if this is the latest request
+      if (requestId !== requestIdRef.current) return;
 
       const ordersData = ordersRes.status === 'fulfilled' && !ordersRes.value.error ? ordersRes.value.data || [] : [];
       const printData = printRes.status === 'fulfilled' && !printRes.value.error ? printRes.value.data || [] : [];
@@ -35,8 +41,10 @@ export default function OrdersTab() {
     } catch (e) {
       console.error("Failed to load orders:", e);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -47,9 +55,18 @@ export default function OrdersTab() {
   useEffect(() => {
     const channel = supabase
       .channel("admin-orders-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadOrders())
-      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadOrders())
-      .on("postgres_changes", { event: "*", schema: "public", table: "pos_sales" }, () => loadOrders())
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+        console.log("[OrdersTab] orders changed, reloading...");
+        loadOrders();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+        console.log("[OrdersTab] print_orders changed, reloading...");
+        loadOrders();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "pos_sales" }, () => {
+        console.log("[OrdersTab] pos_sales changed, reloading...");
+        loadOrders();
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -66,7 +83,6 @@ export default function OrdersTab() {
       if (orderType === "print") table = "print_orders";
       if (orderType === "pos") table = "pos_sales";
 
-      // Use type assertion to bypass TypeScript's inability to infer dynamic table types
       const { data: order, error: fetchError } = await (supabase as any).from(table).select("*").eq("id", orderId).maybeSingle();
       if (fetchError || !order) {
         toast.error("Order not found");

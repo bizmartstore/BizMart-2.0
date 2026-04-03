@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,8 +14,10 @@ export default function PrintTab() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [dbError, setDbError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const requestIdRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setDbError(null);
     try {
@@ -25,6 +27,9 @@ export default function PrintTab() {
         .order("created_at", { ascending: false });
       
       if (error) throw error;
+
+      // Only continue if this is the latest request
+      if (requestId !== requestIdRef.current) return;
 
       const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
       let profileMap: Record<string, any> = {};
@@ -40,6 +45,9 @@ export default function PrintTab() {
         }
       }
 
+      // Check again before setting state (in case a newer request started during profile fetch)
+      if (requestId !== requestIdRef.current) return;
+
       const enriched = (printData || []).map((order: any) => ({
         ...order,
         customer: profileMap[order.user_id] || null,
@@ -51,8 +59,10 @@ export default function PrintTab() {
       setDbError(e.message || "Unknown database error");
       toast.error("Failed to load print orders. Check console for details.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
