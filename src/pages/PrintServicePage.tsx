@@ -74,7 +74,6 @@ export default function PrintServicePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [paperSize, setPaperSize] = useState<PaperSize>("short");
   const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
-  const [pickupDate, setPickupDate] = useState(today);
   const [pickupTime, setPickupTime] = useState(initialTime);
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -167,19 +166,13 @@ export default function PrintServicePage() {
 
   const handleSubmit = async () => {
     if (!user || !file || selectedPages.length === 0) return;
-    if (!pickupDate || !pickupTime) {
-      toast.error("Please select pickup/delivery date and time");
-      return;
-    }
-    
-    // Validate: date must be today
-    if (pickupDate !== today) {
-      toast.error("Pickup/delivery must be scheduled for today only");
+    if (!pickupTime) {
+      toast.error("Please select pickup/delivery time");
       return;
     }
     
     // Validate: time must be at least 10 minutes from now
-    const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
+    const selectedDT = new Date(`${today}T${pickupTime}`);
     const now = new Date();
     const minDT = new Date(now.getTime() + 10 * 60000);
     
@@ -203,7 +196,7 @@ export default function PrintServicePage() {
         delivery_fee: deliveryFee,
         status: "pending",
         delivery_type: deliveryType,
-        pickup_date: pickupDate,
+        pickup_date: today,
         pickup_time: pickupTime,
       }).select().single();
 
@@ -479,14 +472,7 @@ export default function PrintServicePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
-                  <Input 
-                    type="date" 
-                    value={pickupDate} 
-                    onChange={(e) => setPickupDate(e.target.value)}
-                    min={today}
-                    max={today}
-                    className="text-xs h-8" 
-                  />
+                  <Input type="date" value={today} disabled className="text-xs h-8 bg-muted/50 cursor-not-allowed" />
                 </div>
                 <div>
                   <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time (Min 10 min ahead)</Label>
@@ -558,7 +544,7 @@ export default function PrintServicePage() {
               <div className="bg-muted/30 rounded-lg p-3 flex items-center gap-2">
                 {deliveryType === "delivery" ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
                 <span className="text-xs font-bold capitalize">{deliveryType}</span>
-                <span className="text-[10px] text-muted-foreground">• {pickupDate} at {pickupTime}</span>
+                <span className="text-[10px] text-muted-foreground">• {today} at {pickupTime}</span>
               </div>
 
               <div className="flex gap-2">
