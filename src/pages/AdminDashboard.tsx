@@ -165,8 +165,8 @@ export default function AdminDashboard() {
           </TabsList>
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
-          {/* Removed forceMount to fix visual overlap. Tab now properly hides/shows and fetches fresh data on mount. */}
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
+          {/* forceMount keeps OrdersTab mounted in background so real-time stays alive */}
+          <TabsContent value="orders" forceMount><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="sellers"><SellersTab /></TabsContent>
