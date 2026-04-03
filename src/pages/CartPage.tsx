@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -22,10 +20,10 @@ async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promis
       return await operation();
     } catch (error: any) {
       lastError = error;
-      const isLockError = error?.message?.includes("lock") ||
-                         error?.message?.includes("steal") ||
-                         error?.name === "AbortError" ||
-                         error?.code === "40P01";
+      const isLockError = error?.message?.includes('lock') || 
+                         error?.message?.includes('steal') || 
+                         error?.name === 'AbortError' ||
+                         error?.code === '40P01';
       
       if (isLockError && i < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, i)));
@@ -46,10 +44,10 @@ export default function CartPage() {
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [pickupTime, setPickupTime] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
-  
+
   // Fixed date - must be today
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
-  
+
   // Calculate minimum time (10 minutes from now) and end of day
   const { minTimeString, endOfDayString, initialTime } = useMemo(() => {
     const now = new Date();
@@ -124,8 +122,7 @@ export default function CartPage() {
       }));
 
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
-      
-      const { data: insertedOrder, error: orderError } = await (supabase as any)
+            const { data: insertedOrder, error: orderError } = await (supabase as any)
         .from("orders")
         .insert({
           user_id: user.id,
@@ -146,8 +143,7 @@ export default function CartPage() {
         })
         .select()
         .single();
-      
-      if (orderError) throw orderError;
+            if (orderError) throw orderError;
 
       for (const item of items) {
         const product = productData?.find((p: any) => p.id === item.id);
@@ -285,7 +281,7 @@ export default function CartPage() {
                 <span className="text-muted-foreground">Delivery Fee</span>
                 <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
               </div>
-            )}
+            </div>
             <div className="flex justify-between pt-2 border-t border-border">
               <span className="font-bold text-foreground">Total</span>
               <span className="font-extrabold text-primary text-lg">₱{grandTotal.toFixed(2)}</span>
