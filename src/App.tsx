@@ -16,6 +16,7 @@ import SplashScreen from "@/components/SplashScreen";
 import Index from "@/pages/Index";
 import LoginPage from "@/pages/LoginPage";
 import SignUpPage from "@/pages/SignUpPage";
+import SearchPage from "@/pages/SearchPage";
 import CategoriesPage from "@/pages/CategoriesPage";
 import MarketplacePage from "@/pages/MarketplacePage";
 import ProductDetail from "@/pages/ProductDetail";
@@ -76,6 +77,7 @@ function AppContent() {
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/marketplace" element={<MarketplacePage />} />
             <Route path="/product/:id" element={<ProductDetail />} />
