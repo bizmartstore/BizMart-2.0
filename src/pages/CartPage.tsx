@@ -42,11 +42,10 @@ export default function CartPage() {
   const { storeOpen, gcashFee } = useAppSettings();
   
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
-  const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
 
-  // Get today's date in YYYY-MM-DD format
+  // Fixed date - must be today
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   // Calculate minimum time (10 minutes from now) and end of day
@@ -59,11 +58,10 @@ export default function CartPage() {
     return { minTimeString, endOfDayString, initialTime: minTimeString };
   }, []);
 
-  // Set initial values for date and time
+  // Set initial time
   useEffect(() => {
-    setPickupDate(today);
     setPickupTime(initialTime);
-  }, [today, initialTime]);
+  }, [initialTime]);
 
   const deliveryFee = deliveryType === "delivery" ? gcashFee : 0;
   const grandTotal = totalPrice + deliveryFee;
@@ -71,10 +69,19 @@ export default function CartPage() {
   const handleCheckout = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
-    if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
+    if (!pickupTime) { toast.error("Please select time."); return; }
     if (items.length === 0) { toast.error("Cart is empty"); return; }
 
-    const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
+    // Enforce that the pickup date must be today (cannot be changed)
+    // Since the date input is disabled/readonly, we double‑check:
+    if (today !== today) { 
+      // This condition will never be true, but kept for clarity
+      toast.error("Invalid date selected.");
+      return;
+    }
+
+    // Ensure time is at least 10 minutes from now
+    const selectedDT = new Date(`${today}T${pickupTime}`);
     const minDT = new Date();
     minDT.setMinutes(minDT.getMinutes() + 10);
     if (selectedDT < minDT) {
@@ -115,8 +122,7 @@ export default function CartPage() {
       }));
 
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
-      
-      const { data: insertedOrder, error: orderError } = await (supabase as any)
+            const { data: insertedOrder, error: orderError } = await (supabase as any)
         .from("orders")
         .insert({
           user_id: user.id,
@@ -126,7 +132,7 @@ export default function CartPage() {
           status: "pending",
           delivery_type: deliveryType,
           delivery_fee: deliveryFee,
-          pickup_date: pickupDate,
+          pickup_date: today,
           pickup_time: pickupTime,
           admin_commission: adminCommission,
           seller_earnings: sellerEarnings,
@@ -137,8 +143,7 @@ export default function CartPage() {
         })
         .select()
         .single();
-      
-      if (orderError) throw orderError;
+            if (orderError) throw orderError;
 
       for (const item of items) {
         const product = productData?.find((p: any) => p.id === item.id);
@@ -255,8 +260,8 @@ export default function CartPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</Label>
-              <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} min={today} max={today} className="text-xs h-8" />
+              <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
+              <Input type="date" value={today} disabled className="text-xs h-8 bg-muted/50 cursor-not-allowed" />
             </div>
             <div>
               <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time</Label>
@@ -276,7 +281,7 @@ export default function CartPage() {
                 <span className="text-muted-foreground">Delivery Fee</span>
                 <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
               </div>
-            )}
+            </div>
             <div className="flex justify-between pt-2 border-t border-border">
               <span className="font-bold text-foreground">Total</span>
               <span className="font-extrabold text-primary text-lg">₱{grandTotal.toFixed(2)}</span>
