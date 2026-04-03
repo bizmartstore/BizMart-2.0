@@ -48,16 +48,20 @@ export default function AdminDashboard() {
     gcash: 0,
     bcoins: 0,
     messages: 0,
+    jobs: 0,
+    freelancers: 0,
   });
   const pendingPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadPendingCounts = useCallback(async () => {
     try {
-      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
+      const [ordersRes, printRes, gcashRes, bcoinsRes, jobsRes, freelancersRes] = await Promise.allSettled([
         (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open"),
+        (supabase as any).from("freelancer_profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
 
       setPendingCounts({
@@ -65,7 +69,9 @@ export default function AdminDashboard() {
         print: printRes.status === 'fulfilled' ? (printRes.value.count || 0) : 0,
         gcash: gcashRes.status === 'fulfilled' ? (gcashRes.value.count || 0) : 0,
         bcoins: bcoinsRes.status === 'fulfilled' ? (bcoinsRes.value.count || 0) : 0,
-        messages: 0,
+        messages: 0, // Messages are handled separately via unread count
+        jobs: jobsRes.status === 'fulfilled' ? (jobsRes.value.count || 0) : 0,
+        freelancers: freelancersRes.status === 'fulfilled' ? (freelancersRes.value.count || 0) : 0,
       });
     } catch (e) {
       console.error("Failed to load pending counts:", e);
@@ -87,6 +93,8 @@ export default function AdminDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_postings" }, () => loadPendingCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "freelancer_profiles" }, () => loadPendingCounts())
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log("[AdminDashboard] Pending counts realtime active");
@@ -131,8 +139,8 @@ export default function AdminDashboard() {
     { id: "club", label: "Club", icon: Crown, badge: 0 },
     { id: "bcoins", label: "BCoins", icon: Coins, badge: pendingCounts.bcoins },
     { id: "gcash", label: "GCash", icon: Coins, badge: pendingCounts.gcash },
-    { id: "jobs", label: "Jobs", icon: Briefcase, badge: 0 },
-    { id: "freelancers", label: "Freelancers", icon: Award, badge: 0 },
+    { id: "jobs", label: "Jobs", icon: Briefcase, badge: pendingCounts.jobs },
+    { id: "freelancers", label: "Freelancers", icon: Award, badge: pendingCounts.freelancers },
     { id: "settings", label: "Settings", icon: Settings, badge: 0 },
   ];
 
