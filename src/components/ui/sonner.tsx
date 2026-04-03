@@ -1,6 +1,5 @@
-"use client";
+"use client"
 
-import { Toaster as SonnerToaster } from "sonner";
-import { cn } from "@/lib/utils";
+import { Toaster as Sonner } from "sonner"
 
-export { SonnerToaster as Toaster };
+export { Sonner }
