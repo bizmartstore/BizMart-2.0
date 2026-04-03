@@ -132,7 +132,7 @@ export default function PrintServicePage() {
     setPdfError(null);
     try {
       const arrayBuffer = await pdfFile.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, useSystemFonts: true }).promise;
+      const pdf = await (window as any).pdfjsLib.getDocument({ data: arrayBuffer, useSystemFonts: true }).promise;
       const numPages = pdf.numPages;
       const pageInfos: PageInfo[] = [];
       const maxPages = Math.min(numPages, 50);
@@ -380,7 +380,8 @@ export default function PrintServicePage() {
               </div>
 
               {/* Page Selector Toggle */}
-              <button                onClick={() => setShowPageSelector(!showPageSelector)}
+              <button
+                onClick={() => setShowPageSelector(!showPageSelector)}
                 className="w-full flex items-center justify-between p-2 bg-muted/30 rounded-lg mb-3"
               >
                 <span className="text-[10px] font-bold text-muted-foreground">
@@ -459,15 +460,16 @@ export default function PrintServicePage() {
               <div>
                 <Label className="text-xs font-bold mb-2 block">Delivery Method</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button                    onClick={() => setDeliveryType("pickup")}
-                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "pickup" ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
+                  <button
+                    onClick={() => setDeliveryType("pickup")}
+                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
                   >
                     <MapPin className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <span className="text-xs font-bold">Pickup</span>
                   </button>
                   <button
                     onClick={() => setDeliveryType("delivery")}
-                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "delivery" ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
+                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
                   >
                     <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <span className="text-xs font-bold">Delivery</span>
@@ -526,14 +528,14 @@ export default function PrintServicePage() {
                 </div>
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">BCoins Earned</span>
-                  <span className="font-bold">+(totalPrice * 0.10).toFixed(1) 🪙</span>
+                  <span className="font-bold">+{(totalCost * 0.10).toFixed(1)} 🪙</span>
                 </div>
                 {deliveryFee > 0 && (
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Delivery Fee</span>
                     <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
                   </div>
-                </div>
+                )}
                 <div className="border-t border-border pt-2 flex justify-between">
                   <span className="font-bold text-foreground">Total</span>
                   <span className="font-extrabold text-primary text-lg">₱{totalCost.toFixed(2)}</span>
