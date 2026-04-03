@@ -16,10 +16,7 @@ import {
   MapPin, Truck, Loader2, ChevronDown, ChevronUp,
   AlertCircle, FileCheck, ArrowRight, ArrowLeft, Package, DollarSign
 } from "lucide-react";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+import { sendNotification } from "@/lib/notifications";
 
 const PRICING = {
   short: { bw: 3.00, color: 8.00, label: "Short / A4" },
@@ -75,7 +72,7 @@ export default function PrintServicePage() {
   }, []);
 
   const minTime = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = new Date().toISOString().split("T")[0];
     if (pickupDate === today) {
       const now = new Date();
       now.setMinutes(now.getMinutes() + 10);
@@ -83,6 +80,17 @@ export default function PrintServicePage() {
     }
     return "00:00";
   }, [pickupDate]);
+
+  const minTimeForStep3 = useMemo(() => {
+    if (step < 3) return "00:00";
+    const today = new Date().toISOString().split("T")[0];
+    if (pickupDate === today) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 10);
+      return now.toTimeString().slice(0, 5);
+    }
+    return "00:00";
+  }, [step, pickupDate]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -157,12 +165,12 @@ export default function PrintServicePage() {
     setPages(prev => prev.map((p, i) => i === idx ? { ...p, selected: !p.selected } : p));
   };
 
-  const selectAll = () => setPages(prev => prev.map(p => ({ ...p, selected: true })));
-  const deselectAll = () => setPages(prev => prev.map(p => ({ ...p, selected: false })));
+  const selectAll = () => setPages(prev => prev.map((p) => ({ ...p, selected: true })));
+  const deselectAll = () => setPages(prev => prev.map((p) => ({ ...p, selected: false })));
 
-  const selectedPages = pages.filter(p => p.selected);
-  const bwPages = selectedPages.filter(p => !p.isColor).length;
-  const colorPages = selectedPages.filter(p => p.isColor).length;
+  const selectedPages = pages.filter((p) => p.selected);
+  const bwPages = selectedPages.filter((p) => !p.isColor).length;
+  const colorPages = selectedPages.filter((p) => p.isColor).length;
   const pricing = PRICING[paperSize];
   const subtotal = bwPages * pricing.bw + colorPages * pricing.color;
   const deliveryFee = deliveryType === "delivery" ? gcashFee : 0;
@@ -207,7 +215,7 @@ export default function PrintServicePage() {
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       await sendNotification({
         title: "🖨️ New Print Request",
-        message: `${customerName} submitted a print request for ${fileName} (${selectedPages.length} pages, ₱${totalCost.toFixed(2)})`,
+        message: `${customerName} submitted a print request for ${fileName} (${pages.length} pages, ₱${totalCost.toFixed(2)})`,
         type: "new_print_order",
         targetRole: "admin",
         link: "/admin?tab=print",
@@ -294,7 +302,7 @@ export default function PrintServicePage() {
                     "Pay at pickup/delivery or via GCash",
                   ].map((txt, i) => (
                     <div key={i} className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
+                      <span className="w-4 h-4 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                       <span className="text-[11px] text-muted-foreground">{txt}</span>
                     </div>
                   ))}
@@ -372,8 +380,7 @@ export default function PrintServicePage() {
               </div>
 
               {/* Page Selector Toggle */}
-              <button
-                onClick={() => setShowPageSelector(!showPageSelector)}
+              <button                onClick={() => setShowPageSelector(!showPageSelector)}
                 className="w-full flex items-center justify-between p-2 bg-muted/30 rounded-lg mb-3"
               >
                 <span className="text-[10px] font-bold text-muted-foreground">
@@ -403,11 +410,6 @@ export default function PrintServicePage() {
                           </div>
                           <span className="text-xs font-bold">Page {p.pageNumber}</span>
                         </div>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                          p.isColor ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
-                        }`}>
-                          {p.isColor ? '🎨 Color' : '⚫ B&W'}
-                        </span>
                       </button>
                     ))}
                   </div>
@@ -415,10 +417,10 @@ export default function PrintServicePage() {
               )}
 
               <div className="flex gap-2">
-                <Button variant="outline" onClick={() => { setStep(1); setFile(null); setFileName(""); setPages([]); }} className="flex-1">
+                <Button variant="outline" onClick={() => setStep(1)} className="flex-1">
                   <ArrowLeft className="h-3 w-3 mr-1" /> Back
                 </Button>
-                <Button onClick={() => selectedPages.length > 0 ? setStep(3) : toast.error("Select at least one page")} className="flex-1">
+                <Button onClick={() => setStep(3)} className="flex-1">
                   Next <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
               </div>
@@ -457,16 +459,15 @@ export default function PrintServicePage() {
               <div>
                 <Label className="text-xs font-bold mb-2 block">Delivery Method</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setDeliveryType("pickup")}
-                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
+                  <button                    onClick={() => setDeliveryType("pickup")}
+                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "pickup" ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
                   >
                     <MapPin className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <span className="text-xs font-bold">Pickup</span>
                   </button>
                   <button
                     onClick={() => setDeliveryType("delivery")}
-                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
+                    className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "delivery" ? 'border-primary bg-primary/10' : 'border-border bg-muted/30'}`}
                   >
                     <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <span className="text-xs font-bold">Delivery</span>
@@ -524,23 +525,15 @@ export default function PrintServicePage() {
                   <span className="font-bold">{PRICING[paperSize].label}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">B&W Pages</span>
-                  <span className="font-bold">{bwPages} × ₱{pricing.bw.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Color Pages</span>
-                  <span className="font-bold">{colorPages} × ₱{pricing.color.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-bold">₱{subtotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">BCoins Earned</span>
+                  <span className="font-bold">+(totalPrice * 0.10).toFixed(1) 🪙</span>
                 </div>
                 {deliveryFee > 0 && (
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Delivery Fee</span>
                     <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
                   </div>
-                )}
+                </div>
                 <div className="border-t border-border pt-2 flex justify-between">
                   <span className="font-bold text-foreground">Total</span>
                   <span className="font-extrabold text-primary text-lg">₱{totalCost.toFixed(2)}</span>
@@ -566,8 +559,9 @@ export default function PrintServicePage() {
             </div>
           </div>
         )}
+
+        <BottomNav />
       </div>
-      <BottomNav />
     </div>
   );
 }
