@@ -106,8 +106,7 @@ export default function PrintServicePage() {
         .getPublicUrl(fileName);
 
       // Calculate cost
-      const bwPages = selectedPages.length; // Simplified - should differentiate B&W vs color
-      const coloredPages = 0;
+      const bwPages = selectedPages.length; // Simplified - should differentiate B&W vs color      const coloredPages = 0;
       const baseCost = pageSize === "short" ? 5 : 8;
       const totalCost = (bwPages * baseCost) + (coloredPages * baseCost * 2) + (deliveryType === "delivery" ? 50 : 0);
 
@@ -148,5 +147,175 @@ export default function PrintServicePage() {
     }
   };
 
-  // ... rest of the component remains unchanged
+  // Render component
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
+        <button onClick={() => navigate(-1)} className="p-1.5">
+          <Printer className="h-5 w-5 text-primary" />
+        </button>
+        <div className="flex-1 flex items-center gap-2">
+          <h1 className="text-lg font-bold text-primary">Print Service</h1>
+        </div>
+      </div>
+
+      {/* File Upload Section */}
+      <div className="px-4 pt-6 bg-card">
+        <div className="flex items-center gap-2 mb-4">
+          <Printer className="h-6 w-6 text-primary" />
+          <h2 className="text-lg font-bold text-primary">Upload Print Document</h2>
+        </div>
+
+        <div className="relative">
+          <Input
+            type="file"
+            accept="application/pdf"
+            ref={fileInputRef}
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full h-12 rounded-lg border border-primary/20 flex items-center justify-center text-primary"
+          >
+            {file ? <Printer className="h-6 w-6 text-primary" /> : <Upload className="h-6 w-6 text-primary" />}
+            <span className="text-[10px] text-primary mt-1">{file ? "Change File" : "Upload PDF"}</span>
+          </button>
+        </div>
+
+        {/* Preview */}
+        {preview && (
+          <div className="mt-4">
+            <p className="text-sm text-muted-foreground mb-2">Preview:</p>
+            <img src={preview} alt="Preview" className="max-h-[300px] max-w-full object-cover rounded-lg" />
+          </div>
+        </div>
+
+        {/* Document Settings */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <label className="text-xs font-bold">Copies</label>
+            <Input
+              type="number"
+              min="1"
+              value={copies}
+              onChange={(e) => setCopies(Number(e.target.value))}
+              className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-bold">Color Mode</label>
+            <div className="flex items-center gap-1">
+              <div className="w-8 h-8 rounded-full flex items-center justify-center">
+                <span className="text-xs">{colorMode === "bw" ? "B&W" : "Color"}</span>
+              </div>
+              <div className="ml-2">
+                <button
+                  onClick={() => setColorMode(colorMode === "bw" ? "color" : "bw")}
+                  className="w-6 h-6 rounded-full bg-primary/20 text-primary"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold">Page Size</label>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => setPageSize("short")}
+                className="py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  pageSize === "short" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }"
+              >
+                Short
+              </button>
+              <button
+                onClick={() => setPageSize("long")}
+                className="py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  pageSize === "long" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }"
+              >
+                Long
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Delivery Settings */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          <div>
+            <label className="text-xs font-bold">Delivery Type</label>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => setDeliveryType("pickup")}
+                className="py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }"
+              >
+                Pickup
+              </button>
+              <button
+                onClick={() => setDeliveryType("delivery")}
+                className="py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }"
+              >
+                Delivery
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold">Pickup Date</label>
+            <Input
+              type="date"
+              min={today}
+              className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
+              value={pickupDate}
+              onChange={(e) => setPickupDate(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold">Pickup Time</label>
+            <Input
+              type="text"
+              placeholder="e.g., 10:00"
+              className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
+              value={pickupTime}
+              onChange={(e) => setPickupTime(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {/* Page Selection */}
+        <div className="mb-4">
+          <label className="text-xs font-bold">Select Pages</label>
+          <div className="flex flex-wrap gap-1">
+            {[Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => togglePage(pageNum)}
+                className="py-1.5 rounded-lg bg-muted text-xs font-bold w-12 h-6"
+              >
+                {selectedPages.includes(pageNum) ? "✓" : pageNum}
+              </button>
+            </button>
+          </div>
+          </div>
+        </div>
+
+        {/* Submit Button */}
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="w-full h-12 font-bold rounded-xl"
+        >
+          {submitting ? "Submitting..." : "Submit Order"}
+        </Button>
+      </div>
+    </div>
+  );
 }
