@@ -17,7 +17,6 @@ export default function OrdersTab() {
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
-      // Use Promise.allSettled to prevent one missing table from breaking the whole load
       const [ordersRes, printRes, posRes] = await Promise.allSettled([
         supabase.from("orders").select("*").order("created_at", { ascending: false }),
         supabase.from("print_orders").select("*").order("created_at", { ascending: false }),
@@ -47,12 +46,10 @@ export default function OrdersTab() {
     }
   }, []);
 
-  // Initial load on mount
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
 
-  // Real-time subscription + Polling fallback
   useEffect(() => {
     const channel = supabase
       .channel("admin-orders-realtime")
@@ -76,7 +73,6 @@ export default function OrdersTab() {
         }
       });
 
-    // Polling fallback every 10 seconds to guarantee updates even if real-time fails or tab is unmounted/remounted
     pollIntervalRef.current = setInterval(() => {
       loadOrders();
     }, 10000);
@@ -88,7 +84,6 @@ export default function OrdersTab() {
   }, [loadOrders]);
 
   const updateStatus = async (orderId: string, newStatus: string, orderType: string) => {
-    // Optimistic UI update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
@@ -99,13 +94,13 @@ export default function OrdersTab() {
       if (orderType === "print") table = "print_orders";
       if (orderType === "pos") table = "pos_sales";
 
-      const { data: order } = await supabase.from(table).select("*").eq("id", orderId).maybeSingle();
+      const { data: order } = await (supabase as any).from(table).select("*").eq("id", orderId).maybeSingle();
       if (!order) {
         toast.error("Order not found");
         return;
       }
 
-      const { error } = await supabase.from(table).update({ status: newStatus }).eq("id", orderId);
+      const { error } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
       
       if (newStatus === "completed" && orderType !== 'pos' && order.user_id) {
