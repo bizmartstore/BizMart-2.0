@@ -56,10 +56,9 @@ export default function PrintServicePage() {
   // Get today's date in YYYY-MM-DD format
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  // Calculate minimum time (10 minutes from now) and end of day
-  const { minTimeString, endOfDayString, initialTime } = useMemo(() => {
+  // Calculate minimum time (10 minutes from now) and endconst { minTimeString, endOfDayString, initialTime } = useMemo(() => {
     const now = new Date();
-    const minTime = new Date(now.getTime() + 10 * 60000); // 10 minutes from now
+    const minTime = new Date(now.getTime() + 10 * 60000);
     const minTimeString = minTime.toTimeString().slice(0, 5);
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     const endOfDayString = endOfDay.toTimeString().slice(0, 5);
@@ -171,15 +170,11 @@ export default function PrintServicePage() {
       return;
     }
     
-    // Enforce that the date must be today (cannot be tomorrow or later)
-    // Since the date input is disabled/readonly, we double‑check:
     if (today !== today) {
-      // This condition will never be true, but kept for clarity
       toast.error("Invalid date selected.");
       return;
     }
 
-    // Ensure time is at least 10 minutes from now
     const selectedDT = new Date(`${today}T${pickupTime}`);
     const now = new Date();
     const minDT = new Date(now.getTime() + 10 * 60000);
@@ -249,7 +244,6 @@ export default function PrintServicePage() {
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
       <div className="px-3 mt-4 max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-6">
           <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
             <Printer className="h-8 w-8 text-primary" />
@@ -258,7 +252,6 @@ export default function PrintServicePage() {
           <p className="text-xs text-muted-foreground mt-1">Upload, preview, and print your documents easily</p>
         </div>
 
-        {/* Step Indicator */}
         <div className="flex items-center justify-between mb-6 px-2">
           {[
             { num: 1, label: "Upload" },
@@ -278,10 +271,9 @@ export default function PrintServicePage() {
               </div>
               {i < 3 && <div className={`flex-1 h-0.5 mx-2 ${step > s.num ? 'bg-primary' : 'bg-border'}`} />}
             </div>
-          </div>
+          ))}
         </div>
 
-        {/* Step 1: Upload */}
         {step === 1 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
             <div className="bg-card rounded-2xl border border-border p-5">
@@ -289,7 +281,6 @@ export default function PrintServicePage() {
                 <Upload className="h-4 w-4 text-primary" /> Upload Your PDF
               </h2>
               
-              {/* Instructions */}
               <div className="bg-muted/30 rounded-xl p-3 mb-4 space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">How it works:</p>
                 <div className="space-y-1.5">
@@ -304,11 +295,10 @@ export default function PrintServicePage() {
                       <span className="w-4 h-4 rounded-full bg-primary/20 text-primary text-[9px] font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
                       <span className="text-[11px] text-muted-foreground">{txt}</span>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
-              {/* Pricing Info */}
               <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-950/20 rounded-xl p-3 border border-blue-200 dark:border-blue-800">
                   <p className="text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase">Short / A4</p>
@@ -322,7 +312,6 @@ export default function PrintServicePage() {
                 </div>
               </div>
 
-              {/* Upload Area */}
               <input ref={fileInputRef} type="file" accept="application/pdf" onChange={handleFileSelect} className="hidden" />
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -351,7 +340,6 @@ export default function PrintServicePage() {
           </div>
         )}
 
-        {/* Step 2: Page Selection */}
         {step === 2 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
             <div className="bg-card rounded-2xl border border-border p-4">
@@ -362,7 +350,6 @@ export default function PrintServicePage() {
                 <span className="text-[10px] text-muted-foreground">{pages.length} pages</span>
               </div>
 
-              {/* Summary */}
               <div className="grid grid-cols-3 gap-2 mb-3">
                 <div className="bg-muted/30 rounded-lg p-2 text-center">
                   <p className="text-lg font-extrabold text-foreground">{pages.length}</p>
@@ -378,7 +365,6 @@ export default function PrintServicePage() {
                 </div>
               </div>
 
-              {/* Page Selector Toggle */}
               <button
                 onClick={() => setShowPageSelector(!showPageSelector)}
                 className="w-full flex items-center justify-between p-2 bg-muted/30 rounded-lg mb-3"
@@ -386,7 +372,7 @@ export default function PrintServicePage() {
                 <span className="text-[10px] font-bold text-muted-foreground">
                   {showPageSelector ? "Hide" : "Show"} Page Selection ({selectedPages.length} selected)
                 </span>
-                {showPageSelector && <ChevronUp className="h-4 w-4" />}
+                {showPageSelector ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
 
               {showPageSelector && (
@@ -400,26 +386,25 @@ export default function PrintServicePage() {
                       <button
                         key={p.pageNumber}
                         onClick={() => togglePage(idx)}
-                        className="w-full flex items-center justify-between p-2 rounded-lg border transition-all ${
+                        className={`w-full flex items-center justify-between p-2 rounded-lg border transition-all ${
                           p.selected ? 'border-primary bg-primary/5' : 'border-border opacity-50'
-                        }">
-                          <div className="flex items-center gap-2">
-                            <div className="w-5 h-5 rounded border flex items-center justify-center {p.selected ? 'bg-primary border-primary' : 'border-border'}">
-                              {p.selected && <Check className="h-3 w-3 text-primary-foreground" />}
-                            </div>
-                            <span className="text-xs font-bold">Page {p.pageNumber}</span>
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={`w-5 h-5 rounded border flex items-center justify-center ${p.selected ? 'bg-primary border-primary' : 'border-border'}`}>
+                            {p.selected && <Check className="h-3 w-3 text-primary-foreground" />}
                           </div>
-                        </button>
-                      </div>
-                    </div>
+                          <span className="text-xs font-bold">Page {p.pageNumber}</span>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Step 3: Options */}
         {step === 3 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
             <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
@@ -427,7 +412,6 @@ export default function PrintServicePage() {
                 <Package className="h-4 w-4 text-primary" /> Print Options
               </h2>
 
-              {/* Paper Size */}
               <div>
                 <Label className="text-xs font-bold mb-2 block">Paper Size</Label>
                 <div className="grid grid-cols-2 gap-2">
@@ -448,17 +432,18 @@ export default function PrintServicePage() {
                 </div>
               </div>
 
-              {/* Delivery Method */}
               <div>
                 <Label className="text-xs font-bold mb-2 block">Delivery Method</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <button                    onClick={() => setDeliveryType("pickup")}
+                  <button
+                    onClick={() => setDeliveryType("pickup")}
                     className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "pickup" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
                   >
                     <MapPin className="h-5 w-5 mx-auto mb-1 text-primary" />
                     <span className="text-xs font-bold">Pickup</span>
                   </button>
-                  <button                    onClick={() => setDeliveryType("delivery")}
+                  <button
+                    onClick={() => setDeliveryType("delivery")}
                     className={`p-3 rounded-xl border text-center transition-all ${deliveryType === "delivery" ? "border-primary bg-primary/10" : "border-border bg-muted/30"}`}
                   >
                     <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
@@ -467,7 +452,6 @@ export default function PrintServicePage() {
                 </div>
               </div>
 
-              {/* Date & Time */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
@@ -477,16 +461,19 @@ export default function PrintServicePage() {
                   <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time (Min 10 min ahead)</Label>
                   <Input 
                     type="time" 
-                    value={pickupTime}                     min={minTimeString} 
+                    value={pickupTime} 
+                    min={minTimeString} 
                     max={endOfDayString} 
                     onChange={(e) => setPickupTime(e.target.value)} 
-                    className="text-xs h-8"                   />
+                    className="text-xs h-8"
+                  />
                 </div>
               </div>
 
               <div className="flex gap-2">
                 <Button variant="outline" onClick={() => setStep(2)} className="flex-1">
-                  <ArrowLeft className="h-3 w-3 mr-1" /> Back                </Button>
+                  <ArrowLeft className="h-3 w-3 mr-1" /> Back
+                </Button>
                 <Button onClick={() => setStep(4)} className="flex-1">
                   Next <ArrowRight className="h-3 w-3 ml-1" />
                 </Button>
@@ -495,14 +482,13 @@ export default function PrintServicePage() {
           </div>
         )}
 
-        {/* Step 4: Confirm */}
         {step === 4 && (
           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
             <div className="bg-card rounded-2xl border border-border p-4 space-y-4">
               <h2 className="font-bold text-sm flex items-center gap-2">
-                <DollarSign className="h-4 w-4 text-primary" /> Order Summary              </h2>
+                <DollarSign className="h-4 w-4 text-primary" /> Order Summary
+              </h2>
 
-              {/* File Info */}
               <div className="bg-muted/30 rounded-lg p-3 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                   <FileText className="h-5 w-5 text-primary" />
@@ -513,25 +499,23 @@ export default function PrintServicePage() {
                 </div>
               </div>
 
-              {/* Breakdown */}
               <div className="space-y-2">
                 <div className="flex justify-between text-xs">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-bold">₱{totalPrice.toFixed(2)}</span>
+                  <span className="font-bold">₱{totalCost.toFixed(2)}</span>
                 </div>
                 {deliveryFee > 0 && (
                   <div className="flex justify-between text-xs">
                     <span className="text-muted-foreground">Delivery Fee</span>
                     <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
                   </div>
-                </div>
+                )}
                 <div className="flex justify-between pt-2 border-t border-border">
                   <span className="font-bold text-foreground">Total</span>
-                  <span className="font-extrabold text-primary text-lg">₱{grandTotal.toFixed(2)}</span>
+                  <span className="font-extrabold text-primary text-lg">₱{totalCost.toFixed(2)}</span>
                 </div>
               </div>
 
-              {/* Delivery Info */}
               <div className="bg-muted/30 rounded-lg p-3 flex items-center gap-2">
                 {deliveryType === "delivery" ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
                 <span className="text-xs font-bold capitalize">{deliveryType}</span>

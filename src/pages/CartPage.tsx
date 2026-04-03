@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -12,7 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { ShoppingCart, Trash2, Plus, Minus, Calendar, Clock, Loader2, ArrowLeft } from "lucide-react";
+import { ShoppingCart, Trash2, Plus, Minus, Calendar, Clock, Loader2, MapPin, Truck } from "lucide-react";
+import { sendNotification, notifyCustomerOrder } from "@/lib/notifications";
 
 async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: any;
@@ -284,7 +285,7 @@ export default function CartPage() {
                 <span className="text-muted-foreground">Delivery Fee</span>
                 <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
               </div>
-            </div>
+            )}
             <div className="flex justify-between pt-2 border-t border-border">
               <span className="font-bold text-foreground">Total</span>
               <span className="font-extrabold text-primary text-lg">₱{grandTotal.toFixed(2)}</span>
@@ -296,7 +297,8 @@ export default function CartPage() {
           </div>
         </div>
 
-        <Button          onClick={handleCheckout}
+        <Button
+          onClick={handleCheckout}
           disabled={checkingOut || !storeOpen}
           className="w-full h-12 font-bold rounded-xl text-base"
         >
