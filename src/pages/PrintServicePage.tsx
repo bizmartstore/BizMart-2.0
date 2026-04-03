@@ -127,7 +127,7 @@ export default function PrintServicePage() {
           pickup_time: pickupTime,
           cost: totalCost,
           status: "pending",
-        })
+        } as any)
         .select()
         .single();
 
@@ -135,7 +135,7 @@ export default function PrintServicePage() {
       
       // Fix: Check if orderData is not null before accessing .id
       if (orderData) {
-        setOrderId(orderData.id);
+        setOrderId((orderData as any).id);
         setOrderComplete(true);
         toast.success("Print order submitted successfully!");
       } else {

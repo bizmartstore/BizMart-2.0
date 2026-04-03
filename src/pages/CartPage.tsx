@@ -84,7 +84,7 @@ export default function CartPage() {
           delivery_fee: deliveryFee,
           bcoins_earned: totalPrice * 0.10,
           status: "pending",
-        })
+        } as any)
         .select()
         .single();
 
@@ -92,7 +92,7 @@ export default function CartPage() {
       
       // Fix: Check if orderData is not null before accessing .id
       if (orderData) {
-        setOrderId(orderData.id);
+        setOrderId((orderData as any).id);
         setOrderComplete(true);
         clearCart();
         toast.success("Order placed successfully!");
