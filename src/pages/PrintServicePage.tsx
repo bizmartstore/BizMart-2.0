@@ -166,6 +166,13 @@ export default function PrintServicePage() {
 
   const handleSubmit = async () => {
     if (!user || !file || selectedPages.length === 0) return;
+    
+    // STRICT DATE VALIDATION
+    if (today !== new Date().toISOString().split("T")[0]) {
+      toast.error("Pickup and delivery are only available for today.");
+      return;
+    }
+
     if (!pickupTime) {
       toast.error("Please select pickup/delivery time");
       return;
@@ -472,7 +479,7 @@ export default function PrintServicePage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
-                  <Input type="date" value={today} disabled className="text-xs h-8 bg-muted/50 cursor-not-allowed" />
+                  <Input type="date" value={today} readOnly disabled className="text-xs h-8 bg-muted/50 cursor-not-allowed" />
                 </div>
                 <div>
                   <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time (Min 10 min ahead)</Label>
