@@ -1,11 +1,51 @@
-// ... existing code until handleCheckout function
+"use client";
+
+import { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
+import { useAppSettings } from "@/hooks/useAppSettings";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Trash2, Plus, Minus, ShoppingBag, Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
+import { format, addDays, isAfter, isBefore, startOfDay } from "date-fns";
+
+export default function CartPage() {
+  const navigate = useNavigate();
+  const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
+  const { user } = useAuth();
+  const { storeOpen } = useAppSettings();
+  
+  const [pickupDate, setPickupDate] = useState<string>("");
+  const [pickupTime, setPickupTime] = useState<string>("");
+  const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [orderComplete, setOrderComplete] = useState(false);
+  const [orderId, setOrderId] = useState<string | null>(null);
+
+  const today = format(new Date(), "yyyy-MM-dd");
+  const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
+  const nextWeek = format(addDays(new Date(), 7), "yyyy-MM-dd");
+
+  const availableTimes = useMemo(() => {
+    const times = [];
+    for (let hour = 8; hour < 20; hour++) {
+      times.push(`${hour.toString().padStart(2, "0")}:00`);
+      times.push(`${hour.toString().padStart(2, "0")}:30`);
+    }
+    return times;
+  }, []);
 
   const handleCheckout = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
     
-    // NEW: Ensure date is today
+    // Ensure date is today
     if (pickupDate !== today) {
       toast.error("Please select today's date for pickup/delivery");
       setCheckingOut(false);
@@ -24,7 +64,42 @@
     }
 
     setCheckingOut(true);
-    // ... rest of the function remains the same
+    try {
+      const { data: orderData, error } = await supabase
+        .from("orders")
+        .insert({
+          user_id: user.id,
+          items: items.map(item => ({
+            id: item.id,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            image: item.image,
+            category: item.category,
+          })),
+          total: totalPrice + deliveryFee,
+          delivery_type: deliveryType,
+          pickup_date: pickupDate,
+          pickup_time: pickupTime,
+          delivery_fee: deliveryFee,
+          bcoins_earned: totalPrice * 0.10,
+          status: "pending",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setOrderId(orderData.id);
+      setOrderComplete(true);
+      clearCart();
+      toast.success("Order placed successfully!");
+    } catch (error: any) {
+      toast.error("Failed to place order: " + error.message);
+    } finally {
+      setCheckingOut(false);
+    }
   };
 
-// ... rest of the file remains unchanged
+  // ... rest of the component remains unchanged
+}
