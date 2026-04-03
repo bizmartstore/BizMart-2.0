@@ -1,51 +1,3 @@
-...
-＜/dyad-write>
-<dyad-write path="src/pages/PrintServicePage.tsx">
-...
-＜/dyad-write>
-<dyad-chat-summary>...＜/dyad-chat-summary>
-Done. 
-Let's verify the code carefully.
-In `CartPage.tsx`:
-```tsx
-  const handleCheckout = async () => {
-    if (!user) { navigate("/login"); return; }
-    if (!storeOpen) { toast.error("Store is currently closed."); return; }
-    if (pickupDate !== today) { toast.error("Pickup and delivery are only available for today."); return; }
-    if (!pickupTime) { toast.error("Please select time."); return; }
-    // ...
-```
-In `PrintServicePage.tsx`:
-```tsx
-  const handleSubmit = async () => {
-    if (!user || !file || selectedPages.length === 0) return;
-    if (pickupDate !== today) { toast.error("Pickup and delivery are only available for today."); return; }
-    // ...
-```
-Wait, `PrintServicePage` doesn't have `pickupDate` state. I'll add it or just use `today`. I'll just use `today` directly but add the check for consistency, or add `const pickupDate = today;`.
-Actually, I'll just add `const pickupDate = today;` at the top of the component or use `today` directly. To be explicit, I'll add `const pickupDate = today;` and check it.
-
-I will write out the full files now.
-All set. 
-Proceeds. 
-[Output Generation] -> *Self-Correction/Refinement during thought*: 
-I should make sure the date input is strictly non-editable. `readOnly` and `disabled` together work best.
-I'll also ensure the validation message is clear.
-The code will be complete and correct.
-Let's generate. 
-`CartPage.tsx` and `PrintServicePage.tsx` will be updated.
-Done. 
-<dyad-write path="src/pages/CartPage.tsx">
-...
-＜/dyad-write>
-<dyad-write path="src/pages/PrintServicePage.tsx">
-...
-＜/dyad-write>
-<dyad-chat-summary>Enforcing strict same-day validation for pickup/delivery checkout＜/dyad-chat-summary>
-All good. 
-Proceeds. 
-[Output Generation]
-</think><dyad-write path="src/pages/CartPage.tsx">
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
@@ -90,6 +42,7 @@ export default function CartPage() {
   const { storeOpen, gcashFee } = useAppSettings();
   
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
+  const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
   const [checkingOut, setCheckingOut] = useState(false);
 
@@ -106,10 +59,11 @@ export default function CartPage() {
     return { minTimeString, endOfDayString, initialTime: minTimeString };
   }, []);
 
-  // Set initial time
+  // Set initial values for date and time
   useEffect(() => {
+    setPickupDate(today);
     setPickupTime(initialTime);
-  }, [initialTime]);
+  }, [today, initialTime]);
 
   const deliveryFee = deliveryType === "delivery" ? gcashFee : 0;
   const grandTotal = totalPrice + deliveryFee;
@@ -117,18 +71,10 @@ export default function CartPage() {
   const handleCheckout = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
-    
-    // STRICT DATE VALIDATION
-    const selectedDate = today;
-    if (selectedDate !== today) {
-      toast.error("Pickup and delivery are only available for today.");
-      return;
-    }
-
-    if (!pickupTime) { toast.error("Please select time."); return; }
+    if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
     if (items.length === 0) { toast.error("Cart is empty"); return; }
 
-    const selectedDT = new Date(`${selectedDate}T${pickupTime}`);
+    const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
     const minDT = new Date();
     minDT.setMinutes(minDT.getMinutes() + 10);
     if (selectedDT < minDT) {
@@ -180,7 +126,7 @@ export default function CartPage() {
           status: "pending",
           delivery_type: deliveryType,
           delivery_fee: deliveryFee,
-          pickup_date: selectedDate,
+          pickup_date: pickupDate,
           pickup_time: pickupTime,
           admin_commission: adminCommission,
           seller_earnings: sellerEarnings,
@@ -309,8 +255,8 @@ export default function CartPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date (Today Only)</Label>
-              <Input type="date" value={today} readOnly disabled className="text-xs h-8 bg-muted/50 cursor-not-allowed" />
+              <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</Label>
+              <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} min={today} max={today} className="text-xs h-8" />
             </div>
             <div>
               <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time</Label>
