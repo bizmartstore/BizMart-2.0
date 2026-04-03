@@ -15,9 +15,13 @@ export default function PrintTab() {
   const [dbError, setDbError] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setDbError(null);
+  const load = useCallback(async (isBackground = false) => {
+    // Only show loading state and clear errors on initial/manual loads
+    if (!isBackground) {
+      setLoading(true);
+      setDbError(null);
+    }
+    
     try {
       const { data: printData, error } = await (supabase as any)
         .from("print_orders")
@@ -48,23 +52,28 @@ export default function PrintTab() {
       setOrders(enriched);
     } catch (e: any) {
       console.error("Failed to load print orders:", e);
-      setDbError(e.message || "Unknown database error");
-      toast.error("Failed to load print orders. Check console for details.");
+      // Only show error UI on initial/manual loads
+      if (!isBackground) {
+        setDbError(e.message || "Unknown database error");
+        toast.error("Failed to load print orders. Check console for details.");
+      }
     } finally {
-      setLoading(false);
+      // Only hide loading spinner on initial/manual loads
+      if (!isBackground) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    load();
+    load(); // Initial load shows spinner
   }, [load]);
 
   useEffect(() => {
     const channel = supabase
       .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
-        console.log("[PrintTab] print_orders changed, reloading...");
-        load();
+        load(true); // Silent background update
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
@@ -74,9 +83,10 @@ export default function PrintTab() {
         }
       });
 
+    // Poll every 15s instead of 10s to reduce API quota usage
     pollIntervalRef.current = setInterval(() => {
-      load();
-    }, 10000);
+      load(true); // Silent background update
+    }, 15000);
 
     return () => {
       supabase.removeChannel(channel);
