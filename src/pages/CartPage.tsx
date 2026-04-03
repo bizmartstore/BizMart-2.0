@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
@@ -44,6 +44,7 @@ export default function CartPage() {
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
+  const [checkingOut, setCheckingOut] = useState(false);
 
   // Get today's date in YYYY-MM-DD format
   const today = useMemo(() => new Date().toISOString().split("T")[0], []);
