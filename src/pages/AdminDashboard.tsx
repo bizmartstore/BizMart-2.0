@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useNavigate } from "react-router-dom";
@@ -49,10 +49,12 @@ export default function AdminDashboard() {
     bcoins: 0,
     messages: 0,
   });
+  const pendingPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadPendingCounts = useCallback(async () => {
     try {
-      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.all([
+      // Use Promise.allSettled so one failing table doesn't break the others
+      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
         (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -60,10 +62,10 @@ export default function AdminDashboard() {
       ]);
 
       setPendingCounts({
-        orders: ordersRes.count || 0,
-        print: printRes.count || 0,
-        gcash: gcashRes.count || 0,
-        bcoins: bcoinsRes.count || 0,
+        orders: ordersRes.status === 'fulfilled' ? (ordersRes.value.count || 0) : 0,
+        print: printRes.status === 'fulfilled' ? (printRes.value.count || 0) : 0,
+        gcash: gcashRes.status === 'fulfilled' ? (gcashRes.value.count || 0) : 0,
+        bcoins: bcoinsRes.status === 'fulfilled' ? (bcoinsRes.value.count || 0) : 0,
         messages: 0,
       });
     } catch (e) {
@@ -86,9 +88,23 @@ export default function AdminDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log("[AdminDashboard] Pending counts realtime active");
+        } else if (status === 'CHANNEL_ERROR') {
+          console.warn("[AdminDashboard] Realtime channel error, relying on polling");
+        }
+      });
 
-    return () => { supabase.removeChannel(channel); };
+    // Poll every 15s to guarantee badge updates even if realtime misses an event
+    pendingPollRef.current = setInterval(() => {
+      loadPendingCounts();
+    }, 15000);
+
+    return () => { 
+      supabase.removeChannel(channel); 
+      if (pendingPollRef.current) clearInterval(pendingPollRef.current);
+    };
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
   if (!isAuthReady) {
