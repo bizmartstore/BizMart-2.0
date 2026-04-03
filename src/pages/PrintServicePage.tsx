@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -73,6 +73,16 @@ export default function PrintServicePage() {
     setPickupDate(tomorrow.toISOString().split("T")[0]);
     setPickupTime("10:00");
   }, []);
+
+  const minTime = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    if (pickupDate === today) {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() + 10);
+      return now.toTimeString().slice(0, 5);
+    }
+    return "00:00";
+  }, [pickupDate]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
@@ -168,13 +178,12 @@ export default function PrintServicePage() {
     const minDT = new Date();
     minDT.setMinutes(minDT.getMinutes() + 10);
     if (selectedDT < minDT) {
-      toast.error("Please select a time at least 10 minutes from now.");
+      toast.error("Please select a time at least 10 minutes from now to allow for preparation.");
       return;
     }
 
     setSubmitting(true);
     try {
-      // Insert with all required columns including maintenance_fee
       const { data, error } = await (supabase as any).from("print_orders").insert({
         user_id: user.id,
         file_name: fileName,
@@ -184,7 +193,7 @@ export default function PrintServicePage() {
         colored_pages: colorPages,
         page_size: paperSize,
         cost: totalCost,
-        maintenance_fee: 0, // Required NOT NULL column
+        maintenance_fee: 0,
         delivery_fee: deliveryFee,
         status: "pending",
         delivery_type: deliveryType,
@@ -194,7 +203,6 @@ export default function PrintServicePage() {
 
       if (error) throw error;
 
-      // Notify admin
       const { sendNotification } = await import("@/lib/notifications");
       const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
       await sendNotification({
@@ -474,7 +482,7 @@ export default function PrintServicePage() {
                 </div>
                 <div>
                   <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time</Label>
-                  <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-8" />
+                  <Input type="time" value={pickupTime} min={minTime} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-8" />
                 </div>
               </div>
 
