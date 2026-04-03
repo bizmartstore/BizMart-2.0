@@ -132,10 +132,15 @@ export default function PrintServicePage() {
         .single();
 
       if (error) throw error;
-
-      setOrderId(orderData.id);
-      setOrderComplete(true);
-      toast.success("Print order submitted successfully!");
+      
+      // Fix: Check if orderData is not null before accessing .id
+      if (orderData) {
+        setOrderId(orderData.id);
+        setOrderComplete(true);
+        toast.success("Print order submitted successfully!");
+      } else {
+        throw new Error("No order data returned");
+      }
     } catch (error: any) {
       toast.error("Failed to submit order: " + error.message);
     } finally {

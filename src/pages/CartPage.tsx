@@ -89,11 +89,16 @@ export default function CartPage() {
         .single();
 
       if (error) throw error;
-
-      setOrderId(orderData.id);
-      setOrderComplete(true);
-      clearCart();
-      toast.success("Order placed successfully!");
+      
+      // Fix: Check if orderData is not null before accessing .id
+      if (orderData) {
+        setOrderId(orderData.id);
+        setOrderComplete(true);
+        clearCart();
+        toast.success("Order placed successfully!");
+      } else {
+        throw new Error("No order data returned");
+      }
     } catch (error: any) {
       toast.error("Failed to place order: " + error.message);
     } finally {
