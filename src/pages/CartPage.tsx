@@ -24,6 +24,7 @@ async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promis
                          error?.message?.includes('steal') || 
                          error?.name === 'AbortError' ||
                          error?.code === '40P01';
+      
       if (isLockError && i < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, i)));
         continue;
@@ -43,14 +44,25 @@ export default function CartPage() {
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
-  const [checkingOut, setCheckingOut] = useState(false);
 
-  useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setPickupDate(tomorrow.toISOString().split('T')[0]);
-    setPickupTime("10:00");
+  // Get today's date in YYYY-MM-DD format
+  const today = useMemo(() => new Date().toISOString().split("T")[0], []);
+
+  // Calculate minimum time (10 minutes from now) and end of day
+  const { minTimeString, endOfDayString, initialTime } = useMemo(() => {
+    const now = new Date();
+    const minTime = new Date(now.getTime() + 10 * 60000); // 10 minutes from now
+    const minTimeString = minTime.toTimeString().slice(0, 5);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const endOfDayString = endOfDay.toTimeString().slice(0, 5);
+    return { minTimeString, endOfDayString, initialTime: minTimeString };
   }, []);
+
+  // Set initial values for date and time
+  useEffect(() => {
+    setPickupDate(today);
+    setPickupTime(initialTime);
+  }, [today, initialTime]);
 
   const deliveryFee = deliveryType === "delivery" ? gcashFee : 0;
   const grandTotal = totalPrice + deliveryFee;
@@ -243,11 +255,11 @@ export default function CartPage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[10px] flex items-center gap-1"><Calendar className="h-3 w-3" /> Date</Label>
-              <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="text-xs h-8" />
+              <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} min={today} max={today} className="text-xs h-8" />
             </div>
             <div>
               <Label className="text-[10px] flex items-center gap-1"><Clock className="h-3 w-3" /> Time</Label>
-              <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-8" />
+              <Input type="time" value={pickupTime} min={minTimeString} max={endOfDayString} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-8" />
             </div>
           </div>
         </div>
