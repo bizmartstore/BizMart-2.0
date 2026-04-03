@@ -90,7 +90,7 @@ export default function PrintTab() {
     }
 
     try {
-      const { data: order, error: fetchError } = await supabase.from("print_orders").select("*").eq("id", orderId).maybeSingle();
+      const { data: order, error: fetchError } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
       if (fetchError || !order) {
         toast.error("Print order not found");
         return;
