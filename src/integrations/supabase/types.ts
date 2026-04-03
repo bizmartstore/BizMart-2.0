@@ -42,6 +42,70 @@ export type Database = {
           avatar_url?: string | null;
         };
       };
+      orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          items: any[];
+          total: number;
+          delivery_type: "pickup" | "delivery";
+          pickup_date: string;
+          pickup_time: string;
+          delivery_fee: number;
+          bcoins_earned: number;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          items: any[];
+          total: number;
+          delivery_type: "pickup" | "delivery";
+          pickup_date: string;
+          pickup_time: string;
+          delivery_fee: number;
+          bcoins_earned: number;
+          status?: string;
+        };
+        Update: {
+          status?: string;
+        };
+      };
+      print_orders: {
+        Row: {
+          id: string;
+          user_id: string;
+          file_url: string;
+          file_name: string;
+          total_pages: number;
+          bw_pages: number;
+          colored_pages: number;
+          page_size: "short" | "long";
+          delivery_type: "pickup" | "delivery";
+          pickup_date: string;
+          pickup_time: string;
+          cost: number;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          file_url: string;
+          file_name: string;
+          total_pages: number;
+          bw_pages: number;
+          colored_pages: number;
+          page_size: "short" | "long";
+          delivery_type: "pickup" | "delivery";
+          pickup_date: string;
+          pickup_time: string;
+          cost: number;
+          status?: string;
+        };
+        Update: {
+          status?: string;
+        };
+      };
       job_postings: {
         Row: {
           id: string;
