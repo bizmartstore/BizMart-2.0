@@ -53,7 +53,6 @@ export default function AdminDashboard() {
 
   const loadPendingCounts = useCallback(async () => {
     try {
-      // Use Promise.allSettled so one failing table doesn't break the others
       const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
         (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
@@ -96,15 +95,13 @@ export default function AdminDashboard() {
         }
       });
 
-      // Poll every 5s for red notification badges only
-      pendingPollRef.current = setInterval(() => {
-        loadPendingCounts();
-      }, 5000);
+    pendingPollRef.current = setInterval(() => {
+      loadPendingCounts();
+    }, 5000);
 
-      return () => { 
-        supabase.removeChannel(channel); 
-        if (pendingPollRef.current) clearInterval(pendingPollRef.current);
-      };
+    return () => { 
+      supabase.removeChannel(channel); 
+      if (pendingPollRef.current) clearInterval(pendingPollRef.current);
     };
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
