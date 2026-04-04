@@ -26,9 +26,9 @@ export default function PrintTab() {
         .from("print_orders")
         .select("*")
         .order("created_at", { ascending: false });
-            if (error) throw error;
+      
+      if (error) throw error;
 
-      // 👇 JOIN PROFILES TO GET CUSTOMER DETAILS
       const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
       let profileMap: Record<string, any> = {};
       
@@ -220,7 +220,6 @@ export default function PrintTab() {
           </div>
           <p className="text-[10px] text-muted-foreground">Paper: {selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long (8.5x13)'}</p>
 
-          {/* Download File Button */}
           {selectedOrder.file_url && (
             <Button
               size="sm"
@@ -251,3 +250,72 @@ export default function PrintTab() {
       </div>
     );
   }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {Object.entries(statusCounts).map(([key, count]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+                filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+            </button>
+          ))}
+        </div>
+        <Button size="sm" variant="outline" onClick={() => load(true)} disabled={loading}>
+          <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
+        </Button>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search print orders..." className="pl-9 text-xs h-9" />
+      </div>
+
+      {dbError && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-destructive">Database Error</p>
+            <p className="text-[10px] text-destructive/80 mt-0.5">{dbError}</p>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {filtered.map(o => (
+            <div key={o.id} className="bg-card rounded-xl border border-border p-3 flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                  <span className="font-bold text-xs truncate">{o.file_name}</span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : 'Unknown'} • ₱{Number(o.cost || 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  o.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                  o.status === 'pending' ? 'bg-warning/20 text-warning' :
+                  o.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                  'bg-primary/20 text-primary'
+                }`}>{o.status}</span>
+                <button onClick={() => setSelectedOrder(o)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>}
+        </div>
+      )}
+    </div>
+  );
+}

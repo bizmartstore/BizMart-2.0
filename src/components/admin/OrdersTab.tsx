@@ -3,151 +3,309 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin } from "lucide-react";
 import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
-import { useAuth } from "@/context/AuthContext";
-import { useAdmin } from "@/hooks/useAdmin";
-import { useNavigate } from "react-router-dom";
-
-// 👇 Import missing icons
-import { Users, Crown } from "lucide-react";
 
 export default function OrdersTab() {
-  const { user, profile, isAuthReady } = useAuth();
-  const { isAdmin, isMainAdmin } = useAdmin();
-  const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
-  const [pendingCounts, setPendingCounts] = useState({
-    orders: 0,
-    print: 0,
-    gcash: 0,
-    bcoins: 0,
-    messages: 0,
-    jobs: 0,
-    freelancers: 0,
-  });
+  const [orders, setOrders] = useState<any[]>([]);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadPendingCounts = useCallback(async () => {
+  const loadOrders = useCallback(async (showToast = false) => {
     try {
-      const [ordersRes, printRes, gcashRes, bcoinsRes, jobsRes, freelancersRes] = await Promise.allSettled([
-        (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open"),
-        (supabase as any).from("freelancer_profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      ]);
+      const { data: ordersRes, error: ordersError } = await (supabase as any)
+        .from("orders")
+        .select(`
+          *,
+          customer:user_id (first_name, last_name, section, grade_level)
+        `)
+        .order("created_at", { ascending: false });
 
-      setPendingCounts({
-        orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
-        print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
-        gcash: gcashRes.status === "fulfilled" ? (gcashRes.value.count || 0) : 0,
-        bcoins: bcoinsRes.status === "fulfilled" ? (bcoinsRes.value.count || 0) : 0,
-        messages: 0,
-        jobs: jobsRes.status === "fulfilled" ? (jobsRes.value.count || 0) : 0,
-        freelancers: freelancersRes.status === "fulfilled" ? (freelancersRes.value.count || 0) : 0,
-      });
-    } catch (e) {
-      console.error("Failed to load pending counts:", e);
+      if (ordersError) throw ordersError;
+
+      const { data: printRes, error: printError } = await (supabase as any)
+        .from("print_orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (printError) throw printError;
+
+      const combined = [...(ordersRes.data || [])];
+      const printData = printRes.data || [];
+
+      const ordersWithProfile = await Promise.all(
+        combined.map(async (order: any) => {
+          if (order.customer?.user_id) {
+            const { data: profileData, error: profileError } = await (supabase as any)
+              .from("profiles")
+              .select("first_name, last_name, section, grade_level")
+              .eq("user_id", order.customer.user_id)
+              .single();
+            if (!profileError) {
+              order.customer.first_name = profileData.first_name;
+              order.customer.last_name = profileData.last_name;
+              order.customer.section = profileData.section;
+              order.customer.grade_level = profileData.grade_level;
+            }
+          }
+          return { ...order, type: 'product' };
+        })
+      );
+
+      const printEnriched = await Promise.all(
+        printData.map(async (order: any) => {
+          if (order.user_id) {
+            const { data: profileData, error: profileError } = await (supabase as any)
+              .from("profiles")
+              .select("first_name, last_name, section, grade_level")
+              .eq("user_id", order.user_id)
+              .single();
+            if (!profileError) {
+              order.customer = {
+                first_name: profileData.first_name,
+                last_name: profileData.last_name,
+                section: profileData.section,
+                grade_level: profileData.grade_level,
+              };
+            }
+          }
+          return { ...order, type: 'print' };
+        })
+      );
+
+      setOrders([...ordersWithProfile, ...printEnriched]);
+    } catch (e: any) {
+      console.error("Failed to load orders:", e);
+      if (showToast) toast.error("Failed to load orders");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
   useEffect(() => {
-    if (isAuthReady && isAdmin) {
-      loadPendingCounts();
-    }
-  }, [isAuthReady, isAdmin, loadPendingCounts]);
+    loadOrders();
+  }, [loadOrders]);
 
-  if (!isAuthReady) {
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-orders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadOrders(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadOrders(true))
+      .subscribe();
+
+    pollIntervalRef.current = setInterval(() => {
+      loadOrders(true);
+    }, 15000);
+
+    return () => {
+      supabase.removeChannel(channel);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
+  }, [loadOrders]);
+
+  const updateStatus = async (orderId: string, newStatus: string) => {
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+
+    try {
+      const { data: order } = await (supabase as any).from("orders").select("*").eq("id", orderId).maybeSingle();
+      if (!order) {
+        const { data: printOrder } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
+        if (printOrder) {
+          await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
+          await sendNotification({
+            title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
+            message: `Your print request for "${printOrder.file_name}" is now ${newStatus}.`,
+            type: "print_status",
+            userId: printOrder.user_id,
+            link: "/orders",
+            icon: "🖨️"
+          });
+        }
+      } else {
+        await (supabase as any).from("orders").update({ status: newStatus }).eq("id", orderId);
+        await sendNotification({
+          title: `📦 Order ${newStatus.toUpperCase()}`,
+          message: `Your order #${orderId.slice(0, 8)} is now ${newStatus}.`,
+          type: "order_status",
+          userId: order.user_id,
+          link: "/orders",
+          icon: "📦"
+        });
+        if (newStatus === "completed") {
+          await notifyCustomerBCoins(order.user_id, order.bcoins_earned, "order completion");
+        }
+      }
+      toast.success(`Order ${newStatus}!`);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update order");
+      loadOrders();
+    }
+  };
+
+  const filtered = orders.filter(o => {
+    const cust = o.customer;
+    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
+    const matchFilter = filter === "all" || o.status === filter;
+    const matchSearch = !search || 
+      custName.toLowerCase().includes(search.toLowerCase()) ||
+      (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (cust?.section || "").toLowerCase().includes(search.toLowerCase()) ||
+      (cust?.grade_level || "").toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+
+  const statusCounts = {
+    all: orders.length,
+    pending: orders.filter(o => o.status === "pending").length,
+    approved: orders.filter(o => o.status === "approved").length,
+    completed: orders.filter(o => o.status === "completed").length,
+    rejected: orders.filter(o => o.status === "rejected").length,
+  };
+
+  if (selectedOrder) {
+    const cust = selectedOrder.customer;
+    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custGrade = cust?.grade_level || "N/A";
+    const custSection = cust?.section || "N/A";
+    const isPrint = selectedOrder.type === 'print';
+
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="space-y-3">
+        <button onClick={() => setSelectedOrder(null)} className="text-xs text-primary font-bold">← Back to Orders</button>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                {isPrint ? <Printer className="h-4 w-4 text-primary" /> : <Package className="h-4 w-4 text-primary" />}
+                {isPrint ? selectedOrder.file_name : `Order #${selectedOrder.id.slice(0, 8)}`}
+              </h3>
+              <p className="text-[10px] text-muted-foreground">{new Date(selectedOrder.created_at).toLocaleString()}</p>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+              selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+              selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' :
+              selectedOrder.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+              selectedOrder.status === 'approved' ? 'bg-primary/20 text-primary' :
+              'bg-muted text-muted-foreground'
+            }`}>{selectedOrder.status.toUpperCase()}</span>
+          </div>
+
+          <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold text-foreground">{custName}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
+          </div>
+
+          {isPrint && (
+            <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedOrder.delivery_type === 'delivery' ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
+                <span className="text-xs font-bold capitalize text-foreground">{selectedOrder.delivery_type || 'pickup'}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {selectedOrder.pickup_date || "N/A"} at {selectedOrder.pickup_time || "N/A"}
+              </span>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="bg-muted rounded-lg p-2">
+              <span className="text-sm font-extrabold block">₱{Number(selectedOrder.total || selectedOrder.cost || 0).toFixed(2)}</span>
+              <span className="text-[9px] text-muted-foreground">Total</span>
+            </div>
+            <div className="bg-muted rounded-lg p-2">
+              <span className="text-sm font-extrabold block">{isPrint ? selectedOrder.total_pages : (selectedOrder.items?.length || 0)}</span>
+              <span className="text-[9px] text-muted-foreground">{isPrint ? 'Pages' : 'Items'}</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {selectedOrder.status === "pending" && (
+              <>
+                <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "approved")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
+                <Button size="sm" variant="destructive" onClick={() => updateStatus(selectedOrder.id, "rejected")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
+              </>
+            )}
+            {selectedOrder.status === "approved" && (
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 w-full"><CheckCircle2 className="h-3 w-3" /> Mark Complete</Button>
+            )}
+            {["pending", "approved"].includes(selectedOrder.status) && (
+              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Cancel</Button>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (!isAdmin) {
-    navigate("/");
-    return null;
-  }
-
-  const allTabs = [
-    { id: "overview", label: "Overview", icon: BarChart3, badge: 0 },
-    { id: "orders", label: "Orders", icon: ShoppingCart, badge: pendingCounts.orders },
-    { id: "products", label: "Products", icon: Package, badge: 0 },
-    { id: "users", label: "Users", icon: Users, badge: 0 },
-    { id: "sellers", label: "Sellers", icon: Crown, badge: 0 },
-    { id: "print", label: "Print", icon: Printer, badge: pendingCounts.print },
-    { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingCounts.messages },
-    { id: "codes", label: "Codes", icon: Ticket, badge: 0 },
-    { id: "news", label: "News", icon: Bell, badge: 0 },
-    { id: "club", label: "Club", icon: Crown, badge: 0 },
-    { id: "bcoins", label: "BCoins", icon: Coins, badge: pendingCounts.bcoins },
-    { id: "gcash", label: "GCash", icon: Coins, badge: pendingCounts.gcash },
-    { id: "jobs", label: "Jobs", icon: Briefcase, badge: pendingCounts.jobs },
-    { id: "freelancers", label: "Freelancers", icon: Award, badge: pendingCounts.freelancers },
-    { id: "settings", label: "Settings", icon: Settings, badge: 0 },
-  ];
-
-  const availableTabs = isMainAdmin ? allTabs : allTabs.filter(tab => MEMBER_ADMIN_ALLOWED_TABS.includes(tab.id));
-
-  const currentTabAllowed = availableTabs.some(tab => tab.id === activeTab);
-  if (!currentTabAllowed && availableTabs.length > 0) {
-    const defaultTab = availableTabs.find(tab => tab.id === "overview") || availableTabs[0];
-    setActiveTab(defaultTab.id);
-  }
-
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <TopBar />
-      <div className="px-4 mt-4">
-        <div className="mb-6">
-          <h1 className="font-extrabold text-xl text-foreground">Admin Dashboard</h1>
-          <p className="text-xs text-muted-foreground">
-            {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
-          </p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {Object.entries(statusCounts).map(([key, count]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+                filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
+            >
+              {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+            </button>
+          ))}
         </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
-            {availableTabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto relative"
-              >
-                <div className="relative">
-                  <tab.icon className="h-4 w-4" />
-                  {tab.badge > 0 && (
-                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[8px] font-bold rounded-full h-3.5 min-w-3.5 flex items-center justify-center animate-pulse">
-                      {tab.badge > 9 ? "9+" : tab.badge}
-                    </span>
-                  </div>
-                </div>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="sellers"><SellersTab /></TabsContent>
-          <TabsContent value="print"><PrintTab /></TabsContent>
-          <TabsContent value="messages"><MessagesTab /></TabsContent>
-          <TabsContent value="codes"><CodesTab /></TabsContent>
-          <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
-          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
-          <TabsContent value="gcash"><GCashTab /></TabsContent>
-          <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="freelancers"><FreelancersTab /></TabsContent>
-          <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
-        </Tabs>
+        <Button size="sm" variant="outline" onClick={() => loadOrders(true)} disabled={refreshing}>
+          <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
-      <BottomNav />
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders..." className="pl-9 text-xs h-9" />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {filtered.map(o => (
+            <div key={o.id} className="bg-card rounded-xl border border-border p-3 flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {o.type === 'print' ? <Printer className="h-4 w-4 text-purple-500 flex-shrink-0" /> : <Package className="h-4 w-4 text-primary flex-shrink-0" />}
+                  <span className="font-bold text-xs truncate">
+                    {o.type === 'print' ? o.file_name : `Order #${o.id.slice(0, 8)}`}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : 'Unknown'} • ₱{Number(o.total || o.cost || 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  o.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                  o.status === 'pending' ? 'bg-warning/20 text-warning' :
+                  o.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                  'bg-primary/20 text-primary'
+                }`}>{o.status}</span>
+                <button onClick={() => setSelectedOrder(o)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
+        </div>
+      )}
     </div>
   );
 }
