@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Store, CheckCircle2, XCircle, RefreshCw, AlertCircle, MapPin, Download, User, Truck } from "lucide-react";
+import { Search, Store, CheckCircle2, XCircle, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
 
 export default function PrintTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -81,7 +81,7 @@ export default function PrintTab() {
             </span>
           </div>
 
-          <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+          <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
             <p className="text-xs font-bold text-foreground">{selectedOrder.customer_name || "Unknown"}</p>
             <p className="text-[10px] text-muted-foreground">{selectedOrder.customer_email || "N/A"}</p>
@@ -134,6 +134,12 @@ export default function PrintTab() {
                 <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "approved")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
                 <Button size="sm" variant="destructive" onClick={() => updateStatus(selectedOrder.id, "rejected")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
               </>
+            )}
+            {selectedOrder.status === "approved" && (
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 w-full"><CheckCircle2 className="h-3 w-3" /> Mark Complete</Button>
+            )}
+            {["pending", "approved"].includes(selectedOrder.status) && (
+              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Cancel</Button>
             )}
           </div>
         </div>
@@ -190,7 +196,7 @@ export default function PrintTab() {
                   <Store className="h-4 w-4 text-primary flex-shrink-0" />
                   <span className="font-bold text-xs truncate">{order.file_name}</span>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
                   order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                   order.status === 'pending' ? 'bg-warning/20 text-warning' :
                   order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
@@ -212,19 +218,17 @@ export default function PrintTab() {
                 <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                   {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
                   <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+                  <span>•</span>
+                  <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground">
-                    {order.pickup_date || "N/A"} at {order.pickup_time || "N/A"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-right">
+                  <div className="text-right">
                     <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
                     <p className="text-[9px] text-muted-foreground">
                       {order.total_pages}pg ({order.bw_pages}B/{order.colored_pages}C)
                     </p>
                   </div>
+                  <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
             </div>
@@ -233,7 +237,7 @@ export default function PrintTab() {
             <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

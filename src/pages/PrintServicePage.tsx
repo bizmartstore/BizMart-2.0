@@ -155,7 +155,8 @@ export default function PrintServicePage() {
       toast.error("Please select today's date for pickup/delivery");
       return;
     }
-        const selectedDT = new Date(`${today}T${pickupTime}`);
+    
+    const selectedDT = new Date(`${today}T${pickupTime}`);
     if (selectedDT < minTime) {
       toast.error("Pickup time must be at least 10 minutes from now");
       return;
@@ -293,7 +294,8 @@ export default function PrintServicePage() {
               </button>
             </div>
           )}
-          <input            ref={fileInputRef}
+          <input
+            ref={fileInputRef}
             type="file"
             accept="application/pdf"
             className="hidden"
@@ -304,8 +306,9 @@ export default function PrintServicePage() {
         {pages.length > 0 && (
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-sm font-bold flex items-center gap-2 mb-3">
-                <FileText className="h-4 w-4 text-primary" /> Select Pages              </Label>
+              <Label className="text-sm font-bold flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" /> Select Pages
+              </Label>
               <div className="flex gap-2">
                 <button onClick={() => selectAll(true)} className="text-[10px] font-bold text-primary hover:underline">All</button>
                 <button onClick={() => selectAll(false)} className="text-[10px] font-bold text-muted-foreground hover:underline">None</button>
@@ -345,93 +348,153 @@ export default function PrintServicePage() {
                   </button>
                 ))}
               </div>
+            )}
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t border-border">
+              <span className="flex items-center gap-1"><File className="h-3 w-3" /> B&W: {bwCount}</span>
+              <span className="flex items-center gap-1"><Palette className="h-3 w-3 text-orange-500" /> Color: {colorCount}</span>
+              <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
             </div>
           </div>
-
-          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-            <Label className="text-sm font-bold flex items-center gap-2 mb-3">
-              <Printer className="h-4 w-4 text-primary" /> Print Settings          </Label>
-            
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="text-[10px]">Page Size</Label>
-                <div className="grid grid-cols-2 gap-1 mt-1">
-                  <button                    onClick={() => setPageSize("short")}
-                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                      pageSize === "short" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    Short/A4
-                  </button>
-                  <button
-                    onClick={() => setPageSize("long")}
-                    className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                      pageSize === "long" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                    }`}
-                  >
-                    Long
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-[10px]">Copies</Label>
-                <div className="flex items-center gap-3 mt-1">
-                  <button
-                    onClick={() => setCopies(Math.max(1, copies - 1))}
-                    className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                  >
-                    -
-                  </button>
-                  <span className="text-sm font-bold w-8 text-center">{copies}</span>
-                  <button
-                    onClick={() => setCopies(copies + 1)}
-                    className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-              <Label className="text-sm font-bold mb-3">Cost Summary</Label>
-              <div className="space-y-2 text-xs">
-                {bwCount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">B&W Pages ({bwCount} × {copies})</span>
-                    <span className="font-bold">₱{(bwCount * getPrice(false, pageSize) * copies).toFixed(2)}</span>
-                  </div>
-                </div>
-                {colorCount > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Color Pages ({colorCount} × {copies})</span>
-                    <span className="font-bold">₱{(colorCount * getPrice(true, pageSize) * copies).toFixed(2)}</span>
-                  </div>
-                </div>
-                {deliveryType === "delivery" && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Delivery Fee</span>
-                    <span className="font-bold">₱10.00</span>
-                  </div>
-                )}
-                <div className="border-t border-border pt-2 flex justify-between">
-                  <span className="font-bold">Total</span>
-                  <span className="font-extrabold text-primary text-base">₱{calculateCost().toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleSubmit}
-            disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupTime || availableTimes.length === 0}
-            className="w-full h-12 font-bold rounded-xl"
-          >
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            {submitting ? "Submitting..." : "Submit Print Order"}
-          </Button>
         </div>
+
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-bold flex items-center gap-2">
+            <Printer className="h-4 w-4 text-primary" /> Print Settings          </Label>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[10px]">Page Size</Label>
+              <div className="grid grid-cols-2 gap-1 mt-1">
+                <button
+                  onClick={() => setPageSize("short")}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                    pageSize === "short" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  Short/A4
+                </button>
+                <button
+                  onClick={() => setPageSize("long")}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                    pageSize === "long" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  Long
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-[10px]">Copies</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <button
+                  onClick={() => setCopies(Math.max(1, copies - 1))}
+                  className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                >
+                  -
+                </button>
+                <span className="text-sm font-bold w-8 text-center">{copies}</span>
+                <button
+                  onClick={() => setCopies(copies + 1)}
+                  className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-bold flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" /> Delivery
+          </Label>
+          
+          <div>
+            <Label className="text-[10px]">Type</Label>
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              <button
+                onClick={() => setDeliveryType("pickup")}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                Pickup              </button>
+              <button
+                onClick={() => setDeliveryType("delivery")}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                Delivery (+₱10)
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[10px]">Date</Label>
+              <Input
+                type="date"
+                value={today}
+                readOnly                className="text-sm h-9 mt-1 bg-muted/50 cursor-not-allowed"
+              />
+              <p className="text-[9px] text-muted-foreground mt-1">Only today's date is available</p>
+            </div>
+            <div>
+              <Label className="text-[10px]">Time</Label>
+              <select                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
+              >
+                <option value="">Select time</option>
+                {availableTimes.map((time) => (
+                  <option key={time} value={time}>{time}</option>
+                ))}
+              </select>
+              {availableTimes.length === 0 && (
+                <p className="text-[9px] text-destructive mt-1">No available times left for today</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-bold mb-3">Cost Summary</Label>
+          <div className="space-y-2 text-xs">
+            {bwCount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">B&W Pages ({bwCount} × {copies})</span>
+                <span className="font-bold">₱{(bwCount * getPrice(false, pageSize) * copies).toFixed(2)}</span>
+              </div>
+            )}
+            {colorCount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Color Pages ({colorCount} × {copies})</span>
+                <span className="font-bold">₱{(colorCount * getPrice(true, pageSize) * copies).toFixed(2)}</span>
+              </div>
+            )}
+            {deliveryType === "delivery" && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Delivery Fee</span>
+                <span className="font-bold">₱10.00</span>
+              </div>
+            )}
+            <div className="border-t border-border pt-2 flex justify-between">
+              <span className="font-bold">Total</span>
+              <span className="font-extrabold text-primary text-base">₱{calculateCost().toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupTime || availableTimes.length === 0}
+          className="w-full h-12 font-bold rounded-xl"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          {submitting ? "Submitting..." : "Submit Print Order"}
+        </Button>
       </div>
     </div>
   );
