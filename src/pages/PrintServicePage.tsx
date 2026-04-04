@@ -54,10 +54,10 @@ export default function PrintServicePage() {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-        useWorkerFetch: false,
-        isEvalSupported: false,
-      }).promise;
+  data: arrayBuffer,
+  disableFontFace: true,
+  useSystemFonts: true,
+}).promise;
       const analyzedPages: PageInfo[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
