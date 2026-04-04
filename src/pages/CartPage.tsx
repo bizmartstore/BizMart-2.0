@@ -46,6 +46,11 @@ export default function CartPage() {
     setPickupDate(today);
   }, [today]);
 
+  // Update delivery fee when delivery type changes
+  useEffect(() => {
+    setDeliveryFee(deliveryType === "delivery" ? 10 : 0);
+  }, [deliveryType]);
+
   const handleCheckout = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
@@ -199,6 +204,9 @@ export default function CartPage() {
               </div>
             </div>
             <div className="text-right">
+              <button onClick={() => removeItem(item.id)} className="p-1 hover:text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </button>
               <p className="text-[10px] text-muted-foreground">₱{Number(item.price * item.quantity).toFixed(2)}</p>
             </div>
           </div>
