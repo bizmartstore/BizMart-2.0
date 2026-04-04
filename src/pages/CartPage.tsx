@@ -27,10 +27,11 @@ export default function CartPage() {
     return () => clearInterval(timer);
   }, []);
 
-  const todayManila = now.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }).split('T')[0];
+  // en-CA locale guarantees YYYY-MM-DD format required by <input type="date" />
+  const todayManila = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const minTime = new Date(now.getTime() + 10 * 60 * 1000);
   const minTimeString = minTime.toTimeString().slice(0, 5);
-  const noTimesToday = minTime.toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' }) !== todayManila;
+  const noTimesToday = minTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }) !== todayManila;
 
   const timeToMinutes = (time: string) => {
     const [h, m] = time.split(':').map(Number);
