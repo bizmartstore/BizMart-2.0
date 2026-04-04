@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
 import { format } from "date-fns";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
 // Configure PDF.js worker to use the locally bundled worker
 // Vite will automatically copy this to /dist/assets/ and cache it via PWA
@@ -54,7 +54,11 @@ export default function PrintServicePage() {
     setAnalyzing(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const pdf = await pdfjsLib.getDocument({
+        data: arrayBuffer,
+        useWorkerFetch: false,
+        isEvalSupported: false,
+      }).promise;
       const analyzedPages: PageInfo[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -68,8 +72,7 @@ export default function PrintServicePage() {
 
         await page.render({ canvasContext: ctx, viewport, canvas }).promise;
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        
-        let isColor = false;
+                let isColor = false;
         for (let j = 0; j < imageData.data.length; j += 16) {
           const r = imageData.data[j];
           const g = imageData.data[j + 1];
@@ -83,7 +86,7 @@ export default function PrintServicePage() {
       }
       setPages(analyzedPages);
     } catch (err) {
-      console.error("PDF analysis failed:", err);
+      console.error("PDF detailed error:", err);
       toast.error("Failed to analyze PDF. Please try again.");
     } finally {
       setAnalyzing(false);
@@ -169,8 +172,7 @@ export default function PrintServicePage() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("print-orders")
+      const { error: uploadError } = await supabase.storage        .from("print-orders")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
@@ -354,7 +356,7 @@ export default function PrintServicePage() {
               <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Print Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -388,8 +390,7 @@ export default function PrintServicePage() {
             <div>
               <Label className="text-[10px]">Copies</Label>
               <div className="flex items-center gap-3 mt-1">
-                <button
-                  onClick={() => setCopies(Math.max(1, copies - 1))}
+                <button                  onClick={() => setCopies(Math.max(1, copies - 1))}
                   className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
                 >
                   -
@@ -415,8 +416,7 @@ export default function PrintServicePage() {
           <div>
             <Label className="text-[10px]">Type</Label>
             <div className="grid grid-cols-2 gap-1 mt-1">
-              <button
-                onClick={() => setDeliveryType("pickup")}
+              <button                onClick={() => setDeliveryType("pickup")}
                 className={`py-2 rounded-lg text-xs font-bold transition-all ${
                   deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
@@ -437,8 +437,7 @@ export default function PrintServicePage() {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[10px]">Date</Label>
-              <Input
-                type="date"
+              <Input                type="date"
                 min={today}
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
