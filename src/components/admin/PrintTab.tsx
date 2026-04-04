@@ -239,6 +239,107 @@ export default function PrintTab() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {dbError && (
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 text-destructive mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-destructive">Database Error</p>
+            <p className="text-[10px] text-destructive/80 mt-0.5">{dbError}</p>
+          </div>
+        </div>
+      )}
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input 
+          value={search} 
+          onChange={e => setSearch(e.target.value)} 
+          placeholder="Search by name, file, or section..." 
+          className="pl-9 text-xs h-9" 
+        />
+      </div>
+
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {Object.entries(statusCounts).map(([key, count]) => (
+          <button
+            key={key}
+            onClick={() => setFilter(key)}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+              filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {filtered.map(order => {
+            const cust = order.customer;
+            const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown";
+            const custGrade = cust?.grade_level || "N/A";
+            const custSection = cust?.section || "N/A";
+
+            return (
+              <div key={order.id} className="bg-card rounded-xl border border-border p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <span className="font-bold text-xs truncate">{order.file_name}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                    order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                    order.status === 'pending' ? 'bg-warning/20 text-warning' :
+                    order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                    order.status === 'approved' ? 'bg-primary/20 text-primary' :
+                    'bg-muted text-muted-foreground'
+                  }`}>
+                    {order.status}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2 mb-2 text-[10px] text-muted-foreground">
+                  <User className="h-3 w-3 flex-shrink-0" />
+                  <span className="font-bold text-foreground">{custName}</span>
+                  <span>•</span>
+                  <span>{custGrade} - {custSection}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                    {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                    <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+                    <span>•</span>
+                    <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
+                      <p className="text-[9px] text-muted-foreground">
+                        {order.total_pages}pg ({order.bw_pages}B/{order.colored_pages}C)
+                      </p>
+                    </div>
+                    <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {filtered.length === 0 && !loading && (
+            <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
