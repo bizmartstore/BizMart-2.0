@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -9,12 +9,14 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Printer, Calendar, Clock, MapPin, AlertCircle, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
+import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
 import { format } from "date-fns";
-import * as pdfjsLib from 'pdfjs-dist';
+import * as pdfjsLib from "pdfjs-dist/build/pdf";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
-// Configure PDF.js worker using CDN to avoid bundler/TS module resolution issues
-pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.6.205/pdf.worker.min.mjs";
+// Configure PDF.js worker to use the locally bundled worker
+// Vite will automatically copy this to /dist/assets/ and cache it via PWA
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PageInfo {
   pageNum: number;
