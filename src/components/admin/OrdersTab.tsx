@@ -29,7 +29,7 @@ export default function OrdersTab() {
       if (ordersError) throw ordersError;
 
       // 👇 ALSO FETCH PRINT ORDERS (they have no customer relationship)
-      const { data: printData, error: printError } = await (supabase as any)
+      const { data: printRes, error: printError } = await (supabase as any)
         .from("print_orders")
         .select("*")
         .order("created_at", { ascending: false });
@@ -39,9 +39,10 @@ export default function OrdersTab() {
       // Combine and enrich with profile data
       const combined = [...ordersRes.data];
       const printData = printRes.data || [];
-      const posData = (posRes as any).data || [];
+      const posData = []; // Placeholder for pos orders if needed
 
-      // Add profile info to orders      const ordersWithProfile = await Promise.all(
+      // Add profile info to orders
+      const ordersWithProfile = await Promise.all(
         combined.map(async (order: any) => {
           if (order.customer?.user_id) {
             const { data: profileData, error: profileError } = await (supabase as any)
@@ -61,46 +62,31 @@ export default function OrdersTab() {
       );
 
       // Also enrich print orders with profile data
-      const printEnriched = (printData || []).map((order: any) => {
-        if (order.user_id) {
-          const { data: profileData, error: profileError } = await (supabase as any)
-            .from("profiles")
-            .select("first_name, last_name, section, grade_level")
-            .eq("user_id", order.user_id)
-            .single();
-          if (!profileError) {
-            order.customer = {
-              first_name: profileData.first_name,
-              last_name: profileData.last_name,
-              section: profileData.section,
-              grade_level: profileData.grade_level,
-            };
+      const printEnriched = await Promise.all(
+        printData.map(async (order: any) => {
+          if (order.user_id) {
+            const { data: profileData, error: profileError } = await (supabase as any)
+              .from("profiles")
+              .select("first_name, last_name, section, grade_level")
+              .eq("user_id", order.user_id)
+              .single();
+            if (!profileError) {
+              order.customer = {
+                first_name: profileData.first_name,
+                last_name: profileData.last_name,
+                section: profileData.section,
+                grade_level: profileData.grade_level,
+              };
+            }
           }
           return order;
-        });
-        return order;
-      });
+        })
+      );
 
-      const posEnriched = (posData || []).map((order: any) => {
-        if (order.user_id) {
-          const { data: profileData, error: profileError } = await (supabase as any)
-            .from("profiles")
-            .select("first_name, last_name, section, grade_level")
-            .eq("user_id", order.user_id)
-            .single();
-          if (!profileError) {
-            order.customer = {
-              first_name: profileData.first_name,
-              last_name: profileData.last_name,
-              section: profileData.section,
-              grade_level: profileData.grade_level,
-            };
-          }
-        }
-        return order;
-      });
+      // Placeholder for pos orders enrichment
+      const posEnriched = posData;
 
-      setOrders([...combined, ...printEnriched, ...posEnriched]);
+      setOrders([...ordersWithProfile, ...printEnriched, ...posEnriched]);
     } catch (e: any) {
       console.error("Failed to load orders:", e);
       if (showToast) toast.error("Failed to load orders");

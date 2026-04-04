@@ -44,10 +44,15 @@ export default function PrintTab() {
         }
       }
 
-      const enriched = (printData || []).map((order: any) => ({
-        ...order,
-        customer: profileMap[order.user_id] || null,
-      });
+      const enriched = await Promise.all(
+        (printData || []).map(async (order: any) => {
+          const customer = profileMap[order.user_id] || null;
+          return {
+            ...order,
+            customer,
+          };
+        })
+      );
 
       setOrders(enriched);
     } catch (e: any) {
@@ -146,6 +151,7 @@ export default function PrintTab() {
   if (selectedOrder) {
     const cust = selectedOrder.customer;
     const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custEmail = cust?.email || "N/A";
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
 
@@ -205,7 +211,7 @@ export default function PrintTab() {
             </div>
             <div className="bg-muted rounded-lg p-2 flex items-center justify-center gap-1">
               <Palette className="h-3 w-3 text-orange-500" />
-              <span className="text-sm font-extrabold block">{selectedOrder.colored_pages}</span>
+              <span className="text-sm font-extrabod block>{selectedOrder.colored_pages}</span>
               <span className="text-[9px] text-muted-foreground">Color</span>
             </div>
             <div className="bg-muted rounded-lg p-2">
