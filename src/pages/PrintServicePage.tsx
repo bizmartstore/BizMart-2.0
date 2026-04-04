@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -9,8 +9,18 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Printer, Calendar, Clock, MapPin, AlertCircle, CheckCircle2, X, Loader2 } from "lucide-react";
+import { Upload, FileText, Printer, Calendar, Clock, MapPin, AlertCircle, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
 import { format } from "date-fns";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.6.205/pdf.worker.min.mjs";
+
+interface PageInfo {
+  pageNum: number;
+  isColor: boolean;
+  selected: boolean;
+}
 
 export default function PrintServicePage() {
   const navigate = useNavigate();
@@ -18,14 +28,13 @@ export default function PrintServicePage() {
   const { storeOpen } = useAppSettings();
   
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
+  const [pages, setPages] = useState<PageInfo[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
   const [copies, setCopies] = useState(1);
-  const [colorMode, setColorMode] = useState<"bw" | "color">("bw");
   const [pageSize, setPageSize] = useState<"short" | "long">("short");
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [pickupDate, setPickupDate] = useState<string>("");
   const [pickupTime, setPickupTime] = useState<string>("");
-  const [totalPages, setTotalPages] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
@@ -39,6 +48,46 @@ export default function PrintServicePage() {
     "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
   ];
 
+  const analyzePdf = async (file: File) => {
+    setAnalyzing(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const analyzedPages: PageInfo[] = [];
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.3 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) continue;
+
+        await page.render({ canvasContext: ctx, viewport }).promise;
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        let isColor = false;
+        for (let j = 0; j < imageData.data.length; j += 16) {
+          const r = imageData.data[j];
+          const g = imageData.data[j + 1];
+          const b = imageData.data[j + 2];
+          if (Math.abs(r - g) > 15 || Math.abs(r - b) > 15 || Math.abs(g - b) > 15) {
+            isColor = true;
+            break;
+          }
+        }
+        analyzedPages.push({ pageNum: i, isColor, selected: true });
+      }
+      setPages(analyzedPages);
+    } catch (err) {
+      console.error("PDF analysis failed:", err);
+      toast.error("Failed to analyze PDF. Please try again.");
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
@@ -48,35 +97,50 @@ export default function PrintServicePage() {
       return;
     }
 
-    if (selected.size > 10 * 1024 * 1024) {
-      toast.error("File size must be less than 10MB");
+    if (selected.size > 15 * 1024 * 1024) {
+      toast.error("File size must be less than 15MB");
       return;
     }
 
     setFile(selected);
-    const url = URL.createObjectURL(selected);
-    setPreview(url);
-    setTotalPages(1);
+    setPages([]);
+    await analyzePdf(selected);
   };
 
   const removeFile = () => {
     setFile(null);
-    setPreview(null);
+    setPages([]);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const togglePage = (pageNum: number) => {
+    setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, selected: !p.selected } : p));
+  };
+
+  const selectAll = (select: boolean) => {
+    setPages(prev => prev.map(p => ({ ...p, selected: select })));
+  };
+
+  const getPrice = (isColor: boolean, size: "short" | "long") => {
+    if (size === "short") return isColor ? 5 : 3;
+    return isColor ? 10 : 8;
+  };
+
   const calculateCost = () => {
-    const baseCost = pageSize === "short" ? 5 : 8;
-    const colorMultiplier = colorMode === "color" ? 2 : 1;
-    const pageCost = totalPages * baseCost * colorMultiplier * copies;
-    const deliveryCost = deliveryType === "delivery" ? 50 : 0;
-    return pageCost + deliveryCost;
+    const selectedPages = pages.filter(p => p.selected);
+    let pageCost = 0;
+    for (const p of selectedPages) {
+      pageCost += getPrice(p.isColor, pageSize);
+    }
+    const deliveryCost = deliveryType === "delivery" ? 10 : 0;
+    return (pageCost * copies) + deliveryCost;
   };
 
   const handleSubmit = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!file) { toast.error("Please upload a PDF file"); return; }
+    if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time"); return; }
     
     if (pickupDate !== today) {
@@ -90,6 +154,12 @@ export default function PrintServicePage() {
     
     if (selectedDT < minDT) {
       toast.error("Pickup time must be at least 10 minutes from now");
+      return;
+    }
+
+    const selectedPages = pages.filter(p => p.selected);
+    if (selectedPages.length === 0) {
+      toast.error("Please select at least one page to print");
       return;
     }
 
@@ -107,8 +177,8 @@ export default function PrintServicePage() {
         .from("print-orders")
         .getPublicUrl(fileName);
 
-      const bwPages = colorMode === "bw" ? totalPages : 0;
-      const coloredPages = colorMode === "color" ? totalPages : 0;
+      const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
+      const coloredPages = selectedPages.filter(p => p.isColor).length * copies;
       const totalCost = calculateCost();
 
       const { data: orderData, error } = await supabase
@@ -117,9 +187,9 @@ export default function PrintServicePage() {
           user_id: user.id,
           file_url: publicUrl,
           file_name: file.name,
-          total_pages: totalPages * copies,
-          bw_pages: bwPages * copies,
-          colored_pages: coloredPages * copies,
+          total_pages: selectedPages.length * copies,
+          bw_pages: bwPages,
+          colored_pages: coloredPages,
           page_size: pageSize,
           delivery_type: deliveryType,
           pickup_date: pickupDate,
@@ -175,6 +245,10 @@ export default function PrintServicePage() {
     );
   }
 
+  const selectedPages = pages.filter(p => p.selected);
+  const bwCount = selectedPages.filter(p => !p.isColor).length;
+  const colorCount = selectedPages.filter(p => p.isColor).length;
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
@@ -200,7 +274,7 @@ export default function PrintServicePage() {
             >
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm font-medium text-foreground">Tap to upload PDF</p>
-              <p className="text-xs text-muted-foreground mt-1">Max 10MB</p>
+              <p className="text-xs text-muted-foreground mt-1">Max 15MB • Auto-analyzes pages</p>
             </div>
           ) : (
             <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
@@ -208,7 +282,7 @@ export default function PrintServicePage() {
                 <FileText className="h-5 w-5 text-primary flex-shrink-0" />
                 <div className="min-w-0">
                   <p className="text-xs font-bold truncate">{file.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+                  <p className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB • {pages.length} pages</p>
                 </div>
               </div>
               <button onClick={removeFile} className="p-1 hover:bg-muted rounded-full">
@@ -224,6 +298,61 @@ export default function PrintServicePage() {
             onChange={handleFileChange}
           />
         </div>
+
+        {/* Page Selection */}
+        {pages.length > 0 && (
+          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-bold flex items-center gap-2">
+                <File className="h-4 w-4 text-primary" /> Select Pages
+              </Label>
+              <div className="flex gap-2">
+                <button onClick={() => selectAll(true)} className="text-[10px] font-bold text-primary hover:underline">All</button>
+                <button onClick={() => selectAll(false)} className="text-[10px] font-bold text-muted-foreground hover:underline">None</button>
+              </div>
+            </div>
+            
+            {analyzing ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                <span className="text-xs text-muted-foreground">Analyzing pages...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1">
+                {pages.map((page) => (
+                  <button
+                    key={page.pageNum}
+                    onClick={() => togglePage(page.pageNum)}
+                    className={`relative p-2 rounded-lg border text-center transition-all ${
+                      page.selected 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-muted/30 opacity-60"
+                    }`}
+                  >
+                    <span className="text-xs font-bold block">{page.pageNum}</span>
+                    <div className="flex items-center justify-center mt-1">
+                      {page.isColor ? (
+                        <Palette className="h-3 w-3 text-orange-500" />
+                      ) : (
+                        <File className="h-3 w-3 text-gray-500" />
+                      )}
+                    </div>
+                    {page.selected && (
+                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center">
+                        <CheckCircle2 className="h-3 w-3 text-white" />
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t border-border">
+              <span className="flex items-center gap-1"><File className="h-3 w-3" /> B&W: {bwCount}</span>
+              <span className="flex items-center gap-1"><Palette className="h-3 w-3 text-orange-500" /> Color: {colorCount}</span>
+              <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
+            </div>
+          </div>
+        )}
 
         {/* Print Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
@@ -241,7 +370,7 @@ export default function PrintServicePage() {
                     pageSize === "short" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                   }`}
                 >
-                  Short
+                  Short/A4
                 </button>
                 <button
                   onClick={() => setPageSize("long")}
@@ -255,55 +384,22 @@ export default function PrintServicePage() {
             </div>
 
             <div>
-              <Label className="text-[10px]">Color Mode</Label>
-              <div className="grid grid-cols-2 gap-1 mt-1">
+              <Label className="text-[10px]">Copies</Label>
+              <div className="flex items-center gap-3 mt-1">
                 <button
-                  onClick={() => setColorMode("bw")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                    colorMode === "bw" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
+                  onClick={() => setCopies(Math.max(1, copies - 1))}
+                  className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
                 >
-                  B&W
+                  -
                 </button>
+                <span className="text-sm font-bold w-8 text-center">{copies}</span>
                 <button
-                  onClick={() => setColorMode("color")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                    colorMode === "color" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
+                  onClick={() => setCopies(copies + 1)}
+                  className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
                 >
-                  Color
+                  +
                 </button>
               </div>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-[10px]">Total Pages</Label>
-            <Input
-              type="number"
-              min="1"
-              value={totalPages}
-              onChange={(e) => setTotalPages(Math.max(1, Number(e.target.value)))}
-              className="text-sm h-9 mt-1"
-            />
-          </div>
-
-          <div>
-            <Label className="text-[10px]">Copies</Label>
-            <div className="flex items-center gap-3 mt-1">
-              <button
-                onClick={() => setCopies(Math.max(1, copies - 1))}
-                className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-              >
-                -
-              </button>
-              <span className="text-sm font-bold w-8 text-center">{copies}</span>
-              <button
-                onClick={() => setCopies(copies + 1)}
-                className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-              >
-                +
-              </button>
             </div>
           </div>
         </div>
@@ -331,7 +427,7 @@ export default function PrintServicePage() {
                   deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
               >
-                Delivery (+₱50)
+                Delivery (+₱10)
               </button>
             </div>
           </div>
@@ -367,14 +463,22 @@ export default function PrintServicePage() {
         <div className="bg-card rounded-xl border border-border p-4">
           <h3 className="text-sm font-bold mb-3">Cost Summary</h3>
           <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Pages ({totalPages} × {copies} copies)</span>
-              <span className="font-bold">₱{(totalPages * (pageSize === "short" ? 5 : 8) * (colorMode === "color" ? 2 : 1) * copies).toFixed(2)}</span>
-            </div>
+            {bwCount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">B&W Pages ({bwCount} × {copies})</span>
+                <span className="font-bold">₱{(bwCount * getPrice(false, pageSize) * copies).toFixed(2)}</span>
+              </div>
+            )}
+            {colorCount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Color Pages ({colorCount} × {copies})</span>
+                <span className="font-bold">₱{(colorCount * getPrice(true, pageSize) * copies).toFixed(2)}</span>
+              </div>
+            )}
             {deliveryType === "delivery" && (
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Delivery Fee</span>
-                <span className="font-bold">₱50.00</span>
+                <span className="font-bold">₱10.00</span>
               </div>
             )}
             <div className="border-t border-border pt-2 flex justify-between">
@@ -387,7 +491,7 @@ export default function PrintServicePage() {
         {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={submitting || !file || !pickupDate || !pickupTime}
+          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime}
           className="w-full h-12 font-bold rounded-xl"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

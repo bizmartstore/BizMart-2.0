@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle, Palette, File } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function PrintTab() {
@@ -16,7 +16,6 @@ export default function PrintTab() {
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const load = useCallback(async (isBackground = false) => {
-    // Only show loading state and clear errors on initial/manual loads
     if (!isBackground) {
       setLoading(true);
       setDbError(null);
@@ -52,13 +51,11 @@ export default function PrintTab() {
       setOrders(enriched);
     } catch (e: any) {
       console.error("Failed to load print orders:", e);
-      // Only show error UI on initial/manual loads
       if (!isBackground) {
         setDbError(e.message || "Unknown database error");
         toast.error("Failed to load print orders. Check console for details.");
       }
     } finally {
-      // Only hide loading spinner on initial/manual loads
       if (!isBackground) {
         setLoading(false);
       }
@@ -66,14 +63,14 @@ export default function PrintTab() {
   }, []);
 
   useEffect(() => {
-    load(); // Initial load shows spinner
+    load();
   }, [load]);
 
   useEffect(() => {
     const channel = supabase
       .channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
-        load(true); // Silent background update
+        load(true);
       })
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
@@ -83,9 +80,8 @@ export default function PrintTab() {
         }
       });
 
-    // Poll every 15s instead of 10s to reduce API quota usage
     pollIntervalRef.current = setInterval(() => {
-      load(true); // Silent background update
+      load(true);
     }, 15000);
 
     return () => {
@@ -95,7 +91,6 @@ export default function PrintTab() {
   }, [load]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
-    // Optimistic UI update
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
@@ -123,7 +118,6 @@ export default function PrintTab() {
       toast.success(`Print order ${newStatus}!`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
-      // Revert on error by reloading
       load();
     }
   };
@@ -202,11 +196,13 @@ export default function PrintTab() {
               <span className="text-sm font-extrabold block">{selectedOrder.total_pages}</span>
               <span className="text-[9px] text-muted-foreground">Total</span>
             </div>
-            <div className="bg-muted rounded-lg p-2">
+            <div className="bg-muted rounded-lg p-2 flex items-center justify-center gap-1">
+              <File className="h-3 w-3 text-gray-500" />
               <span className="text-sm font-extrabold block">{selectedOrder.bw_pages}</span>
               <span className="text-[9px] text-muted-foreground">B&W</span>
             </div>
-            <div className="bg-muted rounded-lg p-2">
+            <div className="bg-muted rounded-lg p-2 flex items-center justify-center gap-1">
+              <Palette className="h-3 w-3 text-orange-500" />
               <span className="text-sm font-extrabold block">{selectedOrder.colored_pages}</span>
               <span className="text-[9px] text-muted-foreground">Color</span>
             </div>
@@ -317,7 +313,12 @@ export default function PrintTab() {
                     <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
+                    <div className="text-right">
+                      <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
+                      <p className="text-[9px] text-muted-foreground">
+                        {order.total_pages}pg ({order.bw_pages}B/{order.colored_pages}C)
+                      </p>
+                    </div>
                     <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
                   </div>
                 </div>
