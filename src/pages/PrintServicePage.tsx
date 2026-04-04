@@ -1,4 +1,3 @@
-=10min ahead, and correct syntax errors">
 "use client";
 
 import { useState, useRef, useMemo } from "react";
@@ -12,6 +11,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
 import { format, addMinutes, isAfter, isBefore } from "date-fns";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+
+interface PageInfo {
+  pageNum: number;
+  isColor: boolean;
+  selected: boolean;
+}
 
 export default function PrintServicePage() {
   const navigate = useNavigate();
@@ -35,13 +44,6 @@ export default function PrintServicePage() {
   const today = format(now, "yyyy-MM-dd");
   const minTime = new Date(now.getTime() + 10 * 60000);
   const minTimeStr = format(minTime, "HH:mm");
-
-  // Auto-set pickupTime to 10 minutes from now on mount
-  useEffect(() => {
-    const now = new Date();
-    const tenMinutesLater = new Date(now.getTime() + 10 * 60000);
-    setPickupTime(format(tenMinutesLater, "HH:mm"));
-  }, []);
 
   const allTimes = [
     "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
@@ -226,7 +228,7 @@ export default function PrintServicePage() {
           <button onClick={() => navigate(-1)} className="p-1.5">
             <Printer className="h-5 w-5 text-primary" />
           </button>
-          <span className="font-bold text-sm ml-2">Order Confirmed</span>
+          <span className="font-bold text-sm ml-2">Print Order Confirmed</span>
         </div>
         <div className="px-4 py-8 text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -305,14 +307,15 @@ export default function PrintServicePage() {
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-bold flex items-center gap-2">
-                <File className="h-4 w-4 text-primary" /> Select Pages
+                <FileText className="h-4 w-4 text-primary" /> Select Pages
               </Label>
               <div className="flex gap-2">
                 <button onClick={() => selectAll(true)} className="text-[10px] font-bold text-primary hover:underline">All</button>
                 <button onClick={() => selectAll(false)} className="text-[10px] font-bold text-muted-foreground hover:underline">None</button>
               </div>
             </div>
-                        {analyzing ? (
+            
+            {analyzing ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
                 <span className="text-xs text-muted-foreground">Analyzing pages...</span>
@@ -440,8 +443,7 @@ export default function PrintServicePage() {
             </div>
             <div>
               <Label className="text-[10px]">Time</Label>
-              <select
-                value={pickupTime}
+              <select                value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
               >
@@ -457,8 +459,8 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="text-sm font-bold mb-3">Cost Summary</h3>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-bold mb-3">Cost Summary</Label>
           <div className="space-y-2 text-xs">
             {bwCount > 0 && (
               <div className="flex justify-between">
