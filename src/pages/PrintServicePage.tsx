@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -10,11 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
-import { format, addMinutes, isAfter, isBefore } from "date-fns";
+import { format } from "date-fns";
 import * as pdfjsLib from "pdfjs-dist";
-import pdfjsWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
+import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+// Configure PDF.js worker to use the locally bundled worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PageInfo {
   pageNum: number;
@@ -33,35 +34,30 @@ export default function PrintServicePage() {
   const [copies, setCopies] = useState(1);
   const [pageSize, setPageSize] = useState<"short" | "long">("short");
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
-  const [pickupDate, setPickupDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [pickupDate, setPickupDate] = useState<string>("");
   const [pickupTime, setPickupTime] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const now = new Date();
-  const today = format(now, "yyyy-MM-dd");
-  const minTime = new Date(now.getTime() + 10 * 60000);
-  const minTimeStr = format(minTime, "HH:mm");
-
-  const allTimes = [
+  const today = format(new Date(), "yyyy-MM-dd");
+  const availableTimes = [
     "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
     "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
     "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
     "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
   ];
-  const availableTimes = useMemo(() => allTimes.filter(t => t >= minTimeStr), [minTimeStr]);
 
   const analyzePdf = async (file: File) => {
     setAnalyzing(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-        useWorkerFetch: false,
-        isEvalSupported: false,
-      }).promise;
+  data: arrayBuffer,
+  disableFontFace: true,
+  useSystemFonts: true,
+}).promise;
       const analyzedPages: PageInfo[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -73,7 +69,11 @@ export default function PrintServicePage() {
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
 
-        await page.render({ canvas, viewport }).promise;
+        await page.render({
+  canvasContext: ctx,
+  canvas: canvas,
+  viewport,
+} as any).promise;
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let isColor = false;
         for (let j = 0; j < imageData.data.length; j += 16) {
@@ -149,7 +149,7 @@ export default function PrintServicePage() {
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!file) { toast.error("Please upload a PDF file"); return; }
     if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
-    if (!pickupTime) { toast.error("Please select a time"); return; }
+    if (!pickupDate || !pickupTime) { toast.error("Please select date and time"); return; }
     
     if (pickupDate !== today) {
       toast.error("Please select today's date for pickup/delivery");
@@ -157,7 +157,10 @@ export default function PrintServicePage() {
     }
     
     const selectedDT = new Date(`${today}T${pickupTime}`);
-    if (selectedDT < minTime) {
+    const now = new Date();
+    const minDT = new Date(now.getTime() + 10 * 60000);
+    
+    if (selectedDT < minDT) {
       toast.error("Pickup time must be at least 10 minutes from now");
       return;
     }
@@ -225,10 +228,10 @@ export default function PrintServicePage() {
     return (
       <div className="min-h-screen bg-background pb-20">
         <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-          <button onClick={() => navigate(-1)} className="p-1.5">
+          <button onClick={() => navigate("/")} className="p-1.5">
             <Printer className="h-5 w-5 text-primary" />
           </button>
-          <span className="font-bold text-sm ml-2">Print Order Confirmed</span>
+          <span className="font-bold text-sm ml-2">Order Confirmed</span>
         </div>
         <div className="px-4 py-8 text-center">
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -266,6 +269,7 @@ export default function PrintServicePage() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
+        {/* File Upload */}
         <div className="bg-card rounded-xl border border-border p-4">
           <Label className="text-sm font-bold flex items-center gap-2 mb-3">
             <FileText className="h-4 w-4 text-primary" /> Upload Document
@@ -303,11 +307,12 @@ export default function PrintServicePage() {
           />
         </div>
 
+        {/* Page Selection */}
         {pages.length > 0 && (
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-bold flex items-center gap-2">
-                <FileText className="h-4 w-4 text-primary" /> Select Pages
+                <File className="h-4 w-4 text-primary" /> Select Pages
               </Label>
               <div className="flex gap-2">
                 <button onClick={() => selectAll(true)} className="text-[10px] font-bold text-primary hover:underline">All</button>
@@ -355,11 +360,13 @@ export default function PrintServicePage() {
               <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
             </div>
           </div>
-        </div>
+        )}
 
+        {/* Print Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-bold flex items-center gap-2">
-            <Printer className="h-4 w-4 text-primary" /> Print Settings          </Label>
+            <Printer className="h-4 w-4 text-primary" /> Print Settings
+          </Label>
           
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -405,6 +412,7 @@ export default function PrintServicePage() {
           </div>
         </div>
 
+        {/* Delivery Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-bold flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" /> Delivery
@@ -419,7 +427,8 @@ export default function PrintServicePage() {
                   deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
               >
-                Pickup              </button>
+                Pickup
+              </button>
               <button
                 onClick={() => setDeliveryType("delivery")}
                 className={`py-2 rounded-lg text-xs font-bold transition-all ${
@@ -436,31 +445,31 @@ export default function PrintServicePage() {
               <Label className="text-[10px]">Date</Label>
               <Input
                 type="date"
-                value={today}
-                readOnly                className="text-sm h-9 mt-1 bg-muted/50 cursor-not-allowed"
+                min={today}
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
+                className="text-sm h-9 mt-1"
               />
-              <p className="text-[9px] text-muted-foreground mt-1">Only today's date is available</p>
             </div>
             <div>
               <Label className="text-[10px]">Time</Label>
-              <select                value={pickupTime}
+              <select
+                value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
               >
-                <option value="">Select time</option>
+                <option value="">Select</option>
                 {availableTimes.map((time) => (
                   <option key={time} value={time}>{time}</option>
                 ))}
               </select>
-              {availableTimes.length === 0 && (
-                <p className="text-[9px] text-destructive mt-1">No available times left for today</p>
-              )}
             </div>
           </div>
         </div>
 
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <Label className="text-sm font-bold mb-3">Cost Summary</Label>
+        {/* Cost Summary */}
+        <div className="bg-card rounded-xl border border-border p-4">
+          <h3 className="text-sm font-bold mb-3">Cost Summary</h3>
           <div className="space-y-2 text-xs">
             {bwCount > 0 && (
               <div className="flex justify-between">
@@ -487,9 +496,10 @@ export default function PrintServicePage() {
           </div>
         </div>
 
+        {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupTime || availableTimes.length === 0}
+          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime}
           className="w-full h-12 font-bold rounded-xl"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

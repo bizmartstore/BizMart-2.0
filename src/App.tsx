@@ -12,6 +12,7 @@ import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
 
+// Pages
 import Index from "@/pages/Index";
 import LoginPage from "@/pages/LoginPage";
 import SignUpPage from "@/pages/SignUpPage";
