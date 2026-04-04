@@ -71,8 +71,9 @@ export default function PrintServicePage() {
 
         await page.render({
   canvasContext: ctx,
+  canvas: canvas,
   viewport,
-}).promise;
+} as any).promise;
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let isColor = false;
         for (let j = 0; j < imageData.data.length; j += 16) {
