@@ -54,10 +54,11 @@ export default function PrintServicePage() {
     return h * 60 + m;
   };
 
-  // Set initial date to today on mount
+  // Set initial date and time to today + 10 mins on mount
   useEffect(() => {
     setPickupDate(today);
-  }, [today]);
+    setPickupTime(minTimeString);
+  }, []);
 
   const analyzePdf = async (file: File) => {
     setAnalyzing(true);

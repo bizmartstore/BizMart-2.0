@@ -41,10 +41,11 @@ export default function CartPage() {
     return h * 60 + m;
   };
 
-  // Set initial date to today on mount
+  // Set initial date and time to today + 10 mins on mount
   useEffect(() => {
     setPickupDate(today);
-  }, [today]);
+    setPickupTime(minTimeString);
+  }, []);
 
   // Update delivery fee when delivery type changes
   useEffect(() => {
