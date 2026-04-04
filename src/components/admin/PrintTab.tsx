@@ -124,11 +124,13 @@ export default function PrintTab() {
 
   const filtered = orders.filter(o => {
     const matchFilter = filter === "all" || o.status === filter;
-    const custName = o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : "";
+    const cust = o.customer;
+    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
     const matchSearch = !search || 
       custName.toLowerCase().includes(search.toLowerCase()) ||
       (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (o.customer?.section || "").toLowerCase().includes(search.toLowerCase());
+      (cust?.section || "").toLowerCase().includes(search.toLowerCase()) ||
+      (cust?.grade_level || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
