@@ -211,7 +211,7 @@ export default function PrintTab() {
             </div>
             <div className="bg-muted rounded-lg p-2 flex items-center justify-center gap-1">
               <Palette className="h-3 w-3 text-orange-500" />
-              <span className="text-sm font-extrabod block>{selectedOrder.colored_pages}</span>
+              <span className="text-sm font-extrabold block">{selectedOrder.colored_pages}</span>
               <span className="text-[9px] text-muted-foreground">Color</span>
             </div>
             <div className="bg-muted rounded-lg p-2">

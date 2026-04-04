@@ -5,99 +5,169 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw } from "lucide-react";
 import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
+import OverviewTab from "@/components/admin/OverviewTab";
+import ProductsTab from "@/components/admin/ProductsTab";
+import UsersTab from "@/components/admin/UsersTab";
+import PrintTab from "@/components/admin/PrintTab";
+import CodesTab from "@/components/admin/CodesTab";
+import NewsTab from "@/components/admin/NewsTab";
+import ClubTab from "@/components/admin/ClubTab";
+import BCoinsTab from "@/components/admin/BCoinsTab";
+import GCashTab from "@/components/admin/GCashTab";
+import SellersTab from "@/components/admin/SellersTab";
+import JobsTab from "@/components/admin/JobsTab";
+import SettingsTab from "@/components/admin/SettingsTab";
+import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
+import FreelancersTab from "@/components/admin/FreelancersTab";
 
-export default function OrdersTab() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [filter, setFilter] = useState("all");
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [refreshing, setRefreshing] = useState(false);
+const MEMBER_ADMIN_ALLOWED_TABS = [
+  "overview",
+  "orders",
+  "print",
+  "news",
+  "gcash",
+  "jobs",
+  "freelancers",
+  "settings"
+];
+
+export default function AdminDashboard() {
+  const { user, profile, isAuthReady } = useAuth();
+  const { isAdmin, isMainAdmin } = useAdmin();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("overview");
+  const [pendingCounts, setPendingCounts] = useState({
+    orders: 0,
+    print: 0,
+    gcash: 0,
+    bcoins: 0,
+    messages: 0,
+    jobs: 0,
+    freelancers: 0,
+  });
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const loadOrders = useCallback(async (showToast = false) => {
+  const loadPendingCounts = useCallback(async () => {
     try {
-      // 👇 JOIN PROFILES TO GET CUSTOMER DETAILS
-      const { data: ordersRes, error: ordersError } = await (supabase as any)
-        .from("orders")
-        .select(`
-          *,
-          customer:user_id (first_name, last_name, section, grade_level)
-        `)
-        .order("created_at", { ascending: false });
+      const [ordersRes, printRes, gcashRes, bcoinsRes, jobsRes, freelancersRes] = await Promise.allSettled([
+        (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open"),
+        (supabase as any).from("freelancer_profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      ]);
 
-      if (ordersError) throw ordersError;
-
-      // 👇 ALSO FETCH PRINT ORDERS (they have no customer relationship)
-      const { data: printRes, error: printError } = await (supabase as any)
-        .from("print_orders")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (printError) throw printError;
-
-      // Combine and enrich with profile data
-      const combined = [...ordersRes.data];
-      const printData = printRes.data || [];
-      const posData = []; // Placeholder for pos orders if needed
-
-      // Add profile info to orders
-      const ordersWithProfile = await Promise.all(
-        combined.map(async (order: any) => {
-          if (order.customer?.user_id) {
-            const { data: profileData, error: profileError } = await (supabase as any)
-              .from("profiles")
-              .select("first_name, last_name, section, grade_level")
-              .eq("user_id", order.customer.user_id)
-              .single();
-            if (!profileError) {
-              order.customer.first_name = profileData.first_name;
-              order.customer.last_name = profileData.last_name;
-              order.customer.section = profileData.section;
-              order.customer.grade_level = profileData.grade_level;
-            }
-          }
-          return order;
-        })
-      );
-
-      // Also enrich print orders with profile data
-      const printEnriched = await Promise.all(
-        printData.map(async (order: any) => {
-          if (order.user_id) {
-            const { data: profileData, error: profileError } = await (supabase as any)
-              .from("profiles")
-              .select("first_name, last_name, section, grade_level")
-              .eq("user_id", order.user_id)
-              .single();
-            if (!profileError) {
-              order.customer = {
-                first_name: profileData.first_name,
-                last_name: profileData.last_name,
-                section: profileData.section,
-                grade_level: profileData.grade_level,
-              };
-            }
-          }
-          return order;
-        })
-      );
-
-      // Placeholder for pos orders enrichment
-      const posEnriched = posData;
-
-      setOrders([...ordersWithProfile, ...printEnriched, ...posEnriched]);
-    } catch (e: any) {
-      console.error("Failed to load orders:", e);
-      if (showToast) toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setPendingCounts({
+        orders: ordersRes.status === 'fulfilled' ? (ordersRes.value.count || 0) : 0,
+        print: printRes.status === 'fulfilled' ? (printRes.value.count || 0) : 0,
+        gcash: gcashRes.status === 'fulfilled' ? (gcashRes.value.count || 0) : 0,
+        bcoins: bcoinsRes.status === 'fulfilled' ? (bcoinsRes.value.count || 0) : 0,
+        messages: 0, // Messages are handled separately via unread count
+        jobs: jobsRes.status === 'fulfilled' ? (jobsRes.value.count || 0) : 0,
+        freelancers: freelancersRes.status === 'fulfilled' ? (freelancersRes.value.count || 0) : 0,
+      });
+    } catch (e) {
+      console.error("Failed to load pending counts:", e);
     }
   }, []);
 
   useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
+    if (isAuthReady && isAdmin) {
+      loadPendingCounts();
+    }
+  }, [isAuthReady, isAdmin, loadPendingCounts]);
 
-  // ... rest of component unchanged except rendering logic below ...
+  if (!isAuthReady) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    navigate("/");
+    return null;
+  }
+
+  const allTabs = [
+    { id: "overview", label: "Overview", icon: BarChart3, badge: 0 },
+    { id: "orders", label: "Orders", icon: ShoppingCart, badge: pendingCounts.orders },
+    { id: "products", label: "Products", icon: Package, badge: 0 },
+    { id: "users", label: "Users", icon: Users, badge: 0 },
+    { id: "sellers", label: "Sellers", icon: Crown, badge: 0 },
+    { id: "print", label: "Print", icon: Printer, badge: pendingCounts.print },
+    { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingCounts.messages },
+    { id: "codes", label: "Codes", icon: Ticket, badge: 0 },
+    { id: "news", label: "News", icon: Bell, badge: 0 },
+    { id: "club", label: "Club", icon: Crown, badge: 0 },
+    { id: "bcoins", label: "BCoins", icon: Coins, badge: pendingCounts.bcoins },
+    { id: "gcash", label: "GCash", icon: Coins, badge: pendingCounts.gcash },
+    { id: "jobs", label: "Jobs", icon: Briefcase, badge: pendingCounts.jobs },
+    { id: "freelancers", label: "Freelancers", icon: Award, badge: pendingCounts.freelancers },
+    { id: "settings", label: "Settings", icon: Settings, badge: 0 },
+  ];
+
+  const availableTabs = isMainAdmin 
+    ? allTabs     : allTabs.filter(tab => MEMBER_ADMIN_ALLOWED_TABS.includes(tab.id));
+
+  const currentTabAllowed = availableTabs.some(tab => tab.id === activeTab);
+  if (!currentTabAllowed && availableTabs.length > 0) {
+    const defaultTab = availableTabs.find(tab => tab.id === "overview") || availableTabs[0];
+    setActiveTab(defaultTab.id);
+  }
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <TopBar />
+      <div className="px-4 mt-4">
+        <div className="mb-6">
+          <h1 className="font-extrabold text-xl text-foreground">Admin Dashboard</h1>
+          <p className="text-xs text-muted-foreground">
+            {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
+          </p>
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+            {availableTabs.map((tab) => (
+              <TabsTrigger 
+                key={tab.id} 
+                value={tab.id} 
+                className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto relative"
+              >
+                <div className="relative">
+                  <tab.icon className="h-4 w-4" />
+                  {tab.badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[8px] font-bold rounded-full h-3.5 min-w-3.5 flex items-center justify-center animate-pulse">
+                      {tab.badge > 9 ? "9+" : tab.badge}
+                    </span>
+                  </div>
+                </div>
+                <span className="hidden sm:inline">{tab.label}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value="overview"><OverviewTab /></TabsContent>
+          <TabsContent value="orders"><OrdersTab /></TabsContent>
+          <TabsContent value="products"><ProductsTab /></TabsContent>
+          <TabsContent value="users"><UsersTab /></TabsContent>
+          <TabsContent value="sellers"><SellersTab /></TabsContent>
+          <TabsContent value="print"><PrintTab /></TabsContent>
+          <TabsContent value="messages"><MessagesTab /></TabsContent>
+          <TabsContent value="codes"><CodesTab /></TabsContent>
+          <TabsContent value="news"><NewsTab /></TabsContent>
+          <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
+          <TabsContent value="gcash"><GCashTab /></TabsContent>
+          <TabsContent value="jobs"><JobsTab /></TabsContent>
+          <TabsContent value="freelancers"><FreelancersTab /></TabsContent>
+          <TabsContent value="settings">{isMainAdmin ? <SettingsTab /> : <MemberAdminSettingsTab />}</TabsContent>
+        </Tabs>
+      </div>
+      <BottomNav />
+    </div>
+  );
+}
