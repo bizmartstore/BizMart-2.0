@@ -1,3 +1,4 @@
+=10min ahead, and correct syntax errors">
 "use client";
 
 import { useState, useRef, useMemo } from "react";
@@ -10,17 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
-import { format } from "date-fns";
-import * as pdfjsLib from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
-
-interface PageInfo {
-  pageNum: number;
-  isColor: boolean;
-  selected: boolean;
-}
+import { format, addMinutes, isAfter, isBefore } from "date-fns";
 
 export default function PrintServicePage() {
   const navigate = useNavigate();
@@ -44,6 +35,13 @@ export default function PrintServicePage() {
   const today = format(now, "yyyy-MM-dd");
   const minTime = new Date(now.getTime() + 10 * 60000);
   const minTimeStr = format(minTime, "HH:mm");
+
+  // Auto-set pickupTime to 10 minutes from now on mount
+  useEffect(() => {
+    const now = new Date();
+    const tenMinutesLater = new Date(now.getTime() + 10 * 60000);
+    setPickupTime(format(tenMinutesLater, "HH:mm"));
+  }, []);
 
   const allTimes = [
     "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
@@ -225,7 +223,7 @@ export default function PrintServicePage() {
     return (
       <div className="min-h-screen bg-background pb-20">
         <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-          <button onClick={() => navigate("/")} className="p-1.5">
+          <button onClick={() => navigate(-1)} className="p-1.5">
             <Printer className="h-5 w-5 text-primary" />
           </button>
           <span className="font-bold text-sm ml-2">Order Confirmed</span>
@@ -314,8 +312,7 @@ export default function PrintServicePage() {
                 <button onClick={() => selectAll(false)} className="text-[10px] font-bold text-muted-foreground hover:underline">None</button>
               </div>
             </div>
-            
-            {analyzing ? (
+                        {analyzing ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
                 <span className="text-xs text-muted-foreground">Analyzing pages...</span>
@@ -355,12 +352,11 @@ export default function PrintServicePage() {
               <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
             </div>
           </div>
-        )}
+        </div>
 
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-bold flex items-center gap-2">
-            <Printer className="h-4 w-4 text-primary" /> Print Settings
-          </Label>
+            <Printer className="h-4 w-4 text-primary" /> Print Settings          </Label>
           
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -420,8 +416,7 @@ export default function PrintServicePage() {
                   deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                 }`}
               >
-                Pickup
-              </button>
+                Pickup              </button>
               <button
                 onClick={() => setDeliveryType("delivery")}
                 className={`py-2 rounded-lg text-xs font-bold transition-all ${
@@ -439,8 +434,7 @@ export default function PrintServicePage() {
               <Input
                 type="date"
                 value={today}
-                readOnly
-                className="text-sm h-9 mt-1 bg-muted/50 cursor-not-allowed"
+                readOnly                className="text-sm h-9 mt-1 bg-muted/50 cursor-not-allowed"
               />
               <p className="text-[9px] text-muted-foreground mt-1">Only today's date is available</p>
             </div>
