@@ -28,26 +28,28 @@ export default function CartPage() {
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
-  // Get current date and minimum time (now + 10 minutes)
-  const now = new Date();
-  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  // 👇 Dynamic current time that updates every minute
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const today = now.toISOString().split('T')[0];
   const minTime = new Date(now.getTime() + 10 * 60 * 1000);
-  const minTimeString = minTime.toTimeString().slice(0, 5); // "HH:MM"
+  const minTimeString = minTime.toTimeString().slice(0, 5);
   const noTimesToday = minTime.toDateString() !== now.toDateString();
 
-  // Helper to convert time string to minutes
   const timeToMinutes = (time: string) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   };
 
-  // Set initial date and time to today + 10 mins on mount
   useEffect(() => {
     setPickupDate(today);
     setPickupTime(minTimeString);
-  }, []);
+  }, [today, minTimeString]);
 
-  // Update delivery fee when delivery type changes
   useEffect(() => {
     setDeliveryFee(deliveryType === "delivery" ? 10 : 0);
   }, [deliveryType]);
@@ -57,14 +59,12 @@ export default function CartPage() {
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
     
-    // Validate date is today
     if (pickupDate !== today) {
       toast.error("Pickup date must be today.");
       setCheckingOut(false);
       return;
     }
 
-    // Validate time is at least 10 minutes ahead
     if (noTimesToday) {
       toast.error("No available times for today. Please choose a different date.");
       setCheckingOut(false);
@@ -177,7 +177,6 @@ export default function CartPage() {
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      {/* Header */}
       <div className="sticky top-0 z-40 bg-card flex items-center gap-2 px-3 py-2.5 border-b border-border">
         <button onClick={() => navigate(-1)} className="p-1.5">
           <ShoppingBag className="h-5 w-5" />
@@ -187,7 +186,6 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Cart Items */}
       <div className="px-4 py-4">
         {items.map(item => (
           <div key={item.id} className="bg-card rounded-lg p-3 border border-border flex items-center gap-2 mb-3">
@@ -221,10 +219,8 @@ export default function CartPage() {
         </div>
       </div>
 
-      {/* Checkout Section */}
       <div className="px-4 py-6 bg-card">
         <div className="space-y-4">
-          {/* Delivery Options */}
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="text-xs font-bold">Delivery Type</label>
@@ -273,12 +269,10 @@ export default function CartPage() {
             </div>
           </div>
 
-          {/* Delivery Fee Display */}
           <div className="flex items-center gap-2 mt-2">
             <span className="text-[10px] text-muted-foreground">Delivery Fee: ₱{deliveryFee}</span>
           </div>
 
-          {/* Total Price Display */}
           <div className="flex items-center justify-between mt-2">
             <span className="text-[10px] text-muted-foreground">Subtotal</span>
             <span className="text-[11px] font-bold text-primary">
@@ -287,7 +281,6 @@ export default function CartPage() {
           </div>
         </div>
 
-        {/* Checkout Button */}
         <Button
           onClick={handleCheckout}
           disabled={checkingOut || items.length === 0 || noTimesToday || !pickupTime}

@@ -14,7 +14,6 @@ import { format } from "date-fns";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 
-// Configure PDF.js worker to use the locally bundled worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PageInfo {
@@ -41,24 +40,27 @@ export default function PrintServicePage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get current date and minimum time (now + 10 minutes)
-  const now = new Date();
+  // 👇 Dynamic current time that updates every minute
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   const today = now.toISOString().split('T')[0];
   const minTime = new Date(now.getTime() + 10 * 60 * 1000);
   const minTimeString = minTime.toTimeString().slice(0, 5);
   const noTimesToday = minTime.toDateString() !== now.toDateString();
 
-  // Helper to convert time string to minutes
   const timeToMinutes = (time: string) => {
     const [h, m] = time.split(':').map(Number);
     return h * 60 + m;
   };
 
-  // Set initial date and time to today + 10 mins on mount
   useEffect(() => {
     setPickupDate(today);
     setPickupTime(minTimeString);
-  }, []);
+  }, [today, minTimeString]);
 
   const analyzePdf = async (file: File) => {
     setAnalyzing(true);
@@ -162,13 +164,11 @@ export default function PrintServicePage() {
     if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time"); return; }
     
-    // Validate date is today
     if (pickupDate !== today) {
       toast.error("Pickup date must be today.");
       return;
     }
 
-    // Validate time is at least 10 minutes ahead
     if (noTimesToday) {
       toast.error("No available times for today. Please choose a different date.");
       return;
@@ -284,7 +284,6 @@ export default function PrintServicePage() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        {/* File Upload */}
         <div className="bg-card rounded-xl border border-border p-4">
           <Label className="text-sm font-bold flex items-center gap-2 mb-3">
             <FileText className="h-4 w-4 text-primary" /> Upload Document
@@ -322,7 +321,6 @@ export default function PrintServicePage() {
           />
         </div>
 
-        {/* Page Selection */}
         {pages.length > 0 && (
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -377,7 +375,6 @@ export default function PrintServicePage() {
           </div>
         )}
 
-        {/* Print Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-bold flex items-center gap-2">
             <Printer className="h-4 w-4 text-primary" /> Print Settings
@@ -427,7 +424,6 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        {/* Delivery Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-bold flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" /> Delivery
@@ -485,7 +481,6 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        {/* Cost Summary */}
         <div className="bg-card rounded-xl border border-border p-4">
           <h3 className="text-sm font-bold mb-3">Cost Summary</h3>
           <div className="space-y-2 text-xs">
@@ -514,7 +509,6 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        {/* Submit Button */}
         <Button
           onClick={handleSubmit}
           disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday}
