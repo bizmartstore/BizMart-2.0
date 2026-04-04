@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
 import { format } from "date-fns";
-import * as pdfjsLib from "pdfjs-dist/build/pdf";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
+import * as pdfjsLib from "pdfjs-dist";
+import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
 
 // Configure PDF.js worker to use the locally bundled worker
 // Vite will automatically copy this to /dist/assets/ and cache it via PWA
@@ -292,7 +292,8 @@ export default function PrintServicePage() {
               </button>
             </div>
           )}
-          <input            ref={fileInputRef}
+          <input
+            ref={fileInputRef}
             type="file"
             accept="application/pdf"
             className="hidden"
