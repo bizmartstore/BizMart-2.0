@@ -28,7 +28,8 @@ export default function PrintServicePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { storeOpen } = useAppSettings();
-    const [file, setFile] = useState<File | null>(null);
+  
+  const [file, setFile] = useState<File | null>(null);
   const [pages, setPages] = useState<PageInfo[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [copies, setCopies] = useState(1);
@@ -238,7 +239,8 @@ export default function PrintServicePage() {
               View Orders
             </Button>
             <Button onClick={() => navigate("/")} variant="outline" className="w-full h-12 font-bold rounded-xl">
-              Continue Shopping            </Button>
+              Continue Shopping
+            </Button>
           </div>
         </div>
       </div>
@@ -290,8 +292,7 @@ export default function PrintServicePage() {
               </button>
             </div>
           )}
-          <input
-            ref={fileInputRef}
+          <input            ref={fileInputRef}
             type="file"
             accept="application/pdf"
             className="hidden"
@@ -352,14 +353,15 @@ export default function PrintServicePage() {
               <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Print Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-3">
           <Label className="text-sm font-bold flex items-center gap-2">
             <Printer className="h-4 w-4 text-primary" /> Print Settings
           </Label>
-                    <div className="grid grid-cols-2 gap-3">
+          
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <Label className="text-[10px]">Page Size</Label>
               <div className="grid grid-cols-2 gap-1 mt-1">
@@ -371,7 +373,8 @@ export default function PrintServicePage() {
                 >
                   Short/A4
                 </button>
-                <button                  onClick={() => setPageSize("long")}
+                <button
+                  onClick={() => setPageSize("long")}
                   className={`py-2 rounded-lg text-xs font-bold transition-all ${
                     pageSize === "long" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                   }`}
