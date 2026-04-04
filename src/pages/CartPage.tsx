@@ -28,41 +28,51 @@ export default function CartPage() {
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const tomorrow = format(addDays(new Date(), 1), "yyyy-MM-dd");
-  const nextWeek = format(addDays(new Date(), 7), "yyyy-MM-dd");
+  // Get current date and minimum time (now + 10 minutes)
+  const now = new Date();
+  const today = now.toISOString().split('T')[0]; // YYYY-MM-DD
+  const minTime = new Date(now.getTime() + 10 * 60 * 1000);
+  const minTimeString = minTime.toTimeString().slice(0, 5); // "HH:MM"
+  const noTimesToday = minTime.toDateString() !== now.toDateString();
 
-  const availableTimes = useMemo(() => {
-    const times = [];
-    for (let hour = 8; hour < 20; hour++) {
-      times.push(`${hour.toString().padStart(2, "0")}:00`);
-      times.push(`${hour.toString().padStart(2, "0")}:30`);
-    }
-    return times;
-  }, []);
+  // Helper to convert time string to minutes
+  const timeToMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  // Set initial date to today on mount
+  useEffect(() => {
+    setPickupDate(today);
+  }, [today]);
 
   const handleCheckout = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time."); return; }
     
-    // Ensure date is today
+    // Validate date is today
     if (pickupDate !== today) {
-      toast.error("Please select today's date for pickup/delivery");
+      toast.error("Pickup date must be today.");
       setCheckingOut(false);
       return;
     }
-    
-    if (items.length === 0) { toast.error("Cart is empty"); return; }
 
-    const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
-    const minDT = new Date();
-    minDT.setMinutes(minDT.getMinutes() + 10);
-    if (selectedDT < minDT) {
-      toast.error("Please select a time at least 10 minutes from now.");
+    // Validate time is at least 10 minutes ahead
+    if (noTimesToday) {
+      toast.error("No available times for today. Please choose a different date.");
       setCheckingOut(false);
       return;
     }
+    const selectedMinutes = timeToMinutes(pickupTime);
+    const minMinutes = timeToMinutes(minTimeString);
+    if (selectedMinutes < minMinutes) {
+      toast.error(`Pickup time must be at least 10 minutes from now.`);
+      setCheckingOut(false);
+      return;
+    }
+
+    if (items.length === 0) { toast.error("Cart is empty"); return; }
 
     setCheckingOut(true);
     try {
@@ -217,7 +227,7 @@ export default function CartPage() {
                   onClick={() => setDeliveryType("delivery")}
                   className={`py-2 rounded-lg text-xs font-bold transition-all ${deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
                 >
-                  Delivery
+                  Delivery (+₱10)
                 </button>
               </div>
             </div>
@@ -226,22 +236,28 @@ export default function CartPage() {
               <label className="text-xs font-bold">Date</label>
               <Input
                 type="date"
-                min={today}
-                className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
+                min={today}
+                max={today}
+                disabled
+                className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2 opacity-80"
               />
             </div>
 
             <div>
               <label className="text-xs font-bold">Time</label>
               <Input
-                type="text"
-                placeholder="e.g., 10:00"
-                className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
+                type="time"
                 value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
+                min={noTimesToday ? undefined : minTimeString}
+                disabled={noTimesToday}
+                className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
               />
+              {noTimesToday && (
+                <p className="text-[10px] text-destructive mt-1">No available times for today</p>
+              )}
             </div>
           </div>
 
@@ -262,7 +278,7 @@ export default function CartPage() {
         {/* Checkout Button */}
         <Button
           onClick={handleCheckout}
-          disabled={checkingOut || items.length === 0}
+          disabled={checkingOut || items.length === 0 || noTimesToday || !pickupTime}
           className="w-full h-12 font-bold rounded-xl"
         >
           {checkingOut ? "Processing..." : "Place Order"}

@@ -41,23 +41,33 @@ export default function PrintServicePage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const availableTimes = [
-    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
-    "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-    "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
-  ];
+  // Get current date and minimum time (now + 10 minutes)
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+  const minTime = new Date(now.getTime() + 10 * 60 * 1000);
+  const minTimeString = minTime.toTimeString().slice(0, 5);
+  const noTimesToday = minTime.toDateString() !== now.toDateString();
+
+  // Helper to convert time string to minutes
+  const timeToMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  // Set initial date to today on mount
+  useEffect(() => {
+    setPickupDate(today);
+  }, [today]);
 
   const analyzePdf = async (file: File) => {
     setAnalyzing(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({
-  data: arrayBuffer,
-  disableFontFace: true,
-  useSystemFonts: true,
-}).promise;
+        data: arrayBuffer,
+        disableFontFace: true,
+        useSystemFonts: true,
+      }).promise;
       const analyzedPages: PageInfo[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -70,10 +80,10 @@ export default function PrintServicePage() {
         if (!ctx) continue;
 
         await page.render({
-  canvasContext: ctx,
-  canvas: canvas,
-  viewport,
-} as any).promise;
+          canvasContext: ctx,
+          canvas: canvas,
+          viewport,
+        } as any).promise;
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let isColor = false;
         for (let j = 0; j < imageData.data.length; j += 16) {
@@ -151,17 +161,21 @@ export default function PrintServicePage() {
     if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time"); return; }
     
+    // Validate date is today
     if (pickupDate !== today) {
-      toast.error("Please select today's date for pickup/delivery");
+      toast.error("Pickup date must be today.");
       return;
     }
-    
-    const selectedDT = new Date(`${today}T${pickupTime}`);
-    const now = new Date();
-    const minDT = new Date(now.getTime() + 10 * 60000);
-    
-    if (selectedDT < minDT) {
-      toast.error("Pickup time must be at least 10 minutes from now");
+
+    // Validate time is at least 10 minutes ahead
+    if (noTimesToday) {
+      toast.error("No available times for today. Please choose a different date.");
+      return;
+    }
+    const selectedMinutes = timeToMinutes(pickupTime);
+    const minMinutes = timeToMinutes(minTimeString);
+    if (selectedMinutes < minMinutes) {
+      toast.error(`Pickup time must be at least 10 minutes from now.`);
       return;
     }
 
@@ -445,24 +459,27 @@ export default function PrintServicePage() {
               <Label className="text-[10px]">Date</Label>
               <Input
                 type="date"
-                min={today}
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
-                className="text-sm h-9 mt-1"
+                min={today}
+                max={today}
+                disabled
+                className="text-sm h-9 mt-1 opacity-80"
               />
             </div>
             <div>
               <Label className="text-[10px]">Time</Label>
-              <select
+              <Input
+                type="time"
                 value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
-              >
-                <option value="">Select</option>
-                {availableTimes.map((time) => (
-                  <option key={time} value={time}>{time}</option>
-                ))}
-              </select>
+                min={noTimesToday ? undefined : minTimeString}
+                disabled={noTimesToday}
+                className="text-sm h-9 mt-1"
+              />
+              {noTimesToday && (
+                <p className="text-[10px] text-destructive mt-1">No available times for today</p>
+              )}
             </div>
           </div>
         </div>
@@ -499,7 +516,7 @@ export default function PrintServicePage() {
         {/* Submit Button */}
         <Button
           onClick={handleSubmit}
-          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime}
+          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday}
           className="w-full h-12 font-bold rounded-xl"
         >
           {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}

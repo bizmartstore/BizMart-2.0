@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle, Palette, File } from "lucide-react";
+import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle, Palette, File, Download } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function PrintTab() {
@@ -212,6 +212,19 @@ export default function PrintTab() {
             </div>
           </div>
           <p className="text-[10px] text-muted-foreground">Paper: {selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long (8.5x13)'}</p>
+
+          {/* Download File Button */}
+          {selectedOrder.file_url && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(selectedOrder.file_url, '_blank')}
+              className="gap-1 w-full"
+            >
+              <Download className="h-4 w-4" />
+              Download File
+            </Button>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {selectedOrder.status === "pending" && (
