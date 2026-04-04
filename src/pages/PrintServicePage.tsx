@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -9,15 +9,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
+import { Upload, FileText, Printer, Calendar, Clock, MapPin, AlertCircle, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
 import { format } from "date-fns";
+import * as pdfjsLib from 'pdfjs-dist';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.entry';
 
-// ✅ FIXED PDF.js IMPORTS
-import * as pdfjsLib from "pdfjs-dist/build/pdf";
-import pdfWorker from "pdfjs-dist/build/pdf.worker?url";
-
-// ✅ FIXED WORKER (NO CDN)
-pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 interface PageInfo {
   pageNum: number;
@@ -44,61 +42,45 @@ export default function PrintServicePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const today = format(new Date(), "yyyy-MM-dd");
-
   const availableTimes = [
-    "08:00","08:30","09:00","09:30","10:00","10:30",
-    "11:00","11:30","12:00","12:30","13:00","13:30",
-    "14:00","14:30","15:00","15:30","16:00","16:30",
-    "17:00","17:30","18:00","18:30","19:00","19:30",
+    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
+    "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
+    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
+    "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
   ];
 
   const analyzePdf = async (file: File) => {
     setAnalyzing(true);
     try {
       const arrayBuffer = await file.arrayBuffer();
-
-      const pdf = await pdfjsLib.getDocument({
-        data: arrayBuffer,
-        // 🔥 important for stability
-        useWorkerFetch: false,
-      }).promise;
-
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       const analyzedPages: PageInfo[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const viewport = page.getViewport({ scale: 0.3 });
-
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-
         const ctx = canvas.getContext("2d");
         if (!ctx) continue;
 
-        await page.render({ canvasContext: ctx, viewport }).promise;
-
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
+        
         let isColor = false;
-
-        // ✅ optimized scan (faster)
-        for (let j = 0; j < imageData.data.length; j += 32) {
+        for (let j = 0; j < imageData.data.length; j += 16) {
           const r = imageData.data[j];
           const g = imageData.data[j + 1];
           const b = imageData.data[j + 2];
-
           if (Math.abs(r - g) > 15 || Math.abs(r - b) > 15 || Math.abs(g - b) > 15) {
             isColor = true;
             break;
           }
         }
-
         analyzedPages.push({ pageNum: i, isColor, selected: true });
       }
-
       setPages(analyzedPages);
-
     } catch (err) {
       console.error("PDF analysis failed:", err);
       toast.error("Failed to analyze PDF. Please try again.");
@@ -133,9 +115,7 @@ export default function PrintServicePage() {
   };
 
   const togglePage = (pageNum: number) => {
-    setPages(prev => prev.map(p =>
-      p.pageNum === pageNum ? { ...p, selected: !p.selected } : p
-    ));
+    setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, selected: !p.selected } : p));
   };
 
   const selectAll = (select: boolean) => {
@@ -150,11 +130,9 @@ export default function PrintServicePage() {
   const calculateCost = () => {
     const selectedPages = pages.filter(p => p.selected);
     let pageCost = 0;
-
     for (const p of selectedPages) {
       pageCost += getPrice(p.isColor, pageSize);
     }
-
     const deliveryCost = deliveryType === "delivery" ? 10 : 0;
     return (pageCost * copies) + deliveryCost;
   };
