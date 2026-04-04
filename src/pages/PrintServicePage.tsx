@@ -1,399 +1,485 @@
-"use client";
-
-import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import TopBar from "@/components/TopBar";
+import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Printer, Calendar, Clock, MapPin, AlertCircle, CheckCircle2, X, Loader2 } from "lucide-react";
-import { format } from "date-fns";
+import { toast } from "sonner";
+import { 
+  Printer, Upload, FileText, Check, X, Calendar, Clock, 
+  MapPin, Truck, Loader2, ChevronDown, ChevronUp, AlertCircle,
+  Info, HelpCircle, Zap
+} from "lucide-react";
+import * as pdfjsLib from "pdfjs-dist";
+
+// Configure PDF.js worker with reliable CDN
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/5.6.205/pdf.worker.min.js`;
+
+const PRICING = {
+  short: { bw: 3.00, color: 8.00 },
+  long: { bw: 5.00, color: 10.00 },
+};
+
+type PaperSize = "short" | "long";
+type DeliveryType = "pickup" | "delivery";
+
+interface PageInfo {
+  pageNumber: number;
+  isColor: boolean;
+  selected: boolean;
+}
+
+function isPageColored(imageData: ImageData, threshold = 0.01): boolean {
+  const data = imageData.data;
+  let coloredPixels = 0;
+  for (let i = 0; i < data.length; i += 40) {
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
+    const maxDiff = Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b));
+    if (maxDiff > 15) coloredPixels++;
+  }
+  const sampledPixels = data.length / 40;
+  return (coloredPixels / sampledPixels) > threshold;
+}
 
 export default function PrintServicePage() {
+  const { user, profile } = useAuth();
+  const { storeOpen, gcashFee } = useAppSettings();
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { storeOpen } = useAppSettings();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [copies, setCopies] = useState(1);
-  const [colorMode, setColorMode] = useState<"bw" | "color">("bw");
-  const [pageSize, setPageSize] = useState<"short" | "long">("short");
-  const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
-  const [pickupDate, setPickupDate] = useState<string>("");
-  const [pickupTime, setPickupTime] = useState<string>("");
-  const [totalPages, setTotalPages] = useState(1);
+  const [fileName, setFileName] = useState("");
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+  const [pages, setPages] = useState<PageInfo[]>([]);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [paperSize, setPaperSize] = useState<PaperSize>("short");
+  const [deliveryType, setDeliveryType] = useState<DeliveryType>("pickup");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTime, setPickupTime] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [orderComplete, setOrderComplete] = useState(false);
-  const [orderId, setOrderId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showPageSelector, setShowPageSelector] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
-  const today = format(new Date(), "yyyy-MM-dd");
-  const availableTimes = [
-    "08:00", "08:30", "09:00", "09:30", "10:00", "10:30",
-    "11:00", "11:30", "12:00", "12:30", "13:00", "13:30",
-    "14:00", "14:30", "15:00", "15:30", "16:00", "16:30",
-    "17:00", "17:30", "18:00", "18:30", "19:00", "19:30",
-  ];
+  // Set default pickup date/time
+  useEffect(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setPickupDate(tomorrow.toISOString().split('T')[0]);
+    setPickupTime("10:00");
+  }, []);
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-
-    if (selected.type !== "application/pdf") {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    
+    if (selectedFile.type !== "application/pdf") {
       toast.error("Please upload a PDF file only");
       return;
     }
-
-    if (selected.size > 10 * 1024 * 1024) {
-      toast.error("File size must be less than 10MB");
+    
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      toast.error("File size must be less than 50MB");
       return;
     }
 
-    setFile(selected);
-    const url = URL.createObjectURL(selected);
-    setPreview(url);
-    setTotalPages(1);
+    setFile(selectedFile);
+    setFileName(selectedFile.name);
+    setPages([]);
+    setFileUrl(null);
+    setPdfError(null);
+    await uploadFile(selectedFile);
   };
 
-  const removeFile = () => {
-    setFile(null);
-    setPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const uploadFile = async (pdfFile: File) => {
+    setUploading(true);
+    setPdfError(null);
+    try {
+      const ext = "pdf";
+      const path = `print-files/${user?.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("print-files").upload(path, pdfFile);
+      if (error) {
+        if (error.message.includes("bucket") || error.message.includes("not found")) {
+          toast.error("Storage bucket not configured. Please contact admin.");
+        } else {
+          throw error;
+        }
+        return;
+      }
+      
+      const { data: { publicUrl } } = supabase.storage.from("print-files").getPublicUrl(path);
+      setFileUrl(publicUrl);
+      await analyzePDF(pdfFile);
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed");
+    }
+    setUploading(false);
   };
 
-  const calculateCost = () => {
-    const baseCost = pageSize === "short" ? 5 : 8;
-    const colorMultiplier = colorMode === "color" ? 2 : 1;
-    const pageCost = totalPages * baseCost * colorMultiplier * copies;
-    const deliveryCost = deliveryType === "delivery" ? 50 : 0;
-    return pageCost + deliveryCost;
+  const analyzePDF = async (pdfFile: File) => {
+    setAnalyzing(true);
+    setPdfError(null);
+    try {
+      const arrayBuffer = await pdfFile.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        useSystemFonts: true,
+      }).promise;
+      
+      const numPages = pdf.numPages;
+      const pageInfos: PageInfo[] = [];
+
+      for (let i = 1; i <= numPages; i++) {
+        const page = await pdf.getPage(i);
+        const viewport = page.getViewport({ scale: 0.5 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        
+        if (ctx) {
+          await page.render({ canvas, viewport }).promise;
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const isColor = isPageColored(imageData);
+          pageInfos.push({ pageNumber: i, isColor, selected: true });
+        }
+      }
+
+      setPages(pageInfos);
+      toast.success(`PDF analyzed: ${numPages} pages detected`);
+    } catch (e: any) {
+      console.error("PDF analysis failed:", e);
+      let errorMsg = "Failed to analyze PDF. ";
+      if (e.message?.includes("worker") || e.message?.includes("Failed to fetch")) {
+        errorMsg += "PDF.js worker failed to load. This might be a network issue. Please try again or contact support.";
+      } else if (e.message?.includes("Password")) {
+        errorMsg += "The PDF is password protected. Please remove the password and try again.";
+      } else if (e.message?.includes("format")) {
+        errorMsg += "The file is not a valid PDF. Please upload a proper PDF file.";
+      } else {
+        errorMsg += "Please try again or contact support if the problem persists.";
+      }
+      setPdfError(errorMsg);
+      toast.error(errorMsg);
+    }
+    setAnalyzing(false);
   };
+
+  const togglePage = (pageNum: number) => {
+    setPages(prev => prev.map(p => p.pageNumber === pageNum ? { ...p, selected: !p.selected } : p));
+  };
+
+  const selectAll = () => setPages(prev => prev.map(p => ({ ...p, selected: true })));
+  const deselectAll = () => setPages(prev => prev.map(p => ({ ...p, selected: false })));
+
+  const selectedPages = pages.filter(p => p.selected);
+  const bwPages = selectedPages.filter(p => !p.isColor).length;
+  const colorPages = selectedPages.filter(p => p.isColor).length;
+  const pricing = PRICING[paperSize];
+  const bwCost = bwPages * pricing.bw;
+  const colorCost = colorPages * pricing.color;
+  const deliveryFee = deliveryType === "delivery" ? gcashFee : 0;
+  const totalCost = bwCost + colorCost + deliveryFee;
 
   const handleSubmit = async () => {
-    if (!user) { navigate("/login"); return; }
-    if (!storeOpen) { toast.error("Store is currently closed."); return; }
-    if (!file) { toast.error("Please upload a PDF file"); return; }
+    if (!user || !fileUrl || !fileName) { toast.error("Please upload a PDF file first"); return; }
+    if (selectedPages.length === 0) { toast.error("Please select at least one page to print"); return; }
     if (!pickupDate || !pickupTime) { toast.error("Please select date and time"); return; }
-    
-    if (pickupDate !== today) {
-      toast.error("Please select today's date for pickup/delivery");
-      return;
-    }
-    
-    const selectedDT = new Date(`${today}T${pickupTime}`);
-    const now = new Date();
-    const minDT = new Date(now.getTime() + 10 * 60000);
-    
-    if (selectedDT < minDT) {
-      toast.error("Pickup time must be at least 10 minutes from now");
-      return;
-    }
+
+    const selectedDT = new Date(`${pickupDate}T${pickupTime}`);
+    const minDT = new Date();
+    minDT.setMinutes(minDT.getMinutes() + 10);
+    if (selectedDT < minDT) { toast.error("Please select a time at least 10 minutes from now"); return; }
 
     setSubmitting(true);
     try {
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage
-        .from("print-orders")
-        .upload(fileName, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("print-orders")
-        .getPublicUrl(fileName);
-
-      const bwPages = colorMode === "bw" ? totalPages : 0;
-      const coloredPages = colorMode === "color" ? totalPages : 0;
-      const totalCost = calculateCost();
-
-      const { data: orderData, error } = await supabase
-        .from("print_orders")
-        .insert({
-          user_id: user.id,
-          file_url: publicUrl,
-          file_name: file.name,
-          total_pages: totalPages * copies,
-          bw_pages: bwPages * copies,
-          colored_pages: coloredPages * copies,
-          page_size: pageSize,
-          delivery_type: deliveryType,
-          pickup_date: pickupDate,
-          pickup_time: pickupTime,
-          cost: totalCost,
-          status: "pending",
-        } as any)
-        .select()
-        .single();
+      const customerName = profile ? `${profile.first_name} ${profile.last_name}` : "Customer";
+      const { error } = await (supabase as any).from("print_orders").insert({
+        user_id: user.id,
+        file_url: fileUrl,
+        file_name: fileName,
+        total_pages: selectedPages.length,
+        bw_pages: bwPages,
+        colored_pages: colorPages,
+        page_size: paperSize,
+        cost: totalCost,
+        status: "pending",
+        delivery_type: deliveryType,
+        delivery_fee: deliveryFee,
+        pickup_date: pickupDate,
+        pickup_time: pickupTime,
+        customer_name: customerName,
+        customer_section: profile?.section ?? null,
+        customer_grade_level: profile?.grade_level ?? null,
+        customer_contact: profile?.email ?? null,
+        selected_pages: selectedPages.map(p => p.pageNumber),
+      });
 
       if (error) throw error;
-      
-      if (orderData) {
-        setOrderId((orderData as any).id);
-        setOrderComplete(true);
-        toast.success("Print order submitted successfully!");
-      } else {
-        throw new Error("No order data returned");
-      }
-    } catch (error: any) {
-      toast.error("Failed to submit order: " + error.message);
-    } finally {
-      setSubmitting(false);
+
+      const { sendNotification } = await import("@/lib/notifications");
+      const typeLabel = deliveryType === "delivery" ? "🚚 Delivery" : "📦 Pickup";
+      await sendNotification({
+        title: "🖨️ New Print Request",
+        message: `${customerName} submitted a print request (${selectedPages.length} pages, ${typeLabel}) for ₱${totalCost.toFixed(2)}`,
+        type: "new_print_order",
+        targetRole: "admin",
+        link: "/admin?tab=print",
+        icon: "🖨️",
+      });
+
+      toast.success("Print request submitted! Waiting for admin approval.");
+      setFile(null); setFileName(""); setFileUrl(null); setPages([]);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (e: any) {
+      toast.error(e.message || "Failed to submit print request");
     }
+    setSubmitting(false);
   };
 
-  if (orderComplete) {
+  const removeFile = () => {
+    setFile(null); setFileName(""); setFileUrl(null); setPages([]);
+    setPdfError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  if (!user) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-          <button onClick={() => navigate("/")} className="p-1.5">
-            <Printer className="h-5 w-5 text-primary" />
-          </button>
-          <span className="font-bold text-sm ml-2">Order Confirmed</span>
+        <TopBar />
+        <div className="flex flex-col items-center justify-center px-6 mt-20 text-center">
+          <Printer className="h-16 w-16 text-primary mb-4" />
+          <h2 className="font-extrabold text-lg mb-2">Print Service</h2>
+          <p className="text-sm text-muted-foreground mb-6">Please login to upload and print your documents.</p>
+          <Button onClick={() => navigate("/login")}>Login to Continue</Button>
         </div>
-        <div className="px-4 py-8 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-extrabold mb-3">Print Order Placed!</h2>
-          <p className="text-sm text-muted-foreground mb-2">Your print request #{orderId?.slice(0, 8)} has been received.</p>
-          <p className="text-sm text-muted-foreground mb-8">We'll notify you when it's ready for {deliveryType}.</p>
-          <div className="space-y-3">
-            <Button onClick={() => navigate("/orders")} className="w-full h-12 font-bold rounded-xl">
-              View Orders
-            </Button>
-            <Button onClick={() => navigate("/")} variant="outline" className="w-full h-12 font-bold rounded-xl">
-              Continue Shopping
-            </Button>
-          </div>
-        </div>
+        <BottomNav />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-background pb-20">
-      <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-        <button onClick={() => navigate(-1)} className="p-1.5">
-          <Printer className="h-5 w-5 text-primary" />
-        </button>
-        <div className="flex-1 text-center">
-          <h1 className="text-lg font-bold text-primary">Print Service</h1>
+      <TopBar />
+      <div className="px-3 mt-4">
+        <div className="text-center mb-6">
+          <h1 className="font-extrabold text-xl text-foreground">Print Service</h1>
+          <p className="text-sm text-muted-foreground">Upload PDF and get it printed</p>
         </div>
-      </div>
 
-      <div className="px-4 py-4 space-y-4">
-        {/* File Upload */}
-        <div className="bg-card rounded-xl border border-border p-4">
-          <Label className="text-sm font-bold flex items-center gap-2 mb-3">
-            <FileText className="h-4 w-4 text-primary" /> Upload Document
-          </Label>
+        {!storeOpen && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-3 mb-6 flex items-center gap-2">
+            <Info className="h-4 w-4 text-destructive flex-shrink-0" />
+            <p className="text-xs text-destructive font-medium">Store is currently closed. Requests will be processed when we reopen.</p>
+          </div>
+        )}
+
+        {/* Upload Section */}
+        <div className="bg-card rounded-2xl p-5 border border-border mb-4">
+          <input ref={fileInputRef} type="file" accept="application/pdf" onChange={handleFileSelect} className="hidden" />
           
           {!file ? (
-            <div
+            <button
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+              disabled={uploading}
+              className="w-full h-40 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center gap-3 hover:bg-muted/50 transition-colors"
             >
-              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-              <p className="text-sm font-medium text-foreground">Tap to upload PDF</p>
-              <p className="text-xs text-muted-foreground mt-1">Max 10MB</p>
-            </div>
+              {uploading ? (
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              ) : (
+                <Upload className="h-8 w-8 text-muted-foreground" />
+              )}
+              <div className="text-center">
+                <p className="text-sm font-bold">{uploading ? "Uploading..." : "Tap to upload PDF"}</p>
+                <p className="text-[10px] text-muted-foreground">Max 50MB</p>
+              </div>
+            </button>
           ) : (
-            <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 min-w-0">
-                <FileText className="h-5 w-5 text-primary flex-shrink-0" />
-                <div className="min-w-0">
-                  <p className="text-xs font-bold truncate">{file.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
+            <div className="bg-muted/30 rounded-xl p-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <FileText className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-sm font-bold truncate">{fileName}</p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {analyzing ? "Analyzing..." : `${pages.length} pages`}
+                  </p>
                 </div>
               </div>
-              <button onClick={removeFile} className="p-1 hover:bg-muted rounded-full">
-                <X className="h-4 w-4 text-muted-foreground" />
+              <button onClick={removeFile} className="p-2 hover:bg-muted rounded-full">
+                <X className="h-4 w-4" />
               </button>
             </div>
           )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf"
-            className="hidden"
-            onChange={handleFileChange}
-          />
+          
+          {pdfError && (
+            <div className="mt-3 bg-destructive/10 border border-destructive/30 rounded-xl p-3 flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-destructive">{pdfError}</p>
+            </div>
+          )}
         </div>
 
-        {/* Print Settings */}
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <Label className="text-sm font-bold flex items-center gap-2">
-            <Printer className="h-4 w-4 text-primary" /> Print Settings
-          </Label>
-          
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[10px]">Page Size</Label>
-              <div className="grid grid-cols-2 gap-1 mt-1">
-                <button
-                  onClick={() => setPageSize("short")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                    pageSize === "short" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  Short
-                </button>
-                <button
-                  onClick={() => setPageSize("long")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                    pageSize === "long" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  Long
-                </button>
+        {/* PDF Analysis Results */}
+        {pages.length > 0 && (
+          <div className="bg-card rounded-2xl p-5 border border-border mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-bold text-sm">PDF Analysis</h2>
+              <button onClick={() => setShowPageSelector(!showPageSelector)} className="text-xs text-primary font-bold">
+                {showPageSelector ? "Hide" : "Select Pages"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="bg-muted/30 rounded-xl p-3 text-center">
+                <p className="text-xl font-extrabold">{pages.length}</p>
+                <p className="text-[9px] text-muted-foreground">Total Pages</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3 text-center">
+                <p className="text-xl font-extrabold text-muted-foreground">{pages.filter(p => !p.isColor).length}</p>
+                <p className="text-[9px] text-muted-foreground">B&W</p>
+              </div>
+              <div className="bg-muted/30 rounded-xl p-3 text-center">
+                <p className="text-xl font-extrabold text-primary">{pages.filter(p => p.isColor).length}</p>
+                <p className="text-[9px] text-muted-foreground">Color</p>
               </div>
             </div>
 
-            <div>
-              <Label className="text-[10px]">Color Mode</Label>
-              <div className="grid grid-cols-2 gap-1 mt-1">
-                <button
-                  onClick={() => setColorMode("bw")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                    colorMode === "bw" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  B&W
-                </button>
-                <button
-                  onClick={() => setColorMode("color")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                    colorMode === "color" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  }`}
-                >
-                  Color
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-[10px]">Total Pages</Label>
-            <Input
-              type="number"
-              min="1"
-              value={totalPages}
-              onChange={(e) => setTotalPages(Math.max(1, Number(e.target.value)))}
-              className="text-sm h-9 mt-1"
-            />
-          </div>
-
-          <div>
-            <Label className="text-[10px]">Copies</Label>
-            <div className="flex items-center gap-3 mt-1">
-              <button
-                onClick={() => setCopies(Math.max(1, copies - 1))}
-                className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-              >
-                -
-              </button>
-              <span className="text-sm font-bold w-8 text-center">{copies}</span>
-              <button
-                onClick={() => setCopies(copies + 1)}
-                className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
-              >
-                +
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Delivery Settings */}
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
-          <Label className="text-sm font-bold flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" /> Delivery
-          </Label>
-          
-          <div>
-            <Label className="text-[10px]">Type</Label>
-            <div className="grid grid-cols-2 gap-1 mt-1">
-              <button
-                onClick={() => setDeliveryType("pickup")}
-                className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                  deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}
-              >
-                Pickup
-              </button>
-              <button
-                onClick={() => setDeliveryType("delivery")}
-                className={`py-2 rounded-lg text-xs font-bold transition-all ${
-                  deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                }`}
-              >
-                Delivery (+₱50)
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label className="text-[10px]">Date</Label>
-              <Input
-                type="date"
-                min={today}
-                value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
-                className="text-sm h-9 mt-1"
-              />
-            </div>
-            <div>
-              <Label className="text-[10px]">Time</Label>
-              <select
-                value={pickupTime}
-                onChange={(e) => setPickupTime(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1"
-              >
-                <option value="">Select</option>
-                {availableTimes.map((time) => (
-                  <option key={time} value={time}>{time}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Cost Summary */}
-        <div className="bg-card rounded-xl border border-border p-4">
-          <h3 className="text-sm font-bold mb-3">Cost Summary</h3>
-          <div className="space-y-2 text-xs">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Pages ({totalPages} × {copies} copies)</span>
-              <span className="font-bold">₱{(totalPages * (pageSize === "short" ? 5 : 8) * (colorMode === "color" ? 2 : 1) * copies).toFixed(2)}</span>
-            </div>
-            {deliveryType === "delivery" && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Delivery Fee</span>
-                <span className="font-bold">₱50.00</span>
+            {showPageSelector && (
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={selectAll} className="flex-1 text-[10px] h-8">Select All</Button>
+                  <Button size="sm" variant="outline" onClick={deselectAll} className="flex-1 text-[10px] h-8">Deselect All</Button>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-1.5">
+                  {pages.map(page => (
+                    <button
+                      key={page.pageNumber}
+                      onClick={() => togglePage(page.pageNumber)}
+                      className={`w-full flex items-center justify-between p-2.5 rounded-lg text-xs ${
+                        page.selected ? "bg-primary/10 border border-primary/30" : "bg-muted/30 border border-border opacity-60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center ${page.selected ? "bg-primary border-primary" : "border-border"}`}>
+                          {page.selected && <Check className="h-3 w-3" />}
+                        </div>
+                        <span>Page {page.pageNumber}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${page.isColor ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                        {page.isColor ? "Color" : "B&W"}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-            <div className="border-t border-border pt-2 flex justify-between">
-              <span className="font-bold">Total</span>
-              <span className="font-extrabold text-primary text-base">₱{calculateCost().toFixed(2)}</span>
+          </div>
+        )}
+
+        {/* Options */}
+        {pages.length > 0 && (
+          <div className="space-y-4">
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <h2 className="font-bold text-sm mb-4">Print Options</h2>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs font-bold mb-2 block">Paper Size</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["short", "long"] as PaperSize[]).map(size => (
+                      <button
+                        key={size}
+                        onClick={() => setPaperSize(size)}
+                        className={`p-3 rounded-xl border text-center ${paperSize === size ? "border-primary bg-primary/10" : "border-border"}`}
+                      >
+                        <p className="font-bold text-sm capitalize">{size === "short" ? "Short / A4" : "Long / Legal"}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">B&W ₱{PRICING[size].bw} · Color ₱{PRICING[size].color}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="text-xs font-bold mb-2 block">Delivery Method</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(["pickup", "delivery"] as DeliveryType[]).map(type => (
+                      <button
+                        key={type}
+                        onClick={() => setDeliveryType(type)}
+                        className={`p-3 rounded-xl border text-center ${deliveryType === type ? "border-primary bg-primary/10" : "border-border"}`}
+                      >
+                        <span className="text-xs font-bold capitalize">{type}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-[10px] mb-1 block">Pickup Date</Label>
+                    <Input type="date" value={pickupDate} onChange={(e) => setPickupDate(e.target.value)} className="text-xs h-9" />
+                  </div>
+                  <div>
+                    <Label className="text-[10px] mb-1 block">Pickup Time</Label>
+                    <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} className="text-xs h-9" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary */}
+            <div className="bg-card rounded-2xl p-5 border border-border">
+              <h3 className="font-bold text-sm mb-3">Order Summary</h3>
+              <div className="space-y-2 text-sm mb-4">
+                {bwPages > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">B&W Pages ({bwPages})</span>
+                    <span className="font-bold">₱{bwCost.toFixed(2)}</span>
+                  </div>
+                )}
+                {colorPages > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Color Pages ({colorPages})</span>
+                    <span className="font-bold">₱{colorCost.toFixed(2)}</span>
+                  </div>
+                )}
+                {deliveryFee > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Delivery Fee</span>
+                    <span className="font-bold">₱{deliveryFee.toFixed(2)}</span>
+                  </div>
+                )}
+                <div className="flex justify-between pt-2 border-t border-border">
+                  <span className="font-bold">Total</span>
+                  <span className="font-extrabold text-primary">₱{totalCost.toFixed(2)}</span>
+                </div>
+              </div>
+              <Button onClick={handleSubmit} disabled={submitting || !storeOpen || selectedPages.length === 0} className="w-full h-12 font-bold rounded-xl">
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Zap className="h-4 w-4 mr-2" />}
+                {submitting ? "Submitting..." : "Submit Print Request"}
+              </Button>
+            </div>
+
+            {/* Tips */}
+            <div className="bg-muted/30 rounded-2xl p-4 border border-border">
+              <h4 className="font-bold text-xs mb-2 flex items-center gap-1.5"><HelpCircle className="h-3.5 w-3.5" /> Quick Tips</h4>
+              <ul className="text-[10px] text-muted-foreground space-y-1.5 list-disc pl-4">
+                <li>Ensure your PDF is clear and properly formatted before uploading.</li>
+                <li>Color pages are automatically detected. You can manually toggle pages on/off.</li>
+                <li>Orders are processed within 10-30 minutes during store hours.</li>
+                <li>For delivery, please ensure your contact details are up to date in your profile.</li>
+              </ul>
             </div>
           </div>
-        </div>
-
-        {/* Submit Button */}
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting || !file || !pickupDate || !pickupTime}
-          className="w-full h-12 font-bold rounded-xl"
-        >
-          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-          {submitting ? "Submitting..." : "Submit Print Order"}
-        </Button>
+        )}
       </div>
+      <BottomNav />
     </div>
   );
 }
