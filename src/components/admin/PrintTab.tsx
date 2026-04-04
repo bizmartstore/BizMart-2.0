@@ -124,12 +124,11 @@ export default function PrintTab() {
 
   const filtered = orders.filter(o => {
     const matchFilter = filter === "all" || o.status === filter;
-    const cust = o.customer;
-    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custName = o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : "";
     const matchSearch = !search || 
       custName.toLowerCase().includes(search.toLowerCase()) ||
       (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
-      (cust?.section || "").toLowerCase().includes(search.toLowerCase());
+      (o.customer?.section || "").toLowerCase().includes(search.toLowerCase());
     return matchFilter && matchSearch;
   });
 
@@ -144,6 +143,7 @@ export default function PrintTab() {
   if (selectedOrder) {
     const cust = selectedOrder.customer;
     const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custEmail = cust?.email || "N/A";
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
 
@@ -173,6 +173,7 @@ export default function PrintTab() {
               <User className="h-4 w-4 text-primary" />
               <span className="text-xs font-bold text-foreground">{custName}</span>
             </div>
+            <p className="text-[10px] text-muted-foreground">{custEmail}</p>
             <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
           </div>
 
@@ -288,7 +289,7 @@ export default function PrintTab() {
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
           {filtered.map(order => {
             const cust = order.customer;
-            const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+            const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown";
             const custGrade = cust?.grade_level || "N/A";
             const custSection = cust?.section || "N/A";
 
