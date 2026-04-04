@@ -82,6 +82,9 @@ export default function CartPage() {
 
     setCheckingOut(true);
     try {
+      const orderTotal = totalPrice + deliveryFee;
+      const bcoinsEarned = orderTotal * 0.10;
+      
       const { data: orderData, error } = await supabase
         .from("orders")
         .insert({
@@ -94,12 +97,12 @@ export default function CartPage() {
             image: item.image,
             category: item.category,
           })),
-          total: totalPrice + deliveryFee,
+          total: orderTotal,
           delivery_type: deliveryType,
           pickup_date: pickupDate,
           pickup_time: pickupTime,
           delivery_fee: deliveryFee,
-          bcoins_earned: totalPrice * 0.10,
+          bcoins_earned: bcoinsEarned,
           status: "pending",
         } as any)
         .select()
@@ -137,7 +140,7 @@ export default function CartPage() {
           </div>
           <h2 className="text-2xl font-extrabold mb-3">Order Placed!</h2>
           <p className="text-sm text-muted-foreground mb-2">Your order #{orderId?.slice(0, 8)} has been received.</p>
-          <p className="text-sm text-muted-foreground mb-8">You'll earn {(totalPrice * 0.10).toFixed(1)} BCoins when it's completed!</p>
+          <p className="text-sm text-muted-foreground mb-8">You'll earn {((totalPrice + deliveryFee) * 0.10).toFixed(1)} BCoins when it's completed!</p>
           <div className="space-y-3">
             <Button onClick={() => navigate("/orders")} className="w-full h-12 font-bold rounded-xl">
               View Orders
