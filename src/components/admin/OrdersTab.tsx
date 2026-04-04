@@ -178,7 +178,7 @@ export default function OrdersTab() {
                 {isPrint && <span className="ml-2 text-purple-500 font-bold">(Print)</span>}
               </p>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+            <span className={`text-[10px] font-bold px-2 py=1 rounded-full ${
               selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
               selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' :
               selectedOrder.status === 'rejected' || selectedOrder.status === 'canceled' ? 'bg-destructive/20 text-destructive' :
