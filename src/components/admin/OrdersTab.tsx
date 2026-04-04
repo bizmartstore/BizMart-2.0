@@ -17,12 +17,10 @@ export default function OrdersTab() {
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
+      // Fetch orders without embedded relationship to avoid PGRST200 error
       const { data: ordersRes, error: ordersError } = await (supabase as any)
         .from("orders")
-        .select(`
-          *,
-          customer:user_id (first_name, last_name, section, grade_level)
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       if (ordersError) throw ordersError;
@@ -34,48 +32,37 @@ export default function OrdersTab() {
 
       if (printError) throw printError;
 
-      const combined = [...(ordersRes.data || [])];
-      const printData = printRes.data || [];
+      const combined = [...(ordersRes || [])];
+      const printData = printRes || [];
 
-      const ordersWithProfile = await Promise.all(
-        combined.map(async (order: any) => {
-          if (order.customer?.user_id) {
-            const { data: profileData, error: profileError } = await (supabase as any)
-              .from("profiles")
-              .select("first_name, last_name, section, grade_level")
-              .eq("user_id", order.customer.user_id)
-              .single();
-            if (!profileError) {
-              order.customer.first_name = profileData.first_name;
-              order.customer.last_name = profileData.last_name;
-              order.customer.section = profileData.section;
-              order.customer.grade_level = profileData.grade_level;
-            }
-          }
-          return { ...order, type: 'product' };
-        })
-      );
+      // Collect all user_ids
+      const userIds = new Set<string>();
+      combined.forEach((o: any) => { if (o.user_id) userIds.add(o.user_id); });
+      printData.forEach((o: any) => { if (o.user_id) userIds.add(o.user_id); });
 
-      const printEnriched = await Promise.all(
-        printData.map(async (order: any) => {
-          if (order.user_id) {
-            const { data: profileData, error: profileError } = await (supabase as any)
-              .from("profiles")
-              .select("first_name, last_name, section, grade_level")
-              .eq("user_id", order.user_id)
-              .single();
-            if (!profileError) {
-              order.customer = {
-                first_name: profileData.first_name,
-                last_name: profileData.last_name,
-                section: profileData.section,
-                grade_level: profileData.grade_level,
-              };
-            }
-          }
-          return { ...order, type: 'print' };
-        })
-      );
+      let profileMap: Record<string, any> = {};
+      if (userIds.size > 0) {
+        const { data: profiles } = await (supabase as any)
+          .from("profiles")
+          .select("user_id, first_name, last_name, section, grade_level")
+          .in("user_id", Array.from(userIds));
+        
+        if (profiles) {
+          profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
+        }
+      }
+
+      const ordersWithProfile = combined.map((order: any) => ({
+        ...order,
+        customer: profileMap[order.user_id] || null,
+        type: 'product'
+      }));
+
+      const printEnriched = printData.map((order: any) => ({
+        ...order,
+        customer: profileMap[order.user_id] || null,
+        type: 'print'
+      }));
 
       setOrders([...ordersWithProfile, ...printEnriched]);
     } catch (e: any) {
