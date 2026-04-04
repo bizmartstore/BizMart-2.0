@@ -5,33 +5,14 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw } from "lucide-react";
 import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
-import OverviewTab from "@/components/admin/OverviewTab";
-import ProductsTab from "@/components/admin/ProductsTab";
-import UsersTab from "@/components/admin/UsersTab";
-import PrintTab from "@/components/admin/PrintTab";
-import CodesTab from "@/components/admin/CodesTab";
-import NewsTab from "@/components/admin/NewsTab";
-import ClubTab from "@/components/admin/ClubTab";
-import BCoinsTab from "@/components/admin/BCoinsTab";
-import GCashTab from "@/components/admin/GCashTab";
-import SellersTab from "@/components/admin/SellersTab";
-import JobsTab from "@/components/admin/JobsTab";
-import SettingsTab from "@/components/admin/SettingsTab";
-import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
-import FreelancersTab from "@/components/admin/FreelancersTab";
+import { useAuth } from "@/context/AuthContext";
+import { useAdmin } from "@/hooks/useAdmin";
+import { useNavigate } from "react-router-dom";
 
-const MEMBER_ADMIN_ALLOWED_TABS = [
-  "overview",
-  "orders",
-  "print",
-  "news",
-  "gcash",
-  "jobs",
-  "freelancers",
-  "settings"
-];
+// 👇 Import missing icons
+import { Users, Crown } from "lucide-react";
 
-export default function AdminDashboard() {
+export default function OrdersTab() {
   const { user, profile, isAuthReady } = useAuth();
   const { isAdmin, isMainAdmin } = useAdmin();
   const navigate = useNavigate();
@@ -59,13 +40,13 @@ export default function AdminDashboard() {
       ]);
 
       setPendingCounts({
-        orders: ordersRes.status === 'fulfilled' ? (ordersRes.value.count || 0) : 0,
-        print: printRes.status === 'fulfilled' ? (printRes.value.count || 0) : 0,
-        gcash: gcashRes.status === 'fulfilled' ? (gcashRes.value.count || 0) : 0,
-        bcoins: bcoinsRes.status === 'fulfilled' ? (bcoinsRes.value.count || 0) : 0,
-        messages: 0, // Messages are handled separately via unread count
-        jobs: jobsRes.status === 'fulfilled' ? (jobsRes.value.count || 0) : 0,
-        freelancers: freelancersRes.status === 'fulfilled' ? (freelancersRes.value.count || 0) : 0,
+        orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
+        print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
+        gcash: gcashRes.status === "fulfilled" ? (gcashRes.value.count || 0) : 0,
+        bcoins: bcoinsRes.status === "fulfilled" ? (bcoinsRes.value.count || 0) : 0,
+        messages: 0,
+        jobs: jobsRes.status === "fulfilled" ? (jobsRes.value.count || 0) : 0,
+        freelancers: freelancersRes.status === "fulfilled" ? (freelancersRes.value.count || 0) : 0,
       });
     } catch (e) {
       console.error("Failed to load pending counts:", e);
@@ -109,8 +90,7 @@ export default function AdminDashboard() {
     { id: "settings", label: "Settings", icon: Settings, badge: 0 },
   ];
 
-  const availableTabs = isMainAdmin 
-    ? allTabs     : allTabs.filter(tab => MEMBER_ADMIN_ALLOWED_TABS.includes(tab.id));
+  const availableTabs = isMainAdmin ? allTabs : allTabs.filter(tab => MEMBER_ADMIN_ALLOWED_TABS.includes(tab.id));
 
   const currentTabAllowed = availableTabs.some(tab => tab.id === activeTab);
   if (!currentTabAllowed && availableTabs.length > 0) {
@@ -132,9 +112,9 @@ export default function AdminDashboard() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
             {availableTabs.map((tab) => (
-              <TabsTrigger 
-                key={tab.id} 
-                value={tab.id} 
+              <TabsTrigger
+                key={tab.id}
+                value={tab.id}
                 className="flex flex-col items-center gap-1 py-2 px-1 text-[10px] font-medium h-auto relative"
               >
                 <div className="relative">
