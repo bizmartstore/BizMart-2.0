@@ -3,7 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Store, CheckCircle2, XCircle, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
+import {
+  Search,
+  Store,
+  CheckCircle2,
+  XCircle,
+  RefreshCw,
+  AlertCircle,
+  MapPin,
+  Download,
+  User,
+  Truck,
+} from "lucide-react";
 
 export default function PrintTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -29,7 +40,14 @@ export default function PrintTab() {
     }
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    const channel = supabase
+      .channel("admin-print-orders-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [load]);
 
   const updateStatus = async (id: string, status: string) => {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status: status } : o));
@@ -74,8 +92,7 @@ export default function PrintTab() {
               selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
               selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' :
               selectedOrder.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
-              selectedOrder.status === 'approved' ? 'bg-primary/20 text-primary' :
-              'bg-muted text-muted-foreground'
+              'bg-primary/20 text-primary'
             }`}>
               {selectedOrder.status.toUpperCase()}
             </span>
@@ -112,7 +129,7 @@ export default function PrintTab() {
               <span className="text-[9px] text-muted-foreground">Color</span>
             </div>
             <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">₱{Number(selectedOrder.cost).toFixed(2)}</span>
+              <span className="text-sm font-extrabold block">{Number(selectedOrder.cost).toFixed(2)}</span>
               <span className="text-[9px] text-muted-foreground">Cost</span>
             </div>
           </div>
@@ -120,9 +137,7 @@ export default function PrintTab() {
 
           <div className="flex flex-wrap gap-2">
             {selectedOrder.file_url && (
-              <a 
-                href={selectedOrder.file_url} 
-                target="_blank" 
+              <a                 href={selectedOrder.file_url}                 target="_blank" 
                 rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-1 bg-primary text-primary-foreground text-xs font-bold py-2 px-3 rounded-lg hover:bg-primary/90 transition-colors"
               >
@@ -137,9 +152,6 @@ export default function PrintTab() {
             )}
             {selectedOrder.status === "approved" && (
               <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 w-full"><CheckCircle2 className="h-3 w-3" /> Mark Complete</Button>
-            )}
-            {["pending", "approved"].includes(selectedOrder.status) && (
-              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Cancel</Button>
             )}
           </div>
         </div>
@@ -196,12 +208,11 @@ export default function PrintTab() {
                   <Store className="h-4 w-4 text-primary flex-shrink-0" />
                   <span className="font-bold text-xs truncate">{order.file_name}</span>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                   order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                   order.status === 'pending' ? 'bg-warning/20 text-warning' :
                   order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
-                  order.status === 'approved' ? 'bg-primary/20 text-primary' :
-                  'bg-muted text-muted-foreground'
+                  'bg-primary/20 text-primary'
                 }`}>
                   {order.status}
                 </span>
@@ -213,29 +224,20 @@ export default function PrintTab() {
                 <span>•</span>
                 <span>{order.customer_grade || "N/A"} - {order.customer_section || "N/A"}</span>
               </div>
+            </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                  {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
-                  <span className="capitalize">{order.delivery_type || 'pickup'}</span>
-                  <span>•</span>
-                  <span>{order.pickup_date || "N/A"} {order.pickup_time || ""}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-right">
-                    <span className="font-bold text-sm text-primary">₱{Number(order.cost).toFixed(2)}</span>
-                    <p className="text-[9px] text-muted-foreground">
-                      {order.total_pages}pg ({order.bw_pages}B/{order.colored_pages}C)
-                    </p>
-                  </div>
-                  <button onClick={() => setSelectedOrder(order)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
-                </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-muted-foreground">
+                {order.delivery_type === 'delivery' ? <Truck className="h-3 w-3" /> : <MapPin className="h-3 w-3" />}
+                <span className="capitalize">{order.delivery_type || 'pickup'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-muted-foreground">
+                  {order.delivery_date || "N/A"} at {order.delivery_time || "N/A"}
+                </span>
               </div>
             </div>
-          ))}
-          {filtered.length === 0 && !loading && (
-            <p className="text-center text-xs text-muted-foreground py-8">No print orders found</p>
-          )}
+          </div>
         </div>
       )}
     </div>
