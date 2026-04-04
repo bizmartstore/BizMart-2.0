@@ -26,13 +26,13 @@ export default function PrintTab() {
         .from("print_orders")
         .select("*")
         .order("created_at", { ascending: false });
-            if (error) throw error;
+        
+      if (error) throw error;
 
       // 👇 JOIN PROFILES TO GET CUSTOMER DETAILS
       const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
       let profileMap: Record<string, any> = {};
-      
-      if (userIds.length > 0) {
+            if (userIds.length > 0) {
         const { data: profiles } = await (supabase as any)
           .from("profiles")
           .select("user_id, first_name, last_name, grade_level, section")
