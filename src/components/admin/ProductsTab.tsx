@@ -32,17 +32,23 @@ export default function ProductsTab() {
   });
   const fileRef = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false); // Added loading state
 
   const load = async () => {
-    (supabase as any).from("products").select("*").order("created_at", { ascending: false })
-      .then(({ data }: any) => setProducts(data || []));
-    
+    setLoading(true);
     try {
-      const { data: catData, error } = await (supabase as any).from("categories").select("id, name");
-      if (error) throw error;
-      setCategories(catData?.map((c: any) => c.name) || []);
-    } catch (e: any) {
-      console.error("Failed to load categories:", e);
+      (supabase as any).from("products").select("*").order("created_at", { ascending: false })
+        .then(({ data }: any) => setProducts(data || []));
+      
+      try {
+        const { data: catData, error } = await (supabase as any).from("categories").select("id, name");
+        if (error) throw error;
+        setCategories(catData?.map((c: any) => c.name) || []);
+      } catch (e: any) {
+        console.error("Failed to load categories:", e);
+      }
+    } finally {
+      setLoading(false);
     }
   };
   useEffect(() => {
@@ -189,7 +195,6 @@ export default function ProductsTab() {
             <Select
               value={form.category}
               onValueChange={(val) => setForm(f => ({ ...f, category: val }))}
-              placeholder="Select category"
               className="text-sm"
             >
               <SelectTrigger className="text-sm">
@@ -212,20 +217,22 @@ export default function ProductsTab() {
       )}
 
       <p className="font-bold text-sm">My Products ({products.length})</p>
-      {products.map(p => (
-        <div key={p.id} className="bg-card rounded-lg p-2 border border-border flex items-center gap-2">
-          {p.image && <img src={p.image} className="h-10 w-10 rounded object-cover flex-shrink-0" alt="" />}
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-bold truncate">{p.name}</p>
-            <p className="text-[10px] text-muted-foreground">₱{p.price} · Stock: <span className="font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}"}>{p.stock ?? 0}</span></p>
+      <div className="space-y-2">
+        {products.map(p => (
+          <div key={p.id} className="bg-card rounded-lg p-2 border border-border flex items-center gap-2">
+            {p.image && <img src={p.image} className="h-10 w-10 rounded object-cover flex-shrink-0" alt="" />}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold truncate">{p.name}</p>
+              <p className="text-[10px] text-muted-foreground">₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock ?? 0}</span></p>
+            </div>
+            <div className="flex gap-1 flex-shrink-0 items-center">
+              <button onClick={() => edit(p)} className="p-1 text-primary"><Edit2 className="h-3 w-3" /></button>
+              <button onClick={() => remove(p.id)} className="p-1 text-destructive"><Trash2 className="h-3 w-3" /></button>
+            </div>
           </div>
-          <div className="flex gap-1 flex-shrink-0 items-center">
-            <button onClick={() => edit(p)} className="p-1 text-primary"><Edit2 className="h-3 w-3" /></button>
-            <button onClick={() => remove(p.id)} className="p-1 text-destructive"><Trash2 className="h-3 w-3" /></button>
-          </div>
-        </div>
-      ))}
-      {products.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No products found</p>}
+        ))}
+        {products.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No products found</p>}
+      </div>
     </div>
   );
 }
