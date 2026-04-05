@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Plus, Search, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2, Filter, X, MessageCircle } from "lucide-react";
+import { Briefcase, Plus, Search, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2, Filter, X } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
@@ -270,11 +270,11 @@ export default function JobsPage() {
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all ${{
                 selectedCategory === cat.id 
                   ? "bg-primary text-primary-foreground shadow-md" 
                   : "bg-card border border-border text-muted-foreground hover:bg-muted"
-              }`}
+              }}`}
             >
               {cat.name}
             </button>
