@@ -2,8 +2,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProduct } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useCart } from "@/context/CartContext";
-import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus, AlertTriangle, Images } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus } from "lucide-react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import ImageCarouselModal from "@/components/ImageCarouselModal";
@@ -37,7 +37,7 @@ export default function ProductDetail() {
     
     const timer = setInterval(() => {
       setCarouselIndex(prev => (prev + 1) % allImages.length);
-    }, 2000); // Change every 2 seconds
+    }, 2000);
     
     return () => clearInterval(timer);
   }, [allImages.length]);
@@ -98,26 +98,27 @@ export default function ProductDetail() {
         {/* Tiny image carousel - only show if multiple images */}
         {allImages.length > 1 && (
           <div 
-            className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-lg z-10 cursor-pointer"
+            className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg p-2 shadow-lg z-10 cursor-pointer"
             onClick={() => openCarouselAt(carouselIndex)}
           >
-            <div className="flex gap-1 overflow-hidden" style={{ width: '80px' }}>
+            <div className="flex gap-1.5 justify-center items-center">
               {allImages.map((img, idx) => (
                 <img
                   key={idx}
                   src={img}
                   alt={`Thumbnail ${idx + 1}`}
-                  className="h-12 w-12 object-cover rounded transition-all"
+                  className="h-10 w-10 object-cover rounded transition-all flex-shrink-0"
                   style={{ 
                     opacity: idx === carouselIndex ? 1 : 0.4,
-                    transform: idx === carouselIndex ? 'scale(1.05)' : 'scale(0.95)',
-                    border: idx === carouselIndex ? '1.5px solid white' : '1px solid transparent'
+                    transform: idx === carouselIndex ? 'scale(1.1)' : 'scale(0.9)',
+                    border: idx === carouselIndex ? '2px solid white' : '1px solid transparent',
+                    boxShadow: idx === carouselIndex ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
                   }}
                 />
               ))}
             </div>
             {/* Dots indicator */}
-            <div className="flex justify-center gap-0.5 mt-1">
+            <div className="flex justify-center gap-1 mt-1.5">
               {allImages.map((_, idx) => (
                 <div
                   key={idx}
