@@ -36,23 +36,23 @@ const MEMBER_ADMIN_ALLOWED_TABS = [
   "banners"
 ];
 
-const getAvailableTabs = (isMainAdmin: boolean) => {
+const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
     { id: "overview", label: "Overview", icon: <BarChart3 className="h-4 w-4" />, badge: null },
-    { id: "orders", label: "Orders", icon: <ShoppingCart className="h-4 w-4" />, badge: 0 },
+    { id: "orders", label: "Orders", icon: <ShoppingCart className="h-4 w-4" />, badge: pendingCounts.orders > 0 ? pendingCounts.orders : null },
     { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
     { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4" />, badge: null },
-    { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: 0 },
+    { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
     { id: "messages", label: "Messages", icon: <MessageCircle className="h-4 w-4" />, badge: null },
     { id: "codes", label: "Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
     { id: "news", label: "News", icon: <Bell className="h-4 w-4" />, badge: null },
     { id: "banners", label: "Banners", icon: <Award className="h-4 w-4" />, badge: null },
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
-    { id: "bcoins", label: "BCoins", icon: <Coins className="h-4 w-4" />, badge: null },
-    { id: "gcash", label: "GCash", icon: <Bell className="h-4 w-4" />, badge: null },
-    { id: "jobs", label: "Jobs", icon: <Briefcase className="h-4 w-4" />, badge: null },
-    { id: "freelancers", label: "Freelancers", icon: <Users className="h-4 w-4" />, badge: null },
+    { id: "bcoins", label: "BCoins", icon: <Coins className="h-4 w-4" />, badge: pendingCounts.bcoins > 0 ? pendingCounts.bcoins : null },
+    { id: "gcash", label: "GCash", icon: <Bell className="h-4 w-4" />, badge: pendingCounts.gcash > 0 ? pendingCounts.gcash : null },
+    { id: "jobs", label: "Jobs", icon: <Briefcase className="h-4 w-4" />, badge: pendingCounts.jobs > 0 ? pendingCounts.jobs : null },
+    { id: "freelancers", label: "Freelancers", icon: <Users className="h-4 w-4" />, badge: pendingCounts.freelancers > 0 ? pendingCounts.freelancers : null },
   ];
 
   if (isMainAdmin) {
@@ -138,7 +138,7 @@ export default function AdminDashboard() {
     };
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
-  const availableTabs = getAvailableTabs(isMainAdmin);
+  const availableTabs = getAvailableTabs(isMainAdmin, pendingCounts);
 
   if (!isAuthReady) {
     return (
