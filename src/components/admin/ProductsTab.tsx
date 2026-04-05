@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw } from "lucide-react";
 import { products as fallbackProducts, categories as fallbackCategories } from "@/data/products";
 import { cn } from "@/lib/utils";
-import { Select, SelectTrigger, SelectItem, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function ProductsTab() {
   const [products, setProducts] = useState<any[]>([]);
@@ -30,14 +30,13 @@ export default function ProductsTab() {
     description: "",
     is_flash_sale: false,
   });
-  const [fileRef, setFileRef] = useRef<HTMLInputElement>(null);
-  const [categories, setCategories] = useState<string[]>([]); // New state for category options
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [categories, setCategories] = useState<string[]>([]);
 
   const load = async () => {
     (supabase as any).from("products").select("*").order("created_at", { ascending: false })
       .then(({ data }: any) => setProducts(data || []));
     
-    // Load categories for dropdown
     try {
       const { data: catData, error } = await (supabase as any).from("categories").select("id, name");
       if (error) throw error;
@@ -86,7 +85,7 @@ export default function ProductsTab() {
         price: form.price,
         original_price: form.original_price ? Number(form.original_price) : null,
         image: form.image.trim(),
-        category: form.category, // Now using selected value
+        category: form.category,
         stock: form.stock,
         description: form.description.trim(),
         is_flash_sale: form.is_flash_sale,
@@ -122,7 +121,8 @@ export default function ProductsTab() {
       price: Number(p.price),
       original_price: p.original_price || "",
       image: p.image || "",
-      category: p.category, // Use the category value      stock: p.stock,
+      category: p.category,
+      stock: p.stock,
       description: p.description,
       is_flash_sale: p.is_flash_sale,
     });
@@ -153,18 +153,18 @@ export default function ProductsTab() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..." className="pl-9 text-sm h-9" />
         </div>
-        <Button size="sm" variant="outline" onClick={load} disabled={loading} className="gap-1"><RefreshCw className="h-3 w-3" /></Button>
+        <Button size="sm" variant="outline" onClick={load} disabled={false} className="gap-1"><RefreshCw className="h-3 w-3" /></Button>
       </div>
 
       {showForm && (
         <div className="bg-card rounded-xl p-3 border border-border space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div></div>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
-              <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
-              <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
-            </div>
+            <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
           </div>
           <div>
             <Label className="text-[10px]">Image</Label>
@@ -184,14 +184,9 @@ export default function ProductsTab() {
           <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
           <div>
             <Label className="text-[10px]">Category</Label>
-            <Select
-              value={form.category}
-              onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))
-              placeholder="Select category"
-              className="text-sm"
-            >
-              <SelectTrigger className="text-sm">
-                <SelectValue />
+            <Select onValueChange={(val) => setForm(f => ({ ...f, category: val }))} value={form.category}>
+              <SelectTrigger className="text-xs h-8">
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat: string, index: number) => (
@@ -215,7 +210,7 @@ export default function ProductsTab() {
           {p.image && <img src={p.image} className="h-10 w-10 rounded object-cover flex-shrink-0" alt="" />}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold truncate">{p.name}</p>
-            <p className="text-[10px] text-muted-foreground">₱{p.price} · Stock: <span className="font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}"}>{p.stock ?? 0}</span>
+            <p className="text-[10px] text-muted-foreground">₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock ?? 0}</span></p>
           </div>
           <div className="flex gap-1 flex-shrink-0 items-center">
             <button onClick={() => edit(p)} className="p-1 text-primary"><Edit2 className="h-3 w-3" /></button>
