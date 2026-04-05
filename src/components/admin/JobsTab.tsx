@@ -14,6 +14,7 @@ export default function JobsTab() {
   const [reviewNotes, setReviewNotes] = useState("");
   const [processing, setProcessing] = useState(false);
   const [session, setSession] = useState<any>(null);
+  const [sessionLoading, setSessionLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -67,13 +68,11 @@ export default function JobsTab() {
   const approveJobCompletion = async (jobId: string, sessionId: string) => {
     setProcessing(true);
     try {
-      // Update session to completed
       await (supabase as any)
         .from("job_sessions")
         .update({ status: "completed", escrow_released: true, updated_at: new Date().toISOString() })
         .eq("id", sessionId);
 
-      // Update job to completed
       await (supabase as any)
         .from("job_postings")
         .update({ status: "completed", updated_at: new Date().toISOString() })
@@ -93,13 +92,11 @@ export default function JobsTab() {
   const rejectJobCompletion = async (jobId: string, sessionId: string) => {
     setProcessing(true);
     try {
-      // Revert session to active so parties can resubmit
       await (supabase as any)
         .from("job_sessions")
         .update({ status: "active", updated_at: new Date().toISOString() })
         .eq("id", sessionId);
 
-      // Revert job to in_progress
       await (supabase as any)
         .from("job_postings")
         .update({ status: "in_progress", updated_at: new Date().toISOString() })
@@ -117,12 +114,27 @@ export default function JobsTab() {
   };
 
   const loadSession = async (jobId: string) => {
-    const { data } = await (supabase as any)
-      .from("job_sessions")
-      .select("*")
-      .eq("job_id", jobId)
-      .maybeSingle();
-    setSession(data);
+    setSessionLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("job_sessions")
+        .select("*")
+        .eq("job_id", jobId)
+        .maybeSingle();
+      
+      if (error) throw error;
+      if (!data) {
+        toast.info("No session found for this job.");
+        return;
+      }
+      console.log("[JobsTab] Session loaded:", data);
+      setSession(data);
+    } catch (e: any) {
+      console.error("Failed to load session:", e);
+      toast.error(e.message || "Failed to load session details");
+    } finally {
+      setSessionLoading(false);
+    }
   };
 
   const filtered = jobs.filter(j => 
@@ -164,7 +176,7 @@ export default function JobsTab() {
               <h3 className="font-bold text-sm flex items-center gap-2">
                 <Timer className="h-4 w-4 text-primary" /> Session Review
               </h3>
-              <p className="text-[10px] text-muted-foreground">{selectedJob?.title}</p>
+              <p className="text-[10px] text-muted-foreground">{selectedJob?.title || "Session"}</p>
             </div>
             {getStatusBadge(session.status)}
           </div>
@@ -353,11 +365,17 @@ export default function JobsTab() {
             </div>
           )}
 
-          {/* Session Review Button for in_progress/pending_review jobs */}
-          {(selectedJob.status === "in_progress" || selectedJob.status === "pending_review") && (
+          {/* Session Review Button - Now shows for any job that might have a session */}
+          {(selectedJob.status === "in_progress" || selectedJob.status === "pending_review" || selectedJob.status === "completed") && (
             <div className="pt-2 border-t border-border">
-              <Button size="sm" onClick={() => loadSession(selectedJob.id)} className="w-full gap-1">
-                <Timer className="h-3 w-3" /> View Session Details & Review
+              <Button 
+                size="sm" 
+                onClick={() => loadSession(selectedJob.id)} 
+                disabled={sessionLoading}
+                className="w-full gap-1"
+              >
+                {sessionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Timer className="h-3 w-3" />} 
+                {sessionLoading ? "Loading Session..." : "View Session Details & Review"}
               </Button>
             </div>
           )}

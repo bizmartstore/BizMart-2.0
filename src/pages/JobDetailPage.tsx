@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users, Wallet, Phone, RefreshCw, ListChecks, Target, File, ShieldCheck, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users, Wallet, Phone, RefreshCw, ListChecks, Target, File, ShieldCheck, Image as ImageIcon, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { notifyCustomerNewBid, notifyFreelancerHired, notifyFreelancerRejected } from "@/lib/notifications";
 
@@ -25,6 +25,7 @@ export default function JobDetailPage() {
   const [freelancerProof, setFreelancerProof] = useState("");
   const [customerProof, setCustomerProof] = useState("");
   const [uploadingProof, setUploadingProof] = useState(false);
+  const [myBidStatus, setMyBidStatus] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadBids = useCallback(async () => {
@@ -45,7 +46,13 @@ export default function JobDetailPage() {
     }
 
     setBids(bidsData.map((bid: any) => ({ ...bid, freelancer: profilesMap[bid.freelancer_id] || null, freelancer_profile: freelancerProfilesMap[bid.freelancer_id] || null })));
-  }, [id]);
+    
+    // Track current user's bid status
+    if (user) {
+      const myBid = bidsData.find((b: any) => b.freelancer_id === user.id);
+      setMyBidStatus(myBid?.status || null);
+    }
+  }, [id, user]);
 
   useEffect(() => {
     const loadJob = async () => {
@@ -73,6 +80,10 @@ export default function JobDetailPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "job_sessions", filter: `job_id=eq.${id}` }, async () => {
         const { data: sessionData } = await (supabase as any).from("job_sessions").select("*").eq("job_id", id).maybeSingle();
         setSession(sessionData);
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "job_postings", filter: `id=eq.${id}` }, async () => {
+        const { data } = await (supabase as any).from("job_postings").select("*, client:profiles!job_postings_client_id_fkey(*)").eq("id", id).maybeSingle();
+        setJob(data);
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -134,6 +145,7 @@ export default function JobDetailPage() {
       if (hiredBid?.freelancer?.first_name) await notifyFreelancerHired(freelancerId, job.title, `${profile?.first_name || 'Customer'}`);
       const { data: sessionData } = await (supabase as any).from("job_sessions").insert({ job_id: job.id, customer_id: user.id, freelancer_id: freelancerId, status: "scheduled" }).select().single();
       setSession(sessionData);
+      setJob(prev => prev ? { ...prev, status: "in_progress" } : null);
       toast.success("Freelancer hired! Session scheduled. 🤝");
     } catch (err: any) { toast.error(err.message || "Failed to hire freelancer"); }
   };
@@ -148,18 +160,26 @@ export default function JobDetailPage() {
   };
 
   const endSession = async () => {
-    if (!session) return;
+    if (!session || !job) return;
     try {
       const endTime = new Date().toISOString();
       const startTime = new Date(session.start_time).getTime();
       const durationMinutes = Math.floor((Date.now() - startTime) / 60000);
-      // Change status to pending_review so both parties can submit proof
+      
+      // Update session to pending_review
       await (supabase as any).from("job_sessions").update({ 
         status: "pending_review", 
         end_time: endTime, 
         duration_minutes: durationMinutes 
       }).eq("id", session.id);
+      
+      // CRITICAL: Sync job posting status to match session
+      await (supabase as any).from("job_postings").update({ 
+        status: "pending_review" 
+      }).eq("id", job.id);
+
       setSession({ ...session, status: "pending_review", end_time: endTime, duration_minutes: durationMinutes });
+      setJob(prev => prev ? { ...prev, status: "pending_review" } : null);
       toast.success("Session ended. Both parties can now submit proof of completion. 📸");
     } catch (err: any) { toast.error(err.message || "Failed to end session"); }
   };
@@ -218,6 +238,7 @@ export default function JobDetailPage() {
                 job.status === 'ready_to_start' ? 'bg-green-100 text-green-700' :
                 job.status === 'open' ? 'bg-green-100 text-green-700' :
                 job.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                job.status === 'pending_review' ? 'bg-purple-100 text-purple-700' :
                 job.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                 'bg-muted text-muted-foreground'
               }`}>{job.status.replace('_', ' ').toUpperCase()}</span>
@@ -230,6 +251,17 @@ export default function JobDetailPage() {
             <div className="flex items-center gap-1"><Timer className="h-4 w-4" /><span>Expires: {new Date(job.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
           </div>
         </div>
+
+        {/* Rejected Bid Notice */}
+        {myBidStatus === "rejected" && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-4 flex items-start gap-3">
+            <Ban className="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-bold text-destructive">Your bid was not selected</p>
+              <p className="text-xs text-destructive/80 mt-1">The client chose another freelancer for this job. You can still view the job details, but you cannot participate in this session.</p>
+            </div>
+          </div>
+        )}
 
         {/* Escrow Payment Notice (Client View) */}
         {isClient && job.status === "pending_payment" && (
