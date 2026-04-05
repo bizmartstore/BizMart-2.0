@@ -50,13 +50,9 @@ export default function StoreViewPage() {
         setStore(sellerData);
 
         // Load seller's products (products with seller_id matching)
-        const { data: sellerProds } = await (supabase as any)
-          .from("products")
-          .select("*")
-          .eq("seller_id", sellerId)
-          .eq("is_active", true)
-          .order("created_at", { ascending: false });
-        setProducts(sellerProds || []);
+        // For now, since products don't have seller_id, show empty
+        // In future, filter by seller_id
+        setProducts([]);
         setLoading(false);
       }
     };
@@ -65,7 +61,7 @@ export default function StoreViewPage() {
 
   const categories = isOfficial
     ? ["all", ...new Set(products.map((p: any) => p.category).filter(Boolean))]
-    : ["all", ...new Set(products.map((p: any) => p.category).filter(Boolean))];
+    : ["all"];
 
   const filteredProducts = products.filter((p: any) => {
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
@@ -78,14 +74,12 @@ export default function StoreViewPage() {
     name: p.name,
     price: p.price,
     originalPrice: p.original_price,
-    image: p.images && Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : (p.image || "/placeholder.svg"),
+    image: p.image || "/placeholder.svg",
     category: p.category || "",
     rating: p.rating || 4.5,
     sold: p.sold || 0,
     isFlashSale: p.is_flash_sale || false,
     description: p.description || "",
-    stock: p.stock ?? 0,
-    images: p.images || (p.image ? [p.image] : []),
   }));
 
   const storeName = isOfficial ? "BizMart Official Store" : store?.store_name || "Store";
