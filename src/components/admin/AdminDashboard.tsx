@@ -35,7 +35,7 @@ const MEMBER_ADMIN_ALLOWED_TABS = [
   "freelancers",
   "settings",
   "banners"
-];
+};
 
 const getAvailableTabs = (isMainAdmin: boolean) => {
   const baseTabs = [
@@ -128,8 +128,7 @@ export default function AdminDashboard() {
           console.warn("[AdminDashboard] Realtime channel error, relying on polling");
         }
       });
-      
-    pendingPollRef.current = setInterval(() => {
+          pendingPollRef.current = setInterval(() => {
       loadPendingCounts();
     }, 5000);
       
