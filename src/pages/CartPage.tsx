@@ -161,11 +161,31 @@ export default function CartPage() {
             <h1 className="text-xl font-bold text-primary">Your Cart</h1>
           </div>
         </div>
-        <div className="flex items-center justify-center py-12">
-          <p className="text-muted-foreground text-sm">Your cart is empty.</p>
-          <Button onClick={() => navigate("/")} className="mt-4">
-            Continue Shopping
-          </Button>
+        
+        {/* Enhanced Empty Cart State */}
+        <div className="flex min-h-[calc(100vh-160px)] items-center justify-center">
+          <div className="text-center space-y-6 px-6">
+            {/* Icon/Illustration */}
+            <div className="flex items-center justify-center w-24 h-24 bg-primary/10 rounded-full mb-4">
+              <ShoppingBag className="h-8 w-8 text-primary/50" />
+            </div>
+            
+            {/* Message */}
+            <div className="space-y-3">
+              <p className="text-2xl font-bold text-foreground">Your cart is empty</p>
+              <p className="text-lg text-muted-foreground max-w-xl">
+                Add some amazing products to your cart and enjoy shopping at BizMart!
+              </p>
+            </div>
+            
+            {/* Action Button */}
+            <Button 
+              onClick={() => navigate("/")} 
+              className="w-full max-w-xs h-12 font-bold rounded-lg shadow-lg hover:shadow-xl transition-all"
+            >
+              Continue Shopping
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -179,7 +199,7 @@ export default function CartPage() {
         </button>
         <div className="flex-1 text-center">
           <h1 className="text-xl font-bold text-primary">Your Cart</h1>
-        </div>
+        </button>
       </div>
 
       <div className="px-4 py-4">
