@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,6 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Briefcase, Plus, Search, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2, X, MessageCircle, Users, Award, BookOpen, Eye, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
@@ -47,6 +46,10 @@ export default function JobsPage() {
   const [activeFreelancers, setActiveFreelancers] = useState<FreelancerProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<"browse" | "freelancers" | "my-activity">("browse");
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const startXRef = useRef(0);
+  const scrollLeftRef = useRef(0);
 
   const categories = [
     { id: "homework", name: "Homework Guidance", color: "bg-blue-500" },
@@ -141,6 +144,19 @@ export default function JobsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadAllData]);
 
+  // Touch handlers for horizontal swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    startXRef.current = e.touches[0].pageX;
+    scrollLeftRef.current = scrollRef.current?.scrollLeft || 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!scrollRef.current) return;
+    const x = e.touches[0].pageX;
+    const walk = (x - startXRef.current) * 1.5;
+    scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+  };
+
   const startChatWithFreelancer = async (freelancerId: string) => {
     if (!user) { navigate("/login"); return; }
     try {
@@ -190,6 +206,7 @@ export default function JobsPage() {
       case 'ready_to_start': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">💰 Ready to Start</Badge>;
       case 'open': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">🟢 Open for Bids</Badge>;
       case 'in_progress': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">⏱️ In Progress</Badge>;
+      case 'pending_review': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">🔍 Pending Review</Badge>;
       case 'completed': return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">✅ Completed</Badge>;
       case 'rejected': return <Badge variant="destructive">❌ Rejected</Badge>;
       default: return <Badge variant="secondary">{status}</Badge>;
@@ -199,6 +216,12 @@ export default function JobsPage() {
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
   if (!user) return <div className="min-h-screen bg-background pb-20"><TopBar /><div className="flex flex-col items-center justify-center px-6 mt-20 text-center"><Briefcase className="h-16 w-16 text-muted-foreground/30 mb-4" /><h2 className="font-extrabold text-xl mb-2">BizMart Job Offers</h2><p className="text-sm text-muted-foreground mb-6">Please login to access educational job offers.</p><Button onClick={() => navigate("/login")} className="w-full max-w-xs h-12 font-bold rounded-xl shadow-lg">Login to Continue</Button></div><BottomNav /></div>;
   if (!isClubMember) return <div className="min-h-screen bg-background pb-20"><TopBar /><div className="px-6 mt-12 text-center"><ShieldCheck className="h-16 w-16 text-primary mx-auto mb-4" /><h2 className="font-extrabold text-2xl mb-3">Exclusive Feature</h2><p className="text-sm text-muted-foreground mb-8">Available to BizMart Club members only.</p><Button onClick={() => navigate("/club")} className="w-full max-w-xs h-12 font-bold rounded-xl">Join BizMart Club</Button></div><BottomNav /></div>;
+
+  const tabs = [
+    { id: "browse" as const, label: "Browse Jobs" },
+    { id: "freelancers" as const, label: "Freelancers" },
+    { id: "my-activity" as const, label: "My Activity" },
+  ];
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -233,15 +256,36 @@ export default function JobsPage() {
         </div>
       </div>
 
+      {/* Horizontal Swipeable Tabs */}
       <div className="px-4 mt-4">
-        <Tabs defaultValue="browse" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 lg:grid-cols-3 mb-4 h-11 rounded-xl bg-muted/50 p-1">
-            <TabsTrigger value="browse" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">Browse Jobs</TabsTrigger>
-            <TabsTrigger value="freelancers" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm"><Users className="h-3 w-3 mr-1" /> Freelancers</TabsTrigger>
-            <TabsTrigger value="my-activity" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">My Activity</TabsTrigger>
-          </TabsList>
+        <div className="relative">
+          <div 
+            ref={scrollRef}
+            className="flex gap-2 overflow-x-auto scrollbar-hide pb-2"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+          >
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                  activeTab === tab.id 
+                    ? "bg-primary text-primary-foreground shadow-md" 
+                    : "bg-card border border-border text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
-          <TabsContent value="browse" className="space-y-4">
+      {/* Tab Content */}
+      <div className="px-4 mt-4">
+        {activeTab === "browse" && (
+          <div className="space-y-4">
             {filteredJobs.length === 0 ? (
               <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border"><Briefcase className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" /><p className="text-sm font-bold text-muted-foreground">No active job offers found</p></div>
             ) : (
@@ -274,79 +318,81 @@ export default function JobsPage() {
                 })}
               </div>
             )}
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="freelancers">
-            <div className="space-y-4">
-              <div className="bg-card rounded-xl p-4 border border-border">
-                <h3 className="font-bold text-sm flex items-center gap-2 mb-4"><Users className="h-4 w-4 text-primary" /> Active Freelancers ({filteredFreelancers.length})</h3>
-                {filteredFreelancers.length === 0 ? (
-                  <div className="text-center py-8"><Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground">No active freelancers found</p></div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredFreelancers.map((freelancer) => (
-                      <div key={freelancer.id} className="bg-muted/30 rounded-xl p-4 border border-border hover:bg-muted/50 transition-colors">
-                        <div className="flex items-start gap-3">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center flex-shrink-0 overflow-hidden">
-                            {freelancer.profile?.avatar_url ? <img src={freelancer.profile.avatar_url} alt="" className="w-full h-full object-cover" /> : <span className="text-lg font-bold text-primary">{freelancer.profile?.first_name?.[0]}{freelancer.profile?.last_name?.[0]}</span>}
+        {activeTab === "freelancers" && (
+          <div className="space-y-4">
+            <div className="bg-card rounded-xl p-4 border border-border">
+              <h3 className="font-bold text-sm flex items-center gap-2 mb-4"><Users className="h-4 w-4 text-primary" /> Active Freelancers ({filteredFreelancers.length})</h3>
+              {filteredFreelancers.length === 0 ? (
+                <div className="text-center py-8"><Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground">No active freelancers found</p></div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredFreelancers.map((freelancer) => (
+                    <div key={freelancer.id} className="bg-muted/30 rounded-xl p-4 border border-border hover:bg-muted/50 transition-colors">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center flex-shrink-0 overflow-hidden">
+                          {freelancer.profile?.avatar_url ? <img src={freelancer.profile.avatar_url} alt="" className="w-full h-full object-cover" /> : <span className="text-lg font-bold text-primary">{freelancer.profile?.first_name?.[0]}{freelancer.profile?.last_name?.[0]}</span>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-1">
+                            <h4 className="font-bold text-sm text-foreground truncate">{freelancer.profile?.first_name} {freelancer.profile?.last_name}</h4>
+                            <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 gap-1 flex-shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); startChatWithFreelancer(freelancer.user_id); }}><MessageCircle className="h-3 w-3" /> Message</Button>
                           </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h4 className="font-bold text-sm text-foreground truncate">{freelancer.profile?.first_name} {freelancer.profile?.last_name}</h4>
-                              <Button size="sm" variant="outline" className="h-7 text-[10px] px-2 gap-1 flex-shrink-0 ml-2" onClick={(e) => { e.stopPropagation(); startChatWithFreelancer(freelancer.user_id); }}><MessageCircle className="h-3 w-3" /> Message</Button>
-                            </div>
-                            <div className="flex items-center gap-3 mb-2">
-                              <div className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" /><span className="text-xs font-bold text-foreground">{freelancer.rating?.toFixed(1) || "0.0"}</span></div>
-                              <div className="flex items-center gap-1"><Award className="h-3.5 w-3.5 text-primary" /><span className="text-[10px] text-muted-foreground">{freelancer.completed_sessions || 0} jobs done</span></div>
-                            </div>
-                            {freelancer.academic_strengths && <p className="text-[10px] text-muted-foreground mb-1 line-clamp-1"><span className="font-bold">Strengths:</span> {freelancer.academic_strengths}</p>}
-                            {freelancer.subjects && freelancer.subjects.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {freelancer.subjects.slice(0, 3).map((subject, idx) => (<Badge key={idx} variant="secondary" className="text-[9px] px-1.5 py-0.5"><BookOpen className="h-2.5 w-2.5 mr-0.5" /> {subject}</Badge>))}
-                                {freelancer.subjects.length > 3 && <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">+{freelancer.subjects.length - 3} more</Badge>}
-                              </div>
-                            )}
+                          <div className="flex items-center gap-3 mb-2">
+                            <div className="flex items-center gap-1"><Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" /><span className="text-xs font-bold text-foreground">{freelancer.rating?.toFixed(1) || "0.0"}</span></div>
+                            <div className="flex items-center gap-1"><Award className="h-3.5 w-3.5 text-primary" /><span className="text-[10px] text-muted-foreground">{freelancer.completed_sessions || 0} jobs done</span></div>
                           </div>
+                          {freelancer.academic_strengths && <p className="text-[10px] text-muted-foreground mb-1 line-clamp-1"><span className="font-bold">Strengths:</span> {freelancer.academic_strengths}</p>}
+                          {freelancer.subjects && freelancer.subjects.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-2">
+                              {freelancer.subjects.slice(0, 3).map((subject, idx) => (<Badge key={idx} variant="secondary" className="text-[9px] px-1.5 py-0.5"><BookOpen className="h-2.5 w-2.5 mr-0.5" /> {subject}</Badge>))}
+                              {freelancer.subjects.length > 3 && <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">+{freelancer.subjects.length - 3} more</Badge>}
+                            </div>
+                          )}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          </TabsContent>
+          </div>
+        )}
 
-          <TabsContent value="my-activity">
-            <div className="space-y-4">
-              <div className="bg-card rounded-xl p-4 border border-border">
-                <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> My Job Requests</h3>
-                {myJobs.length === 0 ? (
-                  <div className="text-center py-8"><p className="text-xs text-muted-foreground">You haven't posted any jobs yet</p><Button onClick={() => navigate("/jobs/post")} size="sm" className="mt-3 h-8 text-xs"><Plus className="h-3 w-3 mr-1" /> Post Your First Job</Button></div>
-                ) : (
-                  <div className="space-y-2">
-                    {myJobs.map((job) => (
-                      <div key={job.id} onClick={() => navigate(`/jobs/${job.id}`)} className="bg-muted/30 rounded-xl p-3 flex items-center justify-between active:scale-[0.98] transition-all cursor-pointer">
-                        <div className="min-w-0 flex-1">
-                          <p className="text-xs font-bold truncate">{job.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {getStatusBadge(job.status)}
-                            <span className="text-[10px] text-muted-foreground">₱{job.hourly_rate}/hr</span>
-                          </div>
+        {activeTab === "my-activity" && (
+          <div className="space-y-4">
+            <div className="bg-card rounded-xl p-4 border border-border">
+              <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Briefcase className="h-4 w-4 text-primary" /> My Job Requests</h3>
+              {myJobs.length === 0 ? (
+                <div className="text-center py-8"><p className="text-xs text-muted-foreground">You haven't posted any jobs yet</p><Button onClick={() => navigate("/jobs/post")} size="sm" className="mt-3 h-8 text-xs"><Plus className="h-3 w-3 mr-1" /> Post Your First Job</Button></div>
+              ) : (
+                <div className="space-y-2">
+                  {myJobs.map((job) => (
+                    <div key={job.id} onClick={() => navigate(`/jobs/${job.id}`)} className="bg-muted/30 rounded-xl p-3 flex items-center justify-between active:scale-[0.98] transition-all cursor-pointer">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold truncate">{job.title}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          {getStatusBadge(job.status)}
+                          <span className="text-[10px] text-muted-foreground">₱{job.hourly_rate}/hr</span>
                         </div>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground ml-2" />
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground ml-2" />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
-              {isFreelancer && (
+            {isFreelancer && (
+              <>
                 <div className="bg-card rounded-xl p-4 border border-border">
                   <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><MessageCircle className="h-4 w-4 text-primary" /> My Bids</h3>
                   {myBids.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No bids submitted yet</p> : (
                     <div className="space-y-2">
                       {myBids.map(bid => (
-                        <div key={bid.id} className="bg-muted/30 rounded-xl p-3">
+                        <div key={bid.id} onClick={() => navigate(`/jobs/${bid.job_id}`)} className="bg-muted/30 rounded-xl p-3 active:scale-[0.98] transition-all cursor-pointer">
                           <div className="flex justify-between items-start mb-2">
                             <div className="min-w-0 flex-1"><p className="text-xs font-bold truncate">{bid.job?.title}</p><p className="text-[10px] text-muted-foreground">₱{bid.proposed_price} · {bid.status}</p></div>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2 ${bid.status === 'accepted' ? 'bg-green-100 text-green-600' : bid.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'}`}>{bid.status.toUpperCase()}</span>
@@ -357,10 +403,32 @@ export default function JobsPage() {
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+
+                <div className="bg-card rounded-xl p-4 border border-border">
+                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Timer className="h-4 w-4 text-primary" /> My Sessions</h3>
+                  {mySessions.length === 0 ? <p className="text-xs text-muted-foreground text-center py-4">No sessions yet</p> : (
+                    <div className="space-y-2">
+                      {mySessions.map(session => (
+                        <div key={session.id} onClick={() => navigate(`/jobs/${session.job_id}`)} className="bg-muted/30 rounded-xl p-3 active:scale-[0.98] transition-all cursor-pointer">
+                          <div className="flex justify-between items-start mb-1">
+                            <p className="text-xs font-bold">Session #{session.id.slice(0, 8)}</p>
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                              session.status === 'completed' ? 'bg-green-100 text-green-600' :
+                              session.status === 'active' ? 'bg-blue-100 text-blue-600' :
+                              session.status === 'pending_review' ? 'bg-purple-100 text-purple-600' :
+                              'bg-yellow-100 text-yellow-600'
+                            }`}>{session.status.replace('_', ' ').toUpperCase()}</span>
+                          </div>
+                          {session.duration_minutes && <p className="text-[10px] text-muted-foreground">Duration: {session.duration_minutes} minutes</p>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="px-4 mt-6 mb-4">
