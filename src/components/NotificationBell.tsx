@@ -101,12 +101,19 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     if (!user) return;
     try {
-      const { error } = await (supabase as any)
+      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+      let query = (supabase as any)
         .from("notification_logs")
         .update({ is_read: true })
-        .eq("user_id", user.id)
         .eq("is_read", false);
 
+      if (isAdmin) {
+        query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+      } else {
+        query = query.eq("user_id", user.id);
+      }
+
+      const { error } = await query;
       if (error) throw error;
       await loadNotifications();
     } catch (error) {
@@ -125,7 +132,16 @@ export default function NotificationBell() {
 
   const clearAll = async () => {
     try {
-      await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
+      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+      if (isAdmin) {
+        // Admins clear all notifications visible to them (targeted to admin or their user_id)
+        await (supabase as any)
+          .from("notification_logs")
+          .delete()
+          .or(`user_id.eq.${user.id},target_role.eq.admin`);
+      } else {
+        await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
+      }
       setNotifications([]);
       setUnreadCount(0);
     } catch (error) {
