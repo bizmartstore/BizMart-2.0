@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,53 @@ export default function JobDetailPage() {
   const [submittingReview, setSubmittingReview] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Safe bid loading function that avoids invalid FK joins
+  const loadBids = useCallback(async () => {
+    if (!id) return;
+    const { data: bidsData, error } = await (supabase as any)
+      .from("job_bids")
+      .select("*")
+      .eq("job_id", id)
+      .order("created_at", { ascending: false });
+    
+    if (error) {
+      console.error("Failed to load bids:", error);
+      return;
+    }
+
+    if (!bidsData || bidsData.length === 0) {
+      setBids([]);
+      return;
+    }
+
+    const freelancerIds = bidsData.map((b: any) => b.freelancer_id).filter(Boolean);
+    let profilesMap: Record<string, any> = {};
+    let freelancerProfilesMap: Record<string, any> = {};
+
+    if (freelancerIds.length > 0) {
+      const { data: profs } = await (supabase as any)
+        .from("profiles")
+        .select("user_id, first_name, last_name, email, avatar_url")
+        .in("user_id", freelancerIds);
+      
+      const { data: fProfs } = await (supabase as any)
+        .from("freelancer_profiles")
+        .select("user_id, rating, completed_sessions, academic_strengths, subjects")
+        .in("user_id", freelancerIds);
+
+      (profs || []).forEach((p: any) => { profilesMap[p.user_id] = p; });
+      (fProfs || []).forEach((fp: any) => { freelancerProfilesMap[fp.user_id] = fp; });
+    }
+
+    const enrichedBids = bidsData.map((bid: any) => ({
+      ...bid,
+      freelancer: profilesMap[bid.freelancer_id] || null,
+      freelancer_profile: freelancerProfilesMap[bid.freelancer_id] || null,
+    }));
+
+    setBids(enrichedBids);
+  }, [id]);
+
   useEffect(() => {
     const loadJob = async () => {
       const { data } = await (supabase as any)
@@ -39,13 +86,7 @@ export default function JobDetailPage() {
       setJob(data);
       
       if (data) {
-        // Load bids
-        const { data: bidsData } = await (supabase as any)
-          .from("job_bids")
-          .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
-          .eq("job_id", id)
-          .order("created_at", { ascending: false });
-        setBids(bidsData || []);
+        await loadBids();
 
         // Load session if exists
         const { data: sessionData } = await (supabase as any)
@@ -68,7 +109,7 @@ export default function JobDetailPage() {
       setLoading(false);
     };
     loadJob();
-  }, [id, user]);
+  }, [id, user, loadBids]);
 
   // Realtime subscription for new bids
   useEffect(() => {
@@ -76,24 +117,14 @@ export default function JobDetailPage() {
     const channel = supabase
       .channel(`job-bids-${id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "job_bids", filter: `job_id=eq.${id}` }, () => {
-        (supabase as any)
-          .from("job_bids")
-          .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
-          .eq("job_id", id)
-          .order("created_at", { ascending: false })
-          .then(({ data }) => setBids(data || []));
+        loadBids();
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "job_bids", filter: `job_id=eq.${id}` }, () => {
-        (supabase as any)
-          .from("job_bids")
-          .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
-          .eq("job_id", id)
-          .order("created_at", { ascending: false })
-          .then(({ data }) => setBids(data || []));
+        loadBids();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  }, [id, loadBids]);
 
   // Session timer
   useEffect(() => {
@@ -149,13 +180,7 @@ export default function JobDetailPage() {
 
       toast.success("Bid submitted successfully! 📝");
       setBidForm({ price: "", message: "" });
-      // Reload bids immediately
-      const { data: bidsData } = await (supabase as any)
-        .from("job_bids")
-        .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
-        .eq("job_id", id)
-        .order("created_at", { ascending: false });
-      setBids(bidsData || []);
+      await loadBids();
     } catch (err: any) {
       toast.error(err.message || "Failed to submit bid");
     }
