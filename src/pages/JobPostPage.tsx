@@ -102,7 +102,7 @@ export default function JobPostPage() {
         max_price: maxPrice,
         difficulty_level: form.difficulty,
         escrow_amount: budget,
-        status: "pending_approval",
+        status: "pending_payment",
         expires_at: expiresAt,
         instructions: form.instructions.trim(),
         expected_output: form.expectedOutput.trim(),
@@ -111,7 +111,7 @@ export default function JobPostPage() {
 
       if (error) throw error;
 
-      toast.success("Job posted! 📝 Awaiting admin approval before it goes live.");
+      toast.success("Job posted! 📝 Please proceed to BizMart staff to secure your escrow payment.");
       navigate("/jobs");
     } catch (err: any) {
       console.error("Failed to post job:", err);
@@ -134,10 +134,10 @@ export default function JobPostPage() {
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <ShieldAlert className="h-4 w-4 text-amber-600" />
-            <span className="font-bold text-xs text-amber-700">Admin Moderation & Escrow</span>
+            <span className="font-bold text-xs text-amber-700">Escrow Payment Required</span>
           </div>
           <p className="text-[10px] text-amber-700 leading-relaxed">
-            All jobs are reviewed by admin before going live. Once approved, you'll pay the full amount to admin escrow. Payment is securely held and only released to the freelancer after successful completion.
+            Before your job can be approved, you must first hand over the payment to the BizMart staff. This payment will be securely held by the admin as an escrow to ensure a safe and fair transaction. The job will remain pending and will not proceed to approval until the payment is confirmed. If the job offer is cancelled or fails to proceed, the BizMart staff will return the full payment to the client. This system is designed to prevent scams from both clients and freelancers by ensuring that funds are secured before any work begins and are only released once the job is successfully completed and approved by both parties.
           </p>
         </div>
 
@@ -295,7 +295,7 @@ export default function JobPostPage() {
 
           <div className="pt-4">
             <Button type="submit" className="w-full h-12 font-bold rounded-xl" disabled={loading}>
-              {loading ? "Posting..." : "Submit for Admin Review"}
+              {loading ? "Posting..." : "Submit for Escrow Payment"}
             </Button>
           </div>
         </form>

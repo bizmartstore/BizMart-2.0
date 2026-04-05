@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users, Wallet, Phone, RefreshCw, ListChecks, Target, File } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users, Wallet, Phone, RefreshCw, ListChecks, Target, File, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { notifyCustomerNewBid, notifyFreelancerHired, notifyFreelancerRejected } from "@/lib/notifications";
 
@@ -118,15 +118,6 @@ export default function JobDetailPage() {
     setSubmittingBid(false);
   };
 
-  const handlePayEscrow = async () => {
-    if (!user || !job) return;
-    try {
-      await (supabase as any).from("job_postings").update({ status: "ready_to_start", escrow_paid: true }).eq("id", job.id);
-      toast.success("Escrow payment confirmed! Job is now ready to start. 💰");
-      setJob({ ...job, status: "ready_to_start", escrow_paid: true });
-    } catch (err: any) { toast.error(err.message || "Failed to process payment"); }
-  };
-
   const handleHire = async (bidId: string, freelancerId: string, price: number) => {
     if (!user) return;
     try {
@@ -219,6 +210,7 @@ export default function JobDetailPage() {
             <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">{job.category}</span>
             {isExpired && job.status === "open" ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-destructive/20 text-destructive">EXPIRED</span> : (
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                job.status === 'pending_payment' ? 'bg-amber-100 text-amber-700' :
                 job.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-700' :
                 job.status === 'approved' ? 'bg-blue-100 text-blue-700' :
                 job.status === 'ready_to_start' ? 'bg-green-100 text-green-700' :
@@ -235,6 +227,23 @@ export default function JobDetailPage() {
             <div className="flex items-center gap-1"><Timer className="h-4 w-4" /><span>Expires: {new Date(job.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
           </div>
         </div>
+
+        {/* Escrow Payment Notice (Client View) */}
+        {isClient && job.status === "pending_payment" && (
+          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-5 space-y-3">
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck className="h-5 w-5 text-amber-600" />
+              <h3 className="font-bold text-sm text-amber-800 dark:text-amber-300">Secure Your Escrow Payment</h3>
+            </div>
+            <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+              Before your job can be approved, you must first hand over the payment to the BizMart staff. This payment will be securely held by the admin as an escrow to ensure a safe and fair transaction. The job will remain pending and will not proceed to approval until the payment is confirmed. If the job offer is cancelled or fails to proceed, the BizMart staff will return the full payment to the client. This system is designed to prevent scams from both clients and freelancers by ensuring that funds are secured before any work begins and are only released once the job is successfully completed and approved by both parties.
+            </p>
+            <div className="bg-white/50 dark:bg-black/20 rounded-xl p-3 flex items-center justify-between">
+              <span className="text-xs font-bold text-amber-800 dark:text-amber-300">Amount to Secure:</span>
+              <span className="text-lg font-extrabold text-amber-600">₱{job.hourly_rate}</span>
+            </div>
+          </div>
+        )}
 
         {/* Description */}
         <div className="bg-card rounded-xl p-4 border border-border">
@@ -274,31 +283,6 @@ export default function JobDetailPage() {
             <div><p className="font-semibold text-sm">{job.client?.first_name} {job.client?.last_name}</p><p className="text-xs text-muted-foreground">{job.client?.email}</p></div>
           </div>
         </div>
-
-        {/* Admin Approval & Escrow (Client View) */}
-        {isClient && (
-          <>
-            {job.status === 'pending_approval' && (
-              <div className="bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 text-center">
-                <Timer className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-                <p className="text-sm font-bold text-yellow-700">Awaiting Admin Approval</p>
-                <p className="text-xs text-yellow-600 mt-1">An admin will review your job details before it goes live.</p>
-              </div>
-            )}
-            {job.status === 'approved' && !job.escrow_paid && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <Wallet className="h-5 w-5 text-blue-600" />
-                  <h3 className="font-bold text-sm text-blue-700">Pay Escrow to Start</h3>
-                </div>
-                <p className="text-xs text-blue-600">Your job has been approved! Please pay ₱{job.hourly_rate} to admin escrow to make it available for freelancers.</p>
-                <Button onClick={handlePayEscrow} className="w-full h-11 font-bold rounded-xl bg-blue-600 hover:bg-blue-700">
-                  <Wallet className="h-4 w-4 mr-2" /> Pay ₱{job.hourly_rate} to Escrow
-                </Button>
-              </div>
-            )}
-          </>
-        )}
 
         {/* Bids Section (Client View) */}
         {isClient && (job.status === "ready_to_start" || job.status === "open") && (

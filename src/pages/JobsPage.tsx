@@ -156,17 +156,6 @@ export default function JobsPage() {
     } catch { toast.error("Failed to start conversation"); }
   };
 
-  const handlePayEscrow = async (jobId: string) => {
-    if (!user) return;
-    try {
-      await (supabase as any).from("job_postings").update({ status: "ready_to_start", escrow_paid: true }).eq("id", jobId);
-      toast.success("Escrow payment confirmed! Job is now ready to start. 💰");
-      loadAllData();
-    } catch (err: any) {
-      toast.error(err.message || "Failed to process payment");
-    }
-  };
-
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = !search.trim() || 
       job.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -195,6 +184,7 @@ export default function JobsPage() {
 
   const getStatusBadge = (status: string) => {
     switch(status) {
+      case 'pending_payment': return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">💰 Awaiting Payment</Badge>;
       case 'pending_approval': return <Badge className="bg-yellow-100 text-yellow-700 hover:bg-yellow-100">⏳ Pending Approval</Badge>;
       case 'approved': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">✅ Approved</Badge>;
       case 'ready_to_start': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">💰 Ready to Start</Badge>;

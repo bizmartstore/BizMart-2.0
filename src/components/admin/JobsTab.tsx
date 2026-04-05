@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet } from "lucide-react";
+import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet, ShieldCheck } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function JobsTab() {
@@ -23,19 +23,43 @@ export default function JobsTab() {
 
   useEffect(() => { load(); }, [load]);
 
+  const confirmPayment = async (jobId: string) => {
+    setProcessing(true);
+    try {
+      const { error } = await (supabase as any)
+        .from("job_postings")
+        .update({ status: "pending_approval", updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+      
+      if (error) throw error;
+      toast.success("Payment confirmed! Job moved to approval queue.");
+      setSelectedJob(null);
+      load();
+    } catch (e: any) {
+      console.error("Payment confirmation error:", e);
+      toast.error(e.message || "Failed to confirm payment");
+    }
+    setProcessing(false);
+  };
+
   const handleReview = async (jobId: string, status: "approved" | "rejected") => {
     setProcessing(true);
     try {
-      await (supabase as any).from("job_postings").update({ 
-        status, 
-        admin_notes: reviewNotes.trim() || null 
-      }).eq("id", jobId);
+      // Simplified update to prevent 400 errors from missing columns or constraints
+      const { error } = await (supabase as any)
+        .from("job_postings")
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+      
+      if (error) throw error;
+      
       toast.success(`Job ${status === 'approved' ? 'approved' : 'rejected'}!`);
       setReviewNotes("");
       setSelectedJob(null);
       load();
     } catch (e: any) {
-      toast.error(e.message || "Failed to update job");
+      console.error("Review error:", e);
+      toast.error(e.message || "Failed to update job status");
     }
     setProcessing(false);
   };
@@ -49,7 +73,8 @@ export default function JobsTab() {
 
   const getStatusBadge = (status: string) => {
     switch(status) {
-      case 'pending_approval': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">⏳ Pending</span>;
+      case 'pending_payment': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">💰 Awaiting Payment</span>;
+      case 'pending_approval': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">⏳ Pending Review</span>;
       case 'approved': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">✅ Approved</span>;
       case 'ready_to_start': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">💰 Ready</span>;
       case 'open': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Open</span>;
@@ -61,6 +86,9 @@ export default function JobsTab() {
   };
 
   if (selectedJob) {
+    const needsPayment = selectedJob.status === "pending_payment";
+    const needsReview = selectedJob.status === "pending_approval";
+
     return (
       <div className="space-y-3">
         <button onClick={() => { setSelectedJob(null); setReviewNotes(""); }} className="text-xs text-primary font-bold">← Back to Jobs</button>
@@ -110,7 +138,24 @@ export default function JobsTab() {
             <Clock className="h-3 w-3 ml-2" /> Expires: {new Date(selectedJob.expires_at).toLocaleString()}
           </div>
 
-          {selectedJob.status === "pending_approval" && (
+          {/* Payment Confirmation Step */}
+          {needsPayment && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                  <p className="text-xs font-bold text-amber-700">Payment Not Yet Received</p>
+                </div>
+                <p className="text-[10px] text-amber-600">Client must hand over ₱{selectedJob.hourly_rate} to BizMart staff before this job can be reviewed.</p>
+              </div>
+              <Button size="sm" onClick={() => confirmPayment(selectedJob.id)} disabled={processing} className="w-full gap-1 bg-amber-600 hover:bg-amber-700">
+                <Wallet className="h-3 w-3" /> Confirm Payment Received
+              </Button>
+            </div>
+          )}
+
+          {/* Admin Review Step */}
+          {needsReview && (
             <div className="space-y-2 pt-2 border-t border-border">
               <p className="text-xs font-bold">Admin Review Notes (Optional)</p>
               <Textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Add notes for the client..." className="text-xs" rows={2} />
