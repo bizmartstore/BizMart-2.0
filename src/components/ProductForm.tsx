@@ -1,102 +1,173 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import GenerateDescriptionButton from "./GenerateDescriptionButton";
 
 interface ProductFormProps {
-  // Props passed from parent (e.g., initial values, submit handler, etc.)
-  initialState: any;
+  initialData?: {
+    name?: string;
+    price?: number;
+    originalPrice?: number;
+    category?: string;
+    stock?: number;
+    description?: string;
+    images?: string[];
+  };
   onSubmit: (data: any) => void;
-  // Any other props you need (e.g., loading state, product to edit, etc.)
+  onCancel?: () => void;
 }
 
-export default function ProductForm({ initialState, onSubmit }: ProductFormProps) {
-  // Form state
-  const [form, setForm] = useState({
-    ...initialState,
-    description: "", // description will be filled by the backend
+export default function ProductForm({ initialData = {}, onSubmit, onCancel }: ProductFormProps) {
+  const [formData, setFormData] = useState({
+    name: initialData.name || '',
+    price: initialData.price || 0,
+    originalPrice: initialData.originalPrice || '',
+    category: initialData.category || '',
+    stock: initialData.stock || 0,
+    description: initialData.description || '',
+    images: initialData.images || [],
   });
-  const [description, setDescription] = useState("");
 
-  // Handle the “Generate Description” button
-  const handleGenerate = (productName: string) => {
-    generateDescription(productName, (generated) => {
-      setDescription(generated);
-    });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        price: initialData.price || 0,
+        originalPrice: initialData.originalPrice || '',
+        category: initialData.category || '',
+        stock: initialData.stock || 0,
+        description: initialData.description || '',
+        images: initialData.images || [],
+      });
+    }
+  }, [initialData]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value
+    }));
   };
 
-  const generateDescription = (productName: string, onFinished: (desc: string) => void) => {
-    // Assuming GenerateDescriptionButton is imported above
-    // It will call /api/generate-description and call onFinished with the result
-    // We embed the button directly here for simplicity
-    const button = (
-      <GenerateDescriptionButton
-        productName={productName}
-        onDescriptionGenerated={onFinished}
-        disabled={false}
-      />
-    );
-    // Render the button + description textarea
-    return (
-      <div className="space-y-3">
-        {/* Existing form fields (name, price, etc.) would be rendered here */}
-        {/* ... existing inputs ... */}
-
-        {/* Description field – pre‑filled with fallback */}
-        <div>
-          <Label className="text-[10px] font-bold">Description</Label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Enter product description..."
-            className="w-full rounded-md border border-border p-2 text-sm"
-          />
-        </div>
-
-        {/* Generate button */}
-        <GenerateDescriptionButton
-          productName={productName}
-          onDescriptionGenerated={onFinished}
-        />
-      </div>
-    </div>
-  );
-}
-
-/* --------------------------------------------------------------------- */
-/* Helper hook – you can also place this logic directly inside the form   */
-/* --------------------------------------------------------------------- */
-function useGenerateDescription(
-  productName: string,
-  onFinished: (desc: string) => void
-) {
-  const [loading, setLoading] = useState(false);
-  const [fallback] = useState(
-    "A high‑quality product that meets your needs and adds value to your collection."
-  );
-
-  const callBackend = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
     try {
-      const res = await fetch("/api/generate-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productName }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      onFinished(json.description);
-    } catch (e) {
-      console.error("Backend description generation failed:", e);
-      onFinished(fallback);
+      await onSubmit(formData);
     } finally {
       setLoading(false);
     }
   };
 
-  // Auto‑run when productName changes (optional)
-  useEffect(() => {
-    if (productName) {
-      callBackend();
-    }
-  }, [productName, callBackend]);
+  const handleDescriptionGenerated = (description: string) => {
+    setFormData(prev => ({ ...prev, description }));
+  };
 
-  return { loading, fallbackDescription: fallback };
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Product Name *</Label>
+          <Input
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter product name"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="price">Price (₱) *</Label>
+          <Input
+            id="price"
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.price}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="originalPrice">Original Price (₱)</Label>
+          <Input
+            id="originalPrice"
+            name="originalPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.originalPrice}
+            onChange={handleChange}
+            placeholder="Optional - for showing discount"
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="stock">Stock Quantity *</Label>
+          <Input
+            id="stock"
+            name="stock"
+            type="number"
+            min="0"
+            value={formData.stock}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="category">Category *</Label>
+        <Input
+          id="category"
+          name="category"
+          value={formData.category}
+          onChange={handleChange}
+          placeholder="e.g., notebooks, pens, tech"
+          required
+        />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="description">Description *</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Enter product description..."
+          className="min-h-[120px]"
+          required
+        />
+        <GenerateDescriptionButton
+          productName={formData.name}
+          onDescriptionGenerated={handleDescriptionGenerated}
+          disabled={!formData.name.trim()}
+        />
+      </div>
+
+      <div className="flex gap-3 pt-4">
+        <Button type="submit" disabled={loading} className="flex-1">
+          {loading ? 'Saving...' : initialData.name ? 'Update Product' : 'Add Product'}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            Cancel
+          </Button>
+        )}
+      </div>
+    </form>
+  );
 }
