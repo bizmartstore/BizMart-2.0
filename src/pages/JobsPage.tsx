@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Search, Briefcase, Plus, ShieldCheck, Clock, MapPin, Star, AlertCircle, ArrowRight, Timer, CheckCircle2, Eye, Loader2, User } from "lucide-react";
+import { Briefcase, Plus, Search, Filter, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -22,7 +21,6 @@ export default function JobsPage() {
   const [myBids, setMyBids] = useState<any[]>([]);
   const [mySessions, setMySessions] = useState<any[]>([]);
   const [search, setSearch] = useState("");
-  const [submittingBid, setSubmittingBid] = useState(false); // <-- added
 
   useEffect(() => {
     if (!user) {
@@ -47,7 +45,8 @@ export default function JobsPage() {
         .select("*")
         .eq("user_id", user.id)
         .maybeSingle();
-            if (freelancer) {
+      
+      if (freelancer) {
         setIsFreelancer(freelancer.status === "approved");
         setFreelancerStatus(freelancer.status);
       }
@@ -70,7 +69,8 @@ export default function JobsPage() {
       
       setMyJobs(userJobs || []);
 
-      // Load freelancer bids if approved      if (freelancer?.status === "approved") {
+      // Load freelancer bids if approved
+      if (freelancer?.status === "approved") {
         const { data: bids } = await (supabase as any)
           .from("job_bids")
           .select("*, job:job_postings(*)")
@@ -140,200 +140,236 @@ export default function JobsPage() {
     <div className="min-h-screen bg-background pb-24">
       <TopBar />
       <div className="px-4 mt-4">
-        {/* Enhanced Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-primary">Job Offers</h1>
-            <p className="text-sm text-muted-foreground">Peer-to-peer academic assistance</p>
+            <h1 className="font-extrabold text-xl text-foreground">Job Offers</h1>
+            <p className="text-xs text-muted-foreground">Peer-to-peer academic assistance</p>
           </div>
-          <Button 
-            onClick={() => navigate("/jobs/post")} 
-            size="sm" 
-            variant="outline" 
-            className="rounded-xl gap-1.5 font-bold hover:bg-primary/20 transition-colors"
-          >
-            <Plus className="h-4 w-4" /> Post Job          </Button>
+          <Button onClick={() => navigate("/jobs/post")} size="sm" className="rounded-xl gap-1.5 font-bold">
+            <Plus className="h-4 w-4" /> Post Job
+          </Button>
         </div>
 
-        {/* Enhanced Search & Filter */}
-        <div className="relative mb-6">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input              
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by subject or category..."
-            className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-
-        {/* Enhanced Job Listing Grid */}
-        <div className="space-y-4">
-          {jobs.length === 0 ? (
-            <div className="flex flex-col items-center py-12">
-              <Briefcase className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">No active job offers found</p>
+        {/* Freelancer Banner */}
+        {!isFreelancer && (
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-4 mb-6 text-white shadow-lg">
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <h3 className="font-bold text-sm mb-1">Earn as a Freelancer! 💰</h3>
+                <p className="text-[11px] opacity-90 mb-3">
+                  {freelancerStatus === 'pending' 
+                    ? "Your application is being reviewed by moderators." 
+                    : "Help fellow students with their lessons and earn BCoins."}
+                </p>
+                {freelancerStatus !== 'pending' && (
+                  <Button 
+                    onClick={() => navigate("/jobs/apply")} 
+                    variant="secondary" 
+                    size="sm" 
+                    className="h-8 text-[10px] font-bold bg-white text-indigo-600 hover:bg-white/90"
+                  >
+                    Apply Now
+                  </Button>
+                )}
+              </div>
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+                <Star className="h-6 w-6 fill-white" />
+              </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {jobs.map((job) => (
-                <div 
-                  key={job.id} 
-                  onClick={() => navigate(`/jobs/${job.id}`)}
-                  className="bg-card rounded-xl border border-border p-3 flex items-start gap-3 hover:scale-[0.98] transition-all cursor-pointer"
-                >
-                  {/* Enhanced Job Card */}
-                  <div className="flex items-start gap-3">
-                    {/* Category Badge */}
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+          </div>
+        )}
+
+        <Tabs defaultValue="browse" className="w-full">
+          <TabsList className="w-full grid grid-cols-2 lg:grid-cols-3 mb-4 h-11 rounded-xl bg-muted/50 p-1">
+            <TabsTrigger value="browse" className="rounded-lg text-xs font-bold">Browse Jobs</TabsTrigger>
+            <TabsTrigger value="my-activity" className="rounded-lg text-xs font-bold">My Activity</TabsTrigger>
+            {isFreelancer && (
+              <TabsTrigger value="freelancer" className="rounded-lg text-xs font-bold">Freelancer Dashboard</TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="browse" className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input 
+                type="text"
+                placeholder="Search by subject or category..."
+                className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-3">
+              {jobs.length === 0 ? (
+                <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border">
+                  <Briefcase className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">No active job offers found</p>
+                </div>
+              ) : (
+                jobs.map((job) => (
+                  <div 
+                    key={job.id} 
+                    onClick={() => navigate(`/jobs/${job.id}`)}
+                    className="bg-card border border-border rounded-2xl p-4 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                         {job.category}
                       </span>
+                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium">
+                        <Clock className="h-3 w-3" />
+                        Expires in {Math.max(0, Math.floor((new Date(job.expires_at).getTime() - Date.now()) / 60000))}m
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{job.title}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {job.client?.first_name} {job.client?.last_name} • ₱{job.hourly_rate}
-                      </p>
+                    <h3 className="font-bold text-sm mb-1 line-clamp-1">{job.title}</h3>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{job.description}</p>
+                    
+                    <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-[10px] font-bold">
+                          {job.client?.first_name?.[0]}
+                        </div>
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          {job.client?.first_name} {job.client?.last_name}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-extrabold text-primary">₱{job.hourly_rate}</span>
+                        <span className="text-[9px] text-muted-foreground block">per hour</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                      job.status === 'open' ? 'bg-green-100 text-green-600' :
-                      job.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
-                      {job.status.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm text-muted-foreground">
-                      {job.client?.first_name} {job.client?.last_name}
-                    </span>
-                    <span className="text-[10px] text-muted-foreground">
-                      {job.client?.school} • {job.client?.grade_level} • {job.client?.section}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 mt-2">
-                  {job.status === 'open' && (
-                    <>
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleHire(job.id, job.freelancer_id, job.proposed_price)}                                                 disabled={submittingBid}
-                        className="flex-1 text-[10px] font-bold bg-primary/20 hover:bg-primary/30"
-                      >
-                        {submittingBid ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : 'Hire'}
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        onClick={() => handleReject(job.id)} 
-                        disabled={submittingBid} 
-                        className="flex-1 text-[10px] font-bold"
-                      >
-                        {submittingBid ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : 'Reject'}
-                      </Button>
-                    </>
-                  )}
-                  {job.status === 'open' && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"                                             onClick={() => navigate(`/jobs/${job.id}`)} 
-                      className="flex-1 text-[10px] font-bold hover:bg-primary/20"
-                    >
-                      <Eye className="h-3 w-3" /> View Details
-                    </Button>
-                  )}
-                </div>
-              </div>
+                ))
+              )}
             </div>
-          ))}
-        </div>
+          </TabsContent>
 
-        {/* Enhanced Filter Controls */}
-        <div className="flex items-center justify-between gap-1.5 overflow-x-auto pb-1">
-        </div>
-
-        {/* Enhanced Job Listing with Improved Cards */}
-        {jobs.map(job => (
-          <div 
-            key={job.id} 
-            onClick={() => navigate(`/jobs/${job.id}`)}
-            className="bg-card rounded-xl border border-border p-3 flex items-start gap-3 hover:scale-[0.98] transition-all cursor-pointer"
-          >
-            {/* Enhanced Job Header */}
-            <div className="flex items-start gap-3">
-              {/* Category Badge */}
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-primary/20 text-primary">
-                  {job.category}
-                </span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-bold truncate">{job.title}</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {job.client?.first_name} {job.client?.last_name} • ₱{job.hourly_rate}
-                  </p>
+          <TabsContent value="my-activity">
+            <div className="space-y-3">
+              <h3 className="font-bold text-sm px-1">My Job Requests</h3>
+              {myJobs.length === 0 ? (
+                <div className="text-center py-8 bg-card rounded-2xl border border-border">
+                  <p className="text-xs text-muted-foreground">You haven't posted any jobs yet</p>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                  job.status === 'open' ? 'bg-green-100 text-green-600' :
-                  job.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
-                  'bg-muted text-muted-foreground'
-                }`>
-                  {job.status.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-sm text-muted-foreground">
-                  {job.client?.first_name} {job.client?.last_name}
-                </span>
-                <span className="text-[10px] text-muted-foreground">
-                  {job.client?.school} • {job.client?.grade_level} • {job.client?.section}
-                </div>
-              </div>
-
-              {/* Enhanced Action Buttons */}
-              <div className="flex items-center gap-2 mt-2">
-                {job.status === 'open' && (
-                  <>
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleHire(job.id, job.freelancer_id, job.proposed_price)}                         
-                        disabled={submittingBid}
-                        className="flex-1 text-[10px] font-bold bg-primary/20 hover:bg-primary/30"
-                      >
-                        {submittingBid ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : 'Hire'}
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="destructive" 
-                        onClick={() => handleReject(job.id)} 
-                        disabled={submittingBid} 
-                        className="flex-1 text-[10px] font-bold"
-                      >
-                        {submittingBid ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : 'Reject'}
-                      </Button>
-                    </>
-                  )}
-                  {job.status === 'open' && (
-                    <Button 
-                      size="sm" 
-                      variant="outline"                       
-                      onClick={() => navigate(`/jobs/${job.id}`)} 
-                      className="flex-1 text-[10px] font-bold hover:bg-primary/20"
-                    >
-                      <Eye className="h-3 w-3" /> View Details
-                    </Button>
-                  )}
-                </div>
-              </div>
+              ) : (
+                myJobs.map((job) => (
+                  <div 
+                    key={job.id} 
+                    onClick={() => navigate(`/jobs/${job.id}`)}
+                    className="bg-card border border-border rounded-xl p-3 flex items-center justify-between active:scale-[0.98] transition-all"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold truncate">{job.title}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                          job.status === 'open' ? 'bg-green-100 text-green-600' :
+                          job.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
+                          'bg-muted text-muted-foreground'
+                        }`}>
+                          {job.status.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">₱{job.hourly_rate}/hr</span>
+                      </div>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground ml-2" />
+                  </div>
+                ))
+              )}
             </div>
-          ))}
+          </TabsContent>
+
+          {isFreelancer && (
+            <TabsContent value="freelancer">
+              <div className="space-y-4">
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-extrabold text-primary">{myBids.length}</p>
+                    <p className="text-[10px] text-muted-foreground">My Bids</p>
+                  </div>
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-extrabold text-blue-600">{mySessions.filter(s => s.status === 'active').length}</p>
+                    <p className="text-[10px] text-muted-foreground">Active</p>
+                  </div>
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-extrabold text-green-600">{mySessions.filter(s => s.status === 'completed').length}</p>
+                    <p className="text-[10px] text-muted-foreground">Completed</p>
+                  </div>
+                </div>
+
+                {/* My Bids */}
+                <div>
+                  <h3 className="font-bold text-sm mb-2">My Bids</h3>
+                  {myBids.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No bids submitted yet</p>
+                  ) : (
+                    myBids.map(bid => (
+                      <div key={bid.id} className="bg-card rounded-xl border border-border p-3 mb-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-xs font-bold">{bid.job?.title}</p>
+                            <p className="text-[10px] text-muted-foreground">₱{bid.proposed_price} · {bid.status}</p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            bid.status === 'accepted' ? 'bg-green-100 text-green-600' :
+                            bid.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                            'bg-yellow-100 text-yellow-600'
+                          }`}>
+                            {bid.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* My Sessions */}
+                <div>
+                  <h3 className="font-bold text-sm mb-2">My Sessions</h3>
+                  {mySessions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No sessions yet</p>
+                  ) : (
+                    mySessions.map(session => (
+                      <div key={session.id} className="bg-card rounded-xl border border-border p-3 mb-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-xs font-bold">Session #{session.id.slice(0, 6)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {session.status === 'active' ? `⏱️ ${Math.floor((Date.now() - new Date(session.start_time).getTime()) / 60000)}m elapsed` : 
+                               session.status === 'completed' ? `✅ ${session.duration_minutes}m completed` :
+                               session.status}
+                            </p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            session.status === 'active' ? 'bg-blue-100 text-blue-600' :
+                            session.status === 'completed' ? 'bg-green-100 text-green-600' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {session.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          )}
+        </Tabs>
+
+        {/* Policy Reminder */}
+        <div className="mt-8 p-4 bg-muted/30 rounded-2xl border border-border">
+          <div className="flex items-center gap-2 mb-2">
+            <AlertCircle className="h-4 w-4 text-primary" />
+            <span className="font-bold text-xs">Academic Integrity Policy</span>
+          </div>
+          <p className="text-[10px] text-muted-foreground leading-relaxed">
+            Freelancers are here to **guide and tutor** you. They are strictly prohibited from completing assignments, projects, or graded work on your behalf. Use this platform responsibly to improve your learning!
+          </p>
         </div>
       </div>
+      <BottomNav />
     </div>
   );
 }
