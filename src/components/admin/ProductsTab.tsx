@@ -113,8 +113,8 @@ export default function ProductsTab() {
         stock: form.stock,
         description: form.description.trim(),
         is_flash_sale: form.is_flash_sale,
-        is_active: true, // Explicitly set to true
-        seller_id: null, // Admin products have no seller_id
+        is_active: true,
+        seller_id: null,
         rating: 4.5,
         sold: 0,
       };
@@ -122,12 +122,22 @@ export default function ProductsTab() {
       console.log('[ProductsTab] Inserting/Updating product with payload:', payload);
 
       if (editId) {
-        const { error } = await (supabase as any).from("products").update(payload).eq("id", editId);
+        const { data, error } = await (supabase as any)
+          .from("products")
+          .update(payload)
+          .eq("id", editId)
+          .select();
+        
+        console.log('[ProductsTab] Update result:', { data, error });
         if (error) throw error;
         toast.success("Product updated!");
       } else {
-        const id = `prod-${Date.now()}`;
-        const { error } = await (supabase as any).from("products").insert({ ...payload, id });
+        const { data, error } = await (supabase as any)
+          .from("products")
+          .insert(payload)
+          .select();
+        
+        console.log('[ProductsTab] Insert result:', { data, error });
         if (error) throw error;
         toast.success("Product added!");
       }
