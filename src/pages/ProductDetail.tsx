@@ -228,7 +228,6 @@ export default function ProductDetail() {
         images={allImages}
         isOpen={showCarousel} 
         onClose={() => setShowCarousel(false)} 
-        initialIndex={carouselIndex}
       />
 
       <BottomNav />
