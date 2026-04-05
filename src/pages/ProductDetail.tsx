@@ -98,24 +98,19 @@ export default function ProductDetail() {
         {/* Tiny image carousel - only show if multiple images */}
         {allImages.length > 1 && (
           <div 
-            className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg p-2 shadow-lg z-10 cursor-pointer"
+            className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-lg z-10 cursor-pointer"
             onClick={() => openCarouselAt(carouselIndex)}
           >
-            <div className="flex gap-1.5 justify-center items-center">
-              {allImages.map((img, idx) => (
-                <img
-                  key={idx}
-                  src={img}
-                  alt={`Thumbnail ${idx + 1}`}
-                  className="h-10 w-10 object-cover rounded transition-all flex-shrink-0"
-                  style={{ 
-                    opacity: idx === carouselIndex ? 1 : 0.4,
-                    transform: idx === carouselIndex ? 'scale(1.1)' : 'scale(0.9)',
-                    border: idx === carouselIndex ? '2px solid white' : '1px solid transparent',
-                    boxShadow: idx === carouselIndex ? '0 2px 4px rgba(0,0,0,0.3)' : 'none'
-                  }}
-                />
-              ))}
+            <div className="flex items-center justify-center">
+              <img
+                src={allImages[carouselIndex]}
+                alt={`Thumbnail ${carouselIndex + 1}`}
+                className="h-10 w-10 object-cover rounded transition-all"
+                style={{ 
+                  border: '1.5px solid white',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                }}
+              />
             </div>
             {/* Dots indicator */}
             <div className="flex justify-center gap-1 mt-1.5">
