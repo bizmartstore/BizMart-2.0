@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useNavigate } from "react-router-dom";
+import { Loader2, Package } from "lucide-react";
 
 interface FlashSaleSettings {
   minDiscount: number;
@@ -20,7 +21,7 @@ export default function FlashSaleSettingsTab() {
   });
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const { navigate } = useNavigate();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const load = async () => {
