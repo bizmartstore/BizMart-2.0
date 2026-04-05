@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw, AlertCircle, Upload } from "lucide-react";
 
 interface BannerItem {
   id: string;
