@@ -1,16 +1,24 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw } from "lucide-react";
 import { products as fallbackProducts, categories as fallbackCategories } from "@/data/products";
 
+interface Category {
+  id: string;
+  name: string;
+  icon: string;
+}
+
 export default function ProductsTab() {
   const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -22,11 +30,28 @@ export default function ProductsTab() {
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const load = () => {
+  const loadCategories = useCallback(async () => {
+    const { data, error } = await (supabase as any)
+      .from("categories")
+      .select("id, name, icon")
+      .eq("is_active", true)
+      .order("sort_order");
+    if (!error && data) {
+      setCategories(data);
+    } else {
+      setCategories(fallbackCategories);
+    }
+  }, []);
+
+  const loadProducts = useCallback(() => {
     (supabase as any).from("products").select("*").order("created_at", { ascending: false })
       .then(({ data }: any) => setProducts(data || []));
-  };
-  useEffect(load, []);
+  }, []);
+
+  useEffect(() => {
+    loadCategories();
+    loadProducts();
+  }, [loadCategories, loadProducts]);
 
   const resetForm = () => setForm({
     name: "", price: 0, original_price: "", image: "", category: "",
@@ -52,6 +77,7 @@ export default function ProductsTab() {
   const save = async () => {
     if (!form.name.trim()) { toast.error("Product name is required"); return; }
     if (form.price <= 0) { toast.error("Price must be greater than 0"); return; }
+    if (!form.category) { toast.error("Please select a category"); return; }
     setSaving(true);
     try {
       const payload = {
@@ -78,7 +104,7 @@ export default function ProductsTab() {
         if (error) throw error;
         toast.success("Product added!");
       }
-      resetForm(); setShowForm(false); setEditId(null); load();
+      resetForm(); setShowForm(false); setEditId(null); loadProducts();
     } catch (e: any) {
       toast.error(e.message || "Failed to save");
     }
@@ -98,12 +124,12 @@ export default function ProductsTab() {
   const remove = async (id: string) => {
     if (!confirm("Delete this product?")) return;
     await (supabase as any).from("products").delete().eq("id", id);
-    load(); toast.success("Product deleted");
+    loadProducts(); toast.success("Product deleted");
   };
 
   const toggleActive = async (id: string, active: boolean) => {
     await (supabase as any).from("products").update({ is_active: !active }).eq("id", id);
-    load();
+    loadProducts();
   };
 
   const syncDefaults = async () => {
@@ -112,7 +138,6 @@ export default function ProductsTab() {
     let addedProds = 0;
     let errors = 0;
     try {
-      // 1. Sync categories FIRST to avoid foreign key constraint errors
       for (const cat of fallbackCategories) {
         const { data: existing } = await (supabase as any).from("categories").select("id").eq("id", cat.id).maybeSingle();
         if (!existing) {
@@ -123,7 +148,6 @@ export default function ProductsTab() {
         }
       }
 
-      // 2. Sync products
       for (const p of fallbackProducts) {
         try {
           const { data: existing } = await (supabase as any).from("products").select("id").eq("id", p.id).maybeSingle();
@@ -149,7 +173,8 @@ export default function ProductsTab() {
       }
       
       toast.success(`Synced ${addedCats} categories and ${addedProds} products! ${errors > 0 ? `${errors} failed.` : ''}`);
-      load();
+      loadProducts();
+      loadCategories();
     } catch (e: any) {
       toast.error(e.message || "Sync failed");
     }
@@ -178,7 +203,21 @@ export default function ProductsTab() {
         <div className="bg-card rounded-xl p-3 border border-border space-y-2">
           <div className="grid grid-cols-2 gap-2">
             <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Category</Label><Input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. notebooks" className="text-xs h-8" /></div>
+            <div>
+              <Label className="text-[10px]">Category *</Label>
+              <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
+                <SelectTrigger className="text-xs h-8">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map(cat => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
