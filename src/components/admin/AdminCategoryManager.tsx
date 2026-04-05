@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { X, Edit2, Trash2, Loader2 } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Category = {
   id: string;
@@ -112,7 +111,7 @@ export default function AdminCategoryManager() {
           >
             Cancel
           </Button>
-        </Button>
+        )}
       </div>
       {categories.length > 0 && (
         <div className="space-y-2">
@@ -141,7 +140,7 @@ export default function AdminCategoryManager() {
             </div>
           ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -36,7 +36,8 @@ export default function ProductsTab() {
   const load = async () => {
     (supabase as any).from("products").select("*").order("created_at", { ascending: false })
       .then(({ data }: any) => setProducts(data || []));
-        try {
+    
+    try {
       const { data: catData, error } = await (supabase as any).from("categories").select("id, name");
       if (error) throw error;
       setCategories(catData?.map((c: any) => c.name) || []);
@@ -46,7 +47,7 @@ export default function ProductsTab() {
   };
   useEffect(() => {
     load();
-  }, [load]); // ✅ Fixed: call load() inside effect
+  }, [load]);
 
   const resetForm = () => setForm({
     name: "",
@@ -160,12 +161,12 @@ export default function ProductsTab() {
       {showForm && (
         <div className="bg-card rounded-xl p-3 border border-border space-y-2">
           <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div></div>
-            <div className="grid grid-cols-3 gap-2">
-              <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
-              <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
-              <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
-            </div>
+            <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
+            <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
           </div>
           <div>
             <Label className="text-[10px]">Image</Label>
@@ -187,12 +188,12 @@ export default function ProductsTab() {
             <Label className="text-[10px]">Category</Label>
             <Select
               value={form.category}
-              onChange={(e) => setForm(f => ({ ...f, category: e.target.value }))
+              onValueChange={(val) => setForm(f => ({ ...f, category: val }))}
               placeholder="Select category"
               className="text-sm"
             >
               <SelectTrigger className="text-sm">
-                <SelectValue />
+                <SelectValue placeholder="Select category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((cat: string, index: number) => (
