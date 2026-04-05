@@ -33,8 +33,7 @@ export default function BannerTab() {
         .from("banners")
         .select("*")
         .order("sort_order");
-      
-      if (error) throw error;
+            if (error) throw error;
       if (data) setBanners(data);
     } catch (e: any) {
       console.error("Load error:", e);
@@ -56,8 +55,7 @@ export default function BannerTab() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setUploading(true);
-    
-    try {
+        try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Session expired. Please refresh the page or log in again.");
@@ -68,10 +66,10 @@ export default function BannerTab() {
       const ext = file.name.split(".").pop();
       const path = `banners/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       
-      const { error } = await supabase.storage.from("banner-images").upload(path, file);
+      const { error } = await supabase.storage.from("banners").upload(path, file);
       if (error) throw error;
       
-      const { data: { publicUrl } } = supabase.storage.from("banner-images").getPublicUrl(path);
+      const { data: { publicUrl } } = supabase.storage.from("banners").getPublicUrl(path);
       setPreviewUrl(publicUrl);
       toast.success("Banner image uploaded!");
     } catch (e: any) {
@@ -84,8 +82,7 @@ export default function BannerTab() {
   };
 
   const handleSave = async () => {
-    if (!previewUrl) { 
-      toast.error("Please upload a banner image"); 
+    if (!previewUrl) {       toast.error("Please upload a banner image"); 
       return; 
     }
     if (sortOrder < 0) { 
@@ -181,7 +178,7 @@ export default function BannerTab() {
       const defaultBanners = [
         { url: "/src/assets/banner1.jpg", order: 0 },
         { url: "/src/assets/banner2.jpg", order: 1 }
-      ];
+      };
       
       for (const banner of defaultBanners) {
         const { data: existing } = await (supabase as any)
@@ -251,10 +248,7 @@ export default function BannerTab() {
                 </button>
               </div>
             ) : (
-              <div
-                onClick={() => fileRef.current?.click()}
-                className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors cursor-pointer"
-              >
+              <div className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg">
                 <Upload className="h-6 w-6 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground mt-2">Click to upload</p>
               </div>
