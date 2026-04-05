@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet, ShieldCheck, Timer, Calendar, FileCheck, Image as ImageIcon } from "lucide-react";
+import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet, ShieldCheck, Timer, Calendar, FileCheck } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function JobsTab() {
@@ -116,26 +116,18 @@ export default function JobsTab() {
   const loadSession = async (jobId: string) => {
     setSessionLoading(true);
     try {
-      console.log(`[JobsTab] Loading session for job: ${jobId}`);
       const { data, error } = await (supabase as any)
         .from("job_sessions")
         .select("*")
         .eq("job_id", jobId)
         .maybeSingle();
       
-      if (error) {
-        console.error("[JobsTab] Session fetch error:", error);
-        toast.error("Failed to load session: " + error.message);
-        return;
-      }
-      
+      if (error) throw error;
       if (!data) {
-        console.warn("[JobsTab] No session found for job:", jobId);
-        toast.info("No session record found for this job yet.");
+        toast.info("No session found for this job.");
         return;
       }
-      
-      console.log("[JobsTab] Session loaded successfully:", data);
+      console.log("[JobsTab] Session loaded:", data);
       setSession(data);
     } catch (e: any) {
       console.error("Failed to load session:", e);
@@ -240,9 +232,6 @@ export default function JobsTab() {
               {session.freelancer_proof ? (
                 <div>
                   <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{session.freelancer_proof}</p>
-                  {session.freelancer_proof_image && (
-                    <img src={session.freelancer_proof_image} alt="Freelancer Proof" className="mt-2 rounded-lg max-h-48 w-full object-cover border border-border" />
-                  )}
                   <p className="text-[9px] text-muted-foreground mt-2">Submitted: {new Date(session.freelancer_proof_submitted_at).toLocaleString()}</p>
                 </div>
               ) : (
@@ -259,9 +248,6 @@ export default function JobsTab() {
               {session.customer_proof ? (
                 <div>
                   <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{session.customer_proof}</p>
-                  {session.customer_proof_image && (
-                    <img src={session.customer_proof_image} alt="Customer Proof" className="mt-2 rounded-lg max-h-48 w-full object-cover border border-border" />
-                  )}
                   <p className="text-[9px] text-muted-foreground mt-2">Submitted: {new Date(session.customer_proof_submitted_at).toLocaleString()}</p>
                 </div>
               ) : (
