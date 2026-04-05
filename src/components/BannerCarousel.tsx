@@ -18,29 +18,26 @@ export default function BannerCarousel() {
   }, [banners.length]);
 
   return (
-    <div className="relative overflow-hidden rounded-xl mx-3 mt-2 bg-muted/30">
+    <div className="relative overflow-hidden rounded-xl mx-3 mt-2">
       <div
         className="flex transition-transform duration-500 ease-out"
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {banners.map((banner, i) => (
-          <div key={i} className="w-full flex-shrink-0">
-            <div className="relative w-full" style={{ paddingBottom: "45%" }}>
-              <img
-                src={banner}
-                alt={`Banner ${i + 1}`}
-                className="absolute inset-0 w-full h-full object-contain rounded-xl"
-              />
-            </div>
-          </div>
+          <img
+            key={i}
+            src={banner}
+            alt={`Banner ${i + 1}`}
+            className="w-full flex-shrink-0 aspect-[2/1] object-cover rounded-xl"
+          />
         ))}
       </div>
-      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
         {banners.map((_, i) => (
           <div
             key={i}
             className={`h-1.5 rounded-full transition-all ${
-              i === current ? "w-4 bg-primary" : "w-1.5 bg-primary/50"
+              i === current ? "w-4 bg-primary-foreground" : "w-1.5 bg-primary-foreground/50"
             }`}
           />
         ))}
