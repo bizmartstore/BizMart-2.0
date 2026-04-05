@@ -251,7 +251,10 @@ export default function BannerTab() {
                 </button>
               </div>
             ) : (
-              <div className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg">
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors cursor-pointer"
+              >
                 <Upload className="h-6 w-6 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground mt-2">Click to upload</p>
               </div>
