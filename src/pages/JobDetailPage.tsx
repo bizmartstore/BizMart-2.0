@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users, Wallet, Phone, RefreshCw, ListChecks, Target, File, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users, Wallet, Phone, RefreshCw, ListChecks, Target, File, ShieldCheck, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { notifyCustomerNewBid, notifyFreelancerHired, notifyFreelancerRejected } from "@/lib/notifications";
 
@@ -22,11 +22,9 @@ export default function JobDetailPage() {
   const [bidForm, setBidForm] = useState({ price: "", message: "", contactNumber: "" });
   const [submittingBid, setSubmittingBid] = useState(false);
   const [sessionTimer, setSessionTimer] = useState(0);
-  const [proofFiles, setProofFiles] = useState<string[]>([]);
-  const [proofDesc, setProofDesc] = useState("");
+  const [freelancerProof, setFreelancerProof] = useState("");
+  const [customerProof, setCustomerProof] = useState("");
   const [uploadingProof, setUploadingProof] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, review: "", needsRevision: false });
-  const [submittingReview, setSubmittingReview] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadBids = useCallback(async () => {
@@ -72,6 +70,10 @@ export default function JobDetailPage() {
     const channel = supabase.channel(`job-bids-${id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "job_bids", filter: `job_id=eq.${id}` }, () => loadBids())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "job_bids", filter: `job_id=eq.${id}` }, () => loadBids())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_sessions", filter: `job_id=eq.${id}` }, async () => {
+        const { data: sessionData } = await (supabase as any).from("job_sessions").select("*").eq("job_id", id).maybeSingle();
+        setSession(sessionData);
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id, loadBids]);
@@ -151,41 +153,41 @@ export default function JobDetailPage() {
       const endTime = new Date().toISOString();
       const startTime = new Date(session.start_time).getTime();
       const durationMinutes = Math.floor((Date.now() - startTime) / 60000);
-      await (supabase as any).from("job_sessions").update({ status: "completed", end_time: endTime, duration_minutes: durationMinutes }).eq("id", session.id);
-      setSession({ ...session, status: "completed", end_time: endTime, duration_minutes: durationMinutes });
-      toast.success("Session ended. Please upload proof of assistance. 📸");
+      // Change status to pending_review so both parties can submit proof
+      await (supabase as any).from("job_sessions").update({ 
+        status: "pending_review", 
+        end_time: endTime, 
+        duration_minutes: durationMinutes 
+      }).eq("id", session.id);
+      setSession({ ...session, status: "pending_review", end_time: endTime, duration_minutes: durationMinutes });
+      toast.success("Session ended. Both parties can now submit proof of completion. 📸");
     } catch (err: any) { toast.error(err.message || "Failed to end session"); }
   };
 
-  const uploadProof = async () => {
+  const submitProof = async (role: "freelancer" | "customer") => {
     if (!session || !user) return;
+    const proofText = role === "freelancer" ? freelancerProof : customerProof;
+    if (!proofText.trim()) {
+      toast.error("Please describe the work completed");
+      return;
+    }
+    
     setUploadingProof(true);
     try {
-      const proofUrls = proofFiles.length > 0 ? proofFiles : ["/placeholder.svg"];
-      await (supabase as any).from("job_sessions").update({ proof_urls: proofUrls, proof_description: proofDesc }).eq("id", session.id);
-      setSession({ ...session, proof_urls: proofUrls, proof_description: proofDesc });
-      toast.success("Proof uploaded! Customer can now review. ✅");
-    } catch (err: any) { toast.error(err.message || "Failed to upload proof"); }
-    setUploadingProof(false);
-  };
-
-  const submitReview = async () => {
-    if (!session) return;
-    setSubmittingReview(true);
-    try {
-      if (reviewForm.needsRevision) {
-        await (supabase as any).from("job_sessions").update({ status: "revision_requested", revision_notes: reviewForm.review }).eq("id", session.id);
-        setSession({ ...session, status: "revision_requested", revision_notes: reviewForm.review });
-        toast.info("Revision requested. Freelancer will update their work.");
+      const updateData: any = {};
+      if (role === "freelancer") {
+        updateData.freelancer_proof = proofText.trim();
+        updateData.freelancer_proof_submitted_at = new Date().toISOString();
       } else {
-        await (supabase as any).rpc("release_escrow", { session_id: session.id });
-        await (supabase as any).from("job_sessions").update({ customer_rating: reviewForm.rating, customer_review: reviewForm.review }).eq("id", session.id);
-        await (supabase as any).from("job_postings").update({ status: "completed" }).eq("id", job.id);
-        toast.success("Work approved! Payment released to freelancer. 💰");
-        navigate("/jobs");
+        updateData.customer_proof = proofText.trim();
+        updateData.customer_proof_submitted_at = new Date().toISOString();
       }
-    } catch (err: any) { toast.error(err.message || "Failed to submit review"); }
-    setSubmittingReview(false);
+      
+      await (supabase as any).from("job_sessions").update(updateData).eq("id", session.id);
+      setSession({ ...session, ...updateData });
+      toast.success(`${role === "freelancer" ? "Freelancer" : "Customer"} proof submitted! ✅`);
+    } catch (err: any) { toast.error(err.message || "Failed to submit proof"); }
+    setUploadingProof(false);
   };
 
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
@@ -237,7 +239,7 @@ export default function JobDetailPage() {
               <h3 className="font-bold text-sm text-amber-800 dark:text-amber-300">Secure Your Escrow Payment</h3>
             </div>
             <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
-              Before your job can be approved, you must first hand over the payment to the BizMart staff. This payment will be securely held by the admin as an escrow to ensure a safe and fair transaction. The job will remain pending and will not proceed to approval until the payment is confirmed. If the job offer is cancelled or fails to proceed, the BizMart staff will return the full payment to the client. This system is designed to prevent scams from both clients and freelancers by ensuring that funds are secured before any work begins and are only released once the job is successfully completed and approved by both parties.
+              Before your job can be approved, you must first hand over the payment to the BizMart staff. This payment will be securely held by the admin as an escrow to ensure a safe and fair transaction.
             </p>
             <div className="bg-white/50 dark:bg-black/20 rounded-xl p-3 flex items-center justify-between">
               <span className="text-xs font-bold text-amber-800 dark:text-amber-300">Amount to Secure:</span>
@@ -311,31 +313,60 @@ export default function JobDetailPage() {
                     <Button size="sm" onClick={() => handleHire(bid.id, bid.freelancer_id, bid.proposed_price)} className="w-full h-9 text-xs">Hire This Freelancer</Button>
                   </div>
                 ))}
-                {bids.filter(b => b.status !== "pending").length > 0 && (
-                  <div className="pt-2 border-t border-border">
-                    <p className="text-[10px] text-muted-foreground mb-2">Other bids ({bids.filter(b => b.status !== "pending").length})</p>
-                    {bids.filter(b => b.status !== "pending").map(bid => (
-                      <div key={bid.id} className="bg-muted/20 rounded-lg p-2 mb-1.5 opacity-70">
-                        <div className="flex justify-between items-center">
-                          <span className="text-xs font-medium">{bid.freelancer?.first_name} {bid.freelancer?.last_name}</span>
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${bid.status === 'accepted' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>{bid.status}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             ) : (
-              <div className="text-center py-6 bg-muted/20 rounded-lg"><Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground">No bids yet. Freelancers will appear here when they apply.</p></div>
+              <div className="text-center py-6 bg-muted/20 rounded-lg"><Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" /><p className="text-xs text-muted-foreground">No bids yet.</p></div>
             )}
           </div>
         )}
 
         {/* Session Management */}
         {session && (
-          <div className="bg-card rounded-xl p-4 border border-border space-y-3">
-            <h2 className="font-bold text-sm flex items-center gap-2"><Timer className="h-4 w-4 text-primary" /> Session Status</h2>
+          <div className="bg-card rounded-xl p-4 border border-border space-y-4">
+            <h2 className="font-bold text-sm flex items-center gap-2"><Timer className="h-4 w-4 text-primary" /> Session Details</h2>
             
+            {/* Session Info Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-muted/30 rounded-lg p-3">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase">Status</p>
+                <p className="text-sm font-bold capitalize">{session.status.replace('_', ' ')}</p>
+              </div>
+              <div className="bg-muted/30 rounded-lg p-3">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase">Location</p>
+                <p className="text-sm font-bold">{job.location}</p>
+              </div>
+              {session.start_time && (
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Started</p>
+                  <p className="text-xs font-bold">{new Date(session.start_time).toLocaleString()}</p>
+                </div>
+              )}
+              {session.end_time && (
+                <div className="bg-muted/30 rounded-lg p-3">
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Ended</p>
+                  <p className="text-xs font-bold">{new Date(session.end_time).toLocaleString()}</p>
+                </div>
+              )}
+              {session.duration_minutes && (
+                <div className="bg-muted/30 rounded-lg p-3 col-span-2">
+                  <p className="text-[10px] text-muted-foreground font-bold uppercase">Duration</p>
+                  <p className="text-lg font-extrabold text-primary">{session.duration_minutes} minutes</p>
+                </div>
+              )}
+            </div>
+
+            {/* Active Session Timer */}
+            {session.status === "active" && (
+              <div className="bg-primary/10 rounded-lg p-4 text-center">
+                <p className="text-[10px] text-muted-foreground uppercase font-bold mb-1">Session Duration</p>
+                <p className="text-3xl font-extrabold text-primary font-mono">{formatTime(sessionTimer)}</p>
+                {isClient && (
+                  <Button onClick={endSession} variant="destructive" className="w-full mt-3 h-10 font-bold rounded-xl">End Session</Button>
+                )}
+              </div>
+            )}
+
+            {/* Scheduled Session */}
             {session.status === "scheduled" && (
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground">Session is scheduled. Meet at the agreed location.</p>
@@ -343,70 +374,97 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            {session.status === "active" && (
-              <div className="space-y-3">
-                <div className="bg-primary/10 rounded-lg p-3 text-center">
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Session Duration</p>
-                  <p className="text-2xl font-extrabold text-primary font-mono">{formatTime(sessionTimer)}</p>
+            {/* Pending Review - Both can submit proof */}
+            {session.status === "pending_review" && (
+              <div className="space-y-4">
+                <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                  <div className="flex items-center gap-2 mb-1">
+                    <ShieldCheck className="h-4 w-4 text-amber-600" />
+                    <p className="text-xs font-bold text-amber-700">Awaiting Admin Review</p>
+                  </div>
+                  <p className="text-[10px] text-amber-600">Both parties must submit proof of completion. Admin will review and approve.</p>
                 </div>
-                {isClient && <Button onClick={endSession} variant="destructive" className="w-full h-11 font-bold rounded-xl">End Session</Button>}
-              </div>
-            )}
 
-            {session.status === "completed" && !session.escrow_released && (
-              <div className="space-y-3">
-                {isHiredFreelancer && !session.proof_urls?.length && (
+                {/* Freelancer Proof Submission */}
+                {isHiredFreelancer && !session.freelancer_proof_submitted_at && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold">Upload Proof of Assistance</Label>
-                    <Textarea placeholder="Describe how you followed the instructions and completed the task..." value={proofDesc} onChange={(e) => setProofDesc(e.target.value)} className="text-xs" rows={3} />
-                    <Button onClick={uploadProof} disabled={uploadingProof} className="w-full h-10 text-xs">{uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} Upload Proof</Button>
+                    <Label className="text-xs font-bold flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> Submit Your Accomplishment Report</Label>
+                    <Textarea 
+                      placeholder="Describe the work you completed, how you followed the instructions, and the results..." 
+                      value={freelancerProof} 
+                      onChange={(e) => setFreelancerProof(e.target.value)} 
+                      className="text-xs" 
+                      rows={3} 
+                    />
+                    <Button onClick={() => submitProof("freelancer")} disabled={uploadingProof} className="w-full h-10 text-xs">
+                      {uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} 
+                      Submit Freelancer Proof
+                    </Button>
                   </div>
                 )}
-                
-                {isClient && session.proof_urls?.length > 0 && (
+
+                {session.freelancer_proof && (
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                      <p className="text-xs font-bold text-green-700">Freelancer Proof Submitted</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">{session.freelancer_proof}</p>
+                    <p className="text-[9px] text-muted-foreground mt-1">Submitted: {new Date(session.freelancer_proof_submitted_at).toLocaleString()}</p>
+                  </div>
+                )}
+
+                {/* Customer Proof Submission */}
+                {isClient && !session.customer_proof_submitted_at && (
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold">Review Proof & Approve</Label>
-                    <div className="bg-muted/30 rounded-lg p-3">
-                      <p className="text-xs text-muted-foreground mb-2 whitespace-pre-wrap">{session.proof_description || "No description provided"}</p>
-                      <div className="flex gap-2 flex-wrap">
-                        {session.proof_urls.map((url: string, i: number) => (<img key={i} src={url} alt="Proof" className="w-16 h-16 rounded object-cover border border-border" />))}
-                      </div>
+                    <Label className="text-xs font-bold flex items-center gap-1.5"><FileText className="h-3.5 w-3.5 text-primary" /> Submit Your Completion Confirmation</Label>
+                    <Textarea 
+                      placeholder="Confirm that the work was completed satisfactorily. Describe what was accomplished..." 
+                      value={customerProof} 
+                      onChange={(e) => setCustomerProof(e.target.value)} 
+                      className="text-xs" 
+                      rows={3} 
+                    />
+                    <Button onClick={() => submitProof("customer")} disabled={uploadingProof} className="w-full h-10 text-xs">
+                      {uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} 
+                      Submit Customer Proof
+                    </Button>
+                  </div>
+                )}
+
+                {session.customer_proof && (
+                  <div className="bg-muted/30 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                      <p className="text-xs font-bold text-green-700">Customer Proof Submitted</p>
                     </div>
-                    <div className="grid grid-cols-5 gap-1">
-                      {[1, 2, 3, 4, 5].map(star => (<button key={star} onClick={() => setReviewForm({...reviewForm, rating: star})} className="p-1"><Star className={`h-5 w-5 ${star <= reviewForm.rating ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground"}`} /></button>))}
-                    </div>
-                    <Textarea placeholder="Leave feedback or request revisions..." value={reviewForm.review} onChange={(e) => setReviewForm({...reviewForm, review: e.target.value})} className="text-xs" rows={2} />
-                    <div className="flex items-center gap-2 mb-2">
-                      <input type="checkbox" id="needsRevision" checked={reviewForm.needsRevision} onChange={(e) => setReviewForm({...reviewForm, needsRevision: e.target.checked})} className="rounded" />
-                      <Label htmlFor="needsRevision" className="text-xs">Request revisions instead of approving</Label>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button onClick={submitReview} disabled={submittingReview} className="flex-1 h-10 text-xs">{submittingReview ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle2 className="h-3 w-3 mr-1" />} {reviewForm.needsRevision ? "Request Revision" : "Approve & Release Payment"}</Button>
-                    </div>
+                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">{session.customer_proof}</p>
+                    <p className="text-[9px] text-muted-foreground mt-1">Submitted: {new Date(session.customer_proof_submitted_at).toLocaleString()}</p>
+                  </div>
+                )}
+
+                {session.freelancer_proof_submitted_at && session.customer_proof_submitted_at && (
+                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-1" />
+                    <p className="text-xs font-bold text-green-700">Both proofs submitted!</p>
+                    <p className="text-[10px] text-green-600">Waiting for admin review and approval.</p>
                   </div>
                 )}
               </div>
             )}
 
-            {session.status === "revision_requested" && isHiredFreelancer && (
-              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
-                <p className="text-xs font-bold text-amber-700 mb-1">Revision Requested</p>
-                <p className="text-xs text-amber-600 whitespace-pre-wrap">{session.revision_notes || "Please update your work based on client feedback."}</p>
-                <Button onClick={() => setSession({...session, status: "active"})} className="w-full mt-2 h-9 text-xs">Resubmit Work</Button>
-              </div>
-            )}
-
-            {session.escrow_released && (
-              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
-                <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-1" />
-                <p className="text-xs font-bold text-green-700">Payment Released Successfully</p>
-                <p className="text-[10px] text-green-600">80% to freelancer, 10% maintenance, 10% admin</p>
+            {/* Completed Session */}
+            {session.status === "completed" && session.escrow_released && (
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4 text-center">
+                <CheckCircle2 className="h-6 w-6 text-green-600 mx-auto mb-2" />
+                <p className="text-sm font-bold text-green-700">Job Completed & Payment Released</p>
+                <p className="text-[10px] text-green-600 mt-1">80% to freelancer, 10% maintenance, 10% admin</p>
               </div>
             )}
           </div>
         )}
 
-        {/* Bid Form (Freelancer View) - FIXED: Added "approved" status */}
+        {/* Bid Form (Freelancer View) */}
         {isFreelancer && (job.status === "ready_to_start" || job.status === "open" || job.status === "approved") && !hasBid && !isClient && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
             <h2 className="font-bold text-sm">Submit a Bid</h2>
