@@ -20,13 +20,24 @@ export default function SettingsTab() {
     closeMessage: closeMessage,
     gcashFee: gcashFee,
     maxSellers: 5,
+    flashSaleMinDiscount: 5,
+    flashSaleMaxDiscount: 15,
   });
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
     const maxSellers = maxSellersSetting?.value?.max ?? 5;
-    setSettings(prev => ({ ...prev, maxSellers }));
+    const flashSaleMinSetting = allSettings.find((s: any) => s.key === 'flash_sale_min_discount');
+    const flashSaleMinDiscount = flashSaleMinSetting?.value?.percentage ?? 5;
+    const flashSaleMaxSetting = allSettings.find((s: any) => s.key === 'flash_sale_max_discount');
+    const flashSaleMaxDiscount = flashSaleMaxSetting?.value?.percentage ?? 15;
+    setSettings(prev => ({ 
+      ...prev, 
+      maxSellers,
+      flashSaleMinDiscount,
+      flashSaleMaxDiscount 
+    }));
   }, [allSettings]);
 
   const saveSettings = async () => {
@@ -51,6 +62,20 @@ export default function SettingsTab() {
         await (supabase as any).from("app_settings").update({ value: { max: settings.maxSellers }, updated_at: new Date().toISOString() }).eq("key", "max_sellers");
       } else {
         await (supabase as any).from("app_settings").insert({ key: "max_sellers", value: { max: settings.maxSellers } });
+      }
+
+      const { data: existingMinDiscount } = await (supabase as any).from("app_settings").select("id").eq("key", "flash_sale_min_discount").maybeSingle();
+      if (existingMinDiscount) {
+        await (supabase as any).from("app_settings").update({ value: { percentage: settings.flashSaleMinDiscount }, updated_at: new Date().toISOString() }).eq("key", "flash_sale_min_discount");
+      } else {
+        await (supabase as any).from("app_settings").insert({ key: "flash_sale_min_discount", value: { percentage: settings.flashSaleMinDiscount } });
+      }
+
+      const { data: existingMaxDiscount } = await (supabase as any).from("app_settings").select("id").eq("key", "flash_sale_max_discount").maybeSingle();
+      if (existingMaxDiscount) {
+        await (supabase as any).from("app_settings").update({ value: { percentage: settings.flashSaleMaxDiscount }, updated_at: new Date().toISOString() }).eq("key", "flash_sale_max_discount");
+      } else {
+        await (supabase as any).from("app_settings").insert({ key: "flash_sale_max_discount", value: { percentage: settings.flashSaleMaxDiscount } });
       }
 
       toast.success("Settings saved!");
@@ -120,9 +145,29 @@ export default function SettingsTab() {
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-warning" />
-          <h3 className="font-bold text-sm">Flash Sale</h3>
+          <h3 className="font-bold text-sm">Flash Sale Discount Rate</h3>
         </div>
-        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 6 products and apply 10-20% discounts for 2 hours.</p>
+        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 6 products and apply discounts between the minimum and maximum percentage for 2 hours.</p>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-[10px]">Minimum Discount (%)</Label>
+            <Input 
+              type="number" 
+              value={settings.flashSaleMinDiscount} 
+              onChange={(e) => setSettings(s => ({ ...s, flashSaleMinDiscount: Math.max(1, Math.min(15, Number(e.target.value))) }))} 
+              className="text-xs h-8"
+            />
+          </div>
+          <div>
+            <Label className="text-[10px]">Maximum Discount (%)</Label>
+            <Input 
+              type="number" 
+              value={settings.flashSaleMaxDiscount} 
+              onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(1, Math.min(15, Number(e.target.value))) }))} 
+              className="text-xs h-8"
+            />
+          </div>
+        </div>
         <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger Flash Sale</Button>
       </div>
 
