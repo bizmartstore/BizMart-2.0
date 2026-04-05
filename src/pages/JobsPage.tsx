@@ -5,7 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Search, Briefcase, RefreshCw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Search, Briefcase, Plus, ShieldCheck, Clock, MapPin, Star, AlertCircle, ArrowRight, Timer, CheckCircle2, Eye } from "lucide-react";
+import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function JobsPage() {
@@ -148,7 +150,8 @@ export default function JobsPage() {
           <Button 
             onClick={() => navigate("/jobs/post")} 
             size="sm" 
-            variant="outline"             className="rounded-xl gap-1.5 font-bold hover:bg-primary/20 transition-colors"
+            variant="outline" 
+            className="rounded-xl gap-1.5 font-bold hover:bg-primary/20 transition-colors"
           >
             <Plus className="h-4 w-4" /> Post Job
           </Button>
@@ -213,58 +216,32 @@ export default function JobsPage() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                    job.status === 'open' ? 'bg-green-100 text-green-600' :
-                    job.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
-                    'bg-muted text-muted-foreground'
-                  }`>
-                    {job.status}
-                  </span>
-                </div>
-              </div>
-            ))
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Enhanced Search & Filter Controls */}
         <div className="flex items-center justify-between gap-2">
           <div className="flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input              value={search}
+            <Input              
+              value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search by subject or category..."
               className="w-full pl-10 pr-4 py-2.5 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
           </div>
-          <Button             size="sm" 
-            variant="outline" 
-            onClick={() => loadJobs()} 
-            disabled={loading}
-            className="gap-1"
-          >
-            <RefreshCw className={loading ? 'animate-spin' : ''} />
-          </Button>
         </div>
 
         {/* Enhanced Job Listing Section */}
         <div className="space-y-4">
           {/* Enhanced Filter Controls */}
           <div className="flex items-center justify-between gap-1.5 overflow-x-auto pb-1">
-            {statusCounts.map(([key, count]) => (
-              <button                key={key}
-                onClick={() => setFilter(key)}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
-                  filter === key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
-              </button>
-            </div>
           </div>
 
           {/* Enhanced Job Listing with Improved Cards */}
-          {filtered.map(job => (
+          {jobs.map(job => (
             <div 
               key={job.id} 
               onClick={() => navigate(`/jobs/${job.id}`)}
@@ -293,8 +270,8 @@ export default function JobsPage() {
                     job.status === 'open' ? 'bg-green-100 text-green-600' :
                     job.status === 'in_progress' ? 'bg-blue-100 text-blue-600' :
                     'bg-muted text-muted-foreground'
-                  }`>
-                    {job.status}
+                  }`}>
+                    {job.status.toUpperCase()}
                   </span>
                 </div>
 
@@ -303,7 +280,7 @@ export default function JobsPage() {
                   <div className="flex items-center gap-1.5">
                     <span className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
                       <User className="h-5 w-5 text-primary" />
-                    </div>
+                    </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">
                         {job.client?.first_name} {job.client?.last_name}
@@ -326,7 +303,8 @@ export default function JobsPage() {
                     <>
                       <Button 
                         size="sm" 
-                        onClick={() => handleHire(job.id, job.freelancer_id, job.proposed_price)}                         disabled={submittingBid}
+                        onClick={() => handleHire(job.id, job.freelancer_id, job.proposed_price)}                         
+                        disabled={submittingBid}
                         className="flex-1 text-[10px] font-bold bg-primary/20 hover:bg-primary/30"
                       >
                         {submittingBid ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : 'Hire'}
@@ -345,7 +323,8 @@ export default function JobsPage() {
                   {job.status === 'open' && (
                     <Button 
                       size="sm" 
-                      variant="outline"                       onClick={() => navigate(`/jobs/${job.id}`)} 
+                      variant="outline"                       
+                      onClick={() => navigate(`/jobs/${job.id}`)} 
                       className="flex-1 text-[10px] font-bold hover:bg-primary/20"
                     >
                       <Eye className="h-3 w-3" /> View Details
@@ -353,8 +332,8 @@ export default function JobsPage() {
                   )}
                 </div>
               </div>
-            ))
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>
