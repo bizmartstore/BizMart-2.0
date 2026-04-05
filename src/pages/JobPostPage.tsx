@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,19 +7,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Info, ShieldAlert } from "lucide-react";
+import { ArrowLeft, Info, ShieldAlert, Clock, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const CATEGORIES = [
-  { id: "homework", name: "Homework Guidance", min: 50, icon: "📝" },
-  { id: "study", name: "Study Assistance", min: 50, icon: "📖" },
-  { id: "tutoring", name: "Subject Tutoring", min: 60, icon: "👨‍🏫" },
-  { id: "presentation", name: "Presentation Coaching", min: 70, icon: "📊" },
-  { id: "project", name: "Project Idea Help", min: 70, icon: "💡" },
-  { id: "editing", name: "Editing Guidance", min: 80, icon: "✍️" },
-  { id: "skills", name: "Academic Skill Support", min: 80, icon: "🎯" },
-  { id: "creative", name: "Creative Academic Assistance", min: 80, icon: "🎨" },
+  { id: "homework", name: "Homework Guidance", min: 50, max: 150, icon: "📝" },
+  { id: "study", name: "Study Assistance", min: 50, max: 120, icon: "📖" },
+  { id: "tutoring", name: "Subject Tutoring", min: 60, max: 200, icon: "👨‍🏫" },
+  { id: "presentation", name: "Presentation Coaching", min: 70, max: 180, icon: "📊" },
+  { id: "project", name: "Project Idea Help", min: 70, max: 200, icon: "💡" },
+  { id: "editing", name: "Editing Guidance", min: 80, max: 220, icon: "✍️" },
+  { id: "skills", name: "Academic Skill Support", min: 80, max: 250, icon: "🎯" },
+  { id: "creative", name: "Creative Academic Assistance", min: 80, max: 250, icon: "🎨" },
+];
+
+const DIFFICULTY_LEVELS = [
+  { id: "easy", name: "Easy", multiplier: 1.0 },
+  { id: "medium", name: "Medium", multiplier: 1.2 },
+  { id: "hard", name: "Hard", multiplier: 1.5 },
 ];
 
 export default function JobPostPage() {
@@ -31,36 +37,51 @@ export default function JobPostPage() {
     category: "",
     description: "",
     location: "",
-    rate: "",
+    difficulty: "medium",
+    budget: "",
   });
 
   const selectedCat = CATEGORIES.find(c => c.id === form.category);
-  const minRate = selectedCat?.min || 50;
+  const selectedDiff = DIFFICULTY_LEVELS.find(d => d.id === form.difficulty);
+  const minPrice = selectedCat ? Math.ceil(selectedCat.min * (selectedDiff?.multiplier || 1)) : 50;
+  const maxPrice = selectedCat ? Math.ceil(selectedCat.max * (selectedDiff?.multiplier || 1)) : 300;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    if (Number(form.rate) < minRate) {
-      toast.error(`Minimum rate for this category is ₱${minRate}`);
+    const budget = Number(form.budget);
+    if (budget < minPrice) {
+      toast.error(`Minimum budget for this category & difficulty is ₱${minPrice}`);
+      return;
+    }
+    if (budget > maxPrice) {
+      toast.error(`Maximum budget for this category is ₱${maxPrice}`);
       return;
     }
 
     setLoading(true);
     try {
+      const expiresAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(); // 5 hours
+      
       const { error } = await (supabase as any).from("job_postings").insert({
         client_id: user.id,
         title: form.title.trim(),
         category: form.category,
         description: form.description.trim(),
         location: form.location.trim(),
-        hourly_rate: Number(form.rate),
+        hourly_rate: budget,
+        min_price: minPrice,
+        max_price: maxPrice,
+        difficulty_level: form.difficulty,
+        escrow_amount: budget,
         status: "open",
+        expires_at: expiresAt,
       });
 
       if (error) throw error;
 
-      toast.success("Job offer posted successfully! 🎓");
+      toast.success("Job offer posted successfully! 🎓 Freelancers can now bid.");
       navigate("/jobs");
     } catch (err: any) {
       toast.error(err.message || "Failed to post job");
@@ -82,10 +103,10 @@ export default function JobPostPage() {
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <ShieldAlert className="h-4 w-4 text-amber-600" />
-            <span className="font-bold text-xs text-amber-700">Academic Integrity</span>
+            <span className="font-bold text-xs text-amber-700">Academic Integrity & Escrow</span>
           </div>
           <p className="text-[10px] text-amber-700 leading-relaxed">
-            Remember: Freelancers are only allowed to **guide and tutor**. Requesting someone to do your homework or projects for you is strictly prohibited and may result in a ban.
+            Freelancers are only allowed to **guide and tutor**. Payment is held in escrow and released after session completion. Jobs expire after 5 hours if not hired.
           </p>
         </div>
 
@@ -109,7 +130,23 @@ export default function JobPostPage() {
               <SelectContent>
                 {CATEGORIES.map((cat) => (
                   <SelectItem key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name} (Min ₱{cat.min}/hr)
+                    {cat.icon} {cat.name} (₱{cat.min}-₱{cat.max})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Difficulty Level</Label>
+            <Select onValueChange={(v) => setForm({...form, difficulty: v})} value={form.difficulty}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIFFICULTY_LEVELS.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name} (×{d.multiplier} price)
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -128,7 +165,9 @@ export default function JobPostPage() {
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold">Meeting Location (On Campus)</Label>
+            <Label className="text-xs font-bold flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" /> Meeting Location (On Campus)
+            </Label>
             <Input 
               placeholder="e.g. Library, Study Area, BizMart Store" 
               value={form.location}
@@ -139,18 +178,21 @@ export default function JobPostPage() {
 
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
-              <Label className="text-xs font-bold">Hourly Rate (₱)</Label>
+              <Label className="text-xs font-bold">Budget (₱)</Label>
               {form.category && (
-                <span className="text-[10px] text-muted-foreground">Min: ₱{minRate}/hr</span>
+                <span className="text-[10px] text-muted-foreground">Min: ₱{minPrice} · Max: ₱{maxPrice}</span>
               )}
             </div>
             <Input 
               type="number" 
-              placeholder={`Min ₱${minRate}`}
-              value={form.rate}
-              onChange={(e) => setForm({...form, rate: e.target.value})}
+              placeholder={`₱${minPrice} - ₱${maxPrice}`}
+              value={form.budget}
+              onChange={(e) => setForm({...form, budget: e.target.value})}
               required
             />
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" /> Job expires in 5 hours if not hired
+            </p>
           </div>
 
           <div className="pt-4">

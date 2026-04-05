@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Plus, Search, Filter, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight } from "lucide-react";
+import { Briefcase, Plus, Search, Filter, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -18,6 +18,8 @@ export default function JobsPage() {
   const [loading, setLoading] = useState(true);
   const [jobs, setJobs] = useState<any[]>([]);
   const [myJobs, setMyJobs] = useState<any[]>([]);
+  const [myBids, setMyBids] = useState<any[]>([]);
+  const [mySessions, setMySessions] = useState<any[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -66,6 +68,23 @@ export default function JobsPage() {
         .order("created_at", { ascending: false });
       
       setMyJobs(userJobs || []);
+
+      // Load freelancer bids if approved
+      if (freelancer?.status === "approved") {
+        const { data: bids } = await (supabase as any)
+          .from("job_bids")
+          .select("*, job:job_postings(*)")
+          .eq("freelancer_id", user.id)
+          .order("created_at", { ascending: false });
+        setMyBids(bids || []);
+
+        const { data: sessions } = await (supabase as any)
+          .from("job_sessions")
+          .select("*")
+          .eq("freelancer_id", user.id)
+          .order("created_at", { ascending: false });
+        setMySessions(sessions || []);
+      }
 
       setLoading(false);
     };
@@ -161,9 +180,12 @@ export default function JobsPage() {
         )}
 
         <Tabs defaultValue="browse" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-4 h-11 rounded-xl bg-muted/50 p-1">
+          <TabsList className="w-full grid grid-cols-2 lg:grid-cols-3 mb-4 h-11 rounded-xl bg-muted/50 p-1">
             <TabsTrigger value="browse" className="rounded-lg text-xs font-bold">Browse Jobs</TabsTrigger>
             <TabsTrigger value="my-activity" className="rounded-lg text-xs font-bold">My Activity</TabsTrigger>
+            {isFreelancer && (
+              <TabsTrigger value="freelancer" className="rounded-lg text-xs font-bold">Freelancer Dashboard</TabsTrigger>
+            )}
           </TabsList>
 
           <TabsContent value="browse" className="space-y-4">
@@ -256,6 +278,84 @@ export default function JobsPage() {
               )}
             </div>
           </TabsContent>
+
+          {isFreelancer && (
+            <TabsContent value="freelancer">
+              <div className="space-y-4">
+                {/* Stats */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-extrabold text-primary">{myBids.length}</p>
+                    <p className="text-[10px] text-muted-foreground">My Bids</p>
+                  </div>
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-extrabold text-blue-600">{mySessions.filter(s => s.status === 'active').length}</p>
+                    <p className="text-[10px] text-muted-foreground">Active</p>
+                  </div>
+                  <div className="bg-card rounded-xl p-3 border border-border text-center">
+                    <p className="text-lg font-extrabold text-green-600">{mySessions.filter(s => s.status === 'completed').length}</p>
+                    <p className="text-[10px] text-muted-foreground">Completed</p>
+                  </div>
+                </div>
+
+                {/* My Bids */}
+                <div>
+                  <h3 className="font-bold text-sm mb-2">My Bids</h3>
+                  {myBids.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No bids submitted yet</p>
+                  ) : (
+                    myBids.map(bid => (
+                      <div key={bid.id} className="bg-card rounded-xl border border-border p-3 mb-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-xs font-bold">{bid.job?.title}</p>
+                            <p className="text-[10px] text-muted-foreground">₱{bid.proposed_price} · {bid.status}</p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            bid.status === 'accepted' ? 'bg-green-100 text-green-600' :
+                            bid.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                            'bg-yellow-100 text-yellow-600'
+                          }`}>
+                            {bid.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* My Sessions */}
+                <div>
+                  <h3 className="font-bold text-sm mb-2">My Sessions</h3>
+                  {mySessions.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center py-4">No sessions yet</p>
+                  ) : (
+                    mySessions.map(session => (
+                      <div key={session.id} className="bg-card rounded-xl border border-border p-3 mb-2">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <p className="text-xs font-bold">Session #{session.id.slice(0, 6)}</p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {session.status === 'active' ? `⏱️ ${Math.floor((Date.now() - new Date(session.start_time).getTime()) / 60000)}m elapsed` : 
+                               session.status === 'completed' ? `✅ ${session.duration_minutes}m completed` :
+                               session.status}
+                            </p>
+                          </div>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            session.status === 'active' ? 'bg-blue-100 text-blue-600' :
+                            session.status === 'completed' ? 'bg-green-100 text-green-600' :
+                            'bg-muted text-muted-foreground'
+                          }`}>
+                            {session.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Policy Reminder */}
