@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet, ShieldCheck } from "lucide-react";
+import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet, ShieldCheck, Timer, Calendar, FileCheck } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function JobsTab() {
@@ -13,6 +13,7 @@ export default function JobsTab() {
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [reviewNotes, setReviewNotes] = useState("");
   const [processing, setProcessing] = useState(false);
+  const [session, setSession] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -45,7 +46,6 @@ export default function JobsTab() {
   const handleReview = async (jobId: string, status: "approved" | "rejected") => {
     setProcessing(true);
     try {
-      // Simplified update to prevent 400 errors from missing columns or constraints
       const { error } = await (supabase as any)
         .from("job_postings")
         .update({ status, updated_at: new Date().toISOString() })
@@ -64,6 +64,67 @@ export default function JobsTab() {
     setProcessing(false);
   };
 
+  const approveJobCompletion = async (jobId: string, sessionId: string) => {
+    setProcessing(true);
+    try {
+      // Update session to completed
+      await (supabase as any)
+        .from("job_sessions")
+        .update({ status: "completed", escrow_released: true, updated_at: new Date().toISOString() })
+        .eq("id", sessionId);
+
+      // Update job to completed
+      await (supabase as any)
+        .from("job_postings")
+        .update({ status: "completed", updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+
+      toast.success("Job completion approved! Payment released.");
+      setSession(null);
+      setSelectedJob(null);
+      load();
+    } catch (e: any) {
+      console.error("Completion approval error:", e);
+      toast.error(e.message || "Failed to approve completion");
+    }
+    setProcessing(false);
+  };
+
+  const rejectJobCompletion = async (jobId: string, sessionId: string) => {
+    setProcessing(true);
+    try {
+      // Revert session to active so parties can resubmit
+      await (supabase as any)
+        .from("job_sessions")
+        .update({ status: "active", updated_at: new Date().toISOString() })
+        .eq("id", sessionId);
+
+      // Revert job to in_progress
+      await (supabase as any)
+        .from("job_postings")
+        .update({ status: "in_progress", updated_at: new Date().toISOString() })
+        .eq("id", jobId);
+
+      toast.success("Completion rejected. Session reopened for corrections.");
+      setSession(null);
+      setSelectedJob(null);
+      load();
+    } catch (e: any) {
+      console.error("Completion rejection error:", e);
+      toast.error(e.message || "Failed to reject completion");
+    }
+    setProcessing(false);
+  };
+
+  const loadSession = async (jobId: string) => {
+    const { data } = await (supabase as any)
+      .from("job_sessions")
+      .select("*")
+      .eq("job_id", jobId)
+      .maybeSingle();
+    setSession(data);
+  };
+
   const filtered = jobs.filter(j => 
     !search || 
     j.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -79,19 +140,145 @@ export default function JobsTab() {
       case 'ready_to_start': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">💰 Ready</span>;
       case 'open': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Open</span>;
       case 'in_progress': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">⏱️ Active</span>;
+      case 'pending_review': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700">🔍 Awaiting Proof</span>;
       case 'completed': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✅ Done</span>;
       case 'rejected': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">❌ Rejected</span>;
       default: return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{status}</span>;
     }
   };
 
+  // Session Review View
+  if (session) {
+    const formatDuration = (minutes: number) => {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return h > 0 ? `${h}h ${m}m` : `${m}m`;
+    };
+
+    return (
+      <div className="space-y-3">
+        <button onClick={() => { setSession(null); setReviewNotes(""); }} className="text-xs text-primary font-bold">← Back to Job Details</button>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                <Timer className="h-4 w-4 text-primary" /> Session Review
+              </h3>
+              <p className="text-[10px] text-muted-foreground">{selectedJob?.title}</p>
+            </div>
+            {getStatusBadge(session.status)}
+          </div>
+
+          {/* Session Details Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock className="h-3.5 w-3.5 text-primary" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Time Started</p>
+              </div>
+              <p className="text-xs font-bold text-foreground">
+                {session.start_time ? new Date(session.start_time).toLocaleString() : "N/A"}
+              </p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Clock className="h-3.5 w-3.5 text-destructive" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Time Ended</p>
+              </div>
+              <p className="text-xs font-bold text-foreground">
+                {session.end_time ? new Date(session.end_time).toLocaleString() : "N/A"}
+              </p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <Timer className="h-3.5 w-3.5 text-warning" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Time Spent</p>
+              </div>
+              <p className="text-lg font-extrabold text-primary">
+                {session.duration_minutes ? formatDuration(session.duration_minutes) : "N/A"}
+              </p>
+            </div>
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <MapPin className="h-3.5 w-3.5 text-secondary" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Location</p>
+              </div>
+              <p className="text-xs font-bold text-foreground">{selectedJob?.location || "N/A"}</p>
+            </div>
+          </div>
+
+          {/* Proof of Completion */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-bold flex items-center gap-1.5"><FileCheck className="h-3.5 w-3.5 text-primary" /> Proof of Completion</h4>
+            
+            {/* Freelancer Proof */}
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="h-3.5 w-3.5 text-primary" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Freelancer's Report</p>
+              </div>
+              {session.freelancer_proof ? (
+                <div>
+                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{session.freelancer_proof}</p>
+                  <p className="text-[9px] text-muted-foreground mt-2">Submitted: {new Date(session.freelancer_proof_submitted_at).toLocaleString()}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No proof submitted yet</p>
+              )}
+            </div>
+
+            {/* Customer Proof */}
+            <div className="bg-muted/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-2">
+                <User className="h-3.5 w-3.5 text-secondary" />
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Customer's Confirmation</p>
+              </div>
+              {session.customer_proof ? (
+                <div>
+                  <p className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{session.customer_proof}</p>
+                  <p className="text-[9px] text-muted-foreground mt-2">Submitted: {new Date(session.customer_proof_submitted_at).toLocaleString()}</p>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground italic">No proof submitted yet</p>
+              )}
+            </div>
+          </div>
+
+          {/* Admin Actions */}
+          {session.status === "pending_review" && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <p className="text-xs font-bold">Admin Review Notes (Optional)</p>
+              <Textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Add notes about the completion..." className="text-xs" rows={2} />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => approveJobCompletion(selectedJob.id, session.id)} disabled={processing} className="gap-1 flex-1 bg-green-600 hover:bg-green-700">
+                  <CheckCircle2 className="h-3 w-3" /> Approve & Complete
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => rejectJobCompletion(selectedJob.id, session.id)} disabled={processing} className="gap-1 flex-1">
+                  <XCircle className="h-3 w-3" /> Reject & Reopen
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {session.status === "completed" && (
+            <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-3 text-center">
+              <CheckCircle2 className="h-5 w-5 text-green-600 mx-auto mb-1" />
+              <p className="text-xs font-bold text-green-700">Job Completed & Payment Released</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Job Detail View
   if (selectedJob) {
     const needsPayment = selectedJob.status === "pending_payment";
     const needsReview = selectedJob.status === "pending_approval";
 
     return (
       <div className="space-y-3">
-        <button onClick={() => { setSelectedJob(null); setReviewNotes(""); }} className="text-xs text-primary font-bold">← Back to Jobs</button>
+        <button onClick={() => setSelectedJob(null)} className="text-xs text-primary font-bold">← Back to Jobs</button>
         <div className="bg-card rounded-xl border border-border p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -166,6 +353,15 @@ export default function JobsTab() {
             </div>
           )}
 
+          {/* Session Review Button for in_progress/pending_review jobs */}
+          {(selectedJob.status === "in_progress" || selectedJob.status === "pending_review") && (
+            <div className="pt-2 border-t border-border">
+              <Button size="sm" onClick={() => loadSession(selectedJob.id)} className="w-full gap-1">
+                <Timer className="h-3 w-3" /> View Session Details & Review
+              </Button>
+            </div>
+          )}
+
           {selectedJob.admin_notes && (
             <div className="bg-muted/30 rounded-lg p-3">
               <p className="text-[10px] font-bold text-muted-foreground mb-1">Admin Notes</p>
@@ -177,6 +373,7 @@ export default function JobsTab() {
     );
   }
 
+  // Jobs List View
   return (
     <div className="space-y-3">
       <div className="flex gap-2">
