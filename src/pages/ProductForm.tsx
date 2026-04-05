@@ -1,80 +1,173 @@
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import GenerateDescriptionButton from "./GenerateDescriptionButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/hooks/use-toast";
 
-// Assuming you already have a form with fields like name, price, etc.
-// Below is a minimal example; adapt field names to match your existing form.
+interface ProductFormProps {
+  initialData?: {
+    name?: string;
+    price?: number;
+    originalPrice?: number;
+    category?: string;
+    stock?: number;
+    description?: string;
+    images?: string[];
+  };
+  onSubmit: (data: any) => void;
+  onCancel?: () => void;
+}
 
-export default function ProductForm({ initialValues, onSubmit }: any) {
-  const navigate = useNavigate();
-  const [form, setForm] = useState(initialValues);
+export default function ProductForm({ initialData = {}, onSubmit, onCancel }: ProductFormProps) {
+  const [formData, setFormData] = useState({
+    name: initialData.name || '',
+    price: initialData.price || 0,
+    originalPrice: initialData.originalPrice || '',
+    category: initialData.category || '',
+    stock: initialData.stock || 0,
+    description: initialData.description || '',
+    images: initialData.images || [],
+  });
+
   const [description, setDescription] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  // When the user clicks “Generate Description”, fill the description field
-  const handleGenerate = (productName: string) => {
-    const button = document.querySelector("GenerateDescriptionButton") as any;
-    if (button) {
-      const btn = button as any;
-      btn.disabled = true;
-      generateDescription(productName, (generatedDesc: string) => {
-        setDescription(generatedDesc);
-        button.disabled = false;
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        name: initialData.name || '',
+        price: initialData.price || 0,
+        originalPrice: initialData.originalPrice || '',
+        category: initialData.category || '',
+        stock: initialData.stock || 0,
+        description: initialData.description || '',
+        images: initialData.images || [],
       });
-    });
+    }
+  }, [initialData]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value
+    }));
   };
 
-  const generateDescription = async (productName: string, onFinished: (desc: string) => void) => {
-    try {
-      const res = await fetch("/api/generate-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ productName }),
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      onFinished(json.description);
-    } catch (err) {
-      console.error("Description generation failed:", err);
-      onFinished("A high‑quality product that meets your needs and adds value to your collection.");
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+        try {
+      await onSubmit(formData);
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Render the form (simplified example)
-  return (
-    <form onSubmit={async (e) => {
-      e.preventDefault();
-      // Optionally call an existing submit handler here
-      await onSubmit(form);
-      navigate("/products"); // or wherever you want after submit
-    }>
-      {/* Existing fields (name, price, etc.) – keep them as‑is */}
-      {/* ... */}
+  const handleDescriptionGenerated = (description: string) => {
+    setFormData(prev => ({ ...prev, description }));
+  };
 
-      {/* Description field – now auto‑filled */}
-      <div>
-        <Label className="text-[10px] font-bold">Description</Label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Enter product description..."
-          className="w-full rounded-md border border-border p-2 text-sm"
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="name">Product Name *</Label>
+          <Input
+            id="name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            placeholder="Enter product name"
+            required
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="price">Price (₱) *</Label>
+          <Input
+            id="price"
+            name="price"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.price}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="originalPrice">Original Price (₱)</Label>
+          <Input            id="originalPrice"
+            name="originalPrice"
+            type="number"
+            min="0"
+            step="0.01"
+            value={formData.originalPrice}
+            onChange={handleChange}
+            placeholder="Optional - for showing discount"
+          />
+        </div>
+        
+        <div className="space-y-2">
+          <Label htmlFor="stock">Stock Quantity *</Label>
+          <Input
+            id="stock"
+            name="stock"
+            type="number"
+            min="0"
+            value={formData.stock}
+            onChange={handleChange}
+            required
+          />
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="category">Category *</Label>
+        <Input
+          id="category"
+          name="category"
+          value={formData.category}
+          onChange={handleChange}
+          placeholder="e.g., notebooks, pens, tech"
+          required
         />
       </div>
 
-      {/* Generate Description button */}
-      <GenerateDescriptionButton
-        productName={form.name}
-        onDescriptionGenerated={(desc) => setDescription(desc)}
-      />
+      <div className="space-y-2">
+        <Label htmlFor="description">Description *</Label>
+        <Textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Enter product description..."
+          className="min-h-[120px]"
+          required
+        />
+        <GenerateDescriptionButton
+          productName={formData.name}
+          onDescriptionGenerated={handleDescriptionGenerated}
+          disabled={!formData.name.trim()}
+        />
+      </div>
 
-      {/* Submit button */}
-      <Button type="submit" className="w-full h-12 font-bold rounded-xl" disabled={loading}>
-        {loading ? "Submitting…" : "Submit"}
-      </Button>
+      <div className="flex gap-3 pt-4">
+        <Button type="submit" disabled={loading} className="flex-1">
+          {loading ? 'Submitting...' : initialData.name ? 'Update Product' : 'Add Product'}
+        </Button>
+        {onCancel && (
+          <Button type="button" variant="outline" onClick={onCancel} className="flex-1">
+            Cancel          </Button>
+        )}
+      </div>
     </form>
   );
 }
