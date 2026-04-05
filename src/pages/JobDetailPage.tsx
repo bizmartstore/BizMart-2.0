@@ -88,23 +88,43 @@ export default function JobDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [id, loadBids]);
 
-  // FIXED: Timer logic that persists correctly across restarts
+  // FIXED: Robust timer logic that prevents negative values, handles clock skew, and stops correctly
   useEffect(() => {
-    if (!session?.start_time) return;
+    if (!session) return;
     
-    const startTime = new Date(session.start_time).getTime();
-    const endTime = session.end_time ? new Date(session.end_time).getTime() : null;
-    
-    if (session.status === "active") {
-      const updateTimer = () => setSessionTimer(Math.floor((Date.now() - startTime) / 1000));
+    // Always clear existing interval first
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    if (session.status === "active" && session.start_time) {
+      const startTime = new Date(session.start_time).getTime();
+      const updateTimer = () => {
+        // Math.max(0, ...) prevents negative values from client/server clock skew
+        const diff = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+        setSessionTimer(diff);
+      };
       updateTimer();
       timerRef.current = setInterval(updateTimer, 1000);
-    } else if (endTime) {
-      // Session ended: calculate fixed duration and stop timer
-      setSessionTimer(Math.floor((endTime - startTime) / 1000));
+    } else if (session.duration_minutes !== null && session.duration_minutes !== undefined) {
+      // Use stored duration from DB if session has ended
+      setSessionTimer(session.duration_minutes * 60);
+    } else if (session.end_time && session.start_time) {
+      // Fallback: calculate from timestamps
+      const start = new Date(session.start_time).getTime();
+      const end = new Date(session.end_time).getTime();
+      setSessionTimer(Math.max(0, Math.floor((end - start) / 1000)));
+    } else {
+      setSessionTimer(0);
     }
-    
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
   }, [session]);
 
   const formatTime = (seconds: number) => {
@@ -172,7 +192,7 @@ export default function JobDetailPage() {
     try {
       const endTime = new Date().toISOString();
       const startTime = new Date(session.start_time).getTime();
-      const durationMinutes = Math.floor((Date.now() - startTime) / 60000);
+      const durationMinutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
       
       await (supabase as any).from("job_sessions").update({ 
         status: "pending_review", 
@@ -184,7 +204,9 @@ export default function JobDetailPage() {
         status: "pending_review" 
       }).eq("id", job.id);
 
-      setSession({ ...session, status: "pending_review", end_time: endTime, duration_minutes: durationMinutes });
+      // Refetch to ensure state matches DB exactly
+      const { data: updatedSession } = await (supabase as any).from("job_sessions").select("*").eq("id", session.id).maybeSingle();
+      setSession(updatedSession);
       setJob(prev => prev ? { ...prev, status: "pending_review" } : null);
       toast.success("Session ended. Both parties can now submit proof of completion. 📸");
     } catch (err: any) { toast.error(err.message || "Failed to end session"); }
@@ -230,11 +252,23 @@ export default function JobDetailPage() {
         updateData.customer_proof_submitted_at = new Date().toISOString();
       }
       
-      await (supabase as any).from("job_sessions").update(updateData).eq("id", session.id);
-      setSession({ ...session, ...updateData });
+      const { error } = await (supabase as any).from("job_sessions").update(updateData).eq("id", session.id);
+      if (error) {
+        console.error("Supabase update error:", error);
+        throw error;
+      }
+      
+      // CRITICAL: Refetch session to prevent state drift and timer restart
+      const { data: updatedSession } = await (supabase as any).from("job_sessions").select("*").eq("id", session.id).maybeSingle();
+      if (updatedSession) setSession(updatedSession);
+      
       toast.success(`${role === "freelancer" ? "Freelancer" : "Customer"} proof submitted! ✅`);
-    } catch (err: any) { toast.error(err.message || "Failed to submit proof"); }
-    setUploadingProof(false);
+    } catch (err: any) { 
+      console.error("Proof submission failed:", err);
+      toast.error(err.message || "Failed to submit proof. Check console for details."); 
+    } finally {
+      setUploadingProof(false);
+    }
   };
 
   if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
@@ -287,7 +321,11 @@ export default function JobDetailPage() {
           <div className="flex items-center gap-3 text-sm text-muted-foreground flex-wrap">
             <div className="flex items-center gap-1"><MapPin className="h-4 w-4" /><span>{job.location}</span></div>
             <div className="flex items-center gap-1"><Clock className="h-4 w-4" /><span>₱{job.hourly_rate}/hr</span></div>
-            <div className="flex items-center gap-1"><Timer className="h-4 w-4" /><span>Expires: {new Date(job.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span></div>
+            <div className="flex items-center gap-1"><Timer className="h-4 w-4" />
+              {job.status === "in_progress" || job.status === "pending_review" || job.status === "completed" 
+                ? <span className="text-green-600 font-bold">Session Active</span> 
+                : <span>Expires: {new Date(job.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+            </div>
           </div>
         </div>
 
