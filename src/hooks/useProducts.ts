@@ -23,6 +23,7 @@ export function useProducts() {
           price: Number(p.price),
           originalPrice: p.original_price ? Number(p.original_price) : undefined,
           image: p.image || '',
+          images: p.images || [], // Additional images array
           category: p.category || '',
           rating: Number(p.rating),
           sold: p.sold || 0,
@@ -30,7 +31,7 @@ export function useProducts() {
           description: p.description || '',
           isFlashSale: p.is_flash_sale || false,
           seller_id: p.seller_id || null,
-        })) as (Product & { seller_id?: string })[];
+        })) as Product[];
       }
       return fallbackProducts;
     },

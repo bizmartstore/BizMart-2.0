@@ -4,6 +4,7 @@ export interface Product {
   price: number;
   originalPrice?: number;
   image: string;
+  images?: string[]; // Additional images for carousel
   category: string;
   rating: number;
   sold: number;
@@ -31,12 +32,42 @@ export const categories = [
 
 export const products: Product[] = [
   // Notebooks
-  { id: "1", name: "Premium Spiral Notebook A4", price: 45, originalPrice: 89, image: "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=300", category: "notebooks", rating: 4.8, sold: 2340, description: "High-quality 200-page spiral notebook with thick paper, perfect for notes and journaling.", isFlashSale: true },
+  { 
+    id: "1", 
+    name: "Premium Spiral Notebook A4", 
+    price: 45, 
+    originalPrice: 89, 
+    image: "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=300", 
+    images: [
+      "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=600",
+      "https://images.unsplash.com/photo-1517842645767-c639042777db?w=600"
+    ],
+    category: "notebooks", 
+    rating: 4.8, 
+    sold: 2340, 
+    description: "High-quality 200-page spiral notebook with thick paper, perfect for notes and journaling.", 
+    isFlashSale: true 
+  },
   { id: "n2", name: "Yellow Pad Writing Paper (3-pack)", price: 60, image: "https://images.unsplash.com/photo-1517842645767-c639042777db?w=300", category: "notebooks", rating: 4.6, sold: 4100, description: "Classic yellow writing pad, 100 sheets each. Great for exams and essays." },
   { id: "n3", name: "Composition Notebook (5-pack)", price: 95, originalPrice: 140, image: "https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=300", category: "notebooks", rating: 4.7, sold: 3800, description: "Standard 80-leaf composition notebooks in assorted colors." },
 
   // Pens & Pencils
-  { id: "2", name: "Gel Pen Set (12 Colors)", price: 35, originalPrice: 65, image: "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=300", category: "pens", rating: 4.9, sold: 5600, description: "Smooth-writing gel pens in 12 vibrant colors. Great for notes and art.", isFlashSale: true },
+  { 
+    id: "2", 
+    name: "Gel Pen Set (12 Colors)", 
+    price: 35, 
+    originalPrice: 65, 
+    image: "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=300", 
+    images: [
+      "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=600",
+      "https://images.unsplash.com/photo-1585336261022-680e295ce3fe?w=600"
+    ],
+    category: "pens", 
+    rating: 4.9, 
+    sold: 5600, 
+    description: "Smooth-writing gel pens in 12 vibrant colors. Great for notes and art.", 
+    isFlashSale: true 
+  },
   { id: "10", name: "Highlighter Set (6 Neon)", price: 55, originalPrice: 95, image: "https://images.unsplash.com/photo-1585336261022-680e295ce3fe?w=300", category: "pens", rating: 4.7, sold: 8900, description: "Bright neon highlighters perfect for studying and marking textbooks." },
   { id: "14", name: "Correction Tape (3-pack)", price: 35, originalPrice: 55, image: "https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=300", category: "pens", rating: 4.8, sold: 7800, description: "Smooth correction tape for clean, neat corrections." },
   { id: "p4", name: "Mongol No. 2 Pencil (12pcs)", price: 48, image: "https://images.unsplash.com/photo-1585336261022-680e295ce3fe?w=300", category: "pens", rating: 4.9, sold: 15200, description: "The iconic Mongol pencil every Filipino student knows and loves." },
@@ -56,7 +87,7 @@ export const products: Product[] = [
   { id: "5", name: "Watercolor Paint Set (24 Colors)", price: 189, originalPrice: 320, image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=300", category: "art", rating: 4.6, sold: 780, description: "Professional-grade watercolor paints in a portable palette. 24 vivid colors." },
   { id: "11", name: "Drawing Sketch Pad A3", price: 85, image: "https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=300", category: "art", rating: 4.4, sold: 1230, description: "Thick 50-sheet sketch pad for drawing and illustration projects." },
   { id: "a3", name: "Colored Pencil Set (36pcs)", price: 165, originalPrice: 250, image: "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=300", category: "art", rating: 4.7, sold: 2100, description: "Vibrant pre-sharpened colored pencils in a tin case." },
-  { id: "a4", name: "Oil Pastel Crayons (24 Colors)", price: 95, image: "https://images.unsplash.com/photo-1560421683-6856ea585c78?w=300", category: "art", rating: 4.5, sold: 3200, description: "Smooth blendable oil pastels for art class projects." },
+  { id: "a4", name: "Oil Pastel Crayons (24 Colors)", price: 95, image: "https://images.unsplash.com/photo-1563636619-e9143da7973b?w=300", category: "art", rating: 4.5, sold: 3200, description: "Smooth blendable oil pastels for art class projects." },
 
   // Tech & Gadgets
   { id: "4", name: "Scientific Calculator FX-991", price: 450, originalPrice: 650, image: "https://images.unsplash.com/photo-1564466809058-bf4114d55352?w=300", category: "tech", rating: 4.9, sold: 890, description: "Advanced scientific calculator for math, physics and engineering students.", isFlashSale: true },
@@ -66,7 +97,7 @@ export const products: Product[] = [
   { id: "t5", name: "Portable Phone Stand", price: 65, image: "https://images.unsplash.com/photo-1586953208448-b95a79798f07?w=300", category: "tech", rating: 4.5, sold: 3400, description: "Adjustable phone/tablet stand for online learning setups." },
 
   // Uniforms
-  { id: "7", name: "PE Uniform Set", price: 350, originalPrice: 450, image: "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?w=300", category: "uniforms", rating: 4.3, sold: 670, description: "Complete PE uniform set including shirt and shorts." },
+  { id: "7", name: "PE Uniform Set", price: 350, originalPrice: 450, image: "https://images.unsplash.com/photo-1524805444758-089113d48a6d?w=300", category: "uniforms", rating: 4.3, sold: 670, description: "Complete PE uniform set including shirt and shorts." },
   { id: "u2", name: "School Polo Shirt (White)", price: 280, image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=300", category: "uniforms", rating: 4.4, sold: 1500, description: "Official white polo shirt with school emblem. Comfortable cotton blend." },
   { id: "u3", name: "School ID Lanyard", price: 35, image: "https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=300", category: "uniforms", rating: 4.2, sold: 5600, description: "Durable lanyard with breakaway clip for school IDs." },
 

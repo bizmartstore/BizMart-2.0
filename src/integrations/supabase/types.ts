@@ -163,6 +163,52 @@ export type Database = {
           completed_sessions?: number;
         };
       };
+      products: {
+        Row: {
+          id: string;
+          name: string;
+          price: number;
+          original_price: string | null;
+          image: string;
+          images: string[] | null;
+          category: string;
+          rating: number;
+          sold: number;
+          stock: number | null;
+          description: string;
+          is_flash_sale: boolean;
+          seller_id: string | null;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          price: number;
+          original_price?: string | null;
+          image: string;
+          images?: string[] | null;
+          category: string;
+          rating?: number;
+          sold?: number;
+          stock?: number | null;
+          description?: string;
+          is_flash_sale?: boolean;
+          seller_id?: string | null;
+        };
+        Update: {
+          name?: string;
+          price?: number;
+          original_price?: string | null;
+          image?: string;
+          images?: string[] | null;
+          category?: string;
+          rating?: number;
+          sold?: number;
+          stock?: number | null;
+          description?: string;
+          is_flash_sale?: boolean;
+          seller_id?: string | null;
+        };
+      };
     };
     Functions: {
       get_user_role: {

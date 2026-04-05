@@ -2,10 +2,11 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProduct } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useCart } from "@/context/CartContext";
-import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus, AlertTriangle, Images } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
+import ImageCarouselModal from "@/components/ImageCarouselModal";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -15,6 +16,7 @@ export default function ProductDetail() {
   const { storeOpen } = useAppSettings();
   const [liked, setLiked] = useState(false);
   const [qty, setQty] = useState(1);
+  const [showCarousel, setShowCarousel] = useState(false);
 
   if (!product) return <div className="p-8 text-center">Product not found</div>;
 
@@ -24,6 +26,9 @@ export default function ProductDetail() {
 
   const stock = product.stock ?? 0;
   const isOutOfStock = stock <= 0 && product.stock !== undefined;
+
+  // Combine main image with additional images for carousel
+  const allImages = [product.image, ...(product.images || [])].filter(Boolean);
 
   const handleAddToCart = () => {
     if (isOutOfStock) {
@@ -65,9 +70,39 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      {/* Image */}
-      <div className="aspect-square">
-        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+      {/* Image with floating carousel button */}
+      <div className="relative aspect-square">
+        <img 
+          src={product.image} 
+          alt={product.name} 
+          className="w-full h-full object-cover" 
+        />
+        
+        {/* Floating button to open carousel - only show if there are additional images */}
+        {allImages.length > 1 && (
+          <button
+            onClick={() => setShowCarousel(true)}
+            className="absolute bottom-3 right-3 bg-primary/90 hover:bg-primary text-primary-foreground p-2.5 rounded-full shadow-lg flex items-center gap-1.5 transition-all active:scale-95 z-10"
+            aria-label="View all images"
+          >
+            <Images className="h-4 w-4" />
+            <span className="text-xs font-bold">View All ({allImages.length})</span>
+          </button>
+        )}
+        
+        {/* Discount badge */}
+        {discount > 0 && !isOutOfStock && (
+          <span className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md">
+            -{discount}%
+          </span>
+        )}
+        
+        {/* Flash sale badge */}
+        {product.isFlashSale && !isOutOfStock && (
+          <span className="absolute top-3 right-16 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-0.5">
+            ⚡ SALE
+          </span>
+        )}
       </div>
 
       {/* Info */}
@@ -77,7 +112,6 @@ export default function ProductDetail() {
           {product.originalPrice && (
             <>
               <span className="text-sm text-muted-foreground line-through">₱{product.originalPrice}</span>
-              <span className="bg-flash/10 text-flash text-xs font-bold px-1.5 py-0.5 rounded">-{discount}%</span>
             </>
           )}
         </div>
@@ -150,6 +184,13 @@ export default function ProductDetail() {
           Buy Now
         </button>
       </div>
+
+      {/* Image Carousel Modal */}
+      <ImageCarouselModal 
+        images={allImages}
+        isOpen={showCarousel} 
+        onClose={() => setShowCarousel(false)} 
+      />
 
       <BottomNav />
     </div>
