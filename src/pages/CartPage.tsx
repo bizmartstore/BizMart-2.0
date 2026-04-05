@@ -199,7 +199,7 @@ export default function CartPage() {
         </button>
         <div className="flex-1 text-center">
           <h1 className="text-xl font-bold text-primary">Your Cart</h1>
-        </button>
+        </div>
       </div>
 
       <div className="px-4 py-4">
@@ -258,8 +258,7 @@ export default function CartPage() {
 
             <div>
               <label className="text-xs font-bold">Date</label>
-              <Input
-                type="date"
+              <Input                type="date"
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
                 min={todayManila}
@@ -271,8 +270,7 @@ export default function CartPage() {
 
             <div>
               <label className="text-xs font-bold">Time</label>
-              <Input
-                type="time"
+              <Input                type="time"
                 value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
                 min={noTimesToday ? undefined : minTimeString}
@@ -297,8 +295,7 @@ export default function CartPage() {
           </div>
         </div>
 
-        <Button
-          onClick={handleCheckout}
+        <Button          onClick={handleCheckout}
           disabled={checkingOut || items.length === 0 || noTimesToday || !pickupTime}
           className="w-full h-12 font-bold rounded-xl"
         >
