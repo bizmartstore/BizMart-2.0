@@ -25,7 +25,7 @@ export default function ProductsTab() {
   const [uploading, setUploading] = useState(false);
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
-    name: "", price: 0, original_price: "", image: "", category: "",
+    name: "", price: 0, original_price: "", images: [] as string[], category: "",
     stock: 0, description: "", is_flash_sale: false,
   });
   const fileRef = useRef<HTMLInputElement>(null);
@@ -54,24 +54,32 @@ export default function ProductsTab() {
   }, [loadCategories, loadProducts]);
 
   const resetForm = () => setForm({
-    name: "", price: 0, original_price: "", image: "", category: "",
+    name: "", price: 0, original_price: "", images: [], category: "",
     stock: 0, description: "", is_flash_sale: false,
   });
 
   const uploadImage = async (file: File) => {
+    if (form.images.length >= 3) {
+      toast.error("Maximum 3 images allowed");
+      return;
+    }
     setUploading(true);
     try {
       const ext = file.name.split(".").pop();
-      const path = `products/${Date.now()}.${ext}`;
+      const path = `products/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error } = await supabase.storage.from("seller-images").upload(path, file);
       if (error) throw error;
       const { data: { publicUrl } } = supabase.storage.from("seller-images").getPublicUrl(path);
-      setForm(f => ({ ...f, image: publicUrl }));
+      setForm(f => ({ ...f, images: [...f.images, publicUrl] }));
       toast.success("Image uploaded!");
     } catch (e: any) {
       toast.error(e.message || "Upload failed");
     }
     setUploading(false);
+  };
+
+  const removeImage = (idx: number) => {
+    setForm(f => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
   };
 
   const save = async () => {
@@ -84,7 +92,8 @@ export default function ProductsTab() {
         name: form.name.trim(),
         price: form.price,
         original_price: form.original_price ? Number(form.original_price) : null,
-        image: form.image.trim(),
+        image: form.images[0] || "",
+        images: form.images,
         category: form.category.trim(),
         stock: form.stock,
         description: form.description.trim(),
@@ -112,9 +121,10 @@ export default function ProductsTab() {
   };
 
   const edit = (p: any) => {
+    const imgs = p.images && Array.isArray(p.images) ? p.images : (p.image ? [p.image] : []);
     setForm({
       name: p.name, price: Number(p.price),
-      original_price: p.original_price || "", image: p.image || "",
+      original_price: p.original_price || "", images: imgs,
       category: p.category || "", stock: p.stock || 0,
       description: p.description || "", is_flash_sale: p.is_flash_sale || false,
     });
@@ -155,6 +165,7 @@ export default function ProductsTab() {
             const { error } = await (supabase as any).from("products").insert({
               id: p.id, name: p.name, price: p.price,
               original_price: p.originalPrice || null, image: p.image,
+              images: p.image ? [p.image] : [],
               category: p.category, stock: p.stock || 100,
               description: p.description, is_flash_sale: p.isFlashSale || false,
               is_active: true, rating: p.rating, sold: p.sold,
@@ -224,21 +235,29 @@ export default function ProductsTab() {
             <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
             <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
           </div>
+          
+          {/* Multi-image upload */}
           <div>
-            <Label className="text-[10px]">Image</Label>
+            <Label className="text-[10px]">Images (up to 3)</Label>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) uploadImage(file); }} />
-            {form.image ? (
-              <div className="relative w-full h-24 rounded-lg overflow-hidden border border-border mt-1">
-                <img src={form.image} alt="" className="w-full h-full object-cover" />
-                <button onClick={() => setForm(f => ({ ...f, image: "" }))} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5"><X className="h-3 w-3" /></button>
-              </div>
-            ) : (
-              <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full h-16 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 mt-1 hover:bg-muted/50 transition-colors">
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
-                <span className="text-[10px] text-muted-foreground">{uploading ? "Uploading..." : "Tap to upload"}</span>
-              </button>
-            )}
+            <div className="flex gap-2 mt-1">
+              {form.images.map((url, idx) => (
+                <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {form.images.length < 3 && (
+                <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
+                  <span className="text-[8px] text-muted-foreground">{uploading ? "..." : "Add"}</span>
+                </button>
+              )}
+            </div>
           </div>
+
           <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
           <Button onClick={save} disabled={saving} size="sm" className="w-full gap-1">
             {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />}
@@ -248,22 +267,34 @@ export default function ProductsTab() {
       )}
 
       <div className="space-y-2 max-h-[400px] overflow-y-auto">
-        {filtered.map(p => (
-          <div key={p.id} className="bg-card rounded-lg p-2 border border-border flex items-center gap-2">
-            {p.image && <img src={p.image} className="h-10 w-10 rounded object-cover flex-shrink-0" alt="" />}
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold truncate">{p.name}</p>
-              <p className="text-[10px] text-muted-foreground">
-                ₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock || 0}</span>
-              </p>
+        {filtered.map(p => {
+          const imgs = p.images && Array.isArray(p.images) ? p.images : (p.image ? [p.image] : []);
+          return (
+            <div key={p.id} className="bg-card rounded-lg p-2 border border-border flex items-center gap-2">
+              <div className="flex gap-1 flex-shrink-0">
+                {imgs.slice(0, 2).map((url: string, i: number) => (
+                  <img key={i} src={url} className="h-10 w-10 rounded object-cover" alt="" />
+                ))}
+                {imgs.length > 2 && (
+                  <div className="h-10 w-10 rounded bg-muted flex items-center justify-center text-[9px] font-bold text-muted-foreground">
+                    +{imgs.length - 2}
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold truncate">{p.name}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  ₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock || 0}</span>
+                </p>
+              </div>
+              <div className="flex gap-1 flex-shrink-0 items-center">
+                <Switch checked={p.is_active} onCheckedChange={() => toggleActive(p.id, p.is_active)} />
+                <button onClick={() => edit(p)} className="p-1 text-primary"><Edit2 className="h-3 w-3" /></button>
+                <button onClick={() => remove(p.id)} className="p-1 text-destructive"><Trash2 className="h-3 w-3" /></button>
+              </div>
             </div>
-            <div className="flex gap-1 flex-shrink-0 items-center">
-              <Switch checked={p.is_active} onCheckedChange={() => toggleActive(p.id, p.is_active)} />
-              <button onClick={() => edit(p)} className="p-1 text-primary"><Edit2 className="h-3 w-3" /></button>
-              <button onClick={() => remove(p.id)} className="p-1 text-destructive"><Trash2 className="h-3 w-3" /></button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No products found</p>}
       </div>
     </div>
