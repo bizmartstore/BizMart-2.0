@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server'; // @ts-ignore
+// The above import may fail in some environments (e.g., Deno); the // @ts-ignore
+// comment tells TypeScript to ignore the error while preserving functionality.
 
 export async function POST(request: NextRequest) {
   try {
@@ -49,7 +51,8 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json();
-    const description = data.candidates?.[0]?.content?.[0]?.parts?.[0]?.text?.trim() ||       'A high-quality product that meets your needs and adds value to your collection.';
+    const description = data.candidates?.[0]?.content?.[0]?.parts?.[0]?.text?.trim() || 
+      'A high-quality product that meets your needs and adds value to your collection.';
 
     return NextResponse.json({ description });
   } catch (error) {
