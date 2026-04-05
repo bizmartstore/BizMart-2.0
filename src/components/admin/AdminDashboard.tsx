@@ -13,18 +13,18 @@ import ProductsTab from "@/components/admin/ProductsTab";
 import UsersTab from "@/components/admin/UsersTab";
 import PrintTab from "@/components/admin/PrintTab";
 import MessagesTab from "@/components/admin/AdminMessagesTab";
-import CodesTab from "@/components/admin/CodesTab;
-import NewsTab from "@/components/admin/NewsTab;
-import ClubTab from "@/components/admin/ClubTab;
-import BCoinsTab from "@/components/admin/BCoinsTab;
-import GCashTab from "@/components/admin/GCashTab;
-import SellersTab from "@/components/admin/SellersTab;
-import JobsTab from "@/components/admin/JobsTab;
-import SettingsTab from "@/components/admin/SettingsTab;
-import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab;
-import FreelancersTab from "@/components/admin/FreelancersTab;
-import BannerTab from "@/components/admin/BannerTab;
-import FlashSaleSettingsTab from "@/components/admin/FlashSaleSettingsTab;
+import CodesTab from "@/components/admin/CodesTab";
+import NewsTab from "@/components/admin/NewsTab";
+import ClubTab from "@/components/admin/ClubTab";
+import BCoinsTab from "@/components/admin/BCoinsTab";
+import GCashTab from "@/components/admin/GCashTab";
+import SellersTab from "@/components/admin/SellersTab";
+import JobsTab from "@/components/admin/JobsTab";
+import SettingsTab from "@/components/admin/SettingsTab";
+import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
+import FreelancersTab from "@/components/admin/FreelancersTab";
+import BannerTab from "@/components/admin/BannerTab";
+import FlashSaleSettingsTab from "@/components/admin/FlashSaleSettingsTab";
 
 const MEMBER_ADMIN_ALLOWED_TABS = [
   "orders",
