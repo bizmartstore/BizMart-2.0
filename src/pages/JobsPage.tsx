@@ -50,6 +50,7 @@ export default function JobsPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
+  const isDraggingRef = useRef(false);
 
   const categories = [
     { id: "homework", name: "Homework Guidance", color: "bg-blue-500" },
@@ -87,7 +88,7 @@ export default function JobsPage() {
     const { data: allJobs } = await (supabase as any)
       .from("job_postings")
       .select("*, client:profiles!job_postings_client_id_fkey(*)")
-      .in("status", ["approved", "ready_to_start", "open"])
+      .in("status", ["approved", "ready_to_start", "open", "in_progress", "pending_review"])
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
     setJobs(allJobs || []);
@@ -109,7 +110,7 @@ export default function JobsPage() {
 
       const { data: sessions } = await (supabase as any)
         .from("job_sessions")
-        .select("*")
+        .select("*, job:job_postings(*)")
         .eq("freelancer_id", user.id)
         .order("created_at", { ascending: false });
       setMySessions(sessions || []);
@@ -148,13 +149,18 @@ export default function JobsPage() {
   const handleTouchStart = (e: React.TouchEvent) => {
     startXRef.current = e.touches[0].pageX;
     scrollLeftRef.current = scrollRef.current?.scrollLeft || 0;
+    isDraggingRef.current = true;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!scrollRef.current) return;
+    if (!isDraggingRef.current || !scrollRef.current) return;
     const x = e.touches[0].pageX;
     const walk = (x - startXRef.current) * 1.5;
     scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+  };
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false;
   };
 
   const startChatWithFreelancer = async (freelancerId: string) => {
@@ -258,27 +264,40 @@ export default function JobsPage() {
 
       {/* Horizontal Swipeable Tabs */}
       <div className="px-4 mt-4">
-        <div className="relative">
-          <div 
-            ref={scrollRef}
-            className="flex gap-2 overflow-x-auto scrollbar-hide pb-2"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-          >
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                  activeTab === tab.id 
-                    ? "bg-primary text-primary-foreground shadow-md" 
-                    : "bg-card border border-border text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+        <div 
+          ref={scrollRef}
+          className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 cursor-grab active:cursor-grabbing"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onMouseDown={(e) => {
+            startXRef.current = e.pageX;
+            scrollLeftRef.current = scrollRef.current?.scrollLeft || 0;
+            isDraggingRef.current = true;
+          }}
+          onMouseMove={(e) => {
+            if (!isDraggingRef.current || !scrollRef.current) return;
+            e.preventDefault();
+            const x = e.pageX;
+            const walk = (x - startXRef.current) * 1.5;
+            scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
+          }}
+          onMouseUp={() => { isDraggingRef.current = false; }}
+          onMouseLeave={() => { isDraggingRef.current = false; }}
+        >
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-shrink-0 px-5 py-2.5 rounded-xl text-sm font-bold transition-all select-none ${
+                activeTab === tab.id 
+                  ? "bg-primary text-primary-foreground shadow-md" 
+                  : "bg-card border border-border text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -394,7 +413,10 @@ export default function JobsPage() {
                       {myBids.map(bid => (
                         <div key={bid.id} onClick={() => navigate(`/jobs/${bid.job_id}`)} className="bg-muted/30 rounded-xl p-3 active:scale-[0.98] transition-all cursor-pointer">
                           <div className="flex justify-between items-start mb-2">
-                            <div className="min-w-0 flex-1"><p className="text-xs font-bold truncate">{bid.job?.title}</p><p className="text-[10px] text-muted-foreground">₱{bid.proposed_price} · {bid.status}</p></div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold truncate">{bid.job?.title || "Job"}</p>
+                              <p className="text-[10px] text-muted-foreground">₱{bid.proposed_price} · {bid.status}</p>
+                            </div>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2 ${bid.status === 'accepted' ? 'bg-green-100 text-green-600' : bid.status === 'rejected' ? 'bg-red-100 text-red-600' : 'bg-yellow-100 text-yellow-600'}`}>{bid.status.toUpperCase()}</span>
                           </div>
                           <p className="text-[10px] text-muted-foreground line-clamp-2">{bid.message}</p>
@@ -411,15 +433,17 @@ export default function JobsPage() {
                       {mySessions.map(session => (
                         <div key={session.id} onClick={() => navigate(`/jobs/${session.job_id}`)} className="bg-muted/30 rounded-xl p-3 active:scale-[0.98] transition-all cursor-pointer">
                           <div className="flex justify-between items-start mb-1">
-                            <p className="text-xs font-bold">Session #{session.id.slice(0, 8)}</p>
+                            <p className="text-xs font-bold">{session.job?.title || "Session"}</p>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                               session.status === 'completed' ? 'bg-green-100 text-green-600' :
                               session.status === 'active' ? 'bg-blue-100 text-blue-600' :
                               session.status === 'pending_review' ? 'bg-purple-100 text-purple-600' :
-                              'bg-yellow-100 text-yellow-600'
+                              session.status === 'scheduled' ? 'bg-yellow-100 text-yellow-600' :
+                              'bg-muted text-muted-foreground'
                             }`}>{session.status.replace('_', ' ').toUpperCase()}</span>
                           </div>
                           {session.duration_minutes && <p className="text-[10px] text-muted-foreground">Duration: {session.duration_minutes} minutes</p>}
+                          {session.start_time && <p className="text-[10px] text-muted-foreground">Started: {new Date(session.start_time).toLocaleDateString()}</p>}
                         </div>
                       ))}
                     </div>
