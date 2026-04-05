@@ -10,7 +10,6 @@ import {
   Crown, Coins, Settings, BarChart3, Bell, Briefcase, Ticket, Award
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import BannerCarousel from "@/components/BannerCarousel";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -27,6 +26,7 @@ import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import FreelancersTab from "@/components/admin/FreelancersTab";
+import BannerTab from "@/components/admin/BannerTab";
 
 const MEMBER_ADMIN_ALLOWED_TABS = [
   "orders",
@@ -35,7 +35,8 @@ const MEMBER_ADMIN_ALLOWED_TABS = [
   "gcash",
   "jobs",
   "freelancers",
-  "settings"
+  "settings",
+  "banners"
 ];
 
 export default function AdminDashboard() {
@@ -137,6 +138,7 @@ export default function AdminDashboard() {
     { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingCounts.messages },
     { id: "codes", label: "Codes", icon: Ticket, badge: 0 },
     { id: "news", label: "News", icon: Bell, badge: 0 },
+    { id: "banners", label: "Banners", icon: Bell, badge: 0 },
     { id: "club", label: "Club", icon: Crown, badge: 0 },
     { id: "bcoins", label: "BCoins", icon: Coins, badge: pendingCounts.bcoins },
     { id: "gcash", label: "GCash", icon: Coins, badge: pendingCounts.gcash },
@@ -164,11 +166,6 @@ export default function AdminDashboard() {
           <p className="text-xs text-muted-foreground">
             {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
           </p>
-        </div>
-
-        {/* Banner Carousel for Admin */}
-        <div className="mb-6">
-          <BannerCarousel />
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -201,6 +198,7 @@ export default function AdminDashboard() {
           <TabsContent value="messages"><MessagesTab /></TabsContent>
           <TabsContent value="codes"><CodesTab /></TabsContent>
           <TabsContent value="news"><NewsTab /></TabsContent>
+          <TabsContent value="banners"><BannerTab /></TabsContent>
           <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
