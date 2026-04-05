@@ -3,7 +3,7 @@ import { useProduct } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useCart } from "@/context/CartContext";
 import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus, AlertTriangle, Images } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 import ImageCarouselModal from "@/components/ImageCarouselModal";
@@ -17,6 +17,7 @@ export default function ProductDetail() {
   const [liked, setLiked] = useState(false);
   const [qty, setQty] = useState(1);
   const [showCarousel, setShowCarousel] = useState(false);
+  const [carouselIndex, setCarouselIndex] = useState(0);
 
   if (!product) return <div className="p-8 text-center">Product not found</div>;
 
@@ -29,6 +30,17 @@ export default function ProductDetail() {
 
   // Combine main image with additional images for carousel
   const allImages = [product.image, ...(product.images || [])].filter(Boolean);
+
+  // Auto-rotate thumbnail carousel
+  useEffect(() => {
+    if (allImages.length <= 1) return;
+    
+    const timer = setInterval(() => {
+      setCarouselIndex(prev => (prev + 1) % allImages.length);
+    }, 2000); // Change every 2 seconds
+    
+    return () => clearInterval(timer);
+  }, [allImages.length]);
 
   const handleAddToCart = () => {
     if (isOutOfStock) {
@@ -46,6 +58,11 @@ export default function ProductDetail() {
       });
     }
     toast.success(`Added ${qty}x ${product.name} to cart!`);
+  };
+
+  const openCarouselAt = (index: number) => {
+    setCarouselIndex(index);
+    setShowCarousel(true);
   };
 
   return (
@@ -70,7 +87,7 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      {/* Image with floating carousel button */}
+      {/* Image with tiny carousel */}
       <div className="relative aspect-square">
         <img 
           src={product.image} 
@@ -78,16 +95,37 @@ export default function ProductDetail() {
           className="w-full h-full object-cover" 
         />
         
-        {/* Floating button to open carousel - only show if there are additional images */}
+        {/* Tiny image carousel - only show if multiple images */}
         {allImages.length > 1 && (
-          <button
-            onClick={() => setShowCarousel(true)}
-            className="absolute bottom-3 right-3 bg-primary/90 hover:bg-primary text-primary-foreground p-2.5 rounded-full shadow-lg flex items-center gap-1.5 transition-all active:scale-95 z-10"
-            aria-label="View all images"
+          <div 
+            className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-lg z-10 cursor-pointer"
+            onClick={() => openCarouselAt(carouselIndex)}
           >
-            <Images className="h-4 w-4" />
-            <span className="text-xs font-bold">View All ({allImages.length})</span>
-          </button>
+            <div className="flex gap-1 overflow-hidden" style={{ width: '80px' }}>
+              {allImages.map((img, idx) => (
+                <img
+                  key={idx}
+                  src={img}
+                  alt={`Thumbnail ${idx + 1}`}
+                  className="h-12 w-12 object-cover rounded transition-all"
+                  style={{ 
+                    opacity: idx === carouselIndex ? 1 : 0.4,
+                    transform: idx === carouselIndex ? 'scale(1.05)' : 'scale(0.95)',
+                    border: idx === carouselIndex ? '1.5px solid white' : '1px solid transparent'
+                  }}
+                />
+              ))}
+            </div>
+            {/* Dots indicator */}
+            <div className="flex justify-center gap-0.5 mt-1">
+              {allImages.map((_, idx) => (
+                <div
+                  key={idx}
+                  className={`h-1 rounded-full transition-all ${idx === carouselIndex ? 'bg-white w-2' : 'bg-white/50 w-1'}`}
+                />
+              ))}
+            </div>
+          </div>
         )}
         
         {/* Discount badge */}
@@ -190,6 +228,7 @@ export default function ProductDetail() {
         images={allImages}
         isOpen={showCarousel} 
         onClose={() => setShowCarousel(false)} 
+        initialIndex={carouselIndex}
       />
 
       <BottomNav />
