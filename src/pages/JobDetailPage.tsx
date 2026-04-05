@@ -181,8 +181,9 @@ export default function JobDetailPage() {
   const startSession = async () => {
     if (!session) return;
     try {
-      await (supabase as any).from("job_sessions").update({ status: "active", start_time: new Date().toISOString() }).eq("id", session.id);
-      setSession({ ...session, status: "active", start_time: new Date().toISOString() });
+      const now = new Date().toISOString();
+      await (supabase as any).from("job_sessions").update({ status: "active", start_time: now }).eq("id", session.id);
+      setSession({ ...session, status: "active", start_time: now });
       toast.success("Session started! ⏱️ Timer is running.");
     } catch (err: any) { toast.error(err.message || "Failed to start session"); }
   };
@@ -191,14 +192,36 @@ export default function JobDetailPage() {
     if (!session || !job) return;
     try {
       const endTime = new Date().toISOString();
-      const startTime = new Date(session.start_time).getTime();
-      const durationMinutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
+      let durationMinutes = 1; // Safe fallback
       
-      await (supabase as any).from("job_sessions").update({ 
+      if (session.start_time) {
+        const startTime = new Date(session.start_time).getTime();
+        if (!isNaN(startTime)) {
+          durationMinutes = Math.max(1, Math.floor((Date.now() - startTime) / 60000));
+        } else {
+          console.warn("[endSession] Invalid start_time format:", session.start_time);
+        }
+      } else {
+        console.warn("[endSession] Missing start_time in session object");
+      }
+      
+      const updatePayload: any = { 
         status: "pending_review", 
         end_time: endTime, 
         duration_minutes: durationMinutes 
-      }).eq("id", session.id);
+      };
+
+      console.log("[endSession] Updating session with payload:", updatePayload);
+      
+      const { error } = await (supabase as any)
+        .from("job_sessions")
+        .update(updatePayload)
+        .eq("id", session.id);
+        
+      if (error) {
+        console.error("[endSession] Supabase update error:", error);
+        throw error;
+      }
       
       await (supabase as any).from("job_postings").update({ 
         status: "pending_review" 
@@ -209,7 +232,10 @@ export default function JobDetailPage() {
       setSession(updatedSession);
       setJob(prev => prev ? { ...prev, status: "pending_review" } : null);
       toast.success("Session ended. Both parties can now submit proof of completion. 📸");
-    } catch (err: any) { toast.error(err.message || "Failed to end session"); }
+    } catch (err: any) { 
+      console.error("Failed to end session:", err);
+      toast.error(err.message || "Failed to end session. Check console for details."); 
+    }
   };
 
   const uploadProofImage = async (file: File, role: "freelancer" | "customer") => {
