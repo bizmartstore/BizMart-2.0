@@ -10,6 +10,7 @@ import {
   Crown, Coins, Settings, BarChart3, Bell, Briefcase, Ticket, Award
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import BannerCarousel from "@/components/BannerCarousel";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -163,6 +164,11 @@ export default function AdminDashboard() {
           <p className="text-xs text-muted-foreground">
             {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
           </p>
+        </div>
+
+        {/* Banner Carousel for Admin */}
+        <div className="mb-6">
+          <BannerCarousel />
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
