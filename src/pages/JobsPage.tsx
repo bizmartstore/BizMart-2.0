@@ -1,15 +1,37 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Plus, Search, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2, Filter, X, MessageCircle } from "lucide-react";
+import { Briefcase, Plus, Search, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2, X, MessageCircle, Users, Award, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+
+interface FreelancerProfile {
+  id: string;
+  user_id: string;
+  status: string;
+  bio: string | null;
+  subjects: string[] | null;
+  experience: string | null;
+  academic_strengths: string | null;
+  rating: number;
+  completed_sessions: number;
+  created_at: string;
+  profile?: {
+    first_name: string;
+    last_name: string;
+    email: string;
+    avatar_url: string | null;
+    school: string | null;
+    grade_level: string | null;
+    section: string | null;
+  };
+}
 
 export default function JobsPage() {
   const { user, profile } = useAuth();
@@ -22,9 +44,10 @@ export default function JobsPage() {
   const [myJobs, setMyJobs] = useState<any[]>([]);
   const [myBids, setMyBids] = useState<any[]>([]);
   const [mySessions, setMySessions] = useState<any[]>([]);
+  const [activeFreelancers, setActiveFreelancers] = useState<FreelancerProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFreelancers, setShowFreelancers] = useState(false);
 
   const categories = [
     { id: "homework", name: "Homework Guidance", color: "bg-blue-500" },
@@ -37,75 +60,136 @@ export default function JobsPage() {
     { id: "creative", name: "Creative Academic Assistance", color: "bg-rose-500" },
   ];
 
+  const loadAllData = useCallback(async () => {
+    if (!user) return;
+    
+    // Check Club Membership
+    const { data: membership } = await (supabase as any)
+      .from("club_memberships")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .maybeSingle();
+    
+    setIsClubMember(!!membership);
+
+    // Check Freelancer Status
+    const { data: freelancer } = await (supabase as any)
+      .from("freelancer_profiles")
+      .select("*")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    
+    if (freelancer) {
+      setIsFreelancer(freelancer.status === "approved");
+      setFreelancerStatus(freelancer.status);
+    }
+
+    // Load Jobs
+    const { data: allJobs } = await (supabase as any)
+      .from("job_postings")
+      .select("*, client:profiles!job_postings_client_id_fkey(*)")
+      .eq("status", "open")
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false });
+    
+    setJobs(allJobs || []);
+
+    const { data: userJobs } = await (supabase as any)
+      .from("job_postings")
+      .select("*")
+      .eq("client_id", user.id)
+      .order("created_at", { ascending: false });
+    
+    setMyJobs(userJobs || []);
+
+    // Load freelancer bids if approved
+    if (freelancer?.status === "approved") {
+      const { data: bids } = await (supabase as any)
+        .from("job_bids")
+        .select("*, job:job_postings(*)")
+        .eq("freelancer_id", user.id)
+        .order("created_at", { ascending: false });
+      setMyBids(bids || []);
+
+      const { data: sessions } = await (supabase as any)
+        .from("job_sessions")
+        .select("*")
+        .eq("freelancer_id", user.id)
+        .order("created_at", { ascending: false });
+      setMySessions(sessions || []);
+    }
+
+    // Load active freelancers
+    const { data: freelancers } = await (supabase as any)
+      .from("freelancer_profiles")
+      .select(`
+        *,
+        profile:profiles!freelancer_profiles_user_id_fkey(
+          first_name,
+          last_name,
+          email,
+          avatar_url,
+          school,
+          grade_level,
+          section
+        )
+      `)
+      .eq("status", "approved")
+      .order("rating", { ascending: false });
+    
+    setActiveFreelancers(freelancers || []);
+  }, [user]);
+
   useEffect(() => {
     if (!user) {
       setLoading(false);
       return;
     }
 
-    const checkAccess = async () => {
-      // Check Club Membership
-      const { data: membership } = await (supabase as any)
-        .from("club_memberships")
+    setLoading(true);
+    loadAllData().then(() => setLoading(false));
+
+    // Realtime subscriptions for jobs, bids, sessions, and freelancer profiles
+    const channel = supabase
+      .channel("jobs-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_postings" }, () => {
+        loadAllData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_bids" }, () => {
+        loadAllData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_sessions" }, () => {
+        loadAllData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "freelancer_profiles" }, () => {
+        loadAllData();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, loadAllData]);
+
+  const startChatWithFreelancer = async (freelancerId: string) => {
+    if (!user) { navigate("/login"); return; }
+    try {
+      const { data: existing } = await (supabase as any)
+        .from("conversations")
         .select("*")
-        .eq("user_id", user.id)
-        .eq("status", "active")
+        .or(`and(participant_1.eq.${user.id},participant_2.eq.${freelancerId}),and(participant_1.eq.${freelancerId},participant_2.eq.${user.id})`)
         .maybeSingle();
-      
-      setIsClubMember(!!membership);
 
-      // Check Freelancer Status
-      const { data: freelancer } = await (supabase as any)
-        .from("freelancer_profiles")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      
-      if (freelancer) {
-        setIsFreelancer(freelancer.status === "approved");
-        setFreelancerStatus(freelancer.status);
+      if (!existing) {
+        await (supabase as any).from("conversations").insert({ 
+          participant_1: user.id, 
+          participant_2: freelancerId 
+        });
       }
-
-      // Load Jobs
-      const { data: allJobs } = await (supabase as any)
-        .from("job_postings")
-        .select("*, client:profiles!job_postings_client_id_fkey(*)")
-        .eq("status", "open")
-        .gt("expires_at", new Date().toISOString())
-        .order("created_at", { ascending: false });
-      
-      setJobs(allJobs || []);
-
-      const { data: userJobs } = await (supabase as any)
-        .from("job_postings")
-        .select("*")
-        .eq("client_id", user.id)
-        .order("created_at", { ascending: false });
-      
-      setMyJobs(userJobs || []);
-
-      // Load freelancer bids if approved
-      if (freelancer?.status === "approved") {
-        const { data: bids } = await (supabase as any)
-          .from("job_bids")
-          .select("*, job:job_postings(*)")
-          .eq("freelancer_id", user.id)
-          .order("created_at", { ascending: false });
-        setMyBids(bids || []);
-
-        const { data: sessions } = await (supabase as any)
-          .from("job_sessions")
-          .select("*")
-          .eq("freelancer_id", user.id)
-          .order("created_at", { ascending: false });
-        setMySessions(sessions || []);
-      }
-
-      setLoading(false);
-    };
-
-    checkAccess();
-  }, [user]);
+      navigate("/messages");
+    } catch (err: any) {
+      toast.error("Failed to start conversation");
+    }
+  };
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = !search.trim() || 
@@ -114,6 +198,16 @@ export default function JobsPage() {
       job.category.toLowerCase().includes(search.toLowerCase());
     const matchesCategory = selectedCategory === "all" || job.category === selectedCategory;
     return matchesSearch && matchesCategory;
+  });
+
+  const filteredFreelancers = activeFreelancers.filter(f => {
+    if (!search.trim()) return true;
+    const name = `${f.profile?.first_name || ''} ${f.profile?.last_name || ''}`.toLowerCase();
+    const subjects = (f.subjects || []).join(' ').toLowerCase();
+    const bio = (f.bio || '').toLowerCase();
+    return name.includes(search.toLowerCase()) || 
+           subjects.includes(search.toLowerCase()) || 
+           bio.includes(search.toLowerCase());
   });
 
   const getTimeRemaining = (expiresAt: string) => {
@@ -239,7 +333,7 @@ export default function JobsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input 
             type="text"
-            placeholder="Search by subject, category, or keyword..."
+            placeholder="Search jobs, freelancers, or subjects..."
             className="w-full pl-10 pr-10 py-3 bg-card border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -289,14 +383,12 @@ export default function JobsPage() {
             <TabsTrigger value="browse" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
               Browse Jobs
             </TabsTrigger>
+            <TabsTrigger value="freelancers" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <Users className="h-3 w-3 mr-1" /> Freelancers
+            </TabsTrigger>
             <TabsTrigger value="my-activity" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
               My Activity
             </TabsTrigger>
-            {isFreelancer && (
-              <TabsTrigger value="freelancer" className="rounded-lg text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                Freelancer Hub
-              </TabsTrigger>
-            )}
           </TabsList>
 
           <TabsContent value="browse" className="space-y-4">
@@ -321,7 +413,6 @@ export default function JobsPage() {
                       onClick={() => navigate(`/jobs/${job.id}`)}
                       className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group overflow-hidden relative"
                     >
-                      {/* Urgent indicator */}
                       {isUrgent && (
                         <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-bl-full -z-10 opacity-20" />
                       )}
@@ -380,6 +471,100 @@ export default function JobsPage() {
                 })}
               </div>
             )}
+          </TabsContent>
+
+          <TabsContent value="freelancers">
+            <div className="space-y-4">
+              <div className="bg-card rounded-xl p-4 border border-border">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-sm flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" /> Active Freelancers ({filteredFreelancers.length})
+                  </h3>
+                </div>
+                
+                {filteredFreelancers.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-xs text-muted-foreground">No active freelancers found</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredFreelancers.map((freelancer) => (
+                      <div key={freelancer.id} className="bg-muted/30 rounded-xl p-4 border border-border hover:bg-muted/50 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center flex-shrink-0 overflow-hidden">
+                            {freelancer.profile?.avatar_url ? (
+                              <img src={freelancer.profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <span className="text-lg font-bold text-primary">
+                                {freelancer.profile?.first_name?.[0]}{freelancer.profile?.last_name?.[0]}
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h4 className="font-bold text-sm text-foreground truncate">
+                                {freelancer.profile?.first_name} {freelancer.profile?.last_name}
+                              </h4>
+                              <Button 
+                                size="sm" 
+                                variant="outline" 
+                                className="h-7 text-[10px] px-2 gap-1 flex-shrink-0 ml-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  startChatWithFreelancer(freelancer.user_id);
+                                }}
+                              >
+                                <MessageCircle className="h-3 w-3" /> Message
+                              </Button>
+                            </div>
+                            
+                            <div className="flex items-center gap-3 mb-2">
+                              <div className="flex items-center gap-1">
+                                <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                                <span className="text-xs font-bold text-foreground">{freelancer.rating?.toFixed(1) || "0.0"}</span>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Award className="h-3.5 w-3.5 text-primary" />
+                                <span className="text-[10px] text-muted-foreground">{freelancer.completed_sessions || 0} jobs done</span>
+                              </div>
+                            </div>
+                            
+                            {freelancer.academic_strengths && (
+                              <p className="text-[10px] text-muted-foreground mb-1 line-clamp-1">
+                                <span className="font-bold">Strengths:</span> {freelancer.academic_strengths}
+                              </p>
+                            )}
+                            
+                            {freelancer.subjects && freelancer.subjects.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {freelancer.subjects.slice(0, 3).map((subject, idx) => (
+                                  <Badge key={idx} variant="secondary" className="text-[9px] px-1.5 py-0.5">
+                                    <BookOpen className="h-2.5 w-2.5 mr-0.5" /> {subject}
+                                  </Badge>
+                                ))}
+                                {freelancer.subjects.length > 3 && (
+                                  <Badge variant="secondary" className="text-[9px] px-1.5 py-0.5">
+                                    +{freelancer.subjects.length - 3} more
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                            
+                            {freelancer.profile?.grade_level && (
+                              <p className="text-[9px] text-muted-foreground mt-1">
+                                {freelancer.profile.grade_level} • {freelancer.profile.section}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="my-activity">
@@ -460,97 +645,6 @@ export default function JobsPage() {
               )}
             </div>
           </TabsContent>
-
-          {isFreelancer && (
-            <TabsContent value="freelancer">
-              <div className="space-y-4">
-                {/* Stats Cards */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="bg-gradient-to-br from-primary/10 to-accent/20 rounded-xl p-4 border border-primary/20 text-center">
-                    <p className="text-2xl font-extrabold text-primary">{myBids.length}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium">Total Bids</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/20 rounded-xl p-4 border border-blue-500/20 text-center">
-                    <p className="text-2xl font-extrabold text-blue-600">{mySessions.filter(s => s.status === 'active').length}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium">Active Sessions</p>
-                  </div>
-                  <div className="bg-gradient-to-br from-green-500/10 to-green-600/20 rounded-xl p-4 border border-green-500/20 text-center">
-                    <p className="text-2xl font-extrabold text-green-600">{mySessions.filter(s => s.status === 'completed').length}</p>
-                    <p className="text-[10px] text-muted-foreground font-medium">Completed</p>
-                  </div>
-                </div>
-
-                {/* Active Sessions */}
-                {mySessions.filter(s => s.status === 'active').length > 0 && (
-                  <div className="bg-card rounded-xl p-4 border border-border">
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                      <Timer className="h-4 w-4 text-primary" /> Active Sessions
-                    </h3>
-                    {mySessions.filter(s => s.status === 'active').map(session => (
-                      <div key={session.id} className="bg-muted/30 rounded-xl p-3 mb-2 last:mb-0">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-xs font-bold">Session #{session.id.slice(0, 6)}</p>
-                            <p className="text-[10px] text-muted-foreground">
-                              Started {new Date(session.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </div>
-                          <span className="text-[9px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-600 animate-pulse">
-                            ACTIVE NOW
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* My Bids */}
-                <div className="bg-card rounded-xl p-4 border border-border">
-                  <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-                    <MessageCircle className="h-4 w-4 text-primary" /> My Bids
-                  </h3>
-                  {myBids.length === 0 ? (
-                    <div className="text-center py-6">
-                      <p className="text-xs text-muted-foreground">No bids submitted yet</p>
-                      <Button 
-                        onClick={() => navigate("/jobs")} 
-                        size="sm" 
-                        variant="outline"
-                        className="mt-2 h-8 text-xs"
-                      >
-                        Browse Jobs
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {myBids.map(bid => (
-                        <div 
-                          key={bid.id} 
-                          onClick={() => navigate(`/jobs/${bid.job?.id}`)}
-                          className="bg-muted/30 rounded-xl p-3 cursor-pointer hover:bg-muted/50 transition-all"
-                        >
-                          <div className="flex justify-between items-start mb-2">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold truncate">{bid.job?.title}</p>
-                              <p className="text-[10px] text-muted-foreground">₱{bid.proposed_price} · {bid.status}</p>
-                            </div>
-                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ml-2 ${
-                              bid.status === 'accepted' ? 'bg-green-100 text-green-600' :
-                              bid.status === 'rejected' ? 'bg-red-100 text-red-600' :
-                              'bg-yellow-100 text-yellow-600'
-                            }`}>
-                              {bid.status.toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-muted-foreground line-clamp-2">{bid.message}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-          )}
         </Tabs>
       </div>
 

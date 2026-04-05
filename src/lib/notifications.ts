@@ -65,7 +65,6 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
 };
 
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
-  // First trigger notification
   await triggerNotification({
     title: "🪙 BCoins Earned!",
     message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
@@ -75,7 +74,6 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
     icon: "🪙"
   });
 
-  // Then add BCoins to wallet with retry logic
   try {
     const { data: wallet } = await (supabase as any)
       .from("bcoins_wallets")
@@ -97,7 +95,6 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
         .insert({ user_id: userId, balance: newBalance });
     }
     
-    // Record transaction
     await (supabase as any).from("bcoins_transactions").insert({
       user_id: userId,
       amount: amount,
@@ -150,5 +147,39 @@ export const notifyAdminNewMember = async (memberName: string) => {
     targetRole: "admin",
     link: "/admin?tab=club",
     icon: "👑",
+  });
+};
+
+// New notification functions for freelancing
+export const notifyCustomerNewBid = async (customerId: string, freelancerName: string, jobTitle: string, price: number) => {
+  await sendNotification({
+    title: "📝 New Bid Received!",
+    message: `${freelancerName} bid ₱${price} on "${jobTitle}".`,
+    type: "new_bid",
+    userId: customerId,
+    link: "/jobs",
+    icon: "📝",
+  });
+};
+
+export const notifyFreelancerHired = async (freelancerId: string, jobTitle: string, customerName: string) => {
+  await sendNotification({
+    title: "🎉 You're Hired!",
+    message: `${customerName} hired you for "${jobTitle}". Check the job details to start the session.`,
+    type: "freelancer_hired",
+    userId: freelancerId,
+    link: "/jobs",
+    icon: "🎉",
+  });
+};
+
+export const notifyFreelancerRejected = async (freelancerId: string, jobTitle: string) => {
+  await sendNotification({
+    title: "❌ Bid Not Selected",
+    message: `Your bid for "${jobTitle}" was not selected this time. Keep bidding on other jobs!`,
+    type: "freelancer_rejected",
+    userId: freelancerId,
+    link: "/jobs",
+    icon: "❌",
   });
 };

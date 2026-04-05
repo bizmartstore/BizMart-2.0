@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText } from "lucide-react";
 import { toast } from "sonner";
+import { notifyCustomerNewBid, notifyFreelancerHired, notifyFreelancerRejected } from "@/lib/notifications";
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -69,6 +70,31 @@ export default function JobDetailPage() {
     loadJob();
   }, [id, user]);
 
+  // Realtime subscription for new bids
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`job-bids-${id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "job_bids", filter: `job_id=eq.${id}` }, () => {
+        (supabase as any)
+          .from("job_bids")
+          .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
+          .eq("job_id", id)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => setBids(data || []));
+      })
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "job_bids", filter: `job_id=eq.${id}` }, () => {
+        (supabase as any)
+          .from("job_bids")
+          .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
+          .eq("job_id", id)
+          .order("created_at", { ascending: false })
+          .then(({ data }) => setBids(data || []));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
+
   // Session timer
   useEffect(() => {
     if (session?.status === "active" && session?.start_time) {
@@ -114,9 +140,16 @@ export default function JobDetailPage() {
         status: "pending",
       });
       if (error) throw error;
+      
+      // Send realtime notification to the job poster
+      if (job.client_id) {
+        const freelancerName = profile ? `${profile.first_name} ${profile.last_name}` : "A freelancer";
+        await notifyCustomerNewBid(job.client_id, freelancerName, job.title, price);
+      }
+
       toast.success("Bid submitted! 📝");
       setBidForm({ price: "", message: "" });
-      // Reload bids
+      // Reload bids immediately
       const { data: bidsData } = await (supabase as any)
         .from("job_bids")
         .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*), freelancer_profile:freelancer_profiles!job_bids_freelancer_id_fkey(*)")
@@ -139,11 +172,23 @@ export default function JobDetailPage() {
         escrow_amount: price,
       }).eq("id", job.id);
 
-      // Reject other bids
-      await (supabase as any).from("job_bids").update({ status: "rejected" }).eq("job_id", job.id).neq("id", bidId);
+      // Reject other bids and notify those freelancers
+      const otherBids = bids.filter(b => b.id !== bidId && b.status === "pending");
+      for (const otherBid of otherBids) {
+        await (supabase as any).from("job_bids").update({ status: "rejected" }).eq("id", otherBid.id);
+        if (otherBid.freelancer_id) {
+          await notifyFreelancerRejected(otherBid.freelancer_id, job.title);
+        }
+      }
 
       // Accept selected bid
       await (supabase as any).from("job_bids").update({ status: "accepted" }).eq("id", bidId);
+
+      // Notify hired freelancer
+      const hiredBid = bids.find(b => b.id === bidId);
+      if (hiredBid?.freelancer?.first_name) {
+        await notifyFreelancerHired(freelancerId, job.title, `${profile?.first_name || 'Customer'}`);
+      }
 
       // Create session
       const { data: sessionData } = await (supabase as any).from("job_sessions").insert({
@@ -197,7 +242,6 @@ export default function JobDetailPage() {
     if (!session || !user) return;
     setUploadingProof(true);
     try {
-      // In a real app, upload files to storage. For now, we'll simulate with placeholder URLs
       const proofUrls = proofFiles.length > 0 ? proofFiles : ["/placeholder.svg"];
       
       await (supabase as any).from("job_sessions").update({
@@ -216,7 +260,6 @@ export default function JobDetailPage() {
   const approveSession = async () => {
     if (!session) return;
     try {
-      // Release escrow
       await (supabase as any).rpc("release_escrow", { session_id: session.id });
       
       await (supabase as any).from("job_sessions").update({
