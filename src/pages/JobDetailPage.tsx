@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, MessageCircle, Timer, Upload, CheckCircle2, XCircle, AlertTriangle, Loader2, User, FileText, Users } from "lucide-react";
 import { toast } from "sonner";
 import { notifyCustomerNewBid, notifyFreelancerHired, notifyFreelancerRejected } from "@/lib/notifications";
 
@@ -147,7 +147,7 @@ export default function JobDetailPage() {
         await notifyCustomerNewBid(job.client_id, freelancerName, job.title, price);
       }
 
-      toast.success("Bid submitted! 📝");
+      toast.success("Bid submitted successfully! 📝");
       setBidForm({ price: "", message: "" });
       // Reload bids immediately
       const { data: bidsData } = await (supabase as any)
@@ -386,6 +386,72 @@ export default function JobDetailPage() {
           </div>
         </div>
 
+        {/* Bids Section (Client View) */}
+        {isClient && job.status === "open" && (
+          <div className="bg-card rounded-xl p-4 border border-border space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-sm flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" /> Freelancer Bids ({bids.length})
+              </h2>
+              {bids.length === 0 && (
+                <span className="text-[10px] text-muted-foreground">Waiting for bids...</span>
+              )}
+            </div>
+            
+            {bids.length > 0 ? (
+              <div className="space-y-3">
+                {bids.filter(b => b.status === "pending").map(bid => (
+                  <div key={bid.id} className="bg-muted/30 rounded-lg p-3 space-y-2 border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
+                          <User className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold">{bid.freelancer?.first_name} {bid.freelancer?.last_name}</p>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                            <span className="text-[10px] text-muted-foreground">
+                              {bid.freelancer_profile?.rating?.toFixed(1) || "New"} · {bid.freelancer_profile?.completed_sessions || 0} sessions
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-sm font-extrabold text-primary">₱{bid.proposed_price}</span>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground bg-background/50 p-2 rounded-md">{bid.message}</p>
+                    <Button size="sm" onClick={() => handleHire(bid.id, bid.freelancer_id, bid.proposed_price)} className="w-full h-9 text-xs">
+                      Hire This Freelancer
+                    </Button>
+                  </div>
+                ))}
+                {bids.filter(b => b.status !== "pending").length > 0 && (
+                  <div className="pt-2 border-t border-border">
+                    <p className="text-[10px] text-muted-foreground mb-2">Other bids ({bids.filter(b => b.status !== "pending").length})</p>
+                    {bids.filter(b => b.status !== "pending").map(bid => (
+                      <div key={bid.id} className="bg-muted/20 rounded-lg p-2 mb-1.5 opacity-70">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-medium">{bid.freelancer?.first_name} {bid.freelancer?.last_name}</span>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                            bid.status === 'accepted' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                          }`}>
+                            {bid.status}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-6 bg-muted/20 rounded-lg">
+                <Users className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+                <p className="text-xs text-muted-foreground">No bids yet. Freelancers will appear here when they apply.</p>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Session Management */}
         {session && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
@@ -485,40 +551,6 @@ export default function JobDetailPage() {
           </div>
         )}
 
-        {/* Bids Section (Client View) */}
-        {isClient && job.status === "open" && bids.length > 0 && (
-          <div className="bg-card rounded-xl p-4 border border-border space-y-3">
-            <h2 className="font-bold text-sm flex items-center gap-2">
-              <MessageCircle className="h-4 w-4 text-primary" /> Freelancer Bids ({bids.length})
-            </h2>
-            {bids.filter(b => b.status === "pending").map(bid => (
-              <div key={bid.id} className="bg-muted/30 rounded-lg p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-                      <User className="h-4 w-4 text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-bold">{bid.freelancer?.first_name} {bid.freelancer?.last_name}</p>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
-                        <span className="text-[10px] text-muted-foreground">
-                          {bid.freelancer_profile?.rating?.toFixed(1) || "New"} · {bid.freelancer_profile?.completed_sessions || 0} sessions
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <span className="text-sm font-extrabold text-primary">₱{bid.proposed_price}</span>
-                </div>
-                <p className="text-[11px] text-muted-foreground">{bid.message}</p>
-                <Button size="sm" onClick={() => handleHire(bid.id, bid.freelancer_id, bid.proposed_price)} className="w-full h-9 text-xs">
-                  Hire This Freelancer
-                </Button>
-              </div>
-            ))}
-          </div>
-        )}
-
         {/* Bid Form (Freelancer View) */}
         {isFreelancer && job.status === "open" && !hasBid && !isClient && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
@@ -552,8 +584,10 @@ export default function JobDetailPage() {
         )}
 
         {hasBid && job.status === "open" && (
-          <div className="bg-muted/30 rounded-xl p-3 text-center">
-            <p className="text-xs text-muted-foreground">You've already submitted a bid. Waiting for client response...</p>
+          <div className="bg-muted/30 rounded-xl p-4 text-center border border-border">
+            <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-2" />
+            <p className="text-sm font-bold text-foreground">You've already submitted a bid!</p>
+            <p className="text-xs text-muted-foreground mt-1">Waiting for the client to review your proposal...</p>
           </div>
         )}
 

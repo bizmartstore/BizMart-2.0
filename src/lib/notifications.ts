@@ -154,7 +154,7 @@ export const notifyAdminNewMember = async (memberName: string) => {
 export const notifyCustomerNewBid = async (customerId: string, freelancerName: string, jobTitle: string, price: number) => {
   await sendNotification({
     title: "📝 New Bid Received!",
-    message: `${freelancerName} bid ₱${price} on "${jobTitle}".`,
+    message: `${freelancerName} just bid ₱${price} on your job "${jobTitle}". Check it out!`,
     type: "new_bid",
     userId: customerId,
     link: "/jobs",
@@ -164,8 +164,8 @@ export const notifyCustomerNewBid = async (customerId: string, freelancerName: s
 
 export const notifyFreelancerHired = async (freelancerId: string, jobTitle: string, customerName: string) => {
   await sendNotification({
-    title: "🎉 You're Hired!",
-    message: `${customerName} hired you for "${jobTitle}". Check the job details to start the session.`,
+    title: "🎉 Congratulations! You're Hired!",
+    message: `${customerName} selected you for "${jobTitle}". Check the job details to start the session.`,
     type: "freelancer_hired",
     userId: freelancerId,
     link: "/jobs",
@@ -175,11 +175,11 @@ export const notifyFreelancerHired = async (freelancerId: string, jobTitle: stri
 
 export const notifyFreelancerRejected = async (freelancerId: string, jobTitle: string) => {
   await sendNotification({
-    title: "❌ Bid Not Selected",
-    message: `Your bid for "${jobTitle}" was not selected this time. Keep bidding on other jobs!`,
+    title: "💪 Keep Up the Great Work!",
+    message: `The client chose another freelancer for "${jobTitle}" this time. Don't worry, more opportunities are coming your way!`,
     type: "freelancer_rejected",
     userId: freelancerId,
     link: "/jobs",
-    icon: "❌",
+    icon: "💪",
   });
 };
