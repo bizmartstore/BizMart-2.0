@@ -55,7 +55,6 @@ export default function Index() {
   const [rotating, setRotating] = useState(false);
   const [forceShow, setForceShow] = useState(false);
 
-  // Safety timeout to show the page even if some data is slow
   useEffect(() => {
     const timer = setTimeout(() => setForceShow(true), 4000);
     return () => clearTimeout(timer);
@@ -87,9 +86,7 @@ export default function Index() {
     setRotating(true);
     try {
       const { data: result } = await supabase.functions.invoke("rotate-flash-sale");
-      if (result?.ends_at) {
-        setFlashEndsAt(result.ends_at);
-      }
+      if (result?.ends_at) setFlashEndsAt(result.ends_at);
       refetchProducts();
     } catch (e) {
       console.warn("Flash sale rotation failed:", e);
@@ -99,16 +96,14 @@ export default function Index() {
   };
 
   useEffect(() => {
-    if (allSettings.length > 0) {
-      loadFlashState();
-    }
+    if (allSettings.length > 0) loadFlashState();
   }, [allSettings, loadFlashState]);
 
-  // Realtime subscription for product changes (INSERT, UPDATE, DELETE)
   useEffect(() => {
     const channel = supabase
       .channel("products-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        console.log("[Index] Product change detected, refetching...");
         refetchProducts();
       })
       .subscribe();
@@ -119,7 +114,6 @@ export default function Index() {
     triggerRotation();
   }, [rotating]);
 
-  // Show loading state only if we have absolutely no data and haven't timed out
   const isActuallyLoading = (productsLoading || categoriesLoading) && !forceShow && products.length === 0;
 
   if (isActuallyLoading) {
@@ -178,9 +172,7 @@ export default function Index() {
             <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-white/10 rounded-full" />
             <div className="flex items-center justify-between relative z-10">
               <div className="flex items-center gap-2">
-                <div className="bg-white/20 rounded-xl p-1.5">
-                  <Zap className="h-5 w-5 text-white fill-white" />
-                </div>
+                <div className="bg-white/20 rounded-xl p-1.5"><Zap className="h-5 w-5 text-white fill-white" /></div>
                 <div>
                   <span className="font-extrabold text-white text-sm uppercase tracking-wide block">Flash Sale</span>
                   <span className="text-white/70 text-[10px] font-medium">Limited time only!</span>
@@ -205,10 +197,7 @@ export default function Index() {
             <span className="text-lg">🔥</span>
             <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Popular</span>
           </div>
-          <button
-            onClick={() => navigate("/marketplace")}
-            className="flex items-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-          >
+          <button onClick={() => navigate("/marketplace")} className="flex items-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
             See All <ArrowRight className="h-3 w-3" />
           </button>
         </div>

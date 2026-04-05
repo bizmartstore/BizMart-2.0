@@ -6,15 +6,19 @@ export function useProducts() {
   return useQuery({
     queryKey: ['products'],
     queryFn: async () => {
+      console.log('[useProducts] Fetching products from Supabase...');
       const { data, error } = await (supabase as any)
         .from('products')
         .select('*')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
       
       if (error) {
-        console.warn('Failed to fetch products from DB, using fallback:', error);
+        console.error('[useProducts] Supabase error:', error.message);
         return fallbackProducts;
       }
+      
+      console.log(`[useProducts] Found ${data?.length || 0} products in DB`);
       
       if (data && data.length > 0) {
         return data.map((p: any) => ({
@@ -23,7 +27,7 @@ export function useProducts() {
           price: Number(p.price),
           originalPrice: p.original_price ? Number(p.original_price) : undefined,
           image: p.image || '',
-          images: p.images || [], // Additional images array
+          images: p.images || [],
           category: p.category || '',
           rating: Number(p.rating),
           sold: p.sold || 0,
@@ -33,14 +37,16 @@ export function useProducts() {
           seller_id: p.seller_id || null,
         })) as Product[];
       }
+      
+      console.log('[useProducts] DB empty, falling back to defaults');
       return fallbackProducts;
     },
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    staleTime: 30000, // 30 seconds instead of 5 minutes
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     refetchOnMount: true,
-    retry: 2,
+    retry: 1,
   });
 }
 

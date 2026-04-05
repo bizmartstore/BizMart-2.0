@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw, Image as ImageIcon } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw } from "lucide-react";
 import { products as fallbackProducts, categories as fallbackCategories } from "@/data/products";
 
 interface Category {
@@ -39,11 +39,8 @@ export default function ProductsTab() {
       .select("id, name, icon")
       .eq("is_active", true)
       .order("sort_order");
-    if (!error && data) {
-      setCategories(data);
-    } else {
-      setCategories(fallbackCategories);
-    }
+    if (!error && data) setCategories(data);
+    else setCategories(fallbackCategories);
   }, []);
 
   const loadProducts = useCallback(() => {
@@ -71,10 +68,7 @@ export default function ProductsTab() {
       const { data: { publicUrl } } = supabase.storage.from("seller-images").getPublicUrl(path);
       
       if (isAdditional) {
-        setForm(f => ({ 
-          ...f, 
-          images: [...f.images, publicUrl].slice(0, 3)
-        }));
+        setForm(f => ({ ...f, images: [...f.images, publicUrl].slice(0, 3) }));
         toast.success("Additional image added!");
       } else {
         setForm(f => ({ ...f, image: publicUrl }));
@@ -88,13 +82,17 @@ export default function ProductsTab() {
 
   const removeImage = (index: number, isAdditional = false) => {
     if (isAdditional) {
-      setForm(f => ({ 
-        ...f, 
-        images: f.images.filter((_, i) => i !== index) 
-      }));
+      setForm(f => ({ ...f, images: f.images.filter((_, i) => i !== index) }));
     } else {
       setForm(f => ({ ...f, image: "" }));
     }
+  };
+
+  const forceRefreshAll = () => {
+    queryClient.invalidateQueries({ queryKey: ['products'], refetchType: 'all' });
+    queryClient.invalidateQueries({ queryKey: ['initial-data'], refetchType: 'all' });
+    queryClient.refetchQueries({ queryKey: ['products'] });
+    loadProducts();
   };
 
   const save = async () => {
@@ -131,14 +129,10 @@ export default function ProductsTab() {
         toast.success("Product added!");
       }
       
-      // Invalidate React Query cache so homepage/marketplace see the new product immediately
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['initial-data'] });
-      
+      forceRefreshAll();
       resetForm(); 
       setShowForm(false); 
-      setEditId(null); 
-      loadProducts();
+      setEditId(null);
     } catch (e: any) {
       toast.error(e.message || "Failed to save");
     }
@@ -159,24 +153,18 @@ export default function ProductsTab() {
   const remove = async (id: string) => {
     if (!confirm("Delete this product?")) return;
     await (supabase as any).from("products").delete().eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['initial-data'] });
-    loadProducts(); 
+    forceRefreshAll();
     toast.success("Product deleted");
   };
 
   const toggleActive = async (id: string, active: boolean) => {
     await (supabase as any).from("products").update({ is_active: !active }).eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ['products'] });
-    queryClient.invalidateQueries({ queryKey: ['initial-data'] });
-    loadProducts();
+    forceRefreshAll();
   };
 
   const syncDefaults = async () => {
-    if (!confirm(`Sync ${fallbackProducts.length} default products? This will add missing categories first to prevent errors.`)) return;
-    let addedCats = 0;
-    let addedProds = 0;
-    let errors = 0;
+    if (!confirm(`Sync ${fallbackProducts.length} default products?`)) return;
+    let addedCats = 0, addedProds = 0, errors = 0;
     try {
       for (const cat of fallbackCategories) {
         const { data: existing } = await (supabase as any).from("categories").select("id").eq("id", cat.id).maybeSingle();
@@ -195,30 +183,17 @@ export default function ProductsTab() {
             const { error } = await (supabase as any).from("products").insert({
               id: p.id, name: p.name, price: p.price,
               original_price: p.originalPrice || null, image: p.image,
-              images: p.images || null,
-              category: p.category, stock: p.stock || 100,
+              images: p.images || null, category: p.category, stock: p.stock || 100,
               description: p.description, is_flash_sale: p.isFlashSale || false,
               is_active: true, rating: p.rating, sold: p.sold,
             });
-            if (error) {
-              console.warn(`Failed to sync product ${p.name}:`, error.message);
-              errors++;
-            } else {
-              addedProds++;
-            }
+            if (error) errors++; else addedProds++;
           }
-        } catch (err) {
-          console.warn(`Error checking product ${p.id}:`, err);
-          errors++;
-        }
+        } catch { errors++; }
       }
       
-      queryClient.invalidateQueries({ queryKey: ['products'] });
-      queryClient.invalidateQueries({ queryKey: ['initial-data'] });
-      
+      forceRefreshAll();
       toast.success(`Synced ${addedCats} categories and ${addedProds} products! ${errors > 0 ? `${errors} failed.` : ''}`);
-      loadProducts();
-      loadCategories();
     } catch (e: any) {
       toast.error(e.message || "Sync failed");
     }
@@ -250,15 +225,9 @@ export default function ProductsTab() {
             <div>
               <Label className="text-[10px]">Category *</Label>
               <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger className="text-xs h-8">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
+                <SelectTrigger className="text-xs h-8"><SelectValue placeholder="Select category" /></SelectTrigger>
                 <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
+                  {categories.map(cat => (<SelectItem key={cat.id} value={cat.id}>{cat.icon} {cat.name}</SelectItem>))}
                 </SelectContent>
               </Select>
             </div>
@@ -269,86 +238,39 @@ export default function ProductsTab() {
             <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
           </div>
           
-          {/* Main Image Upload */}
           <div>
             <Label className="text-[10px]">Main Product Image *</Label>
-            <input 
-              ref={fileRef}
-              type="file" 
-              accept="image/*" 
-              className="hidden" 
-              onChange={e => { 
-                const file = e.target.files?.[0]; 
-                if (file) uploadImage(file, false); 
-              }} 
-            />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) uploadImage(file, false); }} />
             {form.image ? (
               <div className="relative w-full h-28 rounded-lg overflow-hidden border border-border mt-1">
                 <img src={form.image} alt="Main" className="w-full h-full object-cover" />
-                <button 
-                  onClick={() => removeImage(0, false)} 
-                  className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 z-10"
-                >
-                  <X className="h-3 w-3" />
-                </button>
+                <button onClick={() => removeImage(0, false)} className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 z-10"><X className="h-3 w-3" /></button>
                 <div className="absolute bottom-1 left-1 bg-black/60 text-white text-[8px] px-1.5 py-0.5 rounded">Main</div>
               </div>
             ) : (
-              <button 
-                onClick={() => fileRef.current?.click()} 
-                disabled={uploading}
-                className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 mt-1 hover:bg-muted/50 transition-colors"
-              >
+              <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 mt-1 hover:bg-muted/50 transition-colors">
                 {uploading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
                 <span className="text-[10px] text-muted-foreground">{uploading ? "Uploading..." : "Tap to upload main image"}</span>
               </button>
             )}
           </div>
 
-          {/* Additional Images (Carousel) */}
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <Label className="text-[10px]">Additional Images (Carousel)</Label>
               <span className="text-[9px] text-muted-foreground">{form.images.length}/3</span>
             </div>
-            <input
-              ref={additionalFileRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={e => {
-                const files = e.target.files;
-                if (files) {
-                  Array.from(files).forEach(file => {
-                    if (form.images.length < 3) {
-                      uploadImage(file, true);
-                    }
-                  });
-                }
-              }}
-            />
+            <input ref={additionalFileRef} type="file" accept="image/*" multiple className="hidden" onChange={e => { const files = e.target.files; if (files) Array.from(files).forEach(file => { if (form.images.length < 3) uploadImage(file, true); }); }} />
             <div className="flex gap-2 overflow-x-auto pb-2">
               {form.images.map((img, idx) => (
                 <div key={idx} className="relative w-16 h-16 flex-shrink-0 rounded-lg overflow-hidden border border-border group">
                   <img src={img} alt={`Additional ${idx + 1}`} className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => removeImage(idx, true)}
-                    className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] py-0.5 text-center">
-                    {idx + 1}
-                  </div>
+                  <button onClick={() => removeImage(idx, true)} className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"><X className="h-4 w-4 text-white" /></button>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[8px] py-0.5 text-center">{idx + 1}</div>
                 </div>
               ))}
               {form.images.length < 3 && (
-                <button
-                  onClick={() => additionalFileRef.current?.click()}
-                  disabled={uploading}
-                  className="w-16 h-16 flex-shrink-0 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors"
-                >
+                <button onClick={() => additionalFileRef.current?.click()} disabled={uploading} className="w-16 h-16 flex-shrink-0 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
                   {uploading ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <Plus className="h-4 w-4 text-muted-foreground" />}
                   <span className="text-[8px] text-muted-foreground">Add</span>
                 </button>
@@ -377,7 +299,7 @@ export default function ProductsTab() {
             <p className="text-xs font-bold truncate">{p.name}</p>
             <p className="text-[10px] text-muted-foreground">
               ₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock || 0}</span>
-              {p.images && p.images.length > 0 && <span className="ml-1 text-primary">· {p.images.length} extra images</span>}
+              {p.images && p.images.length > 0 && <span className="ml-1 text-primary">· {p.images.length} extra</span>}
             </p>
           </div>
           <div className="flex gap-1 flex-shrink-0 items-center">
