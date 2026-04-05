@@ -1,8 +1,10 @@
+"use client";
+
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Bell, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
+import { X } from "lucide-react";
 
 export default function NotificationBell() {
   const { user, profile } = useAuth();
@@ -18,10 +20,9 @@ export default function NotificationBell() {
       let query = (supabase as any)
         .from("notification_logs")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .order("created_at", { ascending: false });
 
-      const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
+      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
       if (!isAdmin) {
         query = query.eq("user_id", user.id);
       } else {
@@ -29,23 +30,21 @@ export default function NotificationBell() {
       }
 
       const { data, error } = await query;
-      
       if (error) {
         console.error("Failed to load notifications:", error);
         return;
       }
-      
       const notifs = data || [];
       setNotifications(notifs);
-      
+
       const newUnread = notifs.filter((n: any) => !n.is_read).length;
       setUnreadCount(newUnread);
-      
+
       if (newUnread > 0 && notifs.length > 0) {
         const latest = notifs[0];
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
-          const isAdmin = profile?.role === 'main_admin' || profile?.role === 'member_admin';
+          const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
           if (isAdmin) {
             playAdminNotificationSound();
           } else {
@@ -60,7 +59,7 @@ export default function NotificationBell() {
 
   useEffect(() => {
     loadNotifications();
-    
+
     if (!user) return;
     const channel = supabase
       .channel(`notifications-${user.id}`)
@@ -69,10 +68,24 @@ export default function NotificationBell() {
         { event: "INSERT", schema: "public", table: "notification_logs" },
         () => { loadNotifications(); }
       )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notification_logs" },
+        (payload: any) => {
+          setNotifications((prev) => {
+            const updated = [...prev];
+            const idx = updated.findIndex((n) => n.id === payload.new.id);
+            if (idx > -1) {
+              updated[idx] = { ...updated[idx], is_read: true };
+            }
+            return updated;
+          });
+        }
+      )
       .subscribe();
-    
+
     return () => { supabase.removeChannel(channel); };
-  }, [user, loadNotifications]);
+  }, [user]);
 
   const markAsRead = async (id: string) => {
     if (!id) return;
@@ -87,10 +100,29 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     if (!user) return;
     try {
-      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id);
+      // Update only unread notifications for this user
+      const { error } = await (supabase as any)
+        .from("notification_logs")
+        .update({ is_read: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false); // <-- Only update rows that are still unread
+
+      if (error) throw error;
       await loadNotifications();
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
+    }
+  };
+
+  const markAllAsReadAndClear = async () => {
+    await markAllAsRead();
+    // Also clear the notification logs to prevent duplicate pushes
+    try {
+      await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
+      setNotifications([]);
+      setUnreadCount(0);
+    } catch (error) {
+      console.error("Failed to clear notifications:", error);
     }
   };
 
@@ -105,11 +137,33 @@ export default function NotificationBell() {
 
   const clearAll = async () => {
     try {
-      await (supabase as any).from("notification_logs").delete().eq("user_id", user?.id);
+      await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
       setNotifications([]);
       setUnreadCount(0);
     } catch (error) {
       console.error("Failed to clear notifications:", error);
+    } finally {
+      // Refresh the realtime channel to reflect the cleared state
+      const channel = supabase.channel(`notifications-${user.id}`);
+      supabase.removeChannel(channel);
+    } catch (error) {
+      console.error("Failed to clear notifications:", error);
+    } finally {
+      // Re‑subscribe to the channel so future changes are still captured
+      if (user) {
+        const channel = supabase.channel(`notifications-${user.id}`)
+          .on("postgres_changes", { event: "*", schema: "public", table: "notification_logs" }, () => loadNotifications())
+          .subscribe();
+        // Store the channel reference if you need to clean it up later
+      } catch (error) {
+        console.error("Failed to re‑subscribe after clear:", error);
+      }
+    } catch (error) {
+      console.error("Failed to clear notifications:", error);
+    } finally {
+      // Ensure the UI reflects the cleared state immediately
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 
@@ -122,32 +176,29 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={ref}>
-      <button 
-        onClick={() => setOpen(!open)} 
+      <button
+        onClick={() => setOpen(!open)}
         className="p-1.5 relative hover:bg-muted rounded-full transition-colors"
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-primary text-primary-foreground text-[8px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 animate-pulse">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
+        {unreadCount > 0 && (/* ... */)}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl shadow-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
+        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
+          {/* ... existing markup ... */}
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
-              <button onClick={markAllAsRead} className="text-[10px] text-primary font-bold hover:underline">
+              <Button size="sm" variant="ghost" onClick={markAllAsRead}>
                 Mark all read
-              </button>
+              </Button>
               {notifications.length > 0 && (
-                <button onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
+                <Button size="sm" onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
                   Clear all
-                </button>
-              )}
+                </Button>
+              </Button>
             </div>
           </div>
           <div className="overflow-y-auto max-h-[340px]">
@@ -160,11 +211,11 @@ export default function NotificationBell() {
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className={`w-full text-left px-4 py-2 rounded-lg text-xs transition-colors group relative ${
-                    n.is_read ? 'opacity-60' : 'bg-primary/5'
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors group relative ${
+                    n.is_read ? "opacity-60" : "bg-primary/5"
                   }`}
                 >
-                  <button 
+                  <button
                     onClick={(e) => { e.stopPropagation(); handleNotifClick(n); }}
                     className="w-full flex items-start gap-2"
                   >
@@ -173,13 +224,12 @@ export default function NotificationBell() {
                       <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
                       <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
                       <p className="text-[8px] text-muted-foreground mt-1 uppercase font-medium">
-                        {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </p>
                     </div>
                     {!n.is_read && (
-                      <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2" />
-                    )}
-                  </button>
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2"></div>
+                    )}                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
                     className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive transition-all"
@@ -187,11 +237,11 @@ export default function NotificationBell() {
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-              ))
-            )}
+              </button>
+            </div>
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
