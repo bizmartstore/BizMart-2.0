@@ -23,14 +23,6 @@ export default function JobsTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-jobs-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_postings" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [load]);
-
   const confirmPayment = async (jobId: string) => {
     setProcessing(true);
     try {
