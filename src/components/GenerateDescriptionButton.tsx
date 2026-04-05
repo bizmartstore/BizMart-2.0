@@ -43,19 +43,21 @@ export default function GenerateDescriptionButton({
       type="button"
       onClick={generate}
       disabled={disabled || loading || !productName.trim()}
-      className="flex items-center gap-1        rounded bg-primary text-primary-foreground hover:bg-primary/90
-        disabled:opacity-50 disabled:cursor-not-allowed"
-      >
-        {loading ? (
+      className="flex items-center gap-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+    >
+      {loading ? (
+        <>
           <span className="mr-2">
             <span className="h-3.5 w-3.5 animate-spin">🔄</span>
           </span>
-          Generating...
-        ) : (
+          <span>Generating...</span>
+        </>
+      ) : (
+        <>
           <span className="mr-2">✨</span>
-        )}
-        Generate Description
-      </button>
-    </div>
+          <span>Generate Description</span>
+        </>
+      )}
+    </button>
   );
 };
