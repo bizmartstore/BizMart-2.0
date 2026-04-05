@@ -47,7 +47,6 @@ export default function JobDetailPage() {
 
     setBids(bidsData.map((bid: any) => ({ ...bid, freelancer: profilesMap[bid.freelancer_id] || null, freelancer_profile: freelancerProfilesMap[bid.freelancer_id] || null })));
     
-    // Track current user's bid status
     if (user) {
       const myBid = bidsData.find((b: any) => b.freelancer_id === user.id);
       setMyBidStatus(myBid?.status || null);
@@ -89,13 +88,22 @@ export default function JobDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [id, loadBids]);
 
+  // FIXED: Timer logic that persists correctly across restarts
   useEffect(() => {
-    if (session?.status === "active" && session?.start_time) {
-      const startTime = new Date(session.start_time).getTime();
+    if (!session?.start_time) return;
+    
+    const startTime = new Date(session.start_time).getTime();
+    const endTime = session.end_time ? new Date(session.end_time).getTime() : null;
+    
+    if (session.status === "active") {
       const updateTimer = () => setSessionTimer(Math.floor((Date.now() - startTime) / 1000));
       updateTimer();
       timerRef.current = setInterval(updateTimer, 1000);
+    } else if (endTime) {
+      // Session ended: calculate fixed duration and stop timer
+      setSessionTimer(Math.floor((endTime - startTime) / 1000));
     }
+    
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
   }, [session]);
 
@@ -166,14 +174,12 @@ export default function JobDetailPage() {
       const startTime = new Date(session.start_time).getTime();
       const durationMinutes = Math.floor((Date.now() - startTime) / 60000);
       
-      // Update session to pending_review
       await (supabase as any).from("job_sessions").update({ 
         status: "pending_review", 
         end_time: endTime, 
         duration_minutes: durationMinutes 
       }).eq("id", session.id);
       
-      // CRITICAL: Sync job posting status to match session
       await (supabase as any).from("job_postings").update({ 
         status: "pending_review" 
       }).eq("id", job.id);
@@ -184,11 +190,32 @@ export default function JobDetailPage() {
     } catch (err: any) { toast.error(err.message || "Failed to end session"); }
   };
 
+  const uploadProofImage = async (file: File, role: "freelancer" | "customer") => {
+    setUploadingProof(true);
+    try {
+      const ext = file.name.split(".").pop();
+      const path = `job-proofs/${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("job-proofs").upload(path, file);
+      if (error) throw error;
+      const { data: { publicUrl } } = supabase.storage.from("job-proofs").getPublicUrl(path);
+      
+      if (role === "freelancer") {
+        setFreelancerProof(prev => prev + (prev ? "\n" : "") + publicUrl);
+      } else {
+        setCustomerProof(prev => prev + (prev ? "\n" : "") + publicUrl);
+      }
+      toast.success("Image uploaded!");
+    } catch (e: any) {
+      toast.error(e.message || "Upload failed. Make sure 'job-proofs' bucket exists in Supabase.");
+    }
+    setUploadingProof(false);
+  };
+
   const submitProof = async (role: "freelancer" | "customer") => {
     if (!session || !user) return;
     const proofText = role === "freelancer" ? freelancerProof : customerProof;
     if (!proofText.trim()) {
-      toast.error("Please describe the work completed");
+      toast.error("Please describe the work completed or upload an image");
       return;
     }
     
@@ -217,6 +244,18 @@ export default function JobDetailPage() {
   const isClient = job.client_id === user?.id;
   const isHiredFreelancer = session?.freelancer_id === user?.id;
   const hasBid = bids.some(b => b.freelancer_id === user?.id);
+
+  // Helper to render proof text with image URLs
+  const renderProofContent = (text: string) => {
+    if (!text) return null;
+    const lines = text.split("\n");
+    return lines.map((line, i) => {
+      if (line.startsWith("http") && (line.includes(".jpg") || line.includes(".png") || line.includes(".jpeg") || line.includes(".webp"))) {
+        return <img key={i} src={line} alt="Proof" className="w-full max-h-48 object-contain rounded-lg border border-border mt-2" />;
+      }
+      return <p key={i} className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{line}</p>;
+    });
+  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -379,7 +418,7 @@ export default function JobDetailPage() {
                   <p className="text-xs font-bold">{new Date(session.end_time).toLocaleString()}</p>
                 </div>
               )}
-              {session.duration_minutes && (
+              {session.duration_minutes !== undefined && session.duration_minutes !== null && (
                 <div className="bg-muted/30 rounded-lg p-3 col-span-2">
                   <p className="text-[10px] text-muted-foreground font-bold uppercase">Duration</p>
                   <p className="text-lg font-extrabold text-primary">{session.duration_minutes} minutes</p>
@@ -428,10 +467,25 @@ export default function JobDetailPage() {
                       className="text-xs" 
                       rows={3} 
                     />
-                    <Button onClick={() => submitProof("freelancer")} disabled={uploadingProof} className="w-full h-10 text-xs">
-                      {uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} 
-                      Submit Freelancer Proof
-                    </Button>
+                    <div className="flex gap-2">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        id="freelancer-proof-upload"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadProofImage(file, "freelancer");
+                        }}
+                      />
+                      <label htmlFor="freelancer-proof-upload" className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors text-xs font-medium">
+                        <ImageIcon className="h-4 w-4" /> Upload Image
+                      </label>
+                      <Button onClick={() => submitProof("freelancer")} disabled={uploadingProof} className="flex-1 h-10 text-xs">
+                        {uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} 
+                        Submit Proof
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -441,8 +495,8 @@ export default function JobDetailPage() {
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
                       <p className="text-xs font-bold text-green-700">Freelancer Proof Submitted</p>
                     </div>
-                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">{session.freelancer_proof}</p>
-                    <p className="text-[9px] text-muted-foreground mt-1">Submitted: {new Date(session.freelancer_proof_submitted_at).toLocaleString()}</p>
+                    {renderProofContent(session.freelancer_proof)}
+                    <p className="text-[9px] text-muted-foreground mt-2">Submitted: {new Date(session.freelancer_proof_submitted_at).toLocaleString()}</p>
                   </div>
                 )}
 
@@ -457,10 +511,25 @@ export default function JobDetailPage() {
                       className="text-xs" 
                       rows={3} 
                     />
-                    <Button onClick={() => submitProof("customer")} disabled={uploadingProof} className="w-full h-10 text-xs">
-                      {uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} 
-                      Submit Customer Proof
-                    </Button>
+                    <div className="flex gap-2">
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        id="customer-proof-upload"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadProofImage(file, "customer");
+                        }}
+                      />
+                      <label htmlFor="customer-proof-upload" className="flex-1 flex items-center justify-center gap-2 py-2 px-3 border border-border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors text-xs font-medium">
+                        <ImageIcon className="h-4 w-4" /> Upload Image
+                      </label>
+                      <Button onClick={() => submitProof("customer")} disabled={uploadingProof} className="flex-1 h-10 text-xs">
+                        {uploadingProof ? <Loader2 className="h-3 w-3 animate-spin mr-2" /> : <Upload className="h-3 w-3 mr-2" />} 
+                        Submit Proof
+                      </Button>
+                    </div>
                   </div>
                 )}
 
@@ -470,8 +539,8 @@ export default function JobDetailPage() {
                       <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
                       <p className="text-xs font-bold text-green-700">Customer Proof Submitted</p>
                     </div>
-                    <p className="text-xs text-muted-foreground whitespace-pre-wrap">{session.customer_proof}</p>
-                    <p className="text-[9px] text-muted-foreground mt-1">Submitted: {new Date(session.customer_proof_submitted_at).toLocaleString()}</p>
+                    {renderProofContent(session.customer_proof)}
+                    <p className="text-[9px] text-muted-foreground mt-2">Submitted: {new Date(session.customer_proof_submitted_at).toLocaleString()}</p>
                   </div>
                 )}
 
