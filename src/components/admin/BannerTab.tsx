@@ -175,9 +175,31 @@ export default function BannerTab() {
 
   const syncDefaults = async () => {
     setSyncing(true);
-    // Since we don't have default banners in the codebase, we'll just show a message
     try {
-      toast.info("No default banners to sync. Please add banners manually.");
+      // Sync default banners from assets
+      const defaultBanners = [
+        { url: "/src/assets/banner1.jpg", order: 0 },
+        { url: "/src/assets/banner2.jpg", order: 1 }
+      ];
+      
+      for (const banner of defaultBanners) {
+        const { data: existing } = await (supabase as any)
+          .from("banners")
+          .select("id")
+          .eq("image_url", banner.url)
+          .maybeSingle();
+        
+        if (!existing) {
+          const { error } = await (supabase as any).from("banners").insert({
+            image_url: banner.url,
+            sort_order: banner.order,
+            is_active: true,
+          });
+          if (error) throw error;
+        }
+      }
+      
+      toast.success("Default banners synced!");
       load();
     } catch (e: any) {
       console.error("Sync error:", e);
@@ -281,7 +303,7 @@ export default function BannerTab() {
         {banners.length === 0 && (
           <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
             <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">No banners yet. Click "Add Banner" to create one.</p>
+            <p className="text-xs text-muted-foreground">No banners yet. Click "Sync Defaults" to load sample banners.</p>
           </div>
         )}
       </div>
