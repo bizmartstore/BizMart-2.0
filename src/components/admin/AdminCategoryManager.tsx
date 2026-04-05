@@ -13,6 +13,7 @@ type Category = {
   id: string;
   name: string;
   icon: string;
+  sort_order: number;
 };
 
 export default function AdminCategoryManager() {
@@ -24,7 +25,7 @@ export default function AdminCategoryManager() {
 
   const loadCategories = useCallback(async () => {
     try {
-      const { data, error } = await (supabase as any).from("categories").select("*").order("name");
+      const { data, error } = await (supabase as any).from("categories").select("*").order("sort_order");
       if (error) throw error;
       setCategories(data || []);
     } catch (e: any) {
@@ -33,7 +34,7 @@ export default function AdminCategoryManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadCategories();
@@ -61,13 +62,14 @@ export default function AdminCategoryManager() {
       toast.error("Category name cannot be empty");
       return;
     }
+    setSaving(true);
     try {
       if (editingId) {
         const { error } = await (supabase as any).from("categories").update({ name: newCategoryName }).eq("id", editingId);
         if (error) throw error;
         toast.success("Category updated");
       } else {
-        const { error } = await (supabase as any).from("categories").insert({ name: newCategoryName });
+        const { error } = await (supabase as any).from("categories").insert({ name: newCategoryName, sort_order: categories.length });
         if (error) throw error;
         toast.success("Category added");
       }
@@ -99,7 +101,17 @@ export default function AdminCategoryManager() {
           className="flex-1 text-sm rounded-md border border-border px-3 py-2"
         />
         <Button onClick={() => handleSave()} disabled={saving} className="flex-1 rounded-md bg-primary text-primary-foreground px-3 py-1.5">
-          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+          {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : editingId ? "Update" : "Add"}
+        </Button>
+        {editingId && (
+          <Button variant="outline" onClick={() => {
+            setEditingId(null);
+            setNewCategoryName("");
+          }}
+            className="flex-1 rounded-md text-sm"
+          >
+            Cancel
+          </Button>
         </Button>
       </div>
       {categories.length > 0 && (
