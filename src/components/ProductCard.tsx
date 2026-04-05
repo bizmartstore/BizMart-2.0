@@ -10,8 +10,9 @@ const ProductCard = forwardRef<HTMLDivElement, { product: Product }>(function Pr
   const { addItem } = useCart();
   const [currentImage, setCurrentImage] = useState(0);
   
-  const images = (product as any).images && (product as any).images.length > 0 
-    ? (product as any).images 
+  // Safely access images array
+  const images = product.images && product.images.length > 0 
+    ? product.images 
     : product.image ? [product.image] : [];
   
   const discount = product.originalPrice
@@ -86,7 +87,7 @@ const ProductCard = forwardRef<HTMLDivElement, { product: Product }>(function Pr
                   <ChevronRight className="h-3 w-3" />
                 </button>
                 <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">
-                  {images.map((_: any, i: number) => (
+                  {images.map((_, i: number) => (
                     <div
                       key={i}
                       className={`h-1 rounded-full transition-all ${

@@ -2,6 +2,23 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { products as fallbackProducts, categories as fallbackCategories, Product } from "@/data/products";
 
+// Helper to safely parse images from DB (handles text[], jsonb, or string)
+function parseImages(p: any): string[] {
+  if (Array.isArray(p.images)) return p.images;
+  if (typeof p.images === 'string') {
+    try {
+      // Try JSON parse first
+      const parsed = JSON.parse(p.images);
+      if (Array.isArray(parsed)) return parsed;
+    } catch {}
+    // Fallback to comma-separated or Postgres array format {url1,url2}
+    const cleaned = p.images.replace(/[{}]/g, '');
+    return cleaned.split(',').map((s: string) => s.trim()).filter(Boolean);
+  }
+  if (p.image) return [p.image];
+  return [];
+}
+
 export function useProducts() {
   return useQuery({
     queryKey: ['products'],
@@ -17,21 +34,24 @@ export function useProducts() {
       }
       
       if (data && data.length > 0) {
-        return data.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: Number(p.price),
-          originalPrice: p.original_price ? Number(p.original_price) : undefined,
-          image: p.images && Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : (p.image || ''),
-          images: p.images || (p.image ? [p.image] : []),
-          category: p.category || '',
-          rating: Number(p.rating),
-          sold: p.sold || 0,
-          stock: p.stock ?? 0,
-          description: p.description || '',
-          isFlashSale: p.is_flash_sale || false,
-          seller_id: p.seller_id || null,
-        })) as (Product & { seller_id?: string })[];
+        return data.map((p: any) => {
+          const imgs = parseImages(p);
+          return {
+            id: p.id,
+            name: p.name,
+            price: Number(p.price),
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
+            image: imgs[0] || p.image || '',
+            images: imgs,
+            category: p.category || '',
+            rating: Number(p.rating),
+            sold: p.sold || 0,
+            stock: p.stock ?? 0,
+            description: p.description || '',
+            isFlashSale: p.is_flash_sale || false,
+            seller_id: p.seller_id || null,
+          } as Product & { seller_id?: string };
+        });
       }
       return fallbackProducts;
     },

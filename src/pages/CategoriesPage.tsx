@@ -18,10 +18,12 @@ export default function CategoriesPage() {
     if (cat) setSelected(cat);
   }, [searchParams]);
 
-  const filtered =
-    selected === "flash"
-      ? products.filter((p) => p.isFlashSale)
-      : products.filter((p) => p.category === selected);
+  // Robust filtering: case-insensitive, trimmed, handles undefined
+  const filtered = products.filter(p => {
+    const pCat = (p.category || "").toLowerCase().trim();
+    const sCat = (selected || "").toLowerCase().trim();
+    return pCat === sCat;
+  });
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -55,7 +57,7 @@ export default function CategoriesPage() {
         <div className="flex-1 p-2">
           {filtered.length === 0 ? (
             <div className="flex items-center justify-center h-40">
-              <p className="text-muted-foreground text-sm">No products yet</p>
+              <p className="text-muted-foreground text-sm">No products in this category</p>
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-2">
