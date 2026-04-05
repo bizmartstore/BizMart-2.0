@@ -1,4 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'; // @ts-ignore
+// @ts-ignore
+import { NextRequest, NextResponse } from 'next/server';
 // The above import may fail in some environments (e.g., Deno); the // @ts-ignore
 // comment tells TypeScript to ignore the error while preserving functionality.
 
