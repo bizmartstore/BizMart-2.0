@@ -161,8 +161,7 @@ export default function SettingsTab() {
           <div>
             <Label className="text-[10px]">Maximum Discount (%)</Label>
             <Input 
-              type="number" 
-              value={settings.flashSaleMaxDiscount} 
+              type="number"               value={settings.flashSaleMaxDiscount} 
               onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(1, Math.min(15, Number(e.target.value))) }))} 
               className="text-xs h-8"
             />
