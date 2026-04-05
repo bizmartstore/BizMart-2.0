@@ -103,23 +103,30 @@ export default function ProductsTab() {
     
     setSaving(true);
     try {
-      const payload = {
+      // Build payload carefully to match exact DB schema types
+      const payload: any = {
         name: form.name.trim(),
-        price: form.price,
-        original_price: form.original_price ? Number(form.original_price) : null,
+        price: Number(form.price),
         image: form.image.trim(),
-        images: form.images.length > 0 ? form.images : null,
         category: form.category.trim(),
-        stock: form.stock,
+        stock: Number(form.stock),
         description: form.description.trim(),
-        is_flash_sale: form.is_flash_sale,
+        is_flash_sale: !!form.is_flash_sale,
         is_active: true,
-        seller_id: null,
         rating: 4.5,
         sold: 0,
+        seller_id: null,
       };
 
-      console.log('[ProductsTab] Inserting/Updating product with payload:', payload);
+      // Safely handle optional fields
+      if (form.original_price && form.original_price.trim() !== "") {
+        payload.original_price = form.original_price.trim();
+      }
+      if (form.images.length > 0) {
+        payload.images = form.images;
+      }
+
+      console.log('[ProductsTab] Inserting product with payload:', payload);
 
       if (editId) {
         const { data, error } = await (supabase as any)
@@ -128,8 +135,11 @@ export default function ProductsTab() {
           .eq("id", editId)
           .select();
         
-        console.log('[ProductsTab] Update result:', { data, error });
-        if (error) throw error;
+        if (error) {
+          console.error('[ProductsTab] Update error:', error);
+          throw error;
+        }
+        console.log('[ProductsTab] Update success:', data);
         toast.success("Product updated!");
       } else {
         const { data, error } = await (supabase as any)
@@ -137,8 +147,13 @@ export default function ProductsTab() {
           .insert(payload)
           .select();
         
-        console.log('[ProductsTab] Insert result:', { data, error });
-        if (error) throw error;
+        if (error) {
+          console.error('[ProductsTab] Insert error:', error);
+          // Show exact DB error to user for debugging
+          toast.error(`DB Error: ${error.message || error.details || "Check console"}`);
+          throw error;
+        }
+        console.log('[ProductsTab] Insert success:', data);
         toast.success("Product added!");
       }
       
@@ -147,8 +162,7 @@ export default function ProductsTab() {
       setShowForm(false); 
       setEditId(null);
     } catch (e: any) {
-      console.error('[ProductsTab] Save error:', e);
-      toast.error(e.message || "Failed to save");
+      console.error('[ProductsTab] Save failed:', e);
     }
     setSaving(false);
   };
