@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Info, ShieldAlert, Clock, MapPin } from "lucide-react";
+import { ArrowLeft, Info, ShieldAlert, Clock, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -32,6 +32,8 @@ export default function JobPostPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const today = new Date().toISOString().split("T")[0];
+  
   const [form, setForm] = useState({
     title: "",
     category: "",
@@ -39,6 +41,8 @@ export default function JobPostPage() {
     location: "",
     difficulty: "medium",
     budget: "",
+    neededDate: today,
+    neededTime: "",
   });
 
   const selectedCat = CATEGORIES.find(c => c.id === form.category);
@@ -59,11 +63,25 @@ export default function JobPostPage() {
       toast.error(`Maximum budget for this category is ₱${maxPrice}`);
       return;
     }
+    if (!form.neededTime) {
+      toast.error("Please select when you need the service.");
+      return;
+    }
+
+    // Combine date and time, then validate it's in the future
+    const neededDateTime = new Date(`${form.neededDate}T${form.neededTime}`);
+    const now = new Date();
+    
+    if (neededDateTime <= now) {
+      toast.error("The needed time must be in the future.");
+      return;
+    }
+
+    // Job expires 10 minutes after the declared needed time
+    const expiresAt = new Date(neededDateTime.getTime() + 10 * 60 * 1000).toISOString();
 
     setLoading(true);
     try {
-      const expiresAt = new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(); // 5 hours
-      
       const { error } = await (supabase as any).from("job_postings").insert({
         client_id: user.id,
         title: form.title.trim(),
@@ -79,12 +97,16 @@ export default function JobPostPage() {
         expires_at: expiresAt,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase Job Post Error:", error);
+        throw error;
+      }
 
       toast.success("Job offer posted successfully! 🎓 Freelancers can now bid.");
       navigate("/jobs");
     } catch (err: any) {
-      toast.error(err.message || "Failed to post job");
+      console.error("Failed to post job:", err);
+      toast.error(err.message || "Failed to post job. Check console for details.");
     } finally {
       setLoading(false);
     }
@@ -106,7 +128,7 @@ export default function JobPostPage() {
             <span className="font-bold text-xs text-amber-700">Academic Integrity & Escrow</span>
           </div>
           <p className="text-[10px] text-amber-700 leading-relaxed">
-            Freelancers are only allowed to **guide and tutor**. Payment is held in escrow and released after session completion. Jobs expire after 5 hours if not hired.
+            Freelancers are only allowed to **guide and tutor**. Payment is held in escrow and released after session completion. Jobs expire 10 minutes after your declared service time.
           </p>
         </div>
 
@@ -176,6 +198,34 @@ export default function JobPostPage() {
             />
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold flex items-center gap-1.5">
+                <Calendar className="h-3.5 w-3.5" /> Date Needed
+              </Label>
+              <Input 
+                type="date"
+                value={form.neededDate}
+                onChange={(e) => setForm({...form, neededDate: e.target.value})}
+                min={today}
+                required
+                className="h-11 rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" /> Time Needed
+              </Label>
+              <Input 
+                type="time"
+                value={form.neededTime}
+                onChange={(e) => setForm({...form, neededTime: e.target.value})}
+                required
+                className="h-11 rounded-xl"
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <Label className="text-xs font-bold">Budget (₱)</Label>
@@ -191,7 +241,7 @@ export default function JobPostPage() {
               required
             />
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Job expires in 5 hours if not hired
+              <Clock className="h-3 w-3" /> Job expires 10 mins after your selected time
             </p>
           </div>
 
