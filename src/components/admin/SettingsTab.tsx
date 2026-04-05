@@ -6,13 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Save, Loader2, Zap, Store, DollarSign, Users, LogOut } from "lucide-react";
+import { Save, Loader2, Zap, Store, DollarSign, LogOut } from "lucide-react";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
 export default function SettingsTab() {
-  const { storeOpen, closeMessage, gcashFee, allSettings, loading: settingsLoading } = useAppSettings();
+  const { storeOpen, closeMessage, gcashFee, allSettings } = useAppSettings();
   const { signOut } = useAuth();
   const navigate = useNavigate();
   const [settings, setSettings] = useState({
@@ -27,55 +27,37 @@ export default function SettingsTab() {
 
   useEffect(() => {
     const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
-    const maxSellers = maxSellersSetting?.value?.max ?? 5;
     const flashSaleMinSetting = allSettings.find((s: any) => s.key === 'flash_sale_min_discount');
-    const flashSaleMinDiscount = flashSaleMinSetting?.value?.percentage ?? 5;
     const flashSaleMaxSetting = allSettings.find((s: any) => s.key === 'flash_sale_max_discount');
-    const flashSaleMaxDiscount = flashSaleMaxSetting?.value?.percentage ?? 15;
-    setSettings(prev => ({ 
-      ...prev, 
-      maxSellers,
-      flashSaleMinDiscount,
-      flashSaleMaxDiscount 
-    }));
-  }, [allSettings]);
+    
+    setSettings({ 
+      storeOpen,
+      closeMessage,
+      gcashFee,
+      maxSellers: maxSellersSetting?.value?.max ?? 5,
+      flashSaleMinDiscount: flashSaleMinSetting?.value?.percentage ?? 5,
+      flashSaleMaxDiscount: flashSaleMaxSetting?.value?.percentage ?? 15,
+    });
+  }, [allSettings, storeOpen, closeMessage, gcashFee]);
 
   const saveSettings = async () => {
     setIsSaving(true);
     try {
-      const { data: existingStore } = await (supabase as any).from("app_settings").select("id").eq("key", "store_status").maybeSingle();
-      if (existingStore) {
-        await (supabase as any).from("app_settings").update({ value: { is_open: settings.storeOpen, close_message: settings.closeMessage }, updated_at: new Date().toISOString() }).eq("key", "store_status");
-      } else {
-        await (supabase as any).from("app_settings").insert({ key: "store_status", value: { is_open: settings.storeOpen, close_message: settings.closeMessage } });
-      }
+      const updates = [
+        { key: "store_status", value: { is_open: settings.storeOpen, close_message: settings.closeMessage } },
+        { key: "gcash_service_fee", value: { amount: settings.gcashFee } },
+        { key: "max_sellers", value: { max: settings.maxSellers } },
+        { key: "flash_sale_min_discount", value: { percentage: settings.flashSaleMinDiscount } },
+        { key: "flash_sale_max_discount", value: { percentage: settings.flashSaleMaxDiscount } },
+      ];
 
-      const { data: existingFee } = await (supabase as any).from("app_settings").select("id").eq("key", "gcash_service_fee").maybeSingle();
-      if (existingFee) {
-        await (supabase as any).from("app_settings").update({ value: { amount: settings.gcashFee }, updated_at: new Date().toISOString() }).eq("key", "gcash_service_fee");
-      } else {
-        await (supabase as any).from("app_settings").insert({ key: "gcash_service_fee", value: { amount: settings.gcashFee } });
-      }
-
-      const { data: existingMax } = await (supabase as any).from("app_settings").select("id").eq("key", "max_sellers").maybeSingle();
-      if (existingMax) {
-        await (supabase as any).from("app_settings").update({ value: { max: settings.maxSellers }, updated_at: new Date().toISOString() }).eq("key", "max_sellers");
-      } else {
-        await (supabase as any).from("app_settings").insert({ key: "max_sellers", value: { max: settings.maxSellers } });
-      }
-
-      const { data: existingMinDiscount } = await (supabase as any).from("app_settings").select("id").eq("key", "flash_sale_min_discount").maybeSingle();
-      if (existingMinDiscount) {
-        await (supabase as any).from("app_settings").update({ value: { percentage: settings.flashSaleMinDiscount }, updated_at: new Date().toISOString() }).eq("key", "flash_sale_min_discount");
-      } else {
-        await (supabase as any).from("app_settings").insert({ key: "flash_sale_min_discount", value: { percentage: settings.flashSaleMinDiscount } });
-      }
-
-      const { data: existingMaxDiscount } = await (supabase as any).from("app_settings").select("id").eq("key", "flash_sale_max_discount").maybeSingle();
-      if (existingMaxDiscount) {
-        await (supabase as any).from("app_settings").update({ value: { percentage: settings.flashSaleMaxDiscount }, updated_at: new Date().toISOString() }).eq("key", "flash_sale_max_discount");
-      } else {
-        await (supabase as any).from("app_settings").insert({ key: "flash_sale_max_discount", value: { percentage: settings.flashSaleMaxDiscount } });
+      for (const { key, value } of updates) {
+        const { data: existing } = await (supabase as any).from("app_settings").select("id").eq("key", key).maybeSingle();
+        if (existing) {
+          await (supabase as any).from("app_settings").update({ value, updated_at: new Date().toISOString() }).eq("key", key);
+        } else {
+          await (supabase as any).from("app_settings").insert({ key, value });
+        }
       }
 
       toast.success("Settings saved!");
@@ -147,22 +129,23 @@ export default function SettingsTab() {
           <Zap className="h-5 w-5 text-warning" />
           <h3 className="font-bold text-sm">Flash Sale Discount Rate</h3>
         </div>
-        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 6 products and apply discounts between the minimum and maximum percentage for 2 hours.</p>
+        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 6 products and apply discounts between the minimum and maximum percentage for 2 hours. Applies to all products including synced defaults.</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-[10px]">Minimum Discount (%)</Label>
             <Input 
               type="number" 
               value={settings.flashSaleMinDiscount} 
-              onChange={(e) => setSettings(s => ({ ...s, flashSaleMinDiscount: Math.max(1, Math.min(15, Number(e.target.value))) }))} 
+              onChange={(e) => setSettings(s => ({ ...s, flashSaleMinDiscount: Math.max(5, Math.min(15, Number(e.target.value))) }))} 
               className="text-xs h-8"
             />
           </div>
           <div>
             <Label className="text-[10px]">Maximum Discount (%)</Label>
             <Input 
-              type="number"               value={settings.flashSaleMaxDiscount} 
-              onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(1, Math.min(15, Number(e.target.value))) }))} 
+              type="number" 
+              value={settings.flashSaleMaxDiscount} 
+              onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(5, Math.min(15, Number(e.target.value))) }))} 
               className="text-xs h-8"
             />
           </div>

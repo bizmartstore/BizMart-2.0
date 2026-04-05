@@ -4,12 +4,14 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+};
+
 const FLASH_SALE_DURATION_MS = 2 * 60 * 60 * 1000; // 2 hours per flash sale round
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });  }
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -32,28 +34,31 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-    }
+    }
+
     // Get min and max discount percentages from app_settings
-    const { data: minDiscountData } = await supabase      .from("app_settings")
+    const { data: minDiscountData } = await supabase
+      .from("app_settings")
       .select("value")
       .eq("key", "flash_sale_min_discount")
-      .maybeSingle();    
+      .maybeSingle();
+    
     const { data: maxDiscountData } = await supabase
       .from("app_settings")
       .select("value")
       .eq("key", "flash_sale_max_discount")
       .maybeSingle();
-    const minDiscount = minDiscountData?.value?.percentage ? Number(minDiscountData.value.percentage) : 5;
-    const maxDiscount = maxDiscountData?.value?.percentage ? Number(maxDiscountData.value.percentage) : 15;
 
-    // Get all active products
+    const configMinDiscount = minDiscountData?.value?.percentage ? Number(minDiscountData.value.percentage) : 5;
+    const configMaxDiscount = maxDiscountData?.value?.percentage ? Number(maxDiscountData.value.percentage) : 15;
+
+    // Get all active products (includes synced default products)
     const { data: allProducts } = await supabase
       .from("products")
       .select("*")
       .eq("is_active", true);
 
     if (!allProducts || allProducts.length === 0) {
-      // Set a future end time even with no products so we don't keep retrying
       const endsAt = new Date(now + FLASH_SALE_DURATION_MS).toISOString();
       const val = { ends_at: endsAt, product_ids: [] };
       if (setting) {
@@ -70,18 +75,21 @@ Deno.serve(async (req) => {
     const shuffled = allProducts.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, Math.min(6, shuffled.length));
 
-    // Apply discount within the allowed range
-    for (const product of selected) {      // Ensure product has price and original_price
-      const originalPrice = Number(product.price);
-      if (originalPrice <= 0) continue;
+    // Apply discount within the configured range
+    for (const product of selected) {
+      // Always calculate discount from the original price to avoid compounding discounts
+      const basePrice = product.original_price ? Number(product.original_price) : Number(product.price);
+      if (basePrice <= 0) continue;
       
-      // Generate random discount between minDiscount and maxDiscount
-      const minDiscount = Math.min(maxDiscount, Math.max(minDiscount, 10)); // Ensure at least 10% base discount? Actually use the configured min
-      const maxDiscount = maxDiscount; // Use the configured max
-      const discountPercent = Math.floor(Math.random() * (maxDiscount - minDiscount + 1)) + minDiscount;      const salePrice = Number((originalPrice * (1 - discountPercent / 100)).toFixed(2));
-      await supabase.from("products").update({
-        price: salePrice,        is_flash_sale: true,
-        original_price: originalPrice,      }).eq("id", product.id);
+      // Generate random discount strictly between configured min and max
+      const discountPercent = Math.floor(Math.random() * (configMaxDiscount - configMinDiscount + 1)) + configMinDiscount;
+      const salePrice = Number((basePrice * (1 - discountPercent / 100)).toFixed(2));
+
+      await supabase.from("products").update({
+        price: salePrice,
+        is_flash_sale: true,
+        original_price: basePrice,
+      }).eq("id", product.id);
     }
 
     // Set new flash sale end time
