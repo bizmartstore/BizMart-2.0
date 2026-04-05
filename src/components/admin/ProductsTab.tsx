@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ interface Category {
 }
 
 export default function ProductsTab() {
+  const queryClient = useQueryClient();
   const [products, setProducts] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [showForm, setShowForm] = useState(false);
@@ -71,7 +73,7 @@ export default function ProductsTab() {
       if (isAdditional) {
         setForm(f => ({ 
           ...f, 
-          images: [...f.images, publicUrl].slice(0, 3) // Max 3 additional images
+          images: [...f.images, publicUrl].slice(0, 3)
         }));
         toast.success("Additional image added!");
       } else {
@@ -108,7 +110,7 @@ export default function ProductsTab() {
         price: form.price,
         original_price: form.original_price ? Number(form.original_price) : null,
         image: form.image.trim(),
-        images: form.images.length > 0 ? form.images : null, // Store additional images
+        images: form.images.length > 0 ? form.images : null,
         category: form.category.trim(),
         stock: form.stock,
         description: form.description.trim(),
@@ -128,7 +130,15 @@ export default function ProductsTab() {
         if (error) throw error;
         toast.success("Product added!");
       }
-      resetForm(); setShowForm(false); setEditId(null); loadProducts();
+      
+      // Invalidate React Query cache so homepage/marketplace see the new product immediately
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['initial-data'] });
+      
+      resetForm(); 
+      setShowForm(false); 
+      setEditId(null); 
+      loadProducts();
     } catch (e: any) {
       toast.error(e.message || "Failed to save");
     }
@@ -139,7 +149,7 @@ export default function ProductsTab() {
     setForm({
       name: p.name, price: Number(p.price),
       original_price: p.original_price || "", image: p.image || "",
-      images: p.images || [], // Load existing additional images
+      images: p.images || [],
       category: p.category || "", stock: p.stock || 0,
       description: p.description || "", is_flash_sale: p.is_flash_sale || false,
     });
@@ -149,11 +159,16 @@ export default function ProductsTab() {
   const remove = async (id: string) => {
     if (!confirm("Delete this product?")) return;
     await (supabase as any).from("products").delete().eq("id", id);
-    loadProducts(); toast.success("Product deleted");
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['initial-data'] });
+    loadProducts(); 
+    toast.success("Product deleted");
   };
 
   const toggleActive = async (id: string, active: boolean) => {
     await (supabase as any).from("products").update({ is_active: !active }).eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ['products'] });
+    queryClient.invalidateQueries({ queryKey: ['initial-data'] });
     loadProducts();
   };
 
@@ -180,7 +195,7 @@ export default function ProductsTab() {
             const { error } = await (supabase as any).from("products").insert({
               id: p.id, name: p.name, price: p.price,
               original_price: p.originalPrice || null, image: p.image,
-              images: p.images || null, // Include images if any
+              images: p.images || null,
               category: p.category, stock: p.stock || 100,
               description: p.description, is_flash_sale: p.isFlashSale || false,
               is_active: true, rating: p.rating, sold: p.sold,
@@ -197,6 +212,9 @@ export default function ProductsTab() {
           errors++;
         }
       }
+      
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      queryClient.invalidateQueries({ queryKey: ['initial-data'] });
       
       toast.success(`Synced ${addedCats} categories and ${addedProds} products! ${errors > 0 ? `${errors} failed.` : ''}`);
       loadProducts();

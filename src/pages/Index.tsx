@@ -104,10 +104,11 @@ export default function Index() {
     }
   }, [allSettings, loadFlashState]);
 
+  // Realtime subscription for product changes (INSERT, UPDATE, DELETE)
   useEffect(() => {
     const channel = supabase
-      .channel("flash-sale-products")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "products" }, () => {
+      .channel("products-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         refetchProducts();
       })
       .subscribe();

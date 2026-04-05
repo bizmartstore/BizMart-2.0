@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 type SortOption = "default" | "price-low" | "price-high" | "name-az" | "name-za" | "best-selling";
 
 export default function MarketplacePage() {
-  const { data: products = [] } = useProducts();
+  const { data: products = [], refetch: refetchProducts } = useProducts();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [sellerProfiles, setSellerProfiles] = useState<Record<string, any>>({});
@@ -29,6 +29,17 @@ export default function MarketplacePage() {
         setSellerProfiles(map);
       });
   }, []);
+
+  // Realtime subscription for product changes
+  useEffect(() => {
+    const channel = supabase
+      .channel("marketplace-products-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
+        refetchProducts();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [refetchProducts]);
 
   const startChat = async (sellerId: string) => {
     if (!user) { navigate("/login"); return; }
