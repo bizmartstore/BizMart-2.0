@@ -7,7 +7,7 @@ import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Users, Package, ShoppingCart, Printer, MessageCircle,
-  Crown, Coins, Settings, BarChart3, Bell, Briefcase, Ticket, Award, Image
+  Crown, Coins, Settings, BarChart3, Bell, Briefcase, Ticket, Award
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import OverviewTab from "@/components/admin/OverviewTab";
@@ -26,13 +26,11 @@ import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import FreelancersTab from "@/components/admin/FreelancersTab";
-import BannersTab from "@/components/admin/BannersTab";
 
 const MEMBER_ADMIN_ALLOWED_TABS = [
   "orders",
   "print",
   "news",
-  "banners",
   "gcash",
   "jobs",
   "freelancers",
@@ -71,7 +69,7 @@ export default function AdminDashboard() {
         print: printRes.status === 'fulfilled' ? (printRes.value.count || 0) : 0,
         gcash: gcashRes.status === 'fulfilled' ? (gcashRes.value.count || 0) : 0,
         bcoins: bcoinsRes.status === 'fulfilled' ? (bcoinsRes.value.count || 0) : 0,
-        messages: 0,
+        messages: 0, // Messages are handled separately via unread count
         jobs: jobsRes.status === 'fulfilled' ? (jobsRes.value.count || 0) : 0,
         freelancers: freelancersRes.status === 'fulfilled' ? (freelancersRes.value.count || 0) : 0,
       });
@@ -138,7 +136,6 @@ export default function AdminDashboard() {
     { id: "messages", label: "Messages", icon: MessageCircle, badge: pendingCounts.messages },
     { id: "codes", label: "Codes", icon: Ticket, badge: 0 },
     { id: "news", label: "News", icon: Bell, badge: 0 },
-    { id: "banners", label: "Banners", icon: Image, badge: 0 },
     { id: "club", label: "Club", icon: Crown, badge: 0 },
     { id: "bcoins", label: "BCoins", icon: Coins, badge: pendingCounts.bcoins },
     { id: "gcash", label: "GCash", icon: Coins, badge: pendingCounts.gcash },
@@ -198,7 +195,6 @@ export default function AdminDashboard() {
           <TabsContent value="messages"><MessagesTab /></TabsContent>
           <TabsContent value="codes"><CodesTab /></TabsContent>
           <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="banners"><BannersTab /></TabsContent>
           <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
