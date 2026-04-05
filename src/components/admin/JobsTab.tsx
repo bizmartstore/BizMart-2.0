@@ -3,13 +3,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, Briefcase, RefreshCw, Eye, XCircle } from "lucide-react";
+import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, ListChecks, Target, FileText, MapPin, Clock, User, Wallet } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function JobsTab() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [reviewNotes, setReviewNotes] = useState("");
+  const [processing, setProcessing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -20,52 +23,109 @@ export default function JobsTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const closeJob = async (id: string) => {
-    await (supabase as any).from("job_postings").update({ status: "closed" }).eq("id", id);
-    toast.success("Job closed");
-    load();
+  const handleReview = async (jobId: string, status: "approved" | "rejected") => {
+    setProcessing(true);
+    try {
+      await (supabase as any).from("job_postings").update({ 
+        status, 
+        admin_notes: reviewNotes.trim() || null 
+      }).eq("id", jobId);
+      toast.success(`Job ${status === 'approved' ? 'approved' : 'rejected'}!`);
+      setReviewNotes("");
+      setSelectedJob(null);
+      load();
+    } catch (e: any) {
+      toast.error(e.message || "Failed to update job");
+    }
+    setProcessing(false);
   };
 
   const filtered = jobs.filter(j => 
     !search || 
     j.title.toLowerCase().includes(search.toLowerCase()) ||
-    j.category.toLowerCase().includes(search.toLowerCase())
+    j.category.toLowerCase().includes(search.toLowerCase()) ||
+    (j.client?.first_name || "").toLowerCase().includes(search.toLowerCase())
   );
+
+  const getStatusBadge = (status: string) => {
+    switch(status) {
+      case 'pending_approval': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">⏳ Pending</span>;
+      case 'approved': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">✅ Approved</span>;
+      case 'ready_to_start': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">💰 Ready</span>;
+      case 'open': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-green-100 text-green-700">🟢 Open</span>;
+      case 'in_progress': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-700">⏱️ Active</span>;
+      case 'completed': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">✅ Done</span>;
+      case 'rejected': return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">❌ Rejected</span>;
+      default: return <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">{status}</span>;
+    }
+  };
 
   if (selectedJob) {
     return (
       <div className="space-y-3">
-        <button onClick={() => setSelectedJob(null)} className="text-xs text-primary font-bold">← Back to Jobs</button>
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <button onClick={() => { setSelectedJob(null); setReviewNotes(""); }} className="text-xs text-primary font-bold">← Back to Jobs</button>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-sm">{selectedJob.title}</h3>
               <p className="text-[10px] text-muted-foreground">{selectedJob.client?.first_name} {selectedJob.client?.last_name} • {new Date(selectedJob.created_at).toLocaleString()}</p>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-              selectedJob.status === 'open' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-muted text-muted-foreground'
-            }`}>{selectedJob.status}</span>
+            {getStatusBadge(selectedJob.status)}
           </div>
-          <div className="bg-muted/30 rounded-lg p-3 space-y-1">
-            <p className="text-[10px] font-bold text-muted-foreground">DESCRIPTION</p>
+
+          <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Description</p>
             <p className="text-xs whitespace-pre-wrap">{selectedJob.description}</p>
           </div>
+
+          {selectedJob.instructions && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><ListChecks className="h-3 w-3" /> Step-by-Step Instructions</p>
+              <p className="text-xs whitespace-pre-wrap">{selectedJob.instructions}</p>
+            </div>
+          )}
+
+          {selectedJob.expected_output && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><Target className="h-3 w-3" /> Expected Output</p>
+              <p className="text-xs whitespace-pre-wrap">{selectedJob.expected_output}</p>
+            </div>
+          )}
+
+          {selectedJob.requirements && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1"><FileText className="h-3 w-3" /> Specific Requirements</p>
+              <p className="text-xs whitespace-pre-wrap">{selectedJob.requirements}</p>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-2 text-center">
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">₱{selectedJob.hourly_rate}</span>
-              <span className="text-[9px] text-muted-foreground">Rate/hr</span>
-            </div>
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">{selectedJob.category}</span>
-              <span className="text-[9px] text-muted-foreground">Category</span>
-            </div>
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">{selectedJob.location}</span>
-              <span className="text-[9px] text-muted-foreground">Location</span>
-            </div>
+            <div className="bg-muted rounded-lg p-2"><span className="text-sm font-extrabold block">₱{selectedJob.hourly_rate}</span><span className="text-[9px] text-muted-foreground">Budget</span></div>
+            <div className="bg-muted rounded-lg p-2"><span className="text-sm font-extrabold block">{selectedJob.category}</span><span className="text-[9px] text-muted-foreground">Category</span></div>
+            <div className="bg-muted rounded-lg p-2"><span className="text-sm font-extrabold block">{selectedJob.location}</span><span className="text-[9px] text-muted-foreground">Location</span></div>
           </div>
-          {selectedJob.status === "open" && (
-            <Button size="sm" variant="destructive" onClick={() => closeJob(selectedJob.id)} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Close Job</Button>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3" /> {selectedJob.location}
+            <Clock className="h-3 w-3 ml-2" /> Expires: {new Date(selectedJob.expires_at).toLocaleString()}
+          </div>
+
+          {selectedJob.status === "pending_approval" && (
+            <div className="space-y-2 pt-2 border-t border-border">
+              <p className="text-xs font-bold">Admin Review Notes (Optional)</p>
+              <Textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)} placeholder="Add notes for the client..." className="text-xs" rows={2} />
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleReview(selectedJob.id, "approved")} disabled={processing} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
+                <Button size="sm" variant="destructive" onClick={() => handleReview(selectedJob.id, "rejected")} disabled={processing} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
+              </div>
+            </div>
+          )}
+
+          {selectedJob.admin_notes && (
+            <div className="bg-muted/30 rounded-lg p-3">
+              <p className="text-[10px] font-bold text-muted-foreground mb-1">Admin Notes</p>
+              <p className="text-xs whitespace-pre-wrap">{selectedJob.admin_notes}</p>
+            </div>
           )}
         </div>
       </div>
@@ -93,9 +153,7 @@ export default function JobsTab() {
               <p className="text-[10px] text-muted-foreground">{job.client?.first_name} {job.client?.last_name} • ₱{job.hourly_rate}/hr</p>
             </div>
             <div className="flex items-center gap-2">
-              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                job.status === 'open' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-muted text-muted-foreground'
-              }`}>{job.status}</span>
+              {getStatusBadge(job.status)}
               <button onClick={() => setSelectedJob(job)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
             </div>
           </div>

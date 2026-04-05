@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Info, ShieldAlert, Clock, MapPin, Calendar } from "lucide-react";
+import { ArrowLeft, Info, ShieldAlert, Clock, MapPin, Calendar, ListChecks, Target, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -43,6 +43,9 @@ export default function JobPostPage() {
     budget: "",
     neededDate: today,
     neededTime: "",
+    instructions: "",
+    expectedOutput: "",
+    requirements: "",
   });
 
   const selectedCat = CATEGORIES.find(c => c.id === form.category);
@@ -67,8 +70,15 @@ export default function JobPostPage() {
       toast.error("Please select when you need the service.");
       return;
     }
+    if (!form.instructions.trim()) {
+      toast.error("Please provide step-by-step instructions for the freelancer.");
+      return;
+    }
+    if (!form.expectedOutput.trim()) {
+      toast.error("Please describe the expected output.");
+      return;
+    }
 
-    // Combine date and time, then validate it's in the future
     const neededDateTime = new Date(`${form.neededDate}T${form.neededTime}`);
     const now = new Date();
     
@@ -77,7 +87,6 @@ export default function JobPostPage() {
       return;
     }
 
-    // Job expires 10 minutes after the declared needed time
     const expiresAt = new Date(neededDateTime.getTime() + 10 * 60 * 1000).toISOString();
 
     setLoading(true);
@@ -93,20 +102,20 @@ export default function JobPostPage() {
         max_price: maxPrice,
         difficulty_level: form.difficulty,
         escrow_amount: budget,
-        status: "open",
+        status: "pending_approval",
         expires_at: expiresAt,
+        instructions: form.instructions.trim(),
+        expected_output: form.expectedOutput.trim(),
+        requirements: form.requirements.trim(),
       });
 
-      if (error) {
-        console.error("Supabase Job Post Error:", error);
-        throw error;
-      }
+      if (error) throw error;
 
-      toast.success("Job offer posted successfully! 🎓 Freelancers can now bid.");
+      toast.success("Job posted! 📝 Awaiting admin approval before it goes live.");
       navigate("/jobs");
     } catch (err: any) {
       console.error("Failed to post job:", err);
-      toast.error(err.message || "Failed to post job. Check console for details.");
+      toast.error(err.message || "Failed to post job.");
     } finally {
       setLoading(false);
     }
@@ -125,10 +134,10 @@ export default function JobPostPage() {
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <ShieldAlert className="h-4 w-4 text-amber-600" />
-            <span className="font-bold text-xs text-amber-700">Academic Integrity & Escrow</span>
+            <span className="font-bold text-xs text-amber-700">Admin Moderation & Escrow</span>
           </div>
           <p className="text-[10px] text-amber-700 leading-relaxed">
-            Freelancers are only allowed to **guide and tutor**. Payment is held in escrow and released after session completion. Jobs expire 10 minutes after your declared service time.
+            All jobs are reviewed by admin before going live. Once approved, you'll pay the full amount to admin escrow. Payment is securely held and only released to the freelancer after successful completion.
           </p>
         </div>
 
@@ -178,11 +187,50 @@ export default function JobPostPage() {
           <div className="space-y-1.5">
             <Label className="text-xs font-bold">Description of Assistance Needed</Label>
             <Textarea 
-              placeholder="Describe what you need help with..." 
-              className="min-h-[100px] rounded-xl"
+              placeholder="Briefly describe what you need help with..." 
+              className="min-h-[80px] rounded-xl"
               value={form.description}
               onChange={(e) => setForm({...form, description: e.target.value})}
               required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold flex items-center gap-1.5">
+              <ListChecks className="h-3.5 w-3.5 text-primary" /> Step-by-Step Instructions *
+            </Label>
+            <Textarea 
+              placeholder="1. Start by...&#10;2. Then...&#10;3. Finally..." 
+              className="min-h-[120px] rounded-xl"
+              value={form.instructions}
+              onChange={(e) => setForm({...form, instructions: e.target.value})}
+              required
+            />
+            <p className="text-[10px] text-muted-foreground">Provide clear, detailed steps the freelancer should follow to complete the task.</p>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold flex items-center gap-1.5">
+              <Target className="h-3.5 w-3.5 text-primary" /> Expected Output *
+            </Label>
+            <Textarea 
+              placeholder="Describe exactly what the final deliverable should look like..." 
+              className="min-h-[80px] rounded-xl"
+              value={form.expectedOutput}
+              onChange={(e) => setForm({...form, expectedOutput: e.target.value})}
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5 text-primary" /> Specific Requirements (Optional)
+            </Label>
+            <Textarea 
+              placeholder="Any specific formats, tools, or guidelines to follow..." 
+              className="min-h-[80px] rounded-xl"
+              value={form.requirements}
+              onChange={(e) => setForm({...form, requirements: e.target.value})}
             />
           </div>
 
@@ -241,13 +289,13 @@ export default function JobPostPage() {
               required
             />
             <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              <Clock className="h-3 w-3" /> Job expires 10 mins after your selected time
+              <Info className="h-3 w-3" /> This amount will be held in escrow by admin until job completion
             </p>
           </div>
 
           <div className="pt-4">
             <Button type="submit" className="w-full h-12 font-bold rounded-xl" disabled={loading}>
-              {loading ? "Posting..." : "Post Job Offer"}
+              {loading ? "Posting..." : "Submit for Admin Review"}
             </Button>
           </div>
         </form>
