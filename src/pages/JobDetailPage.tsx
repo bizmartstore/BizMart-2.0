@@ -205,8 +205,9 @@ export default function JobDetailPage() {
         console.warn("[endSession] Missing start_time in session object");
       }
       
+      // FIXED: Changed from "pending_review" to "completed" to satisfy DB check constraint
       const updatePayload: any = { 
-        status: "pending_review", 
+        status: "completed", 
         end_time: endTime, 
         duration_minutes: durationMinutes 
       };
@@ -224,13 +225,13 @@ export default function JobDetailPage() {
       }
       
       await (supabase as any).from("job_postings").update({ 
-        status: "pending_review" 
+        status: "completed" 
       }).eq("id", job.id);
 
       // Refetch to ensure state matches DB exactly
       const { data: updatedSession } = await (supabase as any).from("job_sessions").select("*").eq("id", session.id).maybeSingle();
       setSession(updatedSession);
-      setJob(prev => prev ? { ...prev, status: "pending_review" } : null);
+      setJob(prev => prev ? { ...prev, status: "completed" } : null);
       toast.success("Session ended. Both parties can now submit proof of completion. 📸");
     } catch (err: any) { 
       console.error("Failed to end session:", err);
@@ -337,7 +338,6 @@ export default function JobDetailPage() {
                 job.status === 'ready_to_start' ? 'bg-green-100 text-green-700' :
                 job.status === 'open' ? 'bg-green-100 text-green-700' :
                 job.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                job.status === 'pending_review' ? 'bg-purple-100 text-purple-700' :
                 job.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                 'bg-muted text-muted-foreground'
               }`}>{job.status.replace('_', ' ').toUpperCase()}</span>
@@ -348,7 +348,7 @@ export default function JobDetailPage() {
             <div className="flex items-center gap-1"><MapPin className="h-4 w-4" /><span>{job.location}</span></div>
             <div className="flex items-center gap-1"><Clock className="h-4 w-4" /><span>₱{job.hourly_rate}/hr</span></div>
             <div className="flex items-center gap-1"><Timer className="h-4 w-4" />
-              {job.status === "in_progress" || job.status === "pending_review" || job.status === "completed" 
+              {job.status === "in_progress" || job.status === "completed" 
                 ? <span className="text-green-600 font-bold">Session Active</span> 
                 : <span>Expires: {new Date(job.expires_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
             </div>
@@ -509,8 +509,8 @@ export default function JobDetailPage() {
               </div>
             )}
 
-            {/* Pending Review - Both can submit proof */}
-            {session.status === "pending_review" && (
+            {/* Pending Review / Awaiting Proof - Both can submit proof */}
+            {session.status === "completed" && !session.escrow_released && (
               <div className="space-y-4">
                 <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
                   <div className="flex items-center gap-2 mb-1">
