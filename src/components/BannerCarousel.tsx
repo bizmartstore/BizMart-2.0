@@ -24,12 +24,13 @@ export default function BannerCarousel() {
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {banners.map((banner, i) => (
-          <img
-            key={i}
-            src={banner}
-            alt={`Banner ${i + 1}`}
-            className="w-full flex-shrink-0 aspect-[2/1] object-cover rounded-xl"
-          />
+          <div key={i} className="w-full flex-shrink-0 aspect-[2/1]">
+            <img
+              src={banner}
+              alt={`Banner ${i + 1}`}
+              className="w-full h-full object-cover rounded-xl"
+            />
+          </div>
         ))}
       </div>
       <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5">
