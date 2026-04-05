@@ -20,11 +20,11 @@ export default function BannerTab() {
   const [banners, setBanners] = useState<BannerItem[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = async () => {
@@ -45,10 +45,11 @@ export default function BannerTab() {
   useEffect(() => { load(); }, []);
 
   const resetForm = () => {
-    setImageUrl("");
     setSortOrder(0);
     setEditId(null);
     setShowForm(false);
+    setPreviewUrl(null);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -71,7 +72,7 @@ export default function BannerTab() {
       if (error) throw error;
       
       const { data: { publicUrl } } = supabase.storage.from("banner-images").getPublicUrl(path);
-      setImageUrl(publicUrl);
+      setPreviewUrl(publicUrl);
       toast.success("Banner image uploaded!");
     } catch (e: any) {
       console.error("Upload process failed:", e);
@@ -83,8 +84,8 @@ export default function BannerTab() {
   };
 
   const handleSave = async () => {
-    if (!imageUrl.trim()) { 
-      toast.error("Image URL is required"); 
+    if (!previewUrl) { 
+      toast.error("Please upload a banner image"); 
       return; 
     }
     if (sortOrder < 0) { 
@@ -109,7 +110,7 @@ export default function BannerTab() {
       }
 
       const payload = {
-        image_url: imageUrl.trim(),
+        image_url: previewUrl,
         sort_order: sortOrder,
         is_active: true,
       };
@@ -146,8 +147,8 @@ export default function BannerTab() {
 
   const handleEdit = (item: BannerItem) => {
     setEditId(item.id);
-    setImageUrl(item.image_url);
     setSortOrder(item.sort_order);
+    setPreviewUrl(item.image_url);
     setShowForm(true);
   };
 
@@ -231,37 +232,37 @@ export default function BannerTab() {
             <button onClick={resetForm}><X className="h-4 w-4" /></button>
           </div>
           <div>
-            <Label className="text-xs">Image URL</Label>
-            <Input value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} className="text-xs" placeholder="Banner image URL..." />
-          </div>
-          <div>
             <Label className="text-xs">Sort Order</Label>
             <Input type="number" value={sortOrder} onChange={(e) => setSortOrder(Number(e.target.value))} className="text-xs" placeholder="0 for first, 1 for second, etc." />
           </div>
           <div>
-            <Label className="text-xs">Image</Label>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
-            <div className="flex flex-wrap gap-2 mt-1.5">
-              {imageUrl && (
-                <div key="preview" className="relative w-24 h-24 rounded-lg overflow-hidden border border-border group">
-                  <img src={imageUrl} alt="Banner preview" className="w-full h-full object-cover" />
-                  <button
-                    onClick={() => setImageUrl("")}
-                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                  >
-                    <X className="h-4 w-4 text-white" />
-                  </button>
-                </div>
-              )}
-              <button
-                onClick={() => fileRef.current?.click()}
-                disabled={uploading}
-                className="w-24 h-24 rounded-lg border-2 border-dashed border-border flex flex-col items-center justify-center text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-              >
-                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                <span className="text-[8px] mt-0.5">{uploading ? "..." : "Add"}</span>
-              </button>
-            </div>
+            <Label className="text-xs">Image Preview</Label>
+            {previewUrl ? (
+              <div className="relative w-24 h-24 rounded-lg overflow-hidden border border-border group">
+                <img src={previewUrl} alt="Banner preview" className="w-full h-full object-cover" />
+                <button
+                  onClick={() => {
+                    setPreviewUrl(null);
+                    if (fileRef.current) fileRef.current.value = "";
+                  }}
+                  className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                >
+                  <X className="h-4 w-4 text-white" />
+                </button>
+              </div>
+            ) : (
+              <div className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg">
+                <Upload className="h-6 w-6 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground mt-2">Click to upload</p>
+              </div>
+            )}
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleUpload}
+            />
           </div>
 
           <Button onClick={handleSave} className="w-full text-xs" disabled={uploading || saving}>
