@@ -195,7 +195,6 @@ export default function ProductsTab() {
             <Select
               value={form.category}
               onValueChange={(val) => setForm(f => ({ ...f, category: val }))}
-              className="text-sm"
             >
               <SelectTrigger className="text-sm">
                 <SelectValue placeholder="Select category" />
