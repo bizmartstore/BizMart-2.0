@@ -2,11 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Plus, Trash2, Edit2, X, Check, ImagePlus, Loader2, RefreshCw, AlertCircle, Upload } from "lucide-react";
+import { Plus, Trash2, Edit2, X, Check, Loader2, RefreshCw, AlertCircle, Upload } from "lucide-react";
 
 interface BannerItem {
   id: string;
@@ -55,7 +54,8 @@ export default function BannerTab() {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     setUploading(true);
-        try {
+    
+    try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Session expired. Please refresh the page or log in again.");
@@ -82,7 +82,8 @@ export default function BannerTab() {
   };
 
   const handleSave = async () => {
-    if (!previewUrl) {       toast.error("Please upload a banner image"); 
+    if (!previewUrl) {       
+      toast.error("Please upload a banner image"); 
       return; 
     }
     if (sortOrder < 0) { 
@@ -92,7 +93,6 @@ export default function BannerTab() {
     
     setSaving(true);
     
-    // Safety timeout to guarantee UI never gets stuck
     const safetyTimer = setTimeout(() => {
       console.warn("[BannerTab] Save operation timed out, forcing UI reset");
       setSaving(false);
@@ -112,14 +112,10 @@ export default function BannerTab() {
         is_active: true,
       };
 
-      console.log("[BannerTab] Saving payload:", payload);
-
-      // Remove .select() to reduce overhead and potential lock issues
       const baseQuery = editId
         ? (supabase as any).from("banners").update(payload).eq("id", editId)
         : (supabase as any).from("banners").insert(payload);
 
-      // Add a small delay to ensure any previous transactions complete
       await new Promise(resolve => setTimeout(resolve, 100));
 
       const { error } = await baseQuery;
@@ -129,7 +125,6 @@ export default function BannerTab() {
         throw error;
       }
       
-      console.log("[BannerTab] Save successful");
       toast.success(editId ? "Banner updated!" : "Banner published!");
       resetForm();
       load();
@@ -174,7 +169,6 @@ export default function BannerTab() {
   const syncDefaults = async () => {
     setSyncing(true);
     try {
-      // Sync default banners from assets
       const defaultBanners = [
         { url: "/src/assets/banner1.jpg", order: 0 },
         { url: "/src/assets/banner2.jpg", order: 1 },
@@ -194,6 +188,7 @@ export default function BannerTab() {
             is_active: true,
           });
           if (error) throw error;
+        }
       }
       
       toast.success("Default banners synced!");
@@ -247,7 +242,10 @@ export default function BannerTab() {
                 </button>
               </div>
             ) : (
-              <div className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg">
+              <div
+                onClick={() => fileRef.current?.click()}
+                className="w-24 h-24 flex items-center justify-center bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors cursor-pointer"
+              >
                 <Upload className="h-6 w-6 text-muted-foreground" />
                 <p className="text-xs text-muted-foreground mt-2">Click to upload</p>
               </div>
@@ -269,40 +267,38 @@ export default function BannerTab() {
       )}
 
       <div className="space-y-2">
-        {banners.map((item) => {
-          return (
-            <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
-              {item.image_url && (
-                <div className="flex gap-1 flex-shrink-0">
-                  <img src={item.image_url} alt="Banner" className="w-24 h-24 rounded-lg object-cover" />
+        {banners.map((item) => (
+          <div key={item.id} className="bg-card rounded-xl border border-border p-3 flex gap-3">
+            {item.image_url && (
+              <div className="flex gap-1 flex-shrink-0">
+                <img src={item.image_url} alt="Banner" className="w-24 h-24 rounded-lg object-cover" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-bold text-foreground">Banner #{item.id.slice(0, 6)}</h4>
+                  <p className="text-[10px] text-muted-foreground">Sort Order: {item.sort_order}</p>
                 </div>
-              )}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h4 className="text-xs font-bold text-foreground">Banner #{item.id.slice(0, 6)}</h4>
-                    <p className="text-[10px] text-muted-foreground">Sort Order: {item.sort_order}</p>
-                  </div>
-                  <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
-                </div>
-                <div className="flex gap-2 mt-1.5">
-                  <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
-                    <Edit2 className="h-3 w-3" /> Edit
-                  </button>
-                  <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
-                    <Trash2 className="h-3 w-3" /> Delete
-                  </button>
-                </div>
+                <Switch checked={item.is_active} onCheckedChange={(v) => toggleActive(item.id, v)} />
+              </div>
+              <div className="flex gap-2 mt-1.5">
+                <button onClick={() => handleEdit(item)} className="text-[10px] text-primary font-bold flex items-center gap-0.5">
+                  <Edit2 className="h-3 w-3" /> Edit
+                </button>
+                <button onClick={() => handleDelete(item.id)} className="text-[10px] text-destructive font-bold flex items-center gap-0.5">
+                  <Trash2 className="h-3 w-3" /> Delete
+                </button>
               </div>
             </div>
-          ))}
-          {banners.length === 0 && (
-            <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
-              <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-xs text-muted-foreground">No banners yet. Click "Sync Defaults" to load sample banners.</p>
-            </div>
-          )}
-        </div>
+          </div>
+        ))}
+        {banners.length === 0 && (
+          <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
+            <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">No banners yet. Click "Sync Defaults" to load sample banners.</p>
+          </div>
+        )}
       </div>
     </div>
   );
