@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw } from "lucide-react";
 import { products as fallbackProducts, categories as fallbackCategories } from "@/data/products";
+import ProductForm from "./ProductForm";
 
 interface Category {
   id: string;
@@ -82,22 +83,22 @@ export default function ProductsTab() {
     setForm(f => ({ ...f, images: f.images.filter((_, i) => i !== idx) }));
   };
 
-  const save = async () => {
-    if (!form.name.trim()) { toast.error("Product name is required"); return; }
-    if (form.price <= 0) { toast.error("Price must be greater than 0"); return; }
-    if (!form.category) { toast.error("Please select a category"); return; }
+  const save = async (formData: any) => {
+    if (!formData.name.trim()) { toast.error("Product name is required"); return; }
+    if (formData.price <= 0) { toast.error("Price must be greater than 0"); return; }
+    if (!formData.category) { toast.error("Please select a category"); return; }
     setSaving(true);
     try {
       const payload = {
-        name: form.name.trim(),
-        price: form.price,
-        original_price: form.original_price ? Number(form.original_price) : null,
-        image: form.images[0] || "",
-        images: form.images,
-        category: form.category.trim(),
-        stock: form.stock,
-        description: form.description.trim(),
-        is_flash_sale: form.is_flash_sale,
+        name: formData.name.trim(),
+        price: formData.price,
+        original_price: formData.original_price ? Number(formData.original_price) : null,
+        image: formData.images[0] || "",
+        images: formData.images,
+        category: formData.category.trim(),
+        stock: formData.stock,
+        description: formData.description.trim(),
+        is_flash_sale: formData.is_flash_sale,
         is_active: true,
         rating: 4.5,
         sold: 0,
@@ -212,57 +213,11 @@ export default function ProductsTab() {
 
       {showForm && (
         <div className="bg-card rounded-xl p-3 border border-border space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <div><Label className="text-[10px]">Product Name *</Label><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Notebook" className="text-xs h-8" /></div>
-            <div>
-              <Label className="text-[10px]">Category *</Label>
-              <Select value={form.category} onValueChange={(v) => setForm(f => ({ ...f, category: v }))}>
-                <SelectTrigger className="text-xs h-8">
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map(cat => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
-          </div>
-          
-          {/* Multi-image upload */}
-          <div>
-            <Label className="text-[10px]">Images (up to 3)</Label>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) uploadImage(file); }} />
-            <div className="flex gap-2 mt-1">
-              {form.images.map((url, idx) => (
-                <div key={idx} className="relative w-20 h-20 rounded-lg overflow-hidden border border-border group">
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button onClick={() => removeImage(idx)} className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-              {form.images.length < 3 && (
-                <button onClick={() => fileRef.current?.click()} disabled={uploading} className="w-20 h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 hover:bg-muted/50 transition-colors">
-                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4 text-muted-foreground" />}
-                  <span className="text-[8px] text-muted-foreground">{uploading ? "..." : "Add"}</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
-          <Button onClick={save} disabled={saving} size="sm" className="w-full gap-1">
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />}
-            {editId ? "Update" : "Add"} Product
-          </Button>
+          <ProductForm
+            initialData={editId ? products.find(p => p.id === editId) : undefined}
+            onSubmit={save}
+            onCancel={() => { resetForm(); setShowForm(false); setEditId(null); }}
+          />
         </div>
       )}
 
