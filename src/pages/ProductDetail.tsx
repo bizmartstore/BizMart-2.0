@@ -98,26 +98,26 @@ export default function ProductDetail() {
         {/* Tiny image carousel - only show if multiple images */}
         {allImages.length > 1 && (
           <div 
-            className="absolute bottom-3 right-3 bg-black/60 backdrop-blur-sm rounded-lg p-1.5 shadow-lg z-10 cursor-pointer"
+            className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm rounded-xl p-2.5 shadow-lg z-10 cursor-pointer"
             onClick={() => openCarouselAt(carouselIndex)}
           >
             <div className="flex items-center justify-center">
               <img
                 src={allImages[carouselIndex]}
                 alt={`Thumbnail ${carouselIndex + 1}`}
-                className="h-10 w-10 object-cover rounded transition-all"
+                className="h-16 w-16 object-cover rounded-lg transition-all"
                 style={{ 
-                  border: '1.5px solid white',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                  border: '2px solid white',
+                  boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                 }}
               />
             </div>
             {/* Dots indicator */}
-            <div className="flex justify-center gap-1 mt-1.5">
+            <div className="flex justify-center gap-1.5 mt-2">
               {allImages.map((_, idx) => (
                 <div
                   key={idx}
-                  className={`h-1 rounded-full transition-all ${idx === carouselIndex ? 'bg-white w-2' : 'bg-white/50 w-1'}`}
+                  className={`h-1.5 rounded-full transition-all ${idx === carouselIndex ? 'bg-white w-3' : 'bg-white/50 w-1.5'}`}
                 />
               ))}
             </div>
