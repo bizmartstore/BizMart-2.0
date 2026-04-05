@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
-import { X } from "lucide-react";
+import { Bell, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function NotificationBell() {
   const { user, profile } = useAuth();
@@ -100,29 +101,16 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     if (!user) return;
     try {
-      // Update only unread notifications for this user
       const { error } = await (supabase as any)
         .from("notification_logs")
         .update({ is_read: true })
         .eq("user_id", user.id)
-        .eq("is_read", false); // <-- Only update rows that are still unread
+        .eq("is_read", false);
 
       if (error) throw error;
       await loadNotifications();
     } catch (error) {
       console.error("Failed to mark all notifications as read:", error);
-    }
-  };
-
-  const markAllAsReadAndClear = async () => {
-    await markAllAsRead();
-    // Also clear the notification logs to prevent duplicate pushes
-    try {
-      await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
-      setNotifications([]);
-      setUnreadCount(0);
-    } catch (error) {
-      console.error("Failed to clear notifications:", error);
     }
   };
 
@@ -142,28 +130,6 @@ export default function NotificationBell() {
       setUnreadCount(0);
     } catch (error) {
       console.error("Failed to clear notifications:", error);
-    } finally {
-      // Refresh the realtime channel to reflect the cleared state
-      const channel = supabase.channel(`notifications-${user.id}`);
-      supabase.removeChannel(channel);
-    } catch (error) {
-      console.error("Failed to clear notifications:", error);
-    } finally {
-      // Re‑subscribe to the channel so future changes are still captured
-      if (user) {
-        const channel = supabase.channel(`notifications-${user.id}`)
-          .on("postgres_changes", { event: "*", schema: "public", table: "notification_logs" }, () => loadNotifications())
-          .subscribe();
-        // Store the channel reference if you need to clean it up later
-      } catch (error) {
-        console.error("Failed to re‑subscribe after clear:", error);
-      }
-    } catch (error) {
-      console.error("Failed to clear notifications:", error);
-    } finally {
-      // Ensure the UI reflects the cleared state immediately
-      setNotifications([]);
-      setUnreadCount(0);
     }
   };
 
@@ -182,12 +148,15 @@ export default function NotificationBell() {
         aria-label="Notifications"
       >
         <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (/* ... */)}
+        {unreadCount > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm animate-pulse">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
       </button>
 
       {open && (
         <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
-          {/* ... existing markup ... */}
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
@@ -198,7 +167,7 @@ export default function NotificationBell() {
                 <Button size="sm" onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
                   Clear all
                 </Button>
-              </Button>
+              )}
             </div>
           </div>
           <div className="overflow-y-auto max-h-[340px]">
@@ -229,7 +198,8 @@ export default function NotificationBell() {
                     </div>
                     {!n.is_read && (
                       <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2"></div>
-                    )}                   </button>
+                    )}
+                  </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
                     className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive transition-all"
@@ -237,11 +207,11 @@ export default function NotificationBell() {
                     <X className="h-3 w-3" />
                   </button>
                 </div>
-              </button>
-            </div>
+              ))
+            )}
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
