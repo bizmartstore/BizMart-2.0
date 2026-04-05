@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Info, ShieldAlert, Clock, MapPin, Calendar, ListChecks, Target, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { sendNotification } from "@/lib/notifications";
 
 const CATEGORIES = [
   { id: "homework", name: "Homework Guidance", min: 50, max: 150, icon: "📝" },
@@ -110,6 +111,20 @@ export default function JobPostPage() {
       });
 
       if (error) throw error;
+
+      // Notify admins about new job posting
+      try {
+        await sendNotification({
+          title: "📝 New Job Posted",
+          message: `${user.email} posted a new job: "${form.title}". Payment pending.`,
+          type: "new_job",
+          targetRole: "admin",
+          link: "/admin?tab=jobs",
+          icon: "📝",
+        });
+      } catch (notifError) {
+        console.error("Failed to send admin notification:", notifError);
+      }
 
       toast.success("Job posted! 📝 Please proceed to BizMart staff to secure your escrow payment.");
       navigate("/jobs");

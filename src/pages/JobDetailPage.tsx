@@ -214,6 +214,7 @@ export default function JobDetailPage() {
                 job.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-700' :
                 job.status === 'approved' ? 'bg-blue-100 text-blue-700' :
                 job.status === 'ready_to_start' ? 'bg-green-100 text-green-700' :
+                job.status === 'open' ? 'bg-green-100 text-green-700' :
                 job.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
                 job.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
                 'bg-muted text-muted-foreground'
@@ -268,7 +269,7 @@ export default function JobDetailPage() {
             )}
             {job.requirements && (
               <div>
-                <h2 className="font-bold text-sm mb-2 flex items-center gap-2"><File className="h-4 w-4 text-primary" /> Specific Requirements</h2>
+                <h2 className="font-bold text-sm mb-2 flex items-center gap-2"><FileText className="h-4 w-4 text-primary" /> Specific Requirements</h2>
                 <div className="bg-muted/30 rounded-lg p-3 text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">{job.requirements}</div>
               </div>
             )}
@@ -285,7 +286,7 @@ export default function JobDetailPage() {
         </div>
 
         {/* Bids Section (Client View) */}
-        {isClient && (job.status === "ready_to_start" || job.status === "open") && (
+        {isClient && (job.status === "ready_to_start" || job.status === "open" || job.status === "approved") && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-sm flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Freelancer Bids ({bids.length})</h2>
@@ -405,8 +406,8 @@ export default function JobDetailPage() {
           </div>
         )}
 
-        {/* Bid Form (Freelancer View) */}
-        {isFreelancer && (job.status === "ready_to_start" || job.status === "open") && !hasBid && !isClient && (
+        {/* Bid Form (Freelancer View) - FIXED: Added "approved" status */}
+        {isFreelancer && (job.status === "ready_to_start" || job.status === "open" || job.status === "approved") && !hasBid && !isClient && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
             <h2 className="font-bold text-sm">Submit a Bid</h2>
             <div className="grid grid-cols-2 gap-2">
@@ -418,7 +419,7 @@ export default function JobDetailPage() {
           </div>
         )}
 
-        {hasBid && (job.status === "ready_to_start" || job.status === "open") && (
+        {hasBid && (job.status === "ready_to_start" || job.status === "open" || job.status === "approved") && (
           <div className="bg-muted/30 rounded-xl p-4 text-center border border-border">
             <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-2" />
             <p className="text-sm font-bold text-foreground">You've already submitted a bid!</p>
