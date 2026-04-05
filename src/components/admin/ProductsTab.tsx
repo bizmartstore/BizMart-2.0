@@ -103,8 +103,11 @@ export default function ProductsTab() {
     
     setSaving(true);
     try {
-      // Build payload carefully to match exact DB schema types
+      // Generate UUID for new products to satisfy NOT NULL constraint
+      const productId = editId || crypto.randomUUID();
+      
       const payload: any = {
+        id: productId,
         name: form.name.trim(),
         price: Number(form.price),
         image: form.image.trim(),
@@ -149,7 +152,6 @@ export default function ProductsTab() {
         
         if (error) {
           console.error('[ProductsTab] Insert error:', error);
-          // Show exact DB error to user for debugging
           toast.error(`DB Error: ${error.message || error.details || "Check console"}`);
           throw error;
         }

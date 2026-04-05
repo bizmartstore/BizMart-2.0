@@ -53,7 +53,11 @@ export default function SellerProductsTab({ user }: { user: any }) {
     if (form.price <= 0) { toast.error("Price must be greater than 0"); return; }
     setSaving(true);
     try {
+      // Generate UUID for new products to satisfy NOT NULL constraint
+      const productId = editId || crypto.randomUUID();
+      
       const payload = {
+        id: productId,
         name: form.name.trim(),
         price: form.price,
         original_price: form.original_price ? Number(form.original_price) : null,
@@ -73,8 +77,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
         if (error) throw error;
         toast.success("Product updated!");
       } else {
-        const id = `seller-${user.id.slice(0, 6)}-${Date.now()}`;
-        const { error } = await (supabase as any).from("products").insert({ ...payload, id });
+        const { error } = await (supabase as any).from("products").insert(payload);
         if (error) throw error;
         toast.success("Product added! It will appear in Marketplace & Homepage.");
       }
