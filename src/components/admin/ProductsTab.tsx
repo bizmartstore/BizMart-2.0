@@ -113,10 +113,13 @@ export default function ProductsTab() {
         stock: form.stock,
         description: form.description.trim(),
         is_flash_sale: form.is_flash_sale,
-        is_active: true,
+        is_active: true, // Explicitly set to true
+        seller_id: null, // Admin products have no seller_id
         rating: 4.5,
         sold: 0,
       };
+
+      console.log('[ProductsTab] Inserting/Updating product with payload:', payload);
 
       if (editId) {
         const { error } = await (supabase as any).from("products").update(payload).eq("id", editId);
@@ -134,6 +137,7 @@ export default function ProductsTab() {
       setShowForm(false); 
       setEditId(null);
     } catch (e: any) {
+      console.error('[ProductsTab] Save error:', e);
       toast.error(e.message || "Failed to save");
     }
     setSaving(false);
@@ -185,7 +189,7 @@ export default function ProductsTab() {
               original_price: p.originalPrice || null, image: p.image,
               images: p.images || null, category: p.category, stock: p.stock || 100,
               description: p.description, is_flash_sale: p.isFlashSale || false,
-              is_active: true, rating: p.rating, sold: p.sold,
+              is_active: true, seller_id: null, rating: p.rating, sold: p.sold,
             });
             if (error) errors++; else addedProds++;
           }

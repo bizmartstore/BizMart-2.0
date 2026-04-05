@@ -177,6 +177,7 @@ export type Database = {
           stock: number | null;
           description: string;
           is_flash_sale: boolean;
+          is_active: boolean;
           seller_id: string | null;
         };
         Insert: {
@@ -192,6 +193,7 @@ export type Database = {
           stock?: number | null;
           description?: string;
           is_flash_sale?: boolean;
+          is_active?: boolean;
           seller_id?: string | null;
         };
         Update: {
@@ -206,6 +208,7 @@ export type Database = {
           stock?: number | null;
           description?: string;
           is_flash_sale?: boolean;
+          is_active?: boolean;
           seller_id?: string | null;
         };
       };

@@ -7,41 +7,48 @@ export function useProducts() {
     queryKey: ['products'],
     queryFn: async () => {
       console.log('[useProducts] Fetching products from Supabase...');
-      const { data, error } = await (supabase as any)
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.error('[useProducts] Supabase error:', error.message);
+      try {
+        const { data, error } = await (supabase as any)
+          .from('products')
+          .select('*')
+          // Include products where is_active is true OR null/missing (backwards compatibility)
+          .or('is_active.eq.true,is_active.is.null')
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          console.error('[useProducts] Supabase error:', error.message);
+          // Fallback to defaults if query fails completely
+          return fallbackProducts;
+        }
+        
+        console.log(`[useProducts] Found ${data?.length || 0} products in DB`);
+        
+        if (data && data.length > 0) {
+          return data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: Number(p.price),
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
+            image: p.image || '',
+            images: p.images || [],
+            category: p.category || '',
+            rating: Number(p.rating),
+            sold: p.sold || 0,
+            stock: p.stock ?? 0,
+            description: p.description || '',
+            isFlashSale: p.is_flash_sale || false,
+            seller_id: p.seller_id || null,
+          })) as Product[];
+        }
+        
+        console.log('[useProducts] DB empty, falling back to defaults');
+        return fallbackProducts;
+      } catch (err: any) {
+        console.error('[useProducts] Unexpected error:', err);
         return fallbackProducts;
       }
-      
-      console.log(`[useProducts] Found ${data?.length || 0} products in DB`);
-      
-      if (data && data.length > 0) {
-        return data.map((p: any) => ({
-          id: p.id,
-          name: p.name,
-          price: Number(p.price),
-          originalPrice: p.original_price ? Number(p.original_price) : undefined,
-          image: p.image || '',
-          images: p.images || [],
-          category: p.category || '',
-          rating: Number(p.rating),
-          sold: p.sold || 0,
-          stock: p.stock ?? 0,
-          description: p.description || '',
-          isFlashSale: p.is_flash_sale || false,
-          seller_id: p.seller_id || null,
-        })) as Product[];
-      }
-      
-      console.log('[useProducts] DB empty, falling back to defaults');
-      return fallbackProducts;
     },
-    staleTime: 30000, // 30 seconds instead of 5 minutes
+    staleTime: 30000, // 30 seconds
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
