@@ -285,7 +285,7 @@ export default function JobDetailPage() {
         </div>
 
         {/* Bids Section (Client View) */}
-        {isClient && (job.status === "ready_to_start" || job.status === "open") && (
+        {isClient && (job.status === "ready_to_start" || job.status === "open" || job.status === "approved") && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-sm flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Freelancer Bids ({bids.length})</h2>
@@ -406,7 +406,7 @@ export default function JobDetailPage() {
         )}
 
         {/* Bid Form (Freelancer View) */}
-        {isFreelancer && (job.status === "ready_to_start" || job.status === "open") && !hasBid && !isClient && (
+        {isFreelancer && (job.status === "approved" || job.status === "ready_to_start" || job.status === "open") && !hasBid && !isClient && (
           <div className="bg-card rounded-xl p-4 border border-border space-y-3">
             <h2 className="font-bold text-sm">Submit a Bid</h2>
             <div className="grid grid-cols-2 gap-2">
@@ -418,7 +418,7 @@ export default function JobDetailPage() {
           </div>
         )}
 
-        {hasBid && (job.status === "ready_to_start" || job.status === "open") && (
+        {hasBid && (job.status === "approved" || job.status === "ready_to_start" || job.status === "open") && (
           <div className="bg-muted/30 rounded-xl p-4 text-center border border-border">
             <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-2" />
             <p className="text-sm font-bold text-foreground">You've already submitted a bid!</p>
