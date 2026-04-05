@@ -33,7 +33,7 @@ export default function BannerTab() {
         .from("banners")
         .select("*")
         .order("sort_order");
-            if (error) throw error;
+      if (error) throw error;
       if (data) setBanners(data);
     } catch (e: any) {
       console.error("Load error:", e);
@@ -177,8 +177,8 @@ export default function BannerTab() {
       // Sync default banners from assets
       const defaultBanners = [
         { url: "/src/assets/banner1.jpg", order: 0 },
-        { url: "/src/assets/banner2.jpg", order: 1 }
-      };
+        { url: "/src/assets/banner2.jpg", order: 1 },
+      ];
       
       for (const banner of defaultBanners) {
         const { data: existing } = await (supabase as any)
@@ -194,7 +194,6 @@ export default function BannerTab() {
             is_active: true,
           });
           if (error) throw error;
-        }
       }
       
       toast.success("Default banners synced!");
@@ -296,14 +295,14 @@ export default function BannerTab() {
                 </div>
               </div>
             </div>
-          );
-        })}
-        {banners.length === 0 && (
-          <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
-            <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-            <p className="text-xs text-muted-foreground">No banners yet. Click "Sync Defaults" to load sample banners.</p>
-          </div>
-        )}
+          ))}
+          {banners.length === 0 && (
+            <div className="text-center py-12 bg-muted/20 rounded-2xl border border-dashed border-border">
+              <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No banners yet. Click "Sync Defaults" to load sample banners.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
