@@ -2,8 +2,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProduct } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useCart } from "@/context/CartContext";
-import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, useEffect } from "react";
+import { ArrowLeft, Star, ShoppingCart, Share2, Heart, Minus, Plus, AlertTriangle } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import BottomNav from "@/components/BottomNav";
 
@@ -15,20 +15,6 @@ export default function ProductDetail() {
   const { storeOpen } = useAppSettings();
   const [liked, setLiked] = useState(false);
   const [qty, setQty] = useState(1);
-  const [currentImage, setCurrentImage] = useState(0);
-
-  const images = product && (product as any).images && (product as any).images.length > 0 
-    ? (product as any).images 
-    : product?.image ? [product.image] : [];
-
-  // Auto-switch images every 4 seconds
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentImage(prev => (prev + 1) % images.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, [images.length]);
 
   if (!product) return <div className="p-8 text-center">Product not found</div>;
 
@@ -57,14 +43,6 @@ export default function ProductDetail() {
     toast.success(`Added ${qty}x ${product.name} to cart!`);
   };
 
-  const handlePrevImage = () => {
-    setCurrentImage(prev => (prev - 1 + images.length) % images.length);
-  };
-
-  const handleNextImage = () => {
-    setCurrentImage(prev => (prev + 1) % images.length);
-  };
-
   return (
     <div className="min-h-screen bg-background pb-32">
       {/* Header */}
@@ -87,48 +65,9 @@ export default function ProductDetail() {
         </div>
       </div>
 
-      {/* Image Carousel */}
-      <div className="relative aspect-square bg-muted">
-        {images.length > 0 ? (
-          <>
-            <img
-              src={images[currentImage]}
-              alt={product.name}
-              className="w-full h-full object-cover transition-opacity duration-300"
-            />
-            {images.length > 1 && (
-              <>
-                <button
-                  onClick={handlePrevImage}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={handleNextImage}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors"
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-                <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5">
-                  {images.map((_: any, i: number) => (
-                    <button
-                      key={i}
-                      onClick={() => setCurrentImage(i)}
-                      className={`h-1.5 rounded-full transition-all ${
-                        i === currentImage ? "w-4 bg-white" : "w-1.5 bg-white/50"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            <span className="text-6xl">📦</span>
-          </div>
-        )}
+      {/* Image */}
+      <div className="aspect-square">
+        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
       </div>
 
       {/* Info */}

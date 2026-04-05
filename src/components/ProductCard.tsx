@@ -1,6 +1,6 @@
-import { forwardRef, useState, useEffect } from "react";
+import { forwardRef } from "react";
 import { Product } from "@/data/products";
-import { Star, ShoppingCart, Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Star, ShoppingCart, Plus } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { toast } from "sonner";
@@ -8,26 +8,11 @@ import { toast } from "sonner";
 const ProductCard = forwardRef<HTMLDivElement, { product: Product }>(function ProductCard({ product }, ref) {
   const navigate = useNavigate();
   const { addItem } = useCart();
-  const [currentImage, setCurrentImage] = useState(0);
-  
-  const images = (product as any).images && (product as any).images.length > 0 
-    ? (product as any).images 
-    : product.image ? [product.image] : [];
-  
   const discount = product.originalPrice
     ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
 
   const isOutOfStock = (product.stock ?? 0) <= 0 && (product.stock !== undefined);
-
-  // Auto-switch images every 3 seconds
-  useEffect(() => {
-    if (images.length <= 1) return;
-    const timer = setInterval(() => {
-      setCurrentImage(prev => (prev + 1) % images.length);
-    }, 3000);
-    return () => clearInterval(timer);
-  }, [images.length]);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -46,16 +31,6 @@ const ProductCard = forwardRef<HTMLDivElement, { product: Product }>(function Pr
     toast.success("Added to cart! 🛒");
   };
 
-  const handlePrevImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentImage(prev => (prev - 1 + images.length) % images.length);
-  };
-
-  const handleNextImage = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentImage(prev => (prev + 1) % images.length);
-  };
-
   return (
     <div
       ref={ref}
@@ -63,46 +38,12 @@ const ProductCard = forwardRef<HTMLDivElement, { product: Product }>(function Pr
       className={`bg-card rounded-2xl overflow-hidden shadow-sm border border-border active:scale-[0.97] transition-all cursor-pointer hover:shadow-lg group ${isOutOfStock ? 'opacity-75' : ''}`}
     >
       <div className="relative aspect-square overflow-hidden bg-muted">
-        {images.length > 0 ? (
-          <>
-            <img
-              src={images[currentImage]}
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-              loading="lazy"
-            />
-            {images.length > 1 && (
-              <>
-                <button
-                  onClick={handlePrevImage}
-                  className="absolute left-1.5 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <ChevronLeft className="h-3 w-3" />
-                </button>
-                <button
-                  onClick={handleNextImage}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <ChevronRight className="h-3 w-3" />
-                </button>
-                <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1">
-                  {images.map((_: any, i: number) => (
-                    <div
-                      key={i}
-                      className={`h-1 rounded-full transition-all ${
-                        i === currentImage ? "w-3 bg-white" : "w-1 bg-white/50"
-                      }`}
-                    />
-                  ))}
-                </div>
-              </>
-            )}
-          </>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-            <span className="text-4xl">📦</span>
-          </div>
-        )}
+        <img
+          src={product.image}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+        />
         {isOutOfStock && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             <span className="bg-destructive text-destructive-foreground text-[10px] font-extrabold px-3 py-1 rounded-full">
