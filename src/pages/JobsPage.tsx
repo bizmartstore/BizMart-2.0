@@ -1,4 +1,5 @@
-import { useNavigate, useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 // @ts-ignore
 import { TopBar, BottomNav, Button, Plus, X, Search, Badge, Timer, MapPin, Star, Award, BookOpen, Briefcase, MessageCircle, Users, ArrowRight, AlertCircle } from "@/components/ui";
