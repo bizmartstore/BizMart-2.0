@@ -228,6 +228,7 @@ export default function JobDetailPage() {
   const startSession = async () => {
     try {
       await (supabase as any).from("job_sessions").update({ status: "active", start_time: new Date().toISOString() }).eq("id", session.id);
+      await (supabase as any).from("job_postings").update({ status: "in_progress" }).eq("id", job.id);
       toast.success("Session started! ⏱️ Timer is running.");
       loadJobData();
     } catch (err: any) {
@@ -238,6 +239,7 @@ export default function JobDetailPage() {
   const endSession = async () => {
     try {
       await (supabase as any).from("job_sessions").update({ status: "pending_review", end_time: new Date().toISOString() }).eq("id", session.id);
+      await (supabase as any).from("job_postings").update({ status: "pending_review" }).eq("id", job.id);
       toast.success("Session ended! Please submit proof of completion.");
       loadJobData();
     } catch (err: any) {
@@ -284,10 +286,12 @@ export default function JobDetailPage() {
 
   const isClient = user?.id === job.client_id;
   const isHiredFreelancer = user?.id === job.hired_freelancer_id;
-  // FIX: Allow bidding if status is 'approved' or 'open'
   const canBid = !isClient && (job.status === "open" || job.status === "approved") && !myBidStatus && isFreelancer;
-  const canStartSession = isHiredFreelancer && session?.status === "scheduled";
-  const canEndSession = isHiredFreelancer && session?.status === "active";
+  
+  // FIX: Allow both client and freelancer to start/end session
+  const canStartSession = (isHiredFreelancer || isClient) && session?.status === "scheduled";
+  const canEndSession = (isHiredFreelancer || isClient) && session?.status === "active";
+  
   const showProofSubmission = (isHiredFreelancer || isClient) && session?.status === "pending_review" && !isFullyReviewed;
   const showSessionDetails = session && (session.status === "active" || session.status === "pending_review" || (session.status === "completed" && !isFullyReviewed));
 
@@ -306,6 +310,7 @@ export default function JobDetailPage() {
               job.status === "open" || job.status === "approved" ? "bg-green-100 text-green-600" :
               job.status === "pending_payment" ? "bg-amber-100 text-amber-600" :
               job.status === "pending_approval" ? "bg-yellow-100 text-yellow-600" :
+              job.status === "in_progress" ? "bg-blue-100 text-blue-600" :
               "bg-muted text-muted-foreground"
             }`}>{job.status.replace("_", " ").toUpperCase()}</span>
           </div>
@@ -324,8 +329,19 @@ export default function JobDetailPage() {
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Timer className="h-4 w-4 text-primary" /> Session Details</h3>
             {session.status === "active" && (
               <div className="space-y-3">
-                <div className="bg-primary/10 rounded-lg p-3 text-center"><p className="text-xs font-bold text-primary uppercase">Session Active</p><p className="text-2xl font-extrabold text-primary mt-1">{formatTime(sessionTimer)}</p></div>
-                <Button onClick={endSession} className="w-full gap-2"><Square className="h-4 w-4" />End Session</Button>
+                <div className="bg-primary/10 rounded-lg p-3 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                    </span>
+                    <p className="text-xs font-bold text-primary uppercase">Session Active</p>
+                  </div>
+                  <p className="text-2xl font-extrabold text-primary mt-1">{formatTime(sessionTimer)}</p>
+                </div>
+                {canEndSession && (
+                  <Button onClick={endSession} className="w-full gap-2 bg-destructive hover:bg-destructive/90"><Square className="h-4 w-4" />End Session</Button>
+                )}
               </div>
             )}
             {session.status === "pending_review" && !isFullyReviewed && (
@@ -371,7 +387,18 @@ export default function JobDetailPage() {
           </div>
         )}
 
-        {canStartSession && <Button onClick={startSession} className="w-full gap-2"><Play className="h-4 w-4" />Start Session</Button>}
+        {canStartSession && (
+          <div className="bg-card rounded-xl border border-border p-4 text-center space-y-3">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <Play className="h-6 w-6 text-green-600 fill-green-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-sm">Ready to Start?</h3>
+              <p className="text-[10px] text-muted-foreground">Both parties can now start the session timer.</p>
+            </div>
+            <Button onClick={startSession} className="w-full gap-2 bg-green-600 hover:bg-green-700"><Play className="h-4 w-4" />Start Session Now</Button>
+          </div>
+        )}
 
         {bids.length > 0 && (
           <div className="bg-card rounded-xl border border-border p-4">

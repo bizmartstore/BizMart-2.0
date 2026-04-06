@@ -211,7 +211,7 @@ export default function JobsPage() {
       case 'approved': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">✅ Approved</Badge>;
       case 'ready_to_start': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">💰 Ready to Start</Badge>;
       case 'open': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">🟢 Open for Bids</Badge>;
-      case 'in_progress': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">⏱️ In Progress</Badge>;
+      case 'in_progress': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 animate-pulse">⏱️ Live Session</Badge>;
       case 'pending_review': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">🔍 Pending Review</Badge>;
       case 'completed': return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">✅ Completed</Badge>;
       case 'rejected': return <Badge variant="destructive">❌ Rejected</Badge>;
@@ -436,7 +436,7 @@ export default function JobsPage() {
                             <p className="text-xs font-bold">{session.job?.title || "Session"}</p>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                               session.status === 'completed' ? 'bg-green-100 text-green-600' :
-                              session.status === 'active' ? 'bg-blue-100 text-blue-600' :
+                              session.status === 'active' ? 'bg-blue-100 text-blue-600 animate-pulse' :
                               session.status === 'pending_review' ? 'bg-purple-100 text-purple-600' :
                               session.status === 'scheduled' ? 'bg-yellow-100 text-yellow-600' :
                               'bg-muted text-muted-foreground'
