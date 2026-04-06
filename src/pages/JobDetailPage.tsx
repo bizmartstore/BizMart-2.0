@@ -125,11 +125,12 @@ export default function JobDetailPage() {
     try {
       // 1. Create session first to ensure it exists
       const { error: sessionError } = await (supabase as any).from("job_sessions").insert({ 
-        job_id: job.id, 
-        freelancer_id: freelancerId, 
-        status: "scheduled", 
-        escrow_amount: price 
-      });
+  job_id: job.id, 
+  customer_id: job.client_id, // ✅ ADD THIS
+  freelancer_id: freelancerId, 
+  status: "scheduled", 
+  escrow_amount: price 
+});
       if (sessionError) throw sessionError;
 
       // 2. Update job status
