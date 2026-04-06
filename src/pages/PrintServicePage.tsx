@@ -119,8 +119,9 @@ export default function PrintServicePage() {
       return;
     }
 
-    if (selected.size > 15 * 1024 * 1024) {
-      toast.error("File size must be less than 15MB");
+    // Increased from 15MB to 50MB
+    if (selected.size > 50 * 1024 * 1024) {
+      toast.error("File size must be less than 50MB");
       return;
     }
 
@@ -297,7 +298,7 @@ export default function PrintServicePage() {
             >
               <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm font-medium text-foreground">Tap to upload PDF</p>
-              <p className="text-xs text-muted-foreground mt-1">Max 15MB • Auto-analyzes pages</p>
+              <p className="text-xs text-muted-foreground mt-1">Max 50MB • Auto-analyzes pages</p>
             </div>
           ) : (
             <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
