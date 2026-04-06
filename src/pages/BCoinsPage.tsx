@@ -3,10 +3,11 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import BCoinsFeatures from "@/components/BCoinsFeatures";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, Gamepad2, CalendarCheck, Store, ChevronRight, Star, ArrowLeft } from "lucide-react";
+import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, Gamepad2, CalendarCheck, Store, ChevronRight, Sparkles, Trophy, Star } from "lucide-react";
 import { notifyAdminRedemption } from "@/lib/notifications";
 
 interface DailyLoginState {
@@ -14,8 +15,6 @@ interface DailyLoginState {
   currentDay: number;
   cycleStart: string;
 }
-
-type ActiveSection = "features" | "store" | "games" | "history" | null;
 
 const DAILY_REWARDS = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0];
 
@@ -39,6 +38,7 @@ const statusIcon = {
   rejected: <XCircle className="h-4 w-4 text-destructive" />,
 };
 
+// Robust retry wrapper with exponential backoff for lock conflicts
 async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
   let lastError: any;
   for (let i = 0; i < maxRetries; i++) {
@@ -184,7 +184,6 @@ export default function BCoinsPage() {
   const [selectedRedeem, setSelectedRedeem] = useState<number | null>(null);
   const [gcashNumber, setGcashNumber] = useState("");
   const [redeeming, setRedeeming] = useState(false);
-  const [activeSection, setActiveSection] = useState<ActiveSection>("features");
   
   // Daily Login State
   const [dailyLogin, setDailyLogin] = useState<DailyLoginState>({
@@ -209,6 +208,7 @@ export default function BCoinsPage() {
     setLoading(false);
   };
 
+  // Initialize Daily Login with error handling
   useEffect(() => {
     if (!user) return;
     
@@ -447,25 +447,14 @@ export default function BCoinsPage() {
     );
   }
 
+  // Safe balance display
   const displayBalance = wallet?.balance != null ? Number(wallet.balance).toFixed(1) : "0.0";
-
-  const features = [
-    { id: "store" as ActiveSection, label: "BCoins Store", bg: "bg-gradient-to-br from-emerald-500 to-teal-500", emoji: "🎁" },
-    { id: "games" as ActiveSection, label: "Ed-Games", bg: "bg-gradient-to-br from-purple-500 to-pink-500", emoji: "🎮" },
-    { id: "daily" as ActiveSection, label: "Daily Login", bg: "bg-gradient-to-br from-orange-500 to-amber-400", emoji: "📅" },
-    { id: "history" as ActiveSection, label: "History", bg: "bg-gradient-to-br from-indigo-500 to-violet-500", emoji: "📊" },
-  ];
 
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
       <div className="px-3 mt-4">
         <div className="flex items-center gap-2 mb-4">
-          {activeSection !== "features" && (
-            <button onClick={() => setActiveSection("features")} className="p-1.5 rounded-full hover:bg-muted transition-colors">
-              <ArrowLeft className="h-5 w-5 text-foreground" />
-            </button>
-          )}
           <Coins className="h-6 w-6 text-warning" />
           <h1 className="font-extrabold text-lg">BCoins</h1>
         </div>
@@ -476,131 +465,105 @@ export default function BCoinsPage() {
           <p className="text-xs text-muted-foreground mt-1">BCoins</p>
         </div>
 
-        {/* Features Grid */}
-        {activeSection === "features" && (
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            {features.map((f) => (
+        <BCoinsFeatures />
+
+        <div className="mt-5">
+          <DailyLoginCard 
+            onClaim={handleDailyClaim} 
+            canClaim={canClaimDaily} 
+            currentDay={dailyLogin.currentDay}
+            lastClaim={dailyLogin.lastClaim}
+          />
+        </div>
+
+        <div className="mt-5 bg-card rounded-2xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
+              <Store className="h-5 w-5 text-white" />
+            </div>
+            <div>
+              <h2 className="font-bold text-sm">BCoins Store</h2>
+              <p className="text-[10px] text-muted-foreground">Redeem your BCoins to GCash</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {REDEEM_OPTIONS.map((opt) => (
               <button
-                key={f.id}
-                onClick={() => setActiveSection(f.id)}
-                className={`${f.bg} rounded-2xl p-4 flex flex-col items-center justify-center gap-2 shadow-lg active:scale-[0.97] transition-all`}
+                key={opt.gcash}
+                onClick={() => setSelectedRedeem(opt.gcash)}
+                className={`p-3 rounded-xl border text-center transition-all ${
+                  selectedRedeem === opt.gcash
+                    ? "border-primary bg-primary/10"
+                    : "border-border bg-muted/30"
+                }`}
               >
-                <span className="text-3xl">{f.emoji}</span>
-                <span className="text-sm font-bold text-white">{f.label}</span>
+                <p className="font-bold text-sm text-foreground">₱{opt.gcash}</p>
+                <p className="text-[10px] text-muted-foreground">{opt.bcoins} BCoins</p>
               </button>
             ))}
           </div>
-        )}
 
-        {/* Daily Login - Always visible on features page */}
-        {activeSection === "features" && (
-          <div className="mt-5">
-            <DailyLoginCard 
-              onClaim={handleDailyClaim} 
-              canClaim={canClaimDaily} 
-              currentDay={dailyLogin.currentDay}
-              lastClaim={dailyLogin.lastClaim}
-            />
-          </div>
-        )}
-
-        {/* BCoins Store Section */}
-        {activeSection === "store" && (
-          <div className="mt-5 bg-card rounded-2xl p-4 border border-border animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
-                <Store className="h-5 w-5 text-white" />
-              </div>
-              <div>
-                <h2 className="font-bold text-sm">BCoins Store</h2>
-                <p className="text-[10px] text-muted-foreground">Redeem your BCoins to GCash</p>
-              </div>
+          {selectedRedeem && (
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+              <Input
+                type="tel"
+                placeholder="GCash Number (09XXXXXXXXX)"
+                value={gcashNumber}
+                onChange={(e) => setGcashNumber(e.target.value.replace(/\D/g, "").slice(0, 11))}
+                className="text-sm"
+              />
+              <Button onClick={handleRedeem} disabled={redeeming || !gcashNumber} className="w-full h-11 font-bold rounded-xl">
+                {redeeming ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {redeeming ? "Processing..." : "Redeem Now"}
+              </Button>
             </div>
-            
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              {REDEEM_OPTIONS.map((opt) => (
-                <button
-                  key={opt.gcash}
-                  onClick={() => setSelectedRedeem(opt.gcash)}
-                  className={`p-3 rounded-xl border text-center transition-all ${
-                    selectedRedeem === opt.gcash
-                      ? "border-primary bg-primary/10"
-                      : "border-border bg-muted/30"
-                  }`}
-                >
-                  <p className="font-bold text-sm text-foreground">₱{opt.gcash}</p>
-                  <p className="text-[10px] text-muted-foreground">{opt.bcoins} BCoins</p>
-                </button>
-              ))}
+          )}
+        </div>
+
+        <div className="mt-5">
+          <EdGamesSection />
+        </div>
+
+        <div className="mt-5">
+          <h3 className="font-bold text-sm mb-3">Transaction History</h3>
+          {loading ? (
+            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8 bg-card rounded-2xl border border-dashed border-border">
+              <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <p className="text-xs text-muted-foreground">No transactions yet</p>
             </div>
-
-            {selectedRedeem && (
-              <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
-                <Input
-                  type="tel"
-                  placeholder="GCash Number (09XXXXXXXXX)"
-                  value={gcashNumber}
-                  onChange={(e) => setGcashNumber(e.target.value.replace(/\D/g, "").slice(0, 11))}
-                  className="text-sm"
-                />
-                <Button onClick={handleRedeem} disabled={redeeming || !gcashNumber} className="w-full h-11 font-bold rounded-xl">
-                  {redeeming ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                  {redeeming ? "Processing..." : "Redeem Now"}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Ed-Games Section */}
-        {activeSection === "games" && (
-          <div className="mt-5 animate-in fade-in slide-in-from-bottom-2">
-            <EdGamesSection />
-          </div>
-        )}
-
-        {/* Transaction History Section */}
-        {activeSection === "history" && (
-          <div className="mt-5 animate-in fade-in slide-in-from-bottom-2">
-            <h3 className="font-bold text-sm mb-3">Transaction History</h3>
-            {loading ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-            ) : transactions.length === 0 ? (
-              <div className="text-center py-8 bg-card rounded-2xl border border-dashed border-border">
-                <AlertCircle className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground">No transactions yet</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {transactions.map((tx) => (
-                  <div key={tx.id} className="bg-card rounded-xl p-3 border border-border flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                        (tx.amount || 0) > 0 ? "bg-[hsl(var(--success))]/10" : "bg-destructive/10"
-                      }`}>
-                        {(tx.amount || 0) > 0 ? (
-                          <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" />
-                        ) : (
-                          <ArrowUpCircle className="h-4 w-4 text-destructive" />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-xs font-bold text-foreground capitalize">{(tx.type || "").replace("_", " ")}</p>
-                        <p className="text-[10px] text-muted-foreground">{tx.description || ""}</p>
-                      </div>
+          ) : (
+            <div className="space-y-2">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="bg-card rounded-xl p-3 border border-border flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
+                      (tx.amount || 0) > 0 ? "bg-[hsl(var(--success))]/10" : "bg-destructive/10"
+                    }`}>
+                      {(tx.amount || 0) > 0 ? (
+                        <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" />
+                      ) : (
+                        <ArrowUpCircle className="h-4 w-4 text-destructive" />
+                      )}
                     </div>
-                    <div className="text-right">
-                      <p className={`text-sm font-bold ${(tx.amount || 0) > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
-                        {(tx.amount || 0) > 0 ? "+" : ""}{Number(tx.amount || 0).toFixed(1)}
-                      </p>
-                      <p className="text-[9px] text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</p>
+                    <div>
+                      <p className="text-xs font-bold text-foreground capitalize">{(tx.type || "").replace("_", " ")}</p>
+                      <p className="text-[10px] text-muted-foreground">{tx.description || ""}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                  <div className="text-right">
+                    <p className={`text-sm font-bold ${(tx.amount || 0) > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
+                      {(tx.amount || 0) > 0 ? "+" : ""}{Number(tx.amount || 0).toFixed(1)}
+                    </p>
+                    <p className="text-[9px] text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
       <BottomNav />
     </div>
