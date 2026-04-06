@@ -30,7 +30,7 @@ export default function JobDetailPage() {
 
   // Load job, bids, and session data
   const loadJobData = async () => {
-    if (!id || !user) return;
+    if (!id) return;
     
     try {
       // Load job details
@@ -43,15 +43,20 @@ export default function JobDetailPage() {
       if (jobError) throw jobError;
       setJob(jobData);
 
-      // Load bids
+      // Load bids - fetch regardless of user login state to ensure visibility
       const { data: bidsData, error: bidsError } = await (supabase as any)
         .from("job_bids")
         .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*)")
         .eq("job_id", id)
         .order("created_at", { ascending: false });
       
-      if (bidsError) throw bidsError;
-      setBids(bidsData || []);
+      if (bidsError) {
+        console.error("Failed to fetch bids:", bidsError);
+        setBids([]);
+      } else {
+        console.log("Fetched bids for job", id, ":", bidsData);
+        setBids(bidsData || []);
+      }
 
       // Load session
       const { data: sessionData, error: sessionError } = await (supabase as any)
@@ -63,9 +68,11 @@ export default function JobDetailPage() {
       if (sessionError) throw sessionError;
       setSession(sessionData);
 
-      // Check if user has bid
-      const myBid = bidsData?.find((b: any) => b.freelancer_id === user.id);
-      setMyBidStatus(myBid ? myBid.status : null);
+      // Check if current user has bid
+      if (user && bidsData) {
+        const myBid = bidsData.find((b: any) => b.freelancer_id === user.id);
+        setMyBidStatus(myBid ? myBid.status : null);
+      }
     } catch (err: any) {
       console.error("Failed to load job data:", err);
       toast.error(err.message || "Failed to load job details");
@@ -77,9 +84,9 @@ export default function JobDetailPage() {
   // Load data when component mounts or job ID changes
   useEffect(() => {
     loadJobData();
-  }, [id, user]);
+  }, [id]);
 
-  // Real-time updates for job postings
+  // Real-time updates for job postings, bids, and sessions
   useEffect(() => {
     if (!id) return;
     
@@ -686,8 +693,8 @@ export default function JobDetailPage() {
           </Button>
         )}
 
-        {/* Bids List (for clients) */}
-        {isClient && bids.length > 0 && (
+        {/* Bids List - Fixed: Removed isClient restriction so bids are visible when they exist */}
+        {bids.length > 0 && (
           <div className="bg-card rounded-xl border border-border p-4">
             <h3 className="font-bold text-sm mb-3">Bids ({bids.length})</h3>
             <div className="space-y-3">
@@ -712,7 +719,7 @@ export default function JobDetailPage() {
                   <p className="text-xs text-muted-foreground mb-2">{bid.message}</p>
                   <p className="text-[10px] text-muted-foreground mb-2">📞 {bid.contact_number}</p>
                   
-                  {bid.status === "pending" && (
+                  {isClient && bid.status === "pending" && (
                     <div className="flex gap-2">
                       <Button 
                         size="sm" 
