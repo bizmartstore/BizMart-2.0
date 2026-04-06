@@ -8,6 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, ArrowLeft, Send, Store, Shield, Check, CheckCheck, User, Search } from "lucide-react";
+import { toast } from "sonner";
 
 /* ─── Conversation List ─── */
 function ConversationList({ onSelect }: { onSelect: (conv: any) => void }) {
@@ -114,74 +115,135 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [cooldown, setCooldown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const load = async () => {
-    const { data } = await (supabase as any)
-      .from("messages")
-      .select("*")
-      .eq("conversation_id", conversation.id)
-      .order("created_at", { ascending: true })
-      .limit(100);
+  const loadMessages = async (convId: string) => {
+    const { data } = await (supabase as any).from("messages").select("*")
+      .eq("conversation_id", convId).order("created_at", { ascending: true }).limit(200);
     setMessages(data || []);
-
-    // Mark as read
     if (user) {
-      await (supabase as any)
-        .from("messages")
-        .update({ is_read: true })
-        .eq("conversation_id", conversation.id)
-        .neq("sender_id", user.id)
-        .eq("is_read", false);
+      await (supabase as any).from("messages").update({ is_read: true })
+        .eq("conversation_id", convId).neq("sender_id", user.id).eq("is_read", false);
     }
   };
 
-  useEffect(() => { load(); }, [conversation.id]);
-
   useEffect(() => {
-    const channel = supabase.channel(`chat-${conversation.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages",
-        filter: `conversation_id=eq.${conversation.id}` }, (payload: any) => {
-        setMessages(prev => [...prev, payload.new]);
-        // Mark incoming as read
-        if (user && payload.new.sender_id !== user.id) {
-          (supabase as any).from("messages").update({ is_read: true }).eq("id", payload.new.id);
+    if (!conversation) return;
+    
+    let isMounted = true;
+    let initialLoad = true;
+    const newMessagesDuringLoad: any[] = [];
+
+    const loadAndSubscribe = async () => {
+      // Set up subscription first
+      const ch = supabase.channel(`chat-${conversation.id}`)
+        .on("postgres_changes", { 
+          event: "INSERT", 
+          schema: "public", 
+          table: "messages",
+          filter: `conversation_id=eq.${conversation.id}` 
+        }, (payload: any) => {
+          if (!isMounted) return;
+          
+          // Check for duplicate
+          const exists = messages.some(msg => msg.id === payload.new.id);
+          if (!exists) {
+            if (initialLoad) {
+              newMessagesDuringLoad.push(payload.new);
+            } else {
+              setMessages(prev => [...prev, payload.new]);
+            }
+          }
+        })
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log("Subscribed to messages for conversation:", conversation.id);
+          }
+        });
+
+      // Now load initial messages
+      try {
+        const { data } = await (supabase as any).from("messages").select("*")
+          .eq("conversation_id", conversation.id).order("created_at", { ascending: true }).limit(200);
+        
+        if (isMounted) {
+          // Merge initial data with any new messages that arrived during load
+          const allMessages = [...(data || [])];
+          for (const newMsg of newMessagesDuringLoad) {
+            if (!allMessages.some(m => m.id === newMsg.id)) {
+              allMessages.push(newMsg);
+            }
+          }
+          // Sort by created_at
+          allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          setMessages(allMessages);
+          initialLoad = false;
         }
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [conversation.id, user]);
+      } catch (error) {
+        console.error("Failed to load messages:", error);
+      }
+    };
+
+    loadAndSubscribe();
+
+    return () => {
+      isMounted = false;
+      supabase.removeChannel(ch);
+    };
+  }, [conversation?.id, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const send = async () => {
-    if (!input.trim() || !user) return;
+  const sendMessage = async () => {
+    if (!input.trim() || !user || !conversation || sending || cooldown) return;
+    
     setSending(true);
     const content = input.trim();
     setInput("");
-    await (supabase as any).from("messages").insert({
-      conversation_id: conversation.id,
-      sender_id: user.id,
-      content,
-    });
-    await (supabase as any).from("conversations").update({
-      last_message: content,
-      last_message_at: new Date().toISOString(),
-    }).eq("id", conversation.id);
+    
+    try {
+      const { data, error } = await (supabase as any).from("messages").insert({
+        conversation_id: conversation.id,
+        sender_id: user.id,
+        content,
+      }).select().single();
 
-    // Send push notification to the other participant
-    const recipientId = conversation.participant_1 === user.id ? conversation.participant_2 : conversation.participant_1;
-    const { notifyNewMessage } = await import("@/lib/notifications");
-    const senderName = profile ? `${profile.first_name} ${profile.last_name}` : "Someone";
-    notifyNewMessage(recipientId, senderName, content);
+      if (error) throw error;
 
-    setSending(false);
+      // Optimistically add the message (in case real-time is delayed)
+      setMessages(prev => {
+        if (prev.some(msg => msg.id === data.id)) return prev;
+        return [...prev, data];
+      });
+
+      await (supabase as any).from("conversations").update({
+        last_message: content,
+        last_message_at: new Date().toISOString(),
+      }).eq("id", conversation.id);
+      
+      const recipientId = conversation.participant_1 === user.id ? conversation.participant_2 : conversation.participant_1;
+      const { notifyNewMessage } = await import("@/lib/notifications");
+      const senderName = profile ? `${profile.first_name} ${profile.last_name}` : "Someone";
+      notifyNewMessage(recipientId, senderName, content);
+      
+      // Start cooldown (10 seconds)
+      setCooldown(true);
+      setTimeout(() => setCooldown(false), 10000);
+      
+    } catch (e: any) {
+      console.error("Failed to send message:", e);
+      toast.error("Failed to send message");
+      setInput(content); // Restore input on error
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
   };
 
   return (
@@ -240,11 +302,22 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           className="flex-1 text-sm rounded-full"
+          disabled={cooldown}
         />
-        <Button onClick={send} disabled={!input.trim() || sending} size="sm" className="rounded-full h-9 w-9 p-0">
-          <Send className="h-4 w-4" />
+        <Button 
+          onClick={sendMessage} 
+          disabled={!input.trim() || sending || cooldown} 
+          size="sm" 
+          className="rounded-full h-9 w-9 p-0"
+        >
+          {sending ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
+      {cooldown && (
+        <div className="px-3 py-1 text-center text-[10px] text-muted-foreground bg-muted/30">
+          Please wait 10 seconds before sending another message...
+        </div>
+      )}
     </div>
   );
 }
