@@ -46,7 +46,7 @@ export default function JobsPage() {
   const [activeFreelancers, setActiveFreelancers] = useState<FreelancerProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"browse" | "freelancers" | "my-activity" | "live">("browse");
+  const [activeTab, setActiveTab] = useState<"browse" | "freelancers" | "my-activity">("browse");
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
@@ -84,11 +84,11 @@ export default function JobsPage() {
       setFreelancerStatus(freelancer.status);
     }
 
-    // Only show approved & ready_to_start jobs to public
+    // FIX: Only show jobs with status 'open' to the public (after admin approval)
     const { data: allJobs } = await (supabase as any)
       .from("job_postings")
       .select("*, client:profiles!job_postings_client_id_fkey(*)")
-      .in("status", ["approved", "ready_to_start", "open", "in_progress", "pending_review"])
+      .eq("status", "open")
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
     setJobs(allJobs || []);
