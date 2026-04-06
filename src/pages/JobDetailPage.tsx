@@ -151,50 +151,66 @@ export default function JobDetailPage() {
   };
 
   const startSession = async () => {
-    if (!job) return;
-    
+  if (!job) return;
+
+  try {
     let currentSession = session;
 
-    // If session is missing from state, try to fetch it directly
+    // 🔥 Always ensure we have the correct session
     if (!currentSession) {
-      const { data: freshSession } = await (supabase as any)
+      const { data: sessions, error } = await (supabase as any)
         .from("job_sessions")
         .select("*")
         .eq("job_id", job.id)
-        .maybeSingle();
-      
-      if (freshSession) {
-        currentSession = freshSession;
-        setSession(freshSession);
-      } else {
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (error) throw error;
+
+      if (!sessions || sessions.length === 0) {
         toast.error("Session data not found. Please refresh the page.");
-        loadJobData();
+        await loadJobData();
         return;
       }
+
+      currentSession = sessions[0];
+      setSession(currentSession);
     }
 
-    try {
-      const { error: sessionError } = await (supabase as any)
-        .from("job_sessions")
-        .update({ status: "active", start_time: new Date().toISOString() })
-        .eq("id", currentSession.id);
-      
-      if (sessionError) throw sessionError;
-      
-      const { error: jobError } = await (supabase as any)
-        .from("job_postings")
-        .update({ status: "in_progress" })
-        .eq("id", job.id);
-      
-      if (jobError) throw jobError;
-
-      toast.success("Session started! ⏱️");
-      loadJobData();
-    } catch (err: any) { 
-      console.error("Start session error:", err);
-      toast.error("Failed to start session: " + err.message); 
+    // 🔥 Prevent duplicate start
+    if (currentSession.status === "active") {
+      toast.info("Session already started");
+      return;
     }
-  };
+
+    // 🔥 Start session
+    const { error: sessionError } = await (supabase as any)
+      .from("job_sessions")
+      .update({
+        status: "active",
+        start_time: new Date().toISOString(),
+      })
+      .eq("id", currentSession.id);
+
+    if (sessionError) throw sessionError;
+
+    // 🔥 Update job status
+    const { error: jobError } = await (supabase as any)
+      .from("job_postings")
+      .update({ status: "in_progress" })
+      .eq("id", job.id);
+
+    if (jobError) throw jobError;
+
+    toast.success("Session started! ⏱️");
+
+    await loadJobData();
+
+  } catch (err: any) {
+    console.error("Start session error:", err);
+    toast.error("Failed to start session: " + err.message);
+  }
+};
 
   const endSession = async () => {
     if (!session) return;
