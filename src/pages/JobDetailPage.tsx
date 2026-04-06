@@ -213,14 +213,43 @@ export default function JobDetailPage() {
 };
 
   const endSession = async () => {
-    if (!session) return;
-    try {
-      await (supabase as any).from("job_sessions").update({ status: "pending_review", end_time: new Date().toISOString() }).eq("id", session.id);
-      await (supabase as any).from("job_postings").update({ status: "pending_review" }).eq("id", job.id);
-      toast.success("Session ended! Please submit proof.");
-      loadJobData();
-    } catch { toast.error("Failed to end session"); }
-  };
+  if (!session || !job) return;
+
+  try {
+    // 🔥 Prevent invalid state
+    if (session.status !== "active") {
+      toast.info("Session is not active");
+      return;
+    }
+
+    // 🔥 End session
+    const { error: sessionError } = await (supabase as any)
+      .from("job_sessions")
+      .update({
+        status: "pending_review",
+        end_time: new Date().toISOString(),
+      })
+      .eq("id", session.id);
+
+    if (sessionError) throw sessionError;
+
+    // 🔥 Update job status
+    const { error: jobError } = await (supabase as any)
+      .from("job_postings")
+      .update({ status: "pending_review" })
+      .eq("id", job.id);
+
+    if (jobError) throw jobError;
+
+    toast.success("Session ended! Please submit proof.");
+
+    await loadJobData();
+
+  } catch (err: any) {
+    console.error("End session error:", err);
+    toast.error("Failed to end session: " + err.message);
+  }
+};
 
   const submitProof = async (role: "freelancer" | "customer") => {
     const proofText = role === "freelancer" ? freelancerProof : customerProof;
