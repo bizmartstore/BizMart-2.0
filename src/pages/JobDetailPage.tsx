@@ -88,40 +88,99 @@ export default function JobDetailPage() {
 
   // Real-time updates for job postings, bids, and sessions
   useEffect(() => {
-    if (!id) return;
-    
-    const channel = supabase
-      .channel(`job-detail-${id}`)
-      .on("postgres_changes", { 
-        event: "*", 
-        schema: "public", 
-        table: "job_postings",
-        filter: `id=eq.${id}`
-      }, (payload: any) => {
-        setJob(payload.new);
-      })
-      .on("postgres_changes", { 
-        event: "*", 
-        schema: "public", 
-        table: "job_bids",
-        filter: `job_id=eq.${id}`
-      }, () => {
-        loadJobData();
-      })
-      .on("postgres_changes", { 
-        event: "*", 
-        schema: "public", 
-        table: "job_sessions",
-        filter: `job_id=eq.${id}`
-      }, (payload: any) => {
-        setSession(payload.new);
-      })
-      .subscribe();
+  if (!id) return;
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [id]);
+  const channel = supabase
+    .channel(`job-detail-${id}`)
+
+    // =========================
+    // JOB POSTING UPDATES
+    // =========================
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "job_postings",
+        filter: `id=eq.${id}`,
+      },
+      (payload: any) => {
+        if (payload.new) {
+          setJob(payload.new);
+        }
+      }
+    )
+
+    // =========================
+    // JOB BIDS (REAL-TIME FIXED)
+    // =========================
+    .on(
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "job_bids",
+        filter: `job_id=eq.${id}`,
+      },
+      (payload: any) => {
+        setBids((prev) => [payload.new, ...prev]);
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "UPDATE",
+        schema: "public",
+        table: "job_bids",
+        filter: `job_id=eq.${id}`,
+      },
+      (payload: any) => {
+        setBids((prev) =>
+          prev.map((b) =>
+            b.id === payload.new.id ? payload.new : b
+          )
+        );
+      }
+    )
+    .on(
+      "postgres_changes",
+      {
+        event: "DELETE",
+        schema: "public",
+        table: "job_bids",
+        filter: `job_id=eq.${id}`,
+      },
+      (payload: any) => {
+        setBids((prev) =>
+          prev.filter((b) => b.id !== payload.old.id)
+        );
+      }
+    )
+
+    // =========================
+    // JOB SESSIONS (SAFE FIX)
+    // =========================
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "job_sessions",
+        filter: `job_id=eq.${id}`,
+      },
+      (payload: any) => {
+        if (payload.new) {
+          setSession(payload.new);
+        }
+      }
+    )
+
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [id]);
 
   // Session timer logic
   useEffect(() => {
