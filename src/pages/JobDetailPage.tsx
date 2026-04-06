@@ -7,8 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, MapPin, Star, CheckCircle2, XCircle, Loader2, FileText, User, Timer, Calendar, Wallet, Play, Square, Upload } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, CheckCircle2, XCircle, Loader2, FileText, User, Timer, Calendar, Wallet, Play, Square, Upload, Target } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
+import TopBar from "@/components/TopBar";
+import BottomNav from "@/components/BottomNav";
 
 export default function JobDetailPage() {
   const { id } = useParams();
@@ -637,7 +639,7 @@ export default function JobDetailPage() {
                 <Input
                   type="number"
                   value={bidForm.price}
-                  onChange={(e) => setBidForm({...form, price: e.target.value})}
+                  onChange={(e) => setBidForm({...bidForm, price: e.target.value})}
                   placeholder={`₱${job.min_price} - ₱${job.max_price}`}
                   className="text-xs h-9 mt-1"
                 />
@@ -647,7 +649,7 @@ export default function JobDetailPage() {
                 <Label className="text-xs">Contact Number</Label>
                 <Input
                   value={bidForm.contactNumber}
-                  onChange={(e) => setBidForm({...form, contactNumber: e.target.value})}
+                  onChange={(e) => setBidForm({...bidForm, contactNumber: e.target.value})}
                   placeholder="09XXXXXXXXX"
                   className="text-xs h-9 mt-1"
                 />
@@ -657,7 +659,7 @@ export default function JobDetailPage() {
                 <Label className="text-xs">Your Approach</Label>
                 <Textarea
                   value={bidForm.message}
-                  onChange={(e) => setBidForm({...form, message: e.target.value})}
+                  onChange={(e) => setBidForm({...bidForm, message: e.target.value})}
                   placeholder="Describe how you'll complete this job..."
                   className="text-xs mt-1"
                   rows={3}
