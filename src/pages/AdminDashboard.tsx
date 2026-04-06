@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -65,10 +65,9 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
 };
 
 export default function AdminDashboard() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { user, profile, isAuthReady } = useAuth();
   const { isAdmin, isMainAdmin } = useAdmin();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
   const [pendingCounts, setPendingCounts] = useState({
     orders: 0,
@@ -155,15 +154,6 @@ export default function AdminDashboard() {
     navigate("/");
     return null;
   }
-
-  // Handle query parameter for reviewed status
-  const reviewed = searchParams.get("reviewed");
-  useEffect(() => {
-    if (reviewed === "true") {
-      // Optional: Show a toast or notification about the review
-      console.log("[AdminDashboard] Review completed");
-    }
-  }, [reviewed]);
 
   return (
     <div className="min-h-screen bg-background pb-20">

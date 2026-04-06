@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft, Info, ShieldAlert, Clock, MapPin, Calendar, ListChecks, Target, FileText, Timer } from "lucide-react";
+import { ArrowLeft, Info, ShieldAlert, Clock, MapPin, Calendar, ListChecks, Target, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { sendNotification } from "@/lib/notifications";
@@ -41,8 +41,7 @@ export default function JobPostPage() {
     description: "",
     location: "",
     difficulty: "medium",
-    hourlyRate: "",
-    durationHours: "1",
+    budget: "",
     neededDate: today,
     neededTime: "",
     instructions: "",
@@ -52,26 +51,32 @@ export default function JobPostPage() {
 
   const selectedCat = CATEGORIES.find(c => c.id === form.category);
   const selectedDiff = DIFFICULTY_LEVELS.find(d => d.id === form.difficulty);
-  const minRate = selectedCat ? Math.ceil(selectedCat.min * (selectedDiff?.multiplier || 1)) : 50;
-  const maxRate = selectedCat ? Math.ceil(selectedCat.max * (selectedDiff?.multiplier || 1)) : 300;
-
-  const totalPayment = Number(form.hourlyRate) * Number(form.durationHours);
+  const minPrice = selectedCat ? Math.ceil(selectedCat.min * (selectedDiff?.multiplier || 1)) : 50;
+  const maxPrice = selectedCat ? Math.ceil(selectedCat.max * (selectedDiff?.multiplier || 1)) : 300;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
-    const rate = Number(form.hourlyRate);
-    if (rate < minRate) {
-      toast.error(`Minimum hourly rate for this category is ₱${minRate}`);
+    const budget = Number(form.budget);
+    if (budget < minPrice) {
+      toast.error(`Minimum budget for this category & difficulty is ₱${minPrice}`);
       return;
     }
-    if (rate > maxRate) {
-      toast.error(`Maximum hourly rate for this category is ₱${maxRate}`);
+    if (budget > maxPrice) {
+      toast.error(`Maximum budget for this category is ₱${maxPrice}`);
       return;
     }
     if (!form.neededTime) {
       toast.error("Please select when you need the service.");
+      return;
+    }
+    if (!form.instructions.trim()) {
+      toast.error("Please provide step-by-step instructions for the freelancer.");
+      return;
+    }
+    if (!form.expectedOutput.trim()) {
+      toast.error("Please describe the expected output.");
       return;
     }
 
@@ -93,12 +98,11 @@ export default function JobPostPage() {
         category: form.category,
         description: form.description.trim(),
         location: form.location.trim(),
-        hourly_rate: rate,
-        duration_hours: Number(form.durationHours),
-        min_price: minRate,
-        max_price: maxRate,
+        hourly_rate: budget,
+        min_price: minPrice,
+        max_price: maxPrice,
         difficulty_level: form.difficulty,
-        escrow_amount: totalPayment,
+        escrow_amount: budget,
         status: "pending_payment",
         expires_at: expiresAt,
         instructions: form.instructions.trim(),
@@ -108,7 +112,21 @@ export default function JobPostPage() {
 
       if (error) throw error;
 
-      toast.success(`Job posted! Total payment: ₱${totalPayment}. Please proceed to BizMart staff.`);
+      // Notify admins about new job posting
+      try {
+        await sendNotification({
+          title: "📝 New Job Posted",
+          message: `${user.email} posted a new job: "${form.title}". Payment pending.`,
+          type: "new_job",
+          targetRole: "admin",
+          link: "/admin?tab=jobs",
+          icon: "📝",
+        });
+      } catch (notifError) {
+        console.error("Failed to send admin notification:", notifError);
+      }
+
+      toast.success("Job posted! 📝 Please proceed to BizMart staff to secure your escrow payment.");
       navigate("/jobs");
     } catch (err: any) {
       console.error("Failed to post job:", err);
@@ -134,7 +152,7 @@ export default function JobPostPage() {
             <span className="font-bold text-xs text-amber-700">Escrow Payment Required</span>
           </div>
           <p className="text-[10px] text-amber-700 leading-relaxed">
-            Payment will be securely held by the admin as an escrow. Total payment is calculated as: <strong>Hourly Rate × Duration</strong>.
+            Before your job can be approved, you must first hand over the payment to the BizMart staff. This payment will be securely held by the admin as an escrow to ensure a safe and fair transaction. The job will remain pending and will not proceed to approval until the payment is confirmed. If the job offer is cancelled or fails to proceed, the BizMart staff will return the full payment to the client. This system is designed to prevent scams from both clients and freelancers by ensuring that funds are secured before any work begins and are only released once the job is successfully completed and approved by both parties.
           </p>
         </div>
 
@@ -149,71 +167,40 @@ export default function JobPostPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Category</Label>
-              <Select onValueChange={(v) => setForm({...form, category: v})}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Difficulty</Label>
-              <Select onValueChange={(v) => setForm({...form, difficulty: v})} value={form.difficulty}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DIFFICULTY_LEVELS.map((d) => (
-                    <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Hourly Rate (₱)</Label>
-              <Input 
-                type="number" 
-                placeholder={`₱${minRate}-₱${maxRate}`}
-                value={form.hourlyRate}
-                onChange={(e) => setForm({...form, hourlyRate: e.target.value})}
-                required
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Duration (Hours)</Label>
-              <Select onValueChange={(v) => setForm({...form, durationHours: v})} value={form.durationHours}>
-                <SelectTrigger className="h-11 rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">1 Hour</SelectItem>
-                  <SelectItem value="2">2 Hours</SelectItem>
-                  <SelectItem value="3">3 Hours</SelectItem>
-                  <SelectItem value="4">4 Hours</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex justify-between items-center">
-            <span className="text-xs font-bold text-muted-foreground">Total Escrow Payment:</span>
-            <span className="text-lg font-extrabold text-primary">₱{totalPayment || 0}</span>
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Category</Label>
+            <Select onValueChange={(v) => setForm({...form, category: v})}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue placeholder="Select a category" />
+              </SelectTrigger>
+              <SelectContent>
+                {CATEGORIES.map((cat) => (
+                  <SelectItem key={cat.id} value={cat.id}>
+                    {cat.icon} {cat.name} (₱{cat.min}-₱{cat.max})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs font-bold">Description</Label>
+            <Label className="text-xs font-bold">Difficulty Level</Label>
+            <Select onValueChange={(v) => setForm({...form, difficulty: v})} value={form.difficulty}>
+              <SelectTrigger className="h-11 rounded-xl">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {DIFFICULTY_LEVELS.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name} (×{d.multiplier} price)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold">Description of Assistance Needed</Label>
             <Textarea 
               placeholder="Briefly describe what you need help with..." 
               className="min-h-[80px] rounded-xl"
@@ -225,23 +212,24 @@ export default function JobPostPage() {
 
           <div className="space-y-1.5">
             <Label className="text-xs font-bold flex items-center gap-1.5">
-              <ListChecks className="h-3.5 w-3.5 text-primary" /> Step-by-Step Instructions
+              <ListChecks className="h-3.5 w-3.5 text-primary" /> Step-by-Step Instructions *
             </Label>
             <Textarea 
-              placeholder="1. Start by... 2. Then..." 
-              className="min-h-[100px] rounded-xl"
+              placeholder="1. Start by...&#10;2. Then...&#10;3. Finally..." 
+              className="min-h-[120px] rounded-xl"
               value={form.instructions}
               onChange={(e) => setForm({...form, instructions: e.target.value})}
               required
             />
+            <p className="text-[10px] text-muted-foreground">Provide clear, detailed steps the freelancer should follow to complete the task.</p>
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs font-bold flex items-center gap-1.5">
-              <Target className="h-3.5 w-3.5 text-primary" /> Expected Output
+              <Target className="h-3.5 w-3.5 text-primary" /> Expected Output *
             </Label>
             <Textarea 
-              placeholder="Describe the final deliverable..." 
+              placeholder="Describe exactly what the final deliverable should look like..." 
               className="min-h-[80px] rounded-xl"
               value={form.expectedOutput}
               onChange={(e) => setForm({...form, expectedOutput: e.target.value})}
@@ -251,10 +239,22 @@ export default function JobPostPage() {
 
           <div className="space-y-1.5">
             <Label className="text-xs font-bold flex items-center gap-1.5">
-              <MapPin className="h-3.5 w-3.5" /> Meeting Location
+              <FileText className="h-3.5 w-3.5 text-primary" /> Specific Requirements (Optional)
+            </Label>
+            <Textarea 
+              placeholder="Any specific formats, tools, or guidelines to follow..." 
+              className="min-h-[80px] rounded-xl"
+              value={form.requirements}
+              onChange={(e) => setForm({...form, requirements: e.target.value})}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs font-bold flex items-center gap-1.5">
+              <MapPin className="h-3.5 w-3.5" /> Meeting Location (On Campus)
             </Label>
             <Input 
-              placeholder="e.g. Library, Study Area" 
+              placeholder="e.g. Library, Study Area, BizMart Store" 
               value={form.location}
               onChange={(e) => setForm({...form, location: e.target.value})}
               required
@@ -272,6 +272,7 @@ export default function JobPostPage() {
                 onChange={(e) => setForm({...form, neededDate: e.target.value})}
                 min={today}
                 required
+                className="h-11 rounded-xl"
               />
             </div>
             <div className="space-y-1.5">
@@ -283,8 +284,28 @@ export default function JobPostPage() {
                 value={form.neededTime}
                 onChange={(e) => setForm({...form, neededTime: e.target.value})}
                 required
+                className="h-11 rounded-xl"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <Label className="text-xs font-bold">Budget (₱)</Label>
+              {form.category && (
+                <span className="text-[10px] text-muted-foreground">Min: ₱{minPrice} · Max: ₱{maxPrice}</span>
+              )}
+            </div>
+            <Input 
+              type="number" 
+              placeholder={`₱${minPrice} - ₱${maxPrice}`}
+              value={form.budget}
+              onChange={(e) => setForm({...form, budget: e.target.value})}
+              required
+            />
+            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+              <Info className="h-3 w-3" /> This amount will be held in escrow by admin until job completion
+            </p>
           </div>
 
           <div className="pt-4">

@@ -84,11 +84,11 @@ export default function JobsPage() {
       setFreelancerStatus(freelancer.status);
     }
 
-    // FIX: Only show jobs with status 'open' to the public (after admin approval)
+    // Only show approved & ready_to_start jobs to public
     const { data: allJobs } = await (supabase as any)
       .from("job_postings")
       .select("*, client:profiles!job_postings_client_id_fkey(*)")
-      .eq("status", "open")
+      .in("status", ["approved", "ready_to_start", "open", "in_progress", "pending_review"])
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false });
     setJobs(allJobs || []);
@@ -211,7 +211,7 @@ export default function JobsPage() {
       case 'approved': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">✅ Approved</Badge>;
       case 'ready_to_start': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">💰 Ready to Start</Badge>;
       case 'open': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">🟢 Open for Bids</Badge>;
-      case 'in_progress': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 animate-pulse">⏱️ Live Session</Badge>;
+      case 'in_progress': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">⏱️ In Progress</Badge>;
       case 'pending_review': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">🔍 Pending Review</Badge>;
       case 'completed': return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">✅ Completed</Badge>;
       case 'rejected': return <Badge variant="destructive">❌ Rejected</Badge>;
@@ -228,8 +228,6 @@ export default function JobsPage() {
     { id: "freelancers" as const, label: "Freelancers" },
     { id: "my-activity" as const, label: "My Activity" },
   ];
-
-  const liveJobs = myJobs.filter(j => j.status === 'in_progress');
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -251,18 +249,6 @@ export default function JobsPage() {
           </div>
         </div>
       </div>
-
-      {liveJobs.length > 0 && (
-        <div className="px-4 mt-4">
-          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex items-center justify-between animate-pulse">
-            <div className="flex items-center gap-2">
-              <Timer className="h-4 w-4 text-blue-600" />
-              <span className="text-xs font-bold text-blue-700">You have {liveJobs.length} live session{liveJobs.length > 1 ? 's' : ''} active!</span>
-            </div>
-            <Button size="sm" variant="link" className="text-xs font-bold text-blue-700 p-0 h-auto" onClick={() => setActiveTab("my-activity")}>View Details</Button>
-          </div>
-        </div>
-      )}
 
       <div className="px-4 mt-4 space-y-3">
         <div className="relative">
@@ -450,7 +436,7 @@ export default function JobsPage() {
                             <p className="text-xs font-bold">{session.job?.title || "Session"}</p>
                             <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                               session.status === 'completed' ? 'bg-green-100 text-green-600' :
-                              session.status === 'active' ? 'bg-blue-100 text-blue-600 animate-pulse' :
+                              session.status === 'active' ? 'bg-blue-100 text-blue-600' :
                               session.status === 'pending_review' ? 'bg-purple-100 text-purple-600' :
                               session.status === 'scheduled' ? 'bg-yellow-100 text-yellow-600' :
                               'bg-muted text-muted-foreground'
