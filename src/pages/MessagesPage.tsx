@@ -8,6 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, ArrowLeft, Send, Store, Shield, Check, CheckCheck, User, Search } from "lucide-react";
+import { toast } from "sonner";
 
 /* ─── Conversation List ─── */
 function ConversationList({ onSelect }: { onSelect: (conv: any) => void }) {
@@ -114,15 +115,17 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [lastSentTime, setLastSentTime] = useState<number | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const load = async () => {
+  const loadMessages = async (convId: string) => {
     const { data } = await (supabase as any)
       .from("messages")
       .select("*")
-      .eq("conversation_id", conversation.id)
+      .eq("conversation_id", convId)
       .order("created_at", { ascending: true })
-      .limit(100);
+      .limit(200);
     setMessages(data || []);
 
     // Mark as read
@@ -130,18 +133,18 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
       await (supabase as any)
         .from("messages")
         .update({ is_read: true })
-        .eq("conversation_id", conversation.id)
+        .eq("conversation_id", convId)
         .neq("sender_id", user.id)
         .eq("is_read", false);
     }
   };
 
-  useEffect(() => { load(); }, [conversation.id]);
-
   useEffect(() => {
-    const channel = supabase.channel(`chat-${conversation.id}`)
+    if (!activeConv) return;
+    loadMessages(activeConv.id);
+    const ch = supabase.channel(`chat-${activeConv.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages",
-        filter: `conversation_id=eq.${conversation.id}` }, (payload: any) => {
+        filter: `conversation_id=eq.${activeConv.id}` }, (payload: any) => {
         setMessages(prev => [...prev, payload.new]);
         // Mark incoming as read
         if (user && payload.new.sender_id !== user.id) {
@@ -149,35 +152,58 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
         }
       })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [conversation.id, user]);
+    return () => { supabase.removeChannel(ch); };
+  }, [activeConv?.id, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
+  // Cooldown timer
+  useEffect(() => {
+    if (cooldownRemaining > 0) {
+      const timer = setTimeout(() => {
+        setCooldownRemaining(prev => prev - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [cooldownRemaining]);
+
+  const canSend = !lastSentTime || (Date.now() - lastSentTime) >= 10000; // 10 seconds
+
   const send = async () => {
-    if (!input.trim() || !user) return;
+    if (!input.trim() || !user || !canSend) return;
     setSending(true);
     const content = input.trim();
     setInput("");
-    await (supabase as any).from("messages").insert({
-      conversation_id: conversation.id,
-      sender_id: user.id,
-      content,
-    });
-    await (supabase as any).from("conversations").update({
-      last_message: content,
-      last_message_at: new Date().toISOString(),
-    }).eq("id", conversation.id);
+    setLastSentTime(Date.now());
+    setCooldownRemaining(10);
+    
+    try {
+      await (supabase as any).from("messages").insert({
+        conversation_id: conversation.id,
+        sender_id: user.id,
+        content,
+      });
+      await (supabase as any).from("conversations").update({
+        last_message: content,
+        last_message_at: new Date().toISOString(),
+      }).eq("id", conversation.id);
 
-    // Send push notification to the other participant
-    const recipientId = conversation.participant_1 === user.id ? conversation.participant_2 : conversation.participant_1;
-    const { notifyNewMessage } = await import("@/lib/notifications");
-    const senderName = profile ? `${profile.first_name} ${profile.last_name}` : "Someone";
-    notifyNewMessage(recipientId, senderName, content);
-
-    setSending(false);
+      // Send push notification to the other participant
+      const recipientId = conversation.participant_1 === user.id ? conversation.participant_2 : conversation.participant_1;
+      const { notifyNewMessage } = await import("@/lib/notifications");
+      const senderName = profile ? `${profile.first_name} ${profile.last_name}` : "Someone";
+      notifyNewMessage(recipientId, senderName, content);
+    } catch (error) {
+      console.error("Failed to send message:", error);
+      toast.error("Failed to send message");
+      // Reset cooldown on error
+      setLastSentTime(null);
+      setCooldownRemaining(0);
+    } finally {
+      setSending(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -198,7 +224,9 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
           <div className="flex items-center gap-1.5">
             <span className="font-bold text-sm text-foreground">{conversation.otherName}</span>
             {conversation.otherBadge && (
-              <span className="text-[8px] font-bold px-1.5 py-0.5 rounded-full bg-primary/20 text-primary">{conversation.otherBadge}</span>
+              <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                conversation.otherBadge === "Admin" ? "bg-primary/20 text-primary" : "bg-accent text-accent-foreground"
+              }`}>{conversation.otherBadge}</span>
             )}
           </div>
         </div>
@@ -232,6 +260,15 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
         })}
       </div>
 
+      {/* Cooldown indicator */}
+      {cooldownRemaining > 0 && (
+        <div className="px-3 py-1 bg-warning/10 border-t border-warning/20 text-center">
+          <p className="text-[10px] text-warning font-medium">
+            Please wait {cooldownRemaining}s before sending another message
+          </p>
+        </div>
+      )}
+
       {/* Input */}
       <div className="px-3 py-2 border-t border-border bg-card flex items-center gap-2">
         <Input
@@ -240,9 +277,15 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           className="flex-1 text-sm rounded-full"
+          disabled={!canSend}
         />
-        <Button onClick={send} disabled={!input.trim() || sending} size="sm" className="rounded-full h-9 w-9 p-0">
-          <Send className="h-4 w-4" />
+        <Button 
+          onClick={send} 
+          disabled={!input.trim() || sending || !canSend} 
+          size="sm" 
+          className="rounded-full h-9 w-9 p-0"
+        >
+          {sending ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </div>
     </div>
@@ -469,7 +512,7 @@ export default function MessagesPage() {
   if (activeConv) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <ChatView conversation={activeConv} onBack={() => setActiveConv(null)} />
+        <ChatView key={activeConv.id} conversation={activeConv} onBack={() => setActiveConv(null)} />
         <BottomNav />
       </div>
     );
@@ -510,5 +553,5 @@ async function getConvInfo(conv: any, myId: string) {
   const name = seller?.store_name || (prof ? `${prof.first_name} ${prof.last_name}` : "User");
   const badge = isAdmin ? "Admin" : seller ? "Seller" : null;
 
-  return { otherName: name, otherBadge: badge, otherId };
+  return { ...conv, otherName: name, otherBadge: badge, otherId };
 }
