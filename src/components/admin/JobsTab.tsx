@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,8 +7,6 @@ import { Search, Briefcase, RefreshCw, Eye, XCircle, CheckCircle2, Loader2, List
 import { Textarea } from "@/components/ui/textarea";
 
 export default function JobsTab() {
-  const navigate = useNavigate();
-  const location = useLocation();
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -18,13 +15,6 @@ export default function JobsTab() {
   const [processing, setProcessing] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [sessionLoading, setSessionLoading] = useState(false);
-  const [reviewed, setReviewed] = useState(false);
-
-  // Check URL parameter for review status
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    setReviewed(params.get('reviewed') === 'true');
-  }, [location.search]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -152,12 +142,6 @@ export default function JobsTab() {
     } finally {
       setSessionLoading(false);
     }
-  };
-
-  const openSessionReview = (job: any) => {
-    setSelectedJob(job);
-    // Add reviewed parameter to URL to persist verification state
-    navigate(`${location.pathname}${location.search}&reviewed=true`);
   };
 
   const filtered = jobs.filter(j => 
@@ -403,22 +387,15 @@ export default function JobsTab() {
           {/* Session Review Button - Now shows for any job that might have a session */}
           {(selectedJob.status === "in_progress" || selectedJob.status === "pending_review" || selectedJob.status === "completed") && (
             <div className="pt-2 border-t border-border">
-              {reviewed ? (
-                <div className="flex items-center gap-2 text-green-600">
-                  <CheckCircle2 className="h-4 w-4" />
-                  <span className="text-xs font-bold">Session Review Verified</span>
-                </div>
-              ) : (
-                <Button 
-                  size="sm" 
-                  onClick={() => loadSession(selectedJob.id)} 
-                  disabled={sessionLoading}
-                  className="w-full gap-1"
-                >
-                  {sessionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Timer className="h-3 w-3" />} 
-                  {sessionLoading ? "Loading Session..." : "View Session Details & Review"}
-                </Button>
-              )}
+              <Button 
+                size="sm" 
+                onClick={() => loadSession(selectedJob.id)} 
+                disabled={sessionLoading}
+                className="w-full gap-1"
+              >
+                {sessionLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Timer className="h-3 w-3" />} 
+                {sessionLoading ? "Loading Session..." : "View Session Details & Review"}
+              </Button>
             </div>
           )}
 
@@ -456,9 +433,7 @@ export default function JobsTab() {
             </div>
             <div className="flex items-center gap-2">
               {getStatusBadge(job.status)}
-              <button onClick={() => openSessionReview(job)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80">
-                <Eye className="h-3.5 w-3.5" />
-              </button>
+              <button onClick={() => setSelectedJob(job)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
             </div>
           </div>
         ))}
