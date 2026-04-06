@@ -14,35 +14,37 @@ export default function JobsTab() {
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<any>(null);
   const [selectedSession, setSelectedSession] = useState<any>(null);
-  const [reviewNotes, setReviewNotes] = useState("");
   const [processing, setProcessing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      // Load all jobs
+      // 1. Load all jobs with client info
       const { data: jobsData } = await (supabase as any)
         .from("job_postings")
         .select("*, client:profiles!job_postings_client_id_fkey(*)")
         .order("created_at", { ascending: false });
       setJobs(jobsData || []);
 
-      // Load all sessions with job and freelancer info
+      // 2. Load all sessions with job and freelancer info
+      // We use the column name in the join (profiles!freelancer_id) to be safe
       const { data: sessionsData } = await (supabase as any)
         .from("job_sessions")
         .select(`
           *,
           job:job_postings(*),
-          freelancer:profiles!job_sessions_freelancer_id_fkey(*),
-          client:profiles!job_sessions_client_id_fkey(*)
+          freelancer:profiles!freelancer_id(*)
         `)
         .order("created_at", { ascending: false });
       
-      // Note: The client join above might need manual mapping if the FK isn't direct
-      // Let's enrich sessions with client info from the job object
+      // 3. Enrich sessions with client info from the jobsData we already fetched
       const enrichedSessions = (sessionsData || []).map((s: any) => {
-        const job = jobsData?.find(j => j.id === s.job_id);
-        return { ...s, client: job?.client };
+        const jobInfo = jobsData?.find(j => j.id === s.job_id);
+        return { 
+          ...s, 
+          client: jobInfo?.client,
+          job: jobInfo // Ensure the session has the full job info including client
+        };
       });
 
       setSessions(enrichedSessions);
