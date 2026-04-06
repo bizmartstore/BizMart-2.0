@@ -2,10 +2,15 @@
 
 import { useRef, useEffect, useState } from "react";
 
+interface BCoinsFeaturesProps {
+  activeSection: string | null;
+  onSectionChange: (section: string | null) => void;
+}
+
 const features = [
+  { id: "daily", label: "Daily Login", bg: "bg-gradient-to-br from-orange-500 to-amber-400", emoji: "📅" },
   { id: "store", label: "BCoins Store", bg: "bg-gradient-to-br from-emerald-500 to-teal-500", emoji: "🎁" },
   { id: "games", label: "Ed-Games", bg: "bg-gradient-to-br from-purple-500 to-pink-500", emoji: "🎮" },
-  { id: "daily", label: "Daily Login", bg: "bg-gradient-to-br from-orange-500 to-amber-400", emoji: "📅" },
   { id: "earn", label: "Cash In", bg: "bg-gradient-to-br from-sky-500 to-blue-600", emoji: "💰" },
   { id: "redeem", label: "Cash Out", bg: "bg-gradient-to-br from-rose-500 to-red-500", emoji: "💸" },
   { id: "history", label: "History", bg: "bg-gradient-to-br from-indigo-500 to-violet-500", emoji: "📊" },
@@ -14,7 +19,7 @@ const features = [
 
 const duplicatedFeatures = [...features, ...features];
 
-export default function BCoinsFeatures() {
+export default function BCoinsFeatures({ activeSection, onSectionChange }: BCoinsFeaturesProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   const animationRef = useRef<number>(0);
@@ -57,6 +62,14 @@ export default function BCoinsFeatures() {
     }, 2000);
   };
 
+  const handleFeatureClick = (featureId: string) => {
+    if (activeSection === featureId) {
+      onSectionChange(null); // Toggle off
+    } else {
+      onSectionChange(featureId);
+    }
+  };
+
   return (
     <div className="mt-4">
       <div className="flex items-center gap-2 mb-3">
@@ -72,18 +85,30 @@ export default function BCoinsFeatures() {
         onMouseUp={handleInteractionEnd}
         onMouseLeave={handleInteractionEnd}
       >
-        {duplicatedFeatures.map((f, idx) => (
-          <div
-            key={`${f.id}-${idx}`}
-            className="flex flex-col items-center gap-1.5 flex-shrink-0"
-          >
-            <div className={`${f.bg} w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden`}>
-              <div className="absolute top-0 left-0 w-full h-1/2 bg-white/10 rounded-b-full" />
-              <span className="text-2xl relative z-10">{f.emoji}</span>
-            </div>
-            <span className="text-[10px] font-bold text-foreground leading-tight text-center w-14">{f.label}</span>
-          </div>
-        ))}
+        {duplicatedFeatures.map((f, idx) => {
+          const isActive = activeSection === f.id;
+          return (
+            <button
+              key={`${f.id}-${idx}`}
+              onClick={() => handleFeatureClick(f.id)}
+              className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-[0.93] transition-all"
+            >
+              <div
+                className={`${f.bg} w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden ${
+                  isActive ? "ring-2 ring-primary ring-offset-2" : ""
+                }`}
+              >
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-white/10 rounded-b-full" />
+                <span className="text-2xl relative z-10">{f.emoji}</span>
+              </div>
+              <span className={`text-[10px] font-bold leading-tight text-center w-14 ${
+                isActive ? "text-primary" : "text-foreground"
+              }`}>
+                {f.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
