@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
-import { Crown, Store, MessageCircle, User, Mail, Phone, MapPin, Calendar, Edit2, Save, X } from "lucide-react";
+import { Crown, Store, MessageCircle, User, Mail, Phone, MapPin, Calendar, Edit2, Save, X, GraduationCap, LogOut, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,36 +55,6 @@ export default function ProfilePage() {
     (supabase as any).from('orders').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
       .then(({ count }: any) => setOrderCount(count || 0));
   }, [user]);
-
-  // ✅ FIX: Add realtime subscription for wallet balance
-  useEffect(() => {
-    if (!user) return;
-
-    const channel = supabase
-      .channel(`profile-wallet-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bcoins_wallets",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload: any) => {
-          console.log("[ProfilePage] Wallet updated:", payload);
-          if (payload.new && profile) {
-            const newBalance = Number((payload.new as any).balance);
-            // Force profile update with new balance
-            // This will trigger a re-render with updated bcoins
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, profile]);
 
   const onSubmit = async (data: ProfileFormData) => {
     if (!user) return;
@@ -172,3 +142,84 @@ export default function ProfilePage() {
                   <h2 className="text-xl font-extrabold">{profile?.first_name} {profile?.last_name}</h2>
                   <p className="text-sm text-muted-foreground">{profile?.email}</p>
                 </>
+              )}
+            </div>
+          </div>
+
+          {isEditing ? (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs">School</Label>
+                  <Input {...register("school")} className="text-sm" />
+                </div>
+                <div>
+                  <Label className="text-xs">Grade Level</Label>
+                  <Input {...register("grade_level")} className="text-sm" />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Section</Label>
+                <Input {...register("section")} className="text-sm" />
+              </div>
+              <div>
+                <Label className="text-xs">Bio</Label>
+                <Textarea {...register("bio")} className="text-sm" rows={3} />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {profile?.school && (
+                <div className="flex items-center gap-2 text-sm">
+                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                  <span>{profile.school}</span>
+                </div>
+              )}
+              {profile?.grade_level && profile?.section && (
+                <div className="flex items-center gap-2 text-sm">
+                  <GraduationCap className="h-4 w-4 text-muted-foreground" />
+                  <span>{profile.grade_level} - {profile.section}</span>
+                </div>
+              )}
+              {profile?.bio && (
+                <p className="text-sm text-muted-foreground mt-2">{profile.bio}</p>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-card rounded-xl p-3 border border-border text-center">
+            <p className="text-2xl font-extrabold text-primary">{orderCount}</p>
+            <p className="text-[10px] text-muted-foreground">Orders</p>
+          </div>
+          <div className="bg-card rounded-xl p-3 border border-border text-center">
+            <p className="text-2xl font-extrabold text-warning">{profile?.bcoins || 0}</p>
+            <p className="text-[10px] text-muted-foreground">BCoins</p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Button onClick={() => navigate("/club")} variant="outline" className="w-full justify-start gap-2">
+            <Crown className="h-4 w-4" /> BizMart Club
+          </Button>
+          <Button onClick={() => navigate("/messages")} variant="outline" className="w-full justify-start gap-2">
+            <MessageCircle className="h-4 w-4" /> Messages
+          </Button>
+          {profile?.role === 'main_admin' || profile?.role === 'member_admin' ? (
+            <Button onClick={() => navigate("/admin")} variant="outline" className="w-full justify-start gap-2">
+              <Shield className="h-4 w-4" /> Admin Dashboard
+            </Button>
+          ) : null}
+        </div>
+
+        <div className="mt-6">
+          <Button onClick={signOut} variant="destructive" className="w-full gap-2">
+            <LogOut className="h-4 w-4" /> Logout
+          </Button>
+        </div>
+      </div>
+      <BottomNav />
+    </div>
+  );
+}
