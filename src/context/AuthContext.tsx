@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (fetchProfileRef.current) return fetchProfileRef.current;
 
     const currentRequestId = ++requestIdRef.current;
+    console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
     
     const fetchPromise = (async () => {
       try {
@@ -51,14 +52,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { data, error } = await (supabase as any)
           .from("profiles")
           .select("*")
-          .eq("id", currentUser.id)
+          .eq("user_id", currentUser.id)
           .maybeSingle();
         
         if (!error && data) profData = data;
 
         const metadata = currentUser.user_metadata || {};
 
-        if (!profData) {
+        // Auto-create profile if missing
+        if (!profData && mountedRef.current) {
+          console.log("[AuthContext] Profile missing, creating...");
           const { data: newProf } = await (supabase as any)
             .from("profiles")
             .insert({
@@ -77,22 +80,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentRequestId !== requestIdRef.current) return;
 
-        const { data: roleData } = await (supabase as any)
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
-
-        const { data: wallet } = await (supabase as any)
-          .from("bcoins_wallets")
-          .select("balance")
-          .eq("user_id", currentUser.id)
-          .maybeSingle();
+        // Fetch role and wallet
+        const [roleRes, walletRes] = await Promise.all([
+          (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle(),
+          (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle()
+        ]);
 
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        const role = roleData?.role || 'customer';
-        if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
+        const role = roleRes.data?.role || 'customer';
+        console.log(`[AuthContext] Profile loaded successfully. Role: ${role}`);
 
         setProfile({
           id: currentUser.id,
@@ -103,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           school: profData?.school || metadata.school || 'N/A',
           email: profData?.email || currentUser.email || '',
           avatar_url: profData?.avatar_url || metadata.avatar_url || null,
-          bcoins: Number(wallet?.balance || profData?.bcoins || 0),
+          bcoins: Number(walletRes.data?.balance || profData?.bcoins || 0),
           role,
         });
       } catch (err) {
@@ -123,26 +120,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
+    
+    // Safety timeout: If auth takes more than 8 seconds, force the app to show
+    const safetyTimer = setTimeout(() => {
+      if (loading) {
+        console.warn("[AuthContext] Safety timeout triggered - forcing ready state");
+        setLoading(false);
+        setIsAuthReady(true);
+      }
+    }, 8000);
+
     const init = async () => {
-      const { data: { session: s } } = await supabase.auth.getSession();
-      if (!mountedRef.current) return;
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) {
-        await fetchProfile(s.user);
-      } else {
+      console.log("[AuthContext] Starting initialization...");
+      try {
+        const { data: { session: s } } = await supabase.auth.getSession();
+        if (!mountedRef.current) return;
+        
+        setSession(s);
+        setUser(s?.user ?? null);
+        
+        if (s?.user) {
+          await fetchProfile(s.user);
+        } else {
+          setLoading(false);
+          setIsAuthReady(true);
+        }
+      } catch (err) {
+        console.error("[AuthContext] Init error:", err);
         setLoading(false);
         setIsAuthReady(true);
       }
     };
+    
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
+      console.log(`[AuthContext] Auth state changed: ${event}`);
       if (!mountedRef.current) return;
+      
       setSession(s);
       setUser(s?.user ?? null);
       
-      if (event === 'SIGNED_IN' && s?.user) {
+      if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && s?.user) {
         await fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
@@ -154,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       mountedRef.current = false;
+      clearTimeout(safetyTimer);
       subscription?.unsubscribe();
     };
   }, [fetchProfile]);
@@ -167,7 +187,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, isAuthReady, signOut, refreshProfile: () => fetchProfile(user!) }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      session, 
+      profile, 
+      loading, 
+      isAuthReady, 
+      signOut, 
+      refreshProfile: () => user ? fetchProfile(user) : Promise.resolve() 
+    }}>
       {children}
     </AuthContext.Provider>
   );
