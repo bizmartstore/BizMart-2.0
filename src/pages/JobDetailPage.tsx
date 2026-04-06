@@ -226,6 +226,7 @@ export default function JobDetailPage() {
   };
 
   const startSession = async () => {
+    if (!session) return;
     try {
       await (supabase as any).from("job_sessions").update({ status: "active", start_time: new Date().toISOString() }).eq("id", session.id);
       await (supabase as any).from("job_postings").update({ status: "in_progress" }).eq("id", job.id);
@@ -237,6 +238,7 @@ export default function JobDetailPage() {
   };
 
   const endSession = async () => {
+    if (!session) return;
     try {
       await (supabase as any).from("job_sessions").update({ status: "pending_review", end_time: new Date().toISOString() }).eq("id", session.id);
       await (supabase as any).from("job_postings").update({ status: "pending_review" }).eq("id", job.id);
@@ -289,10 +291,10 @@ export default function JobDetailPage() {
   const canBid = !isClient && (job.status === "open" || job.status === "approved") && !myBidStatus && isFreelancer;
   
   // FIX: Allow both client and freelancer to start/end session
-  const canStartSession = (isHiredFreelancer || isClient) && session?.status === "scheduled";
-  const canEndSession = (isHiredFreelancer || isClient) && session?.status === "active";
+  const canStartSession = (isHiredFreelancer || isClient) && (session?.status === "scheduled" || job.status === "ready_to_start");
+  const canEndSession = (isHiredFreelancer || isClient) && (session?.status === "active" || job.status === "in_progress");
   
-  const showProofSubmission = (isHiredFreelancer || isClient) && session?.status === "pending_review" && !isFullyReviewed;
+  const showProofSubmission = (isHiredFreelancer || isClient) && (session?.status === "pending_review" || job.status === "pending_review") && !isFullyReviewed;
   const showSessionDetails = session && (session.status === "active" || session.status === "pending_review" || (session.status === "completed" && !isFullyReviewed));
 
   return (
@@ -311,6 +313,7 @@ export default function JobDetailPage() {
               job.status === "pending_payment" ? "bg-amber-100 text-amber-600" :
               job.status === "pending_approval" ? "bg-yellow-100 text-yellow-600" :
               job.status === "in_progress" ? "bg-blue-100 text-blue-600" :
+              job.status === "ready_to_start" ? "bg-emerald-100 text-emerald-600" :
               "bg-muted text-muted-foreground"
             }`}>{job.status.replace("_", " ").toUpperCase()}</span>
           </div>

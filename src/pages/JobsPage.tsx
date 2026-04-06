@@ -46,7 +46,7 @@ export default function JobsPage() {
   const [activeFreelancers, setActiveFreelancers] = useState<FreelancerProfile[]>([]);
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"browse" | "freelancers" | "my-activity">("browse");
+  const [activeTab, setActiveTab] = useState<"browse" | "freelancers" | "my-activity" | "live">("browse");
   const scrollRef = useRef<HTMLDivElement>(null);
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
@@ -229,6 +229,8 @@ export default function JobsPage() {
     { id: "my-activity" as const, label: "My Activity" },
   ];
 
+  const liveJobs = myJobs.filter(j => j.status === 'in_progress');
+
   return (
     <div className="min-h-screen bg-background pb-24">
       <TopBar />
@@ -249,6 +251,18 @@ export default function JobsPage() {
           </div>
         </div>
       </div>
+
+      {liveJobs.length > 0 && (
+        <div className="px-4 mt-4">
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl p-3 flex items-center justify-between animate-pulse">
+            <div className="flex items-center gap-2">
+              <Timer className="h-4 w-4 text-blue-600" />
+              <span className="text-xs font-bold text-blue-700">You have {liveJobs.length} live session{liveJobs.length > 1 ? 's' : ''} active!</span>
+            </div>
+            <Button size="sm" variant="link" className="text-xs font-bold text-blue-700 p-0 h-auto" onClick={() => setActiveTab("my-activity")}>View Details</Button>
+          </div>
+        </div>
+      )}
 
       <div className="px-4 mt-4 space-y-3">
         <div className="relative">
