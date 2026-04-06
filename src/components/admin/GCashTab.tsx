@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function GCashTab() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -85,15 +85,15 @@ export default function GCashTab() {
         .update({ status })
         .eq("id", id);
 
+      // ✅ FIX: Add BCoins when transaction is completed
       if (status === "completed" && tx.user_id) {
-        await sendNotification({
-          title: "🪙 BCoins Earned!",
-          message: `You earned 1 BCoin for completing your ₱${tx.amount} GCash ${tx.type.replace('_', ' ')}!`,
-          type: "bcoins_earned",
-          userId: tx.user_id,
-          link: "/bcoins",
-          icon: "🪙"
-        });
+        // Calculate BCoins: 1 BCoin per ₱1 (or adjust ratio as needed)
+        const bcoinsEarned = Number(tx.amount); // 1 BCoin per ₱1
+        
+        // Add BCoins to user's wallet
+        await notifyCustomerBCoins(tx.user_id, bcoinsEarned, `GCash ${tx.type.replace('_', ' ')} completion`);
+        
+        toast.success(`Transaction completed! User earned ${bcoinsEarned} BCoins.`);
       }
 
       await sendNotification({
@@ -128,7 +128,7 @@ export default function GCashTab() {
           <button
             key={key}
             onClick={() => setFilter(key)}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all $${
               filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
             }`}
           >

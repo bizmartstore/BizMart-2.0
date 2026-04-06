@@ -70,13 +70,53 @@ export default function BCoinsPage() {
 
   useEffect(() => { loadData(); }, [user]);
 
+  // ✅ FIX: Add realtime subscription for wallet updates
   useEffect(() => {
     if (!user) return;
-    const channel = supabase.channel("bcoins-wallet")
-      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_wallets", filter: `user_id=eq.${user.id}` },
-        (payload: any) => { if (payload.new) setWallet(payload.new); })
+
+    const channel = supabase
+      .channel(`bcoins-wallet-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "bcoins_wallets",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          console.log("[BCoinsPage] Wallet updated:", payload);
+          if (payload.new) {
+            setWallet(payload.new);
+          } else if (payload.eventType === 'DELETE') {
+            setWallet({ balance: 0 });
+          }
+        }
+      )
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    // Also listen for new transactions
+    const txChannel = supabase
+      .channel(`bcoins-transactions-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "bcoins_transactions",
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload: any) => {
+          console.log("[BCoinsPage] New transaction:", payload.new);
+          setTransactions(prev => [payload.new, ...prev].slice(0, 20));
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+      supabase.removeChannel(txChannel);
+    };
   }, [user]);
 
   const handleRedeem = async () => {
