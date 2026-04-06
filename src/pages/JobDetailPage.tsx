@@ -123,29 +123,68 @@ export default function JobDetailPage() {
 
   const handleHire = async (bidId: string, freelancerId: string, price: number) => {
     try {
-      await (supabase as any).from("job_postings").update({ status: "ready_to_start", hired_freelancer_id: freelancerId }).eq("id", job.id);
+      // 1. Create session first to ensure it exists
+      const { error: sessionError } = await (supabase as any).from("job_sessions").insert({ 
+        job_id: job.id, 
+        freelancer_id: freelancerId, 
+        status: "scheduled", 
+        escrow_amount: price 
+      });
+      if (sessionError) throw sessionError;
+
+      // 2. Update job status
+      await (supabase as any).from("job_postings").update({ 
+        status: "ready_to_start", 
+        hired_freelancer_id: freelancerId 
+      }).eq("id", job.id);
+
+      // 3. Update bid status
       await (supabase as any).from("job_bids").update({ status: "accepted" }).eq("id", bidId);
-      await (supabase as any).from("job_sessions").insert({ job_id: job.id, freelancer_id: freelancerId, status: "scheduled", escrow_amount: price });
+      
       toast.success("Freelancer hired! 🤝");
       loadJobData();
-    } catch { toast.error("Failed to hire freelancer"); }
+    } catch (err: any) { 
+      console.error("Hire error:", err);
+      toast.error("Failed to hire freelancer: " + err.message); 
+    }
   };
 
   const startSession = async () => {
     if (!job) return;
     
-    // If session is missing but job is ready, try to find it again or show error
-    if (!session) {
-      toast.error("Session data not found. Please refresh the page.");
-      loadJobData();
-      return;
+    let currentSession = session;
+
+    // If session is missing from state, try to fetch it directly
+    if (!currentSession) {
+      const { data: freshSession } = await (supabase as any)
+        .from("job_sessions")
+        .select("*")
+        .eq("job_id", job.id)
+        .maybeSingle();
+      
+      if (freshSession) {
+        currentSession = freshSession;
+        setSession(freshSession);
+      } else {
+        toast.error("Session data not found. Please refresh the page.");
+        loadJobData();
+        return;
+      }
     }
 
     try {
-      const { error: sessionError } = await (supabase as any).from("job_sessions").update({ status: "active", start_time: new Date().toISOString() }).eq("id", session.id);
+      const { error: sessionError } = await (supabase as any)
+        .from("job_sessions")
+        .update({ status: "active", start_time: new Date().toISOString() })
+        .eq("id", currentSession.id);
+      
       if (sessionError) throw sessionError;
       
-      const { error: jobError } = await (supabase as any).from("job_postings").update({ status: "in_progress" }).eq("id", job.id);
+      const { error: jobError } = await (supabase as any)
+        .from("job_postings")
+        .update({ status: "in_progress" })
+        .eq("id", job.id);
+      
       if (jobError) throw jobError;
 
       toast.success("Session started! ⏱️");
