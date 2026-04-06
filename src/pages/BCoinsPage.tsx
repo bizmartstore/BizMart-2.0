@@ -88,7 +88,6 @@ function DailyLoginCard({ onClaim, canClaim, currentDay, lastClaim }: { onClaim:
           const day = idx + 1;
           const isClaimed = day < currentDay || (day === currentDay && lastClaim !== null && canClaim === false);
           const isToday = day === currentDay;
-          const isLocked = day > currentDay;
           
           return (
             <div
@@ -204,24 +203,64 @@ export default function BCoinsPage() {
       const { data: t } = await (supabase as any).from("bcoins_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
       setTransactions(t || []);
     } catch (e) {
-      console.error(e);
+      console.error("BCoinsPage loadData error:", e);
     }
     setLoading(false);
   };
 
-  // Initialize Daily Login
+  // Initialize Daily Login with error handling
   useEffect(() => {
     if (!user) return;
     
-    const stored = localStorage.getItem(`bcoins_daily_${user.id}`);
-    const now = new Date();
-    
-    if (stored) {
-      const parsed: DailyLoginState = JSON.parse(stored);
-      const cycleStart = new Date(parsed.cycleStart);
-      const daysSinceCycle = Math.floor((now.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
+    try {
+      const stored = localStorage.getItem(`bcoins_daily_${user.id}`);
+      const now = new Date();
       
-      if (daysSinceCycle >= 7) {
+      if (stored) {
+        let parsed: DailyLoginState;
+        try {
+          parsed = JSON.parse(stored);
+        } catch (parseError) {
+          console.error("Failed to parse daily login state:", parseError);
+          const newState: DailyLoginState = {
+            lastClaim: null,
+            currentDay: 1,
+            cycleStart: now.toISOString(),
+          };
+          setDailyLogin(newState);
+          localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
+          setCanClaimDaily(true);
+          return;
+        }
+        
+        const cycleStart = new Date(parsed.cycleStart);
+        if (isNaN(cycleStart.getTime())) {
+          throw new Error("Invalid cycleStart date");
+        }
+        
+        const daysSinceCycle = Math.floor((now.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceCycle >= 7) {
+          const newState: DailyLoginState = {
+            lastClaim: null,
+            currentDay: 1,
+            cycleStart: now.toISOString(),
+          };
+          setDailyLogin(newState);
+          localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
+          setCanClaimDaily(true);
+        } else {
+          setDailyLogin(parsed);
+          
+          if (parsed.lastClaim) {
+            const lastClaimDate = new Date(parsed.lastClaim);
+            const hoursSinceClaim = (now.getTime() - lastClaimDate.getTime()) / (1000 * 60 * 60);
+            setCanClaimDaily(hoursSinceClaim >= 24 && parsed.currentDay <= 7);
+          } else {
+            setCanClaimDaily(true);
+          }
+        }
+      } else {
         const newState: DailyLoginState = {
           lastClaim: null,
           currentDay: 1,
@@ -230,38 +269,39 @@ export default function BCoinsPage() {
         setDailyLogin(newState);
         localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
         setCanClaimDaily(true);
-      } else {
-        setDailyLogin(parsed);
-        
-        if (parsed.lastClaim) {
-          const lastClaimDate = new Date(parsed.lastClaim);
-          const hoursSinceClaim = (now.getTime() - lastClaimDate.getTime()) / (1000 * 60 * 60);
-          setCanClaimDaily(hoursSinceClaim >= 24 && parsed.currentDay <= 7);
-        } else {
-          setCanClaimDaily(true);
-        }
       }
-    } else {
-      const newState: DailyLoginState = {
+    } catch (error) {
+      console.error("Daily login initialization error:", error);
+      const now = new Date();
+      const safeState: DailyLoginState = {
         lastClaim: null,
         currentDay: 1,
         cycleStart: now.toISOString(),
       };
-      setDailyLogin(newState);
-      localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
+      setDailyLogin(safeState);
       setCanClaimDaily(true);
     }
   }, [user]);
 
-  useEffect(() => { loadData(); }, [user]);
+  useEffect(() => { 
+    if (user) {
+      loadData();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user) return;
     const channel = supabase.channel("bcoins-wallet")
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_wallets", filter: `user_id=eq.${user.id}` },
-        (payload: any) => { if (payload.new) setWallet(payload.new); })
+        (payload: any) => { 
+          if (payload.new) {
+            setWallet(payload.new);
+          }
+        })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      if (channel) supabase.removeChannel(channel); 
+    };
   }, [user]);
 
   const handleDailyClaim = async () => {
@@ -407,6 +447,9 @@ export default function BCoinsPage() {
     );
   }
 
+  // Safe balance display
+  const displayBalance = wallet?.balance != null ? Number(wallet.balance).toFixed(1) : "0.0";
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
@@ -418,7 +461,7 @@ export default function BCoinsPage() {
 
         <div className="bg-gradient-to-br from-warning/20 to-primary/10 rounded-2xl p-5 border border-warning/20 mb-4 text-center">
           <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Available Balance</p>
-          <p className="text-4xl font-extrabold text-warning">{wallet ? Number(wallet.balance).toFixed(1) : "0.0"}</p>
+          <p className="text-4xl font-extrabold text-warning">{displayBalance}</p>
           <p className="text-xs text-muted-foreground mt-1">BCoins</p>
         </div>
 
@@ -497,22 +540,22 @@ export default function BCoinsPage() {
                 <div key={tx.id} className="bg-card rounded-xl p-3 border border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                      tx.amount > 0 ? "bg-[hsl(var(--success))]/10" : "bg-destructive/10"
+                      (tx.amount || 0) > 0 ? "bg-[hsl(var(--success))]/10" : "bg-destructive/10"
                     }`}>
-                      {tx.amount > 0 ? (
+                      {(tx.amount || 0) > 0 ? (
                         <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" />
                       ) : (
                         <ArrowUpCircle className="h-4 w-4 text-destructive" />
                       )}
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-foreground capitalize">{tx.type.replace("_", " ")}</p>
-                      <p className="text-[10px] text-muted-foreground">{tx.description}</p>
+                      <p className="text-xs font-bold text-foreground capitalize">{(tx.type || "").replace("_", " ")}</p>
+                      <p className="text-[10px] text-muted-foreground">{tx.description || ""}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-bold ${tx.amount > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
-                      {tx.amount > 0 ? "+" : ""}{Number(tx.amount).toFixed(1)}
+                    <p className={`text-sm font-bold ${(tx.amount || 0) > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
+                      {(tx.amount || 0) > 0 ? "+" : ""}{Number(tx.amount || 0).toFixed(1)}
                     </p>
                     <p className="text-[9px] text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</p>
                   </div>
