@@ -216,8 +216,22 @@ export default function JobDetailPage() {
                 {canEndSession && <Button onClick={endSession} className="w-full gap-2 bg-destructive hover:bg-destructive/90"><Square className="h-4 w-4" />End Session</Button>}
               </div>
             )}
-            {session.status === "pending_review" && !isFullyReviewed && (
+            {session.status === "pending_review" && (
               <div className="space-y-4">
+                {/* Show submitted proofs to both parties */}
+                {session.freelancer_proof && (
+                  <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
+                    <p className="text-[10px] font-bold text-blue-700 uppercase mb-1">Freelancer Proof</p>
+                    <p className="text-xs">{session.freelancer_proof}</p>
+                  </div>
+                )}
+                {session.customer_proof && (
+                  <div className="bg-green-50 border border-green-100 rounded-lg p-3">
+                    <p className="text-[10px] font-bold text-green-700 uppercase mb-1">Customer Confirmation</p>
+                    <p className="text-xs">{session.customer_proof}</p>
+                  </div>
+                )}
+
                 {isHiredFreelancer && !session.freelancer_proof_submitted_at && (
                   <div className="bg-muted/30 rounded-lg p-3">
                     <Label className="text-xs font-bold mb-2 block">Submit Work Proof</Label>
@@ -232,6 +246,11 @@ export default function JobDetailPage() {
                     <Button onClick={() => submitProof("customer")} disabled={uploadingProof} className="w-full text-xs">Confirm Completion</Button>
                   </div>
                 )}
+                
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-start gap-2">
+                  <AlertCircle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-amber-700">Admin will review the proofs and release the payment once verified.</p>
+                </div>
               </div>
             )}
           </div>
