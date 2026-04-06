@@ -34,7 +34,7 @@ export default function JobsTab() {
           *,
           job:job_postings(*),
           freelancer:profiles!job_sessions_freelancer_id_fkey(*),
-          client:profiles!job_sessions_job_id_fkey(*)
+          client:profiles!job_sessions_client_id_fkey(*)
         `)
         .order("created_at", { ascending: false });
       
