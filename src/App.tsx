@@ -32,6 +32,9 @@ import StoreViewPage from "@/pages/StoreViewPage";
 import SellerStorePage from "@/pages/SellerStorePage";
 import PrintServicePage from "@/pages/PrintServicePage";
 import AdminDashboard from "@/pages/AdminDashboard";
+import ESupportPage from "@/pages/ESupportPage";
+import ESumbongPage from "@/pages/ESumbongPage";
+import EKausapPage from "@/pages/EKausapPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -89,6 +92,9 @@ function AppContent() {
             <Route path="/seller-store" element={<SellerStorePage />} />
             <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/e-support" element={<ESupportPage />} />
+            <Route path="/e-sumbong" element={<ESumbongPage />} />
+            <Route path="/e-kausap" element={<EKausapPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
