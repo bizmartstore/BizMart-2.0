@@ -15,6 +15,11 @@ CREATE INDEX IF NOT EXISTS idx_daily_login_claims_date ON daily_login_claims(cla
 -- Enable Row Level Security
 ALTER TABLE daily_login_claims ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist (ensures idempotent re-runs)
+DROP POLICY IF EXISTS "Users can view own claims" ON daily_login_claims;
+DROP POLICY IF EXISTS "Users can insert own claims" ON daily_login_claims;
+DROP POLICY IF EXISTS "Users can update own claims" ON daily_login_claims;
+
 -- Policy: Users can only see their own claims
 CREATE POLICY "Users can view own claims" ON daily_login_claims
   FOR SELECT USING (auth.uid() = user_id);
