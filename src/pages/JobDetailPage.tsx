@@ -81,13 +81,13 @@ export default function JobDetailPage() {
     }
   };
 
-  // Load data when component mounts or job ID changes
   useEffect(() => {
-    loadJobData();
-  }, [id]);
+  if (!id) return;
 
-  // Real-time updates for job postings, bids, and sessions
-  useEffect(() => {
+  loadJobData();
+}, [id]);
+
+useEffect(() => {
   if (!id) return;
 
   const channel = supabase
@@ -111,18 +111,25 @@ export default function JobDetailPage() {
       }
     )
 
+    // =========================
+    // JOB BIDS - INSERT (SAFE: REFETCH)
+    // =========================
     .on(
-  "postgres_changes",
-  {
-    event: "INSERT",
-    schema: "public",
-    table: "job_bids",
-    filter: `job_id=eq.${id}`,
-  },
-  async () => {
-    await loadJobData();
-  }
-)
+      "postgres_changes",
+      {
+        event: "INSERT",
+        schema: "public",
+        table: "job_bids",
+        filter: `job_id=eq.${id}`,
+      },
+      async () => {
+        await loadJobData();
+      }
+    )
+
+    // =========================
+    // JOB BIDS - UPDATE (SAFE: REFETCH)
+    // =========================
     .on(
       "postgres_changes",
       {
@@ -131,14 +138,14 @@ export default function JobDetailPage() {
         table: "job_bids",
         filter: `job_id=eq.${id}`,
       },
-      (payload: any) => {
-        setBids((prev) =>
-          prev.map((b) =>
-            b.id === payload.new.id ? payload.new : b
-          )
-        );
+      async () => {
+        await loadJobData();
       }
     )
+
+    // =========================
+    // JOB BIDS - DELETE (FAST LOCAL UPDATE)
+    // =========================
     .on(
       "postgres_changes",
       {
@@ -155,7 +162,7 @@ export default function JobDetailPage() {
     )
 
     // =========================
-    // JOB SESSIONS (SAFE FIX)
+    // JOB SESSIONS (SAFE)
     // =========================
     .on(
       "postgres_changes",
