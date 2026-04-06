@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,12 +28,11 @@ export default function JobDetailPage() {
   const [uploadingProof, setUploadingProof] = useState(false);
   const [myBidStatus, setMyBidStatus] = useState<string | null>(null);
 
-  // Load job, bids, and session data
-  const loadJobData = async () => {
+  // Stabilized data loader to prevent re-validation loops
+  const loadJobData = useCallback(async () => {
     if (!id || !user) return;
     
     try {
-      // Load job details
       const { data: jobData, error: jobError } = await (supabase as any)
         .from("job_postings")
         .select("*, client:profiles!job_postings_client_id_fkey(*)")
@@ -43,7 +42,6 @@ export default function JobDetailPage() {
       if (jobError) throw jobError;
       setJob(jobData);
 
-      // Load bids
       const { data: bidsData, error: bidsError } = await (supabase as any)
         .from("job_bids")
         .select("*, freelancer:profiles!job_bids_freelancer_id_fkey(*)")
@@ -53,7 +51,6 @@ export default function JobDetailPage() {
       if (bidsError) throw bidsError;
       setBids(bidsData || []);
 
-      // Load session
       const { data: sessionData, error: sessionError } = await (supabase as any)
         .from("job_sessions")
         .select("*")
@@ -63,7 +60,6 @@ export default function JobDetailPage() {
       if (sessionError) throw sessionError;
       setSession(sessionData);
 
-      // Check if user has bid
       const myBid = bidsData?.find((b: any) => b.freelancer_id === user.id);
       setMyBidStatus(myBid ? myBid.status : null);
     } catch (err: any) {
@@ -72,14 +68,14 @@ export default function JobDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Load data when component mounts or job ID changes
-  useEffect(() => {
-    loadJobData();
   }, [id, user]);
 
-  // Real-time updates for job postings
+  // Load data only on mount or when ID/user changes
+  useEffect(() => {
+    loadJobData();
+  }, [loadJobData]);
+
+  // Real-time updates for job postings, bids, and sessions
   useEffect(() => {
     if (!id) return;
     
@@ -114,7 +110,7 @@ export default function JobDetailPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [id]);
+  }, [id, loadJobData]);
 
   // Session timer logic
   useEffect(() => {
@@ -147,6 +143,12 @@ export default function JobDetailPage() {
     const s = seconds % 60;
     return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
   };
+
+  // FIXED: Bidding availability separated from strict "open" status
+  // Allows bidding for pending_payment, pending_approval, approved, open
+  // Blocks bidding only when job is actively being worked on, completed, or rejected
+  const biddingClosedStatuses = ["ready_to_start", "in_progress", "pending_review", "completed", "rejected"];
+  const canBid = !isClient && job && !biddingClosedStatuses.includes(job.status) && !myBidStatus;
 
   // Submit a new bid
   const handleBid = async () => {
@@ -414,7 +416,6 @@ export default function JobDetailPage() {
 
   const isClient = user?.id === job.client_id;
   const isHiredFreelancer = user?.id === job.hired_freelancer_id;
-  const canBid = !isClient && job.status === "open" && !myBidStatus;
   const canStartSession = isHiredFreelancer && session?.status === "scheduled";
   const canEndSession = isHiredFreelancer && session?.status === "active";
   const showProofSubmission = (isHiredFreelancer || isClient) && session?.status === "pending_review" && !isFullyReviewed;
