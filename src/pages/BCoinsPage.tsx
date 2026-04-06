@@ -450,9 +450,9 @@ export default function BCoinsPage() {
   const displayBalance = wallet?.balance != null ? Number(wallet.balance).toFixed(1) : "0.0";
 
   const features = [
-    { id: "store" as ActiveSection, label: "BCoins Store", bg: "bg-gradient-to-br from-emerald-500 to-teal-500", emoji: "🎁" },
     { id: "games" as ActiveSection, label: "Ed-Games", bg: "bg-gradient-to-br from-purple-500 to-pink-500", emoji: "🎮" },
     { id: "history" as ActiveSection, label: "History", bg: "bg-gradient-to-br from-indigo-500 to-violet-500", emoji: "📊" },
+    { id: "secure" as ActiveSection, label: "Secure", bg: "bg-gradient-to-br from-slate-600 to-slate-800", emoji: "🔒" },
   ];
 
   return (
