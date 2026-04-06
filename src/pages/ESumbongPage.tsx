@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { ShieldAlert, ArrowLeft, CheckCircle2, Upload, Loader2, Copy } from "lucide-react";
+import { ShieldAlert, ArrowLeft, CheckCircle2, Upload, Loader2, Copy, X, FileText, Image as ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ export default function ESumbongPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [trackingId, setTrackingId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState({
     incidentType: "",
@@ -41,6 +42,20 @@ export default function ESumbongPage() {
     isAnonymous: false,
   });
 
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setSelectedFiles(prev => [...prev, ...newFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const handleSubmit = async () => {
     if (!form.incidentType || !form.description) {
       toast.error("Please fill in the required fields.");
@@ -50,7 +65,9 @@ export default function ESumbongPage() {
     setLoading(true);
     try {
       const tid = `REP-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const { error } = await (supabase as any).from("support_reports").insert({
+      
+      // 1. Create the report record
+      const { data: report, error: reportError } = await (supabase as any).from("support_reports").insert({
         tracking_id: tid,
         user_id: form.isAnonymous ? null : user?.id,
         incident_type: form.incidentType,
@@ -61,9 +78,39 @@ export default function ESumbongPage() {
         is_anonymous: form.isAnonymous,
         status: 'pending',
         severity: 'medium'
-      });
+      }).select().single();
 
-      if (error) throw error;
+      if (reportError) throw reportError;
+
+      // 2. Upload files if any
+      if (selectedFiles.length > 0 && report) {
+        for (const file of selectedFiles) {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${report.id}/${Math.random().toString(36).substring(2)}.${fileExt}`;
+          const filePath = `evidence/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from("support-evidence")
+            .upload(filePath, file);
+
+          if (uploadError) {
+            console.error("File upload error:", uploadError);
+            continue;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from("support-evidence")
+            .getPublicUrl(filePath);
+
+          // Link file to report in DB
+          await (supabase as any).from("support_report_files").insert({
+            report_id: report.id,
+            file_url: publicUrl,
+            file_name: file.name
+          });
+        }
+      }
+
       setTrackingId(tid);
       setStep(3);
       toast.success("Report submitted successfully!");
@@ -129,7 +176,7 @@ export default function ESumbongPage() {
           <div className="space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
             <div className="space-y-2">
               <Label className="text-xs font-bold">Incident Type *</Label>
-              <Select onValueChange={(v) => setForm({...form, incidentType: v})}>
+              <Select onValueChange={(v) => setForm({...form, incidentType: v})} value={form.incidentType}>
                 <SelectTrigger className="h-11 rounded-xl"><SelectValue placeholder="Select type" /></SelectTrigger>
                 <SelectContent>
                   {INCIDENT_TYPES.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
@@ -199,10 +246,37 @@ export default function ESumbongPage() {
 
             <div className="space-y-2">
               <Label className="text-xs font-bold">Evidence (Images/Docs)</Label>
-              <div className="border-2 border-dashed border-border rounded-2xl p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer">
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                className="border-2 border-dashed border-border rounded-2xl p-6 text-center hover:bg-muted/50 transition-colors cursor-pointer"
+              >
                 <Upload className="h-6 w-6 text-muted-foreground mx-auto mb-2" />
                 <p className="text-[10px] text-muted-foreground">Tap to upload screenshots or photos</p>
               </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                multiple 
+                accept="image/*,.pdf,.doc,.docx"
+                onChange={handleFileSelect}
+              />
+
+              {selectedFiles.length > 0 && (
+                <div className="grid grid-cols-1 gap-2 mt-3">
+                  {selectedFiles.map((file, idx) => (
+                    <div key={idx} className="flex items-center justify-between p-2 bg-muted rounded-lg border border-border">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {file.type.startsWith('image/') ? <ImageIcon className="h-4 w-4 text-primary" /> : <FileText className="h-4 w-4 text-primary" />}
+                        <span className="text-[10px] font-medium truncate">{file.name}</span>
+                      </div>
+                      <button onClick={() => removeFile(idx)} className="p-1 hover:bg-destructive/10 rounded-full text-destructive">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex gap-3 pt-4">
