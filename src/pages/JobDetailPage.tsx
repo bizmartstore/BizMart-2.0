@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { ArrowLeft, Clock, MapPin, Star, CheckCircle2, XCircle, Loader2, FileText, User, Timer, Calendar, Wallet, Play, Square, Upload, Target, AlertCircle } from "lucide-react";
+import { ArrowLeft, Clock, MapPin, Star, CheckCircle2, XCircle, Loader2, FileText, User, Timer, Calendar, Wallet, Play, Square, Upload, Target, AlertCircle, ListChecks, Info } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
@@ -132,13 +132,28 @@ export default function JobDetailPage() {
   };
 
   const startSession = async () => {
-    if (!session) return;
+    if (!job) return;
+    
+    // If session is missing but job is ready, try to find it again or show error
+    if (!session) {
+      toast.error("Session data not found. Please refresh the page.");
+      loadJobData();
+      return;
+    }
+
     try {
-      await (supabase as any).from("job_sessions").update({ status: "active", start_time: new Date().toISOString() }).eq("id", session.id);
-      await (supabase as any).from("job_postings").update({ status: "in_progress" }).eq("id", job.id);
+      const { error: sessionError } = await (supabase as any).from("job_sessions").update({ status: "active", start_time: new Date().toISOString() }).eq("id", session.id);
+      if (sessionError) throw sessionError;
+      
+      const { error: jobError } = await (supabase as any).from("job_postings").update({ status: "in_progress" }).eq("id", job.id);
+      if (jobError) throw jobError;
+
       toast.success("Session started! ⏱️");
       loadJobData();
-    } catch { toast.error("Failed to start session"); }
+    } catch (err: any) { 
+      console.error("Start session error:", err);
+      toast.error("Failed to start session: " + err.message); 
+    }
   };
 
   const endSession = async () => {
@@ -172,7 +187,6 @@ export default function JobDetailPage() {
   const isHiredFreelancer = user?.id === job.hired_freelancer_id;
   const canBid = !isClient && (job.status === "open" || job.status === "approved") && !myBidStatus && isFreelancer;
   
-  // ONLY CLIENT CAN START/END
   const canStartSession = isClient && (session?.status === "scheduled" || job.status === "ready_to_start");
   const canEndSession = isClient && (session?.status === "active" || job.status === "in_progress");
   
@@ -187,12 +201,16 @@ export default function JobDetailPage() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        <div className="bg-card rounded-xl border border-border p-4">
+        {/* Main Job Card */}
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <div className="flex justify-between items-start mb-3">
-            <div><h2 className="font-bold text-base">{job.title}</h2><p className="text-xs text-muted-foreground">Posted by {job.client?.first_name} {job.client?.last_name}</p></div>
+            <div>
+              <h2 className="font-bold text-base">{job.title}</h2>
+              <p className="text-xs text-muted-foreground">Posted by {job.client?.first_name} {job.client?.last_name}</p>
+            </div>
             <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${job.status === "open" || job.status === "approved" ? "bg-green-100 text-green-600" : "bg-muted text-muted-foreground"}`}>{job.status.replace("_", " ").toUpperCase()}</span>
           </div>
-          <div className="grid grid-cols-3 gap-2 mb-3">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="bg-muted/30 rounded-lg p-2 text-center"><p className="text-sm font-extrabold text-primary">₱{job.hourly_rate}/hr</p><p className="text-[8px] text-muted-foreground">Rate</p></div>
             <div className="bg-muted/30 rounded-lg p-2 text-center"><p className="text-sm font-extrabold text-secondary">{job.duration_hours}h</p><p className="text-[8px] text-muted-foreground">Duration</p></div>
             <div className="bg-muted/30 rounded-lg p-2 text-center"><p className="text-sm font-extrabold text-emerald-600">₱{job.escrow_amount}</p><p className="text-[8px] text-muted-foreground">Total</p></div>
@@ -200,8 +218,46 @@ export default function JobDetailPage() {
           <div className="flex items-center gap-2 text-xs text-muted-foreground"><MapPin className="h-3 w-3" /><span>{job.location}</span></div>
         </div>
 
+        {/* Detailed Information Section */}
+        <div className="bg-card rounded-xl border border-border p-4 space-y-5 shadow-sm">
+          <div>
+            <h3 className="font-bold text-sm flex items-center gap-2 mb-2 text-foreground">
+              <Info className="h-4 w-4 text-primary" /> Job Description
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{job.description}</p>
+          </div>
+
+          {job.instructions && (
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2 mb-2 text-foreground">
+                <ListChecks className="h-4 w-4 text-primary" /> Step-by-Step Instructions
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{job.instructions}</p>
+            </div>
+          )}
+
+          {job.expected_output && (
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2 mb-2 text-foreground">
+                <Target className="h-4 w-4 text-primary" /> Expected Output
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{job.expected_output}</p>
+            </div>
+          )}
+
+          {job.requirements && (
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2 mb-2 text-foreground">
+                <FileText className="h-4 w-4 text-primary" /> Requirements
+              </h3>
+              <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{job.requirements}</p>
+            </div>
+          )}
+        </div>
+
+        {/* Session Controls */}
         {showSessionDetails && (
-          <div className="bg-card rounded-xl border border-border p-4">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
             <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Timer className="h-4 w-4 text-primary" /> Session Details</h3>
             {session.status === "active" && (
               <div className="space-y-3">
@@ -218,7 +274,6 @@ export default function JobDetailPage() {
             )}
             {session.status === "pending_review" && (
               <div className="space-y-4">
-                {/* Show submitted proofs to both parties */}
                 {session.freelancer_proof && (
                   <div className="bg-blue-50 border border-blue-100 rounded-lg p-3">
                     <p className="text-[10px] font-bold text-blue-700 uppercase mb-1">Freelancer Proof</p>
@@ -257,7 +312,7 @@ export default function JobDetailPage() {
         )}
 
         {canStartSession && (
-          <div className="bg-card rounded-xl border border-border p-4 text-center space-y-3">
+          <div className="bg-card rounded-xl border border-border p-4 text-center space-y-3 shadow-sm">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto"><Play className="h-6 w-6 text-green-600 fill-green-600" /></div>
             <div><h3 className="font-bold text-sm">Start Session</h3><p className="text-[10px] text-muted-foreground">Only you (the client) can start the timer.</p></div>
             <Button onClick={startSession} className="w-full gap-2 bg-green-600 hover:bg-green-700"><Play className="h-4 w-4" />Start Session Now</Button>
@@ -265,7 +320,7 @@ export default function JobDetailPage() {
         )}
 
         {isHiredFreelancer && session?.status === "scheduled" && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-center shadow-sm">
             <Clock className="h-6 w-6 text-blue-600 mx-auto mb-2" />
             <p className="text-xs font-bold text-blue-800">Waiting for client to start session</p>
             <p className="text-[10px] text-blue-600 mt-1">The timer will appear here once the client starts the session.</p>
@@ -273,7 +328,7 @@ export default function JobDetailPage() {
         )}
 
         {canBid ? (
-          <div className="bg-card rounded-xl border border-border p-4">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
             <h3 className="font-bold text-sm mb-3">Submit Your Bid</h3>
             <div className="space-y-3">
               <div><Label className="text-xs">Proposed Hourly Rate (₱{job.min_price}-₱{job.max_price})</Label><Input type="number" value={bidForm.price} onChange={(e) => setBidForm({...bidForm, price: e.target.value})} className="text-xs h-9 mt-1" /></div>
@@ -285,7 +340,7 @@ export default function JobDetailPage() {
         ) : null}
 
         {bids.length > 0 && (
-          <div className="bg-card rounded-xl border border-border p-4">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
             <h3 className="font-bold text-sm mb-3">Bids ({bids.length})</h3>
             <div className="space-y-3">
               {bids.map((bid) => (
