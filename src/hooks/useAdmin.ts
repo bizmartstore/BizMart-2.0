@@ -9,6 +9,7 @@ export function useAdmin() {
     isAdmin: isAuthReady && (role === 'main_admin' || role === 'member_admin'),
     isMainAdmin: isAuthReady && role === 'main_admin',
     isMemberAdmin: isAuthReady && role === 'member_admin',
+    isGuidance: isAuthReady && role === 'guidance',
     loading: !isAuthReady,
   };
 }

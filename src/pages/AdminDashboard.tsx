@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, ShieldCheck } from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -23,13 +23,11 @@ import SellersTab from "@/components/admin/SellersTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
-import SupportTab from "@/components/admin/SupportTab";
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
     { id: "overview", label: "Overview", icon: <BarChart3 className="h-4 w-4" />, badge: null },
     { id: "orders", label: "Orders", icon: <ShoppingCart className="h-4 w-4" />, badge: pendingCounts.orders > 0 ? pendingCounts.orders : null },
-    { id: "support", label: "Support", icon: <ShieldCheck className="h-4 w-4" />, badge: pendingCounts.support > 0 ? pendingCounts.support : null },
     { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
     { id: "categories", label: "Categories", icon: <FolderOpen className="h-4 w-4" />, badge: null },
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
@@ -62,18 +60,16 @@ export default function AdminDashboard() {
     gcash: 0,
     bcoins: 0,
     messages: 0,
-    support: 0,
   });
   const pendingPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadPendingCounts = useCallback(async () => {
     try {
-      const [ordersRes, printRes, gcashRes, bcoinsRes, supportRes] = await Promise.allSettled([
+      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
         (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("support_reports").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
       
       setPendingCounts({
@@ -81,7 +77,6 @@ export default function AdminDashboard() {
         print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
         gcash: gcashRes.status === "fulfilled" ? (gcashRes.value.count || 0) : 0,
         bcoins: bcoinsRes.status === "fulfilled" ? (bcoinsRes.value.count || 0) : 0,
-        support: supportRes.status === "fulfilled" ? (supportRes.value.count || 0) : 0,
         messages: 0,
       });
     } catch (e) {
@@ -104,7 +99,6 @@ export default function AdminDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "support_reports" }, () => loadPendingCounts())
       .subscribe();
       
     pendingPollRef.current = setInterval(() => {
@@ -166,7 +160,6 @@ export default function AdminDashboard() {
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="support"><SupportTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="categories"><CategoriesTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
