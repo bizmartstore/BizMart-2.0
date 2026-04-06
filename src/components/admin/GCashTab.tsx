@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react";
-import { sendNotification } from "@/lib/notifications";
+import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function GCashTab() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -85,17 +85,7 @@ export default function GCashTab() {
         .update({ status })
         .eq("id", id);
 
-      if (status === "completed" && tx.user_id) {
-        await sendNotification({
-          title: "🪙 BCoins Earned!",
-          message: `You earned 1 BCoin for completing your ₱${tx.amount} GCash ${tx.type.replace('_', ' ')}!`,
-          type: "bcoins_earned",
-          userId: tx.user_id,
-          link: "/bcoins",
-          icon: "🪙"
-        });
-      }
-
+      // Send status notification
       await sendNotification({
         title: `💳 GCash ${tx.type === 'cash_in' ? 'In' : 'Out'} ${status.toUpperCase()}`,
         message: `Your ₱${tx.amount} ${tx.type.replace('_', ' ')} request has been ${status}.`,
@@ -104,6 +94,15 @@ export default function GCashTab() {
         link: "/gcash",
         icon: "💳"
       });
+
+      // Award 1 BCoin for completed transactions
+      if (status === "completed" && tx.user_id) {
+        await notifyCustomerBCoins(
+          tx.user_id, 
+          1, 
+          `GCash ${tx.type.replace('_', ' ')} completion`
+        );
+      }
 
       toast.success(`Transaction ${status}!`);
     } catch (e: any) {
