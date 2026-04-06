@@ -49,10 +49,11 @@ Deno.serve(async (req) => {
       .eq("key", "flash_sale_max_discount")
       .maybeSingle();
 
-    const configMinDiscount = minDiscountData?.value?.percentage ? Number(minDiscountData.value.percentage) : 5;
-    const configMaxDiscount = maxDiscountData?.value?.percentage ? Number(maxDiscountData.value.percentage) : 15;
+    // Strictly clamp the config values to 5-15% range
+    const configMinDiscount = Math.max(5, minDiscountData?.value?.percentage ? Number(minDiscountData.value.percentage) : 5);
+    const configMaxDiscount = Math.min(15, maxDiscountData?.value?.percentage ? Number(maxDiscountData.value.percentage) : 15);
 
-    // Get all active products (includes synced default products)
+    // Get all active products
     const { data: allProducts } = await supabase
       .from("products")
       .select("*")
@@ -75,14 +76,28 @@ Deno.serve(async (req) => {
     const shuffled = allProducts.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, Math.min(6, shuffled.length));
 
-    // Apply discount within the configured range
+    // Apply biased discount
     for (const product of selected) {
       // Always calculate discount from the original price to avoid compounding discounts
       const basePrice = product.original_price ? Number(product.original_price) : Number(product.price);
       if (basePrice <= 0) continue;
       
-      // Generate random discount strictly between configured min and max
-      const discountPercent = Math.floor(Math.random() * (configMaxDiscount - configMinDiscount + 1)) + configMinDiscount;
+      // Biased Random Logic:
+      // 75% chance for 5-10% discount
+      // 25% chance for 11-15% discount
+      let discountPercent;
+      const roll = Math.random();
+      
+      if (roll < 0.75) {
+        // Lower range (5-10%)
+        const lowMax = Math.min(10, configMaxDiscount);
+        discountPercent = Math.floor(Math.random() * (lowMax - configMinDiscount + 1)) + configMinDiscount;
+      } else {
+        // Higher range (11-15%)
+        const highMin = Math.max(11, configMinDiscount);
+        discountPercent = Math.floor(Math.random() * (configMaxDiscount - highMin + 1)) + highMin;
+      }
+
       const salePrice = Number((basePrice * (1 - discountPercent / 100)).toFixed(2));
 
       await supabase.from("products").update({
