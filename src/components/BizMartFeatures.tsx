@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShoppingBag, Store, Crown, Coins, Smartphone, Printer, Briefcase } from "lucide-react";
+import { ShoppingBag, Store, Crown, Coins, Smartphone, Printer } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 
 const features = [
@@ -20,15 +20,6 @@ const features = [
     bg: "bg-gradient-to-br from-blue-600 to-indigo-500",
     emoji: "🏪",
     path: "/sellers",
-  },
-  {
-    id: "jobs",
-    label: "Job Offers",
-    desc: "Academic Help",
-    icon: Briefcase,
-    bg: "bg-gradient-to-br from-indigo-600 to-purple-500",
-    emoji: "🎓",
-    path: "/jobs",
   },
   {
     id: "club",

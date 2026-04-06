@@ -149,37 +149,3 @@ export const notifyAdminNewMember = async (memberName: string) => {
     icon: "👑",
   });
 };
-
-// New notification functions for freelancing
-export const notifyCustomerNewBid = async (customerId: string, freelancerName: string, jobTitle: string, price: number) => {
-  await sendNotification({
-    title: "📝 New Bid Received!",
-    message: `${freelancerName} just bid ₱${price} on your job "${jobTitle}". Check it out!`,
-    type: "new_bid",
-    userId: customerId,
-    link: "/jobs",
-    icon: "📝",
-  });
-};
-
-export const notifyFreelancerHired = async (freelancerId: string, jobTitle: string, customerName: string) => {
-  await sendNotification({
-    title: "🎉 Congratulations! You're Hired!",
-    message: `${customerName} selected you for "${jobTitle}". Check the job details to start the session.`,
-    type: "freelancer_hired",
-    userId: freelancerId,
-    link: "/jobs",
-    icon: "🎉",
-  });
-};
-
-export const notifyFreelancerRejected = async (freelancerId: string, jobTitle: string) => {
-  await sendNotification({
-    title: "💪 Keep Up the Great Work!",
-    message: `The client chose another freelancer for "${jobTitle}" this time. Don't worry, more opportunities are coming your way!`,
-    type: "freelancer_rejected",
-    userId: freelancerId,
-    link: "/jobs",
-    icon: "💪",
-  });
-};

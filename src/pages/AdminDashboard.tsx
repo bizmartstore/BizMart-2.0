@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Briefcase, Ticket, Award, Store, FolderOpen } from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -20,22 +20,9 @@ import ClubTab from "@/components/admin/ClubTab";
 import BCoinsTab from "@/components/admin/BCoinsTab";
 import GCashTab from "@/components/admin/GCashTab";
 import SellersTab from "@/components/admin/SellersTab";
-import JobsTab from "@/components/admin/JobsTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
-import FreelancersTab from "@/components/admin/FreelancersTab";
 import BannerTab from "@/components/admin/BannerTab";
-
-const MEMBER_ADMIN_ALLOWED_TABS = [
-  "orders",
-  "print",
-  "news",
-  "gcash",
-  "jobs",
-  "freelancers",
-  "settings",
-  "banners"
-];
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
@@ -53,8 +40,6 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
     { id: "bcoins", label: "BCoins", icon: <Coins className="h-4 w-4" />, badge: pendingCounts.bcoins > 0 ? pendingCounts.bcoins : null },
     { id: "gcash", label: "GCash", icon: <Bell className="h-4 w-4" />, badge: pendingCounts.gcash > 0 ? pendingCounts.gcash : null },
-    { id: "jobs", label: "Jobs", icon: <Briefcase className="h-4 w-4" />, badge: pendingCounts.jobs > 0 ? pendingCounts.jobs : null },
-    { id: "freelancers", label: "Freelancers", icon: <Users className="h-4 w-4" />, badge: pendingCounts.freelancers > 0 ? pendingCounts.freelancers : null },
   ];
 
   if (isMainAdmin) {
@@ -75,20 +60,16 @@ export default function AdminDashboard() {
     gcash: 0,
     bcoins: 0,
     messages: 0,
-    jobs: 0,
-    freelancers: 0,
   });
   const pendingPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadPendingCounts = useCallback(async () => {
     try {
-      const [ordersRes, printRes, gcashRes, bcoinsRes, jobsRes, freelancersRes] = await Promise.allSettled([
+      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
         (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("job_postings").select("id", { count: "exact", head: true }).eq("status", "open"),
-        (supabase as any).from("freelancer_profiles").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
       
       setPendingCounts({
@@ -97,8 +78,6 @@ export default function AdminDashboard() {
         gcash: gcashRes.status === "fulfilled" ? (gcashRes.value.count || 0) : 0,
         bcoins: bcoinsRes.status === "fulfilled" ? (bcoinsRes.value.count || 0) : 0,
         messages: 0,
-        jobs: jobsRes.status === "fulfilled" ? (jobsRes.value.count || 0) : 0,
-        freelancers: freelancersRes.status === "fulfilled" ? (freelancersRes.value.count || 0) : 0,
       });
     } catch (e) {
       console.error("Failed to load pending counts:", e);
@@ -120,15 +99,7 @@ export default function AdminDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_postings" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "freelancer_profiles" }, () => loadPendingCounts())
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log("[AdminDashboard] Pending counts realtime active");
-        } else if (status === "CHANNEL_ERROR") {
-          console.warn("[AdminDashboard] Realtime channel error, relying on polling");
-        }
-      });
+      .subscribe();
       
     pendingPollRef.current = setInterval(() => {
       loadPendingCounts();
@@ -201,8 +172,6 @@ export default function AdminDashboard() {
           <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
-          <TabsContent value="jobs"><JobsTab /></TabsContent>
-          <TabsContent value="freelancers"><FreelancersTab /></TabsContent>
           {isMainAdmin ? (
             <TabsContent value="settings"><SettingsTab /></TabsContent>
           ) : (

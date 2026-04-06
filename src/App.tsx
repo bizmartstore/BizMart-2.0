@@ -30,10 +30,6 @@ import MessagesPage from "@/pages/MessagesPage";
 import SellersPage from "@/pages/SellersPage";
 import StoreViewPage from "@/pages/StoreViewPage";
 import SellerStorePage from "@/pages/SellerStorePage";
-import JobsPage from "@/pages/JobsPage";
-import JobPostPage from "@/pages/JobPostPage";
-import JobDetailPage from "@/pages/JobDetailPage";
-import FreelancerApplyPage from "@/pages/FreelancerApplyPage";
 import PrintServicePage from "@/pages/PrintServicePage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
@@ -91,10 +87,6 @@ function AppContent() {
             <Route path="/sellers" element={<SellersPage />} />
             <Route path="/store/:sellerId" element={<StoreViewPage />} />
             <Route path="/seller-store" element={<SellerStorePage />} />
-            <Route path="/jobs" element={<JobsPage />} />
-            <Route path="/jobs/post" element={<JobPostPage />} />
-            <Route path="/jobs/:id" element={<JobDetailPage />} />
-            <Route path="/jobs/apply" element={<FreelancerApplyPage />} />
             <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="*" element={<NotFound />} />
