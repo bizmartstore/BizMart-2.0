@@ -1,8 +1,3 @@
-` ... `＜/dyad-write>`
-`＜dyad-chat-summary>Fixed TypeScript scope error for channel variable＜/dyad-chat-summary>`
-Done. 
-Let's generate. 
-[Output Generation] -> *Proceeds*</think><dyad-write path="src/pages/MessagesPage.tsx">
 import { useState, useEffect, useRef, forwardRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -32,6 +27,7 @@ function ConversationList({ onSelect }: { onSelect: (conv: any) => void }) {
       .order("last_message_at", { ascending: false });
     setConversations(convos || []);
 
+    // Fetch profiles for other participants
     const otherIds = (convos || []).map((c: any) =>
       c.participant_1 === user.id ? c.participant_2 : c.participant_1
     );
@@ -122,15 +118,26 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
   const [cooldown, setCooldown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const loadMessages = async (convId: string) => {
+    const { data } = await (supabase as any).from("messages").select("*")
+      .eq("conversation_id", convId).order("created_at", { ascending: true }).limit(200);
+    setMessages(data || []);
+    if (user) {
+      await (supabase as any).from("messages").update({ is_read: true })
+        .eq("conversation_id", convId).neq("sender_id", user.id).eq("is_read", false);
+    }
+  };
+
   useEffect(() => {
     if (!conversation) return;
     
     let isMounted = true;
-    let ch: any = null;
+    let initialLoad = true;
+    const newMessagesDuringLoad: any[] = [];
 
     const loadAndSubscribe = async () => {
       // Set up subscription first
-      ch = supabase.channel(`chat-${conversation.id}`)
+      const ch = supabase.channel(`chat-${conversation.id}`)
         .on("postgres_changes", { 
           event: "INSERT", 
           schema: "public", 
@@ -138,21 +145,40 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
           filter: `conversation_id=eq.${conversation.id}` 
         }, (payload: any) => {
           if (!isMounted) return;
-          // Use functional update to avoid stale closure
-          setMessages(prev => {
-            if (prev.some(msg => msg.id === payload.new.id)) return prev;
-            return [...prev, payload.new];
-          });
+          
+          // Check for duplicate
+          const exists = messages.some(msg => msg.id === payload.new.id);
+          if (!exists) {
+            if (initialLoad) {
+              newMessagesDuringLoad.push(payload.new);
+            } else {
+              setMessages(prev => [...prev, payload.new]);
+            }
+          }
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log("Subscribed to messages for conversation:", conversation.id);
+          }
+        });
 
-      // Load initial messages
+      // Now load initial messages
       try {
         const { data } = await (supabase as any).from("messages").select("*")
           .eq("conversation_id", conversation.id).order("created_at", { ascending: true }).limit(200);
         
         if (isMounted) {
-          setMessages(data || []);
+          // Merge initial data with any new messages that arrived during load
+          const allMessages = [...(data || [])];
+          for (const newMsg of newMessagesDuringLoad) {
+            if (!allMessages.some(m => m.id === newMsg.id)) {
+              allMessages.push(newMsg);
+            }
+          }
+          // Sort by created_at
+          allMessages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+          setMessages(allMessages);
+          initialLoad = false;
         }
       } catch (error) {
         console.error("Failed to load messages:", error);
@@ -163,7 +189,7 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
 
     return () => {
       isMounted = false;
-      if (ch) supabase.removeChannel(ch);
+      supabase.removeChannel(ch);
     };
   }, [conversation?.id, user]);
 
@@ -187,7 +213,7 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
 
       if (error) throw error;
 
-      // Optimistically add the message
+      // Optimistically add the message (in case real-time is delayed)
       setMessages(prev => {
         if (prev.some(msg => msg.id === data.id)) return prev;
         return [...prev, data];
@@ -210,7 +236,7 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
     } catch (e: any) {
       console.error("Failed to send message:", e);
       toast.error("Failed to send message");
-      setInput(content);
+      setInput(content); // Restore input on error
     } finally {
       setSending(false);
     }
@@ -330,6 +356,7 @@ const NewChatPanel = forwardRef<HTMLDivElement, { onStartChat: (userId: string) 
       const { data: sellerData } = await (supabase as any).from("seller_profiles").select("*").eq("is_active", true);
       setSellers((sellerData || []).filter((s: any) => s.user_id !== user?.id));
 
+      // If admin, load all customer profiles
       if (isAdmin) {
         const { data: allProfiles } = await (supabase as any).from("profiles").select("*").order("first_name");
         const sellerUserIds = (sellerData || []).map((s: any) => s.user_id);
@@ -418,6 +445,7 @@ const NewChatPanel = forwardRef<HTMLDivElement, { onStartChat: (userId: string) 
         </div>
       )}
 
+      {/* Customers - only visible to admins */}
       {isAdmin && customers.length > 0 && (
         <div>
           <p className="font-bold text-xs text-muted-foreground uppercase mb-2">👥 Customers ({customers.length})</p>
@@ -468,6 +496,7 @@ export default function MessagesPage() {
 
   const startChat = async (otherUserId: string) => {
     if (!user) return;
+    // Check if conversation exists
     const { data: existing } = await (supabase as any)
       .from("conversations")
       .select("*")
@@ -475,6 +504,7 @@ export default function MessagesPage() {
       .maybeSingle();
 
     if (existing) {
+      // Fetch name info for header
       const info = await getConvInfo(existing, user.id);
       setActiveConv({ ...existing, ...info });
       setShowNewChat(false);
