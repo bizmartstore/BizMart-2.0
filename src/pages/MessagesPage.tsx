@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, forwardRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
 import { supabase } from "@/integrations/supabase/client";
@@ -320,6 +320,168 @@ function ChatView({ conversation, onBack }: { conversation: ConversationWithInfo
     </div>
   );
 }
+
+const NewChatPanel = forwardRef<HTMLDivElement, { onStartChat: (userId: string) => void }>(function NewChatPanel({ onStartChat }, ref) {
+  const { user } = useAuth();
+  const { isAdmin } = useAdmin();
+  const [admins, setAdmins] = useState<any[]>([]);
+  const [sellers, setSellers] = useState<any[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [customerSearch, setCustomerSearch] = useState("");
+
+  useEffect(() => {
+    if (!user) return;
+    const loadContacts = async () => {
+      setLoading(true);
+      const { data: roleData } = await (supabase as any).from("user_roles").select("user_id, role");
+      const adminRoles = (roleData || []).filter((r: any) => r.user_id !== user.id);
+      const adminUserIds = adminRoles.map((r: any) => r.user_id);
+      
+      if (adminRoles.length > 0) {
+        const { data: profs } = await (supabase as any).from("profiles").select("*").in("user_id", adminUserIds);
+        const adminList = (profs || []).map((p: any) => ({
+          ...p,
+          role: adminRoles.find((r: any) => r.user_id === p.user_id)?.role,
+        })).sort((a: any, b: any) => {
+          if (a.role === 'main_admin' && b.role !== 'main_admin') return -1;
+          if (a.role !== 'main_admin' && b.role === 'main_admin') return 1;
+          return 0;
+        });
+        setAdmins(adminList);
+      }
+      
+      const { data: sellerData } = await (supabase as any).from("seller_profiles").select("*").eq("is_active", true);
+      setSellers((sellerData || []).filter((s: any) => s.user_id !== user?.id));
+
+      if (isAdmin) {
+        const { data: allProfiles } = await (supabase as any).from("profiles").select("*").order("first_name");
+        const sellerUserIds = (sellerData || []).map((s: any) => s.user_id);
+        const allAdminIds = [...adminUserIds, user.id];
+        const customerList = (allProfiles || []).filter(
+          (p: any) => !allAdminIds.includes(p.user_id) && !sellerUserIds.includes(p.user_id)
+        );
+        setCustomers(customerList);
+      }
+
+      setLoading(false);
+    };
+    loadContacts();
+  }, [user, isAdmin]);
+
+  const filteredCustomers = customers.filter((c) =>
+    !customerSearch ||
+    `${c.first_name} ${c.last_name}`.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    c.email.toLowerCase().includes(customerSearch.toLowerCase()) ||
+    (c.section || "").toLowerCase().includes(customerSearch.toLowerCase())
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div ref={ref} className="space-y-4">
+      <div>
+        <p className="font-bold text-xs text-muted-foreground uppercase mb-2">📞 BizMart Support</p>
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          {admins.length > 0 ? admins.map((a) => (
+            <button key={a.user_id} onClick={() => onStartChat(a.user_id)}
+              className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border last:border-b-0">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                a.role === 'main_admin' 
+                  ? 'bg-gradient-to-br from-destructive/20 to-primary/20' 
+                  : 'bg-primary/20'
+              }`}>
+                <Shield className="h-5 w-5 text-primary" />
+              </div>
+              <div className="text-left flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-xs text-foreground">{a.first_name} {a.last_name}</span>
+                  <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${
+                    a.role === 'main_admin' ? 'bg-destructive/15 text-destructive' : 'bg-primary/15 text-primary'
+                  }`}>
+                    {a.role === 'main_admin' ? '👑 Main Admin' : '🛡️ Member Admin'}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">{a.email}</p>
+              </div>
+              <MessageCircle className="h-4 w-4 text-primary" />
+            </button>
+          )) : (
+            <div className="p-4 text-center">
+              <p className="text-xs text-muted-foreground">No admin contacts available yet</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {sellers.length > 0 && (
+        <div>
+          <p className="font-bold text-xs text-muted-foreground uppercase mb-2">🏪 Sellers</p>
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
+            {sellers.map((s) => (
+              <button key={s.user_id} onClick={() => onStartChat(s.user_id)}
+                className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border last:border-b-0">
+                <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center overflow-hidden">
+                  {s.store_image ? <img src={s.store_image} alt="" className="w-full h-full object-cover" /> :
+                    <Store className="h-5 w-5 text-primary" />}
+                </div>
+                <div className="text-left flex-1">
+                  <span className="font-bold text-xs text-foreground">{s.store_name || "Store"}</span>
+                  {s.store_saying && <p className="text-[10px] text-muted-foreground italic">"{s.store_saying}"</p>}
+                </div>
+                <MessageCircle className="h-4 w-4 text-muted-foreground" />
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {isAdmin && customers.length > 0 && (
+        <div>
+          <p className="font-bold text-xs text-muted-foreground uppercase mb-2">👥 Customers ({customers.length})</p>
+          <div className="relative mb-2">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              placeholder="Search students by name, email, section..."
+              className="pl-8 text-xs h-8 rounded-xl"
+            />
+          </div>
+          <div className="bg-card rounded-xl border border-border overflow-hidden max-h-72 overflow-y-auto">
+            {filteredCustomers.slice(0, 50).map((c) => (
+              <button key={c.user_id} onClick={() => onStartChat(c.user_id)}
+                className="w-full flex items-center gap-3 p-3 hover:bg-muted/50 transition-colors border-b border-border last:border-b-0">
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                  {c.avatar_url ? (
+                    <img src={c.avatar_url} alt="" className="w-full h-full object-cover rounded-full" />
+                  ) : (
+                    <User className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="text-left flex-1 min-w-0">
+                  <span className="font-bold text-xs text-foreground">{c.first_name} {c.last_name}</span>
+                  <p className="text-[10px] text-muted-foreground truncate">{c.email}</p>
+                  <p className="text-[9px] text-muted-foreground">{c.grade_level} • {c.section}</p>
+                </div>
+                <MessageCircle className="h-4 w-4 text-primary" />
+              </button>
+            ))}
+            {filteredCustomers.length === 0 && (
+              <p className="text-center text-[10px] text-muted-foreground py-4">No students found</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+});
 
 async function getConvInfo(conv: any, myId: string): Promise<ConversationWithInfo> {
   const otherId = conv.participant_1 === myId ? conv.participant_2 : conv.participant_1;
