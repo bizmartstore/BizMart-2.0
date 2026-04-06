@@ -184,6 +184,7 @@ export default function BCoinsPage() {
   const [selectedRedeem, setSelectedRedeem] = useState<number | null>(null);
   const [gcashNumber, setGcashNumber] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [activeSection, setActiveSection] = useState<string | null>(null);
   
   // Daily Login State
   const [dailyLogin, setDailyLogin] = useState<DailyLoginState>({
@@ -465,7 +466,7 @@ export default function BCoinsPage() {
           <p className="text-xs text-muted-foreground mt-1">BCoins</p>
         </div>
 
-        <BCoinsFeatures />
+        <BCoinsFeatures activeSection={activeSection} onSectionChange={setActiveSection} />
 
         <div className="mt-5">
           <DailyLoginCard 
@@ -476,6 +477,7 @@ export default function BCoinsPage() {
           />
         </div>
 
+        {activeSection === 'store' && (
         <div className="mt-5 bg-card rounded-2xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center shadow-md">
@@ -520,10 +522,13 @@ export default function BCoinsPage() {
             </div>
           )}
         </div>
+        )}
 
+        {activeSection === 'games' && (
         <div className="mt-5">
           <EdGamesSection />
         </div>
+        )}
 
         <div className="mt-5">
           <h3 className="font-bold text-sm mb-3">Transaction History</h3>
