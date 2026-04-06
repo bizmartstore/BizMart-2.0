@@ -1,1 +1,3 @@
-<Route path="/admin" element={<AdminDashboard />} />
+<Routes>
+  <Route path="/admin/*" element={<AdminDashboard />} />
+</Routes>
