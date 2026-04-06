@@ -4,12 +4,12 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/context/AuthContext";
 
 /**
- * Redirects authenticated admin users to /admin if they land on customer pages.
- * Only evaluates after isAuthReady is true to prevent race conditions.
+ * Redirects authenticated admin and guidance users to their respective dashboards 
+ * if they land on customer pages.
  */
 export default function AdminAutoRedirect() {
   const { user, isAuthReady } = useAuth();
-  const { isAdmin } = useAdmin();
+  const { isAdmin, isGuidance } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -19,20 +19,25 @@ export default function AdminAutoRedirect() {
       return;
     }
 
-    // If not an admin, do nothing
-    if (!user || !isAdmin) {
+    // If not an admin or guidance, do nothing
+    if (!user || (!isAdmin && !isGuidance)) {
       return;
     }
 
-    // Only redirect from customer-facing pages, not from admin or auth pages
-    const adminPaths = ["/admin", "/login", "/signup"];
-    if (adminPaths.some((p) => location.pathname.startsWith(p))) {
+    // Only redirect from customer-facing pages, not from admin, guidance, or auth pages
+    const protectedPaths = ["/admin", "/guidance", "/login", "/signup"];
+    if (protectedPaths.some((p) => location.pathname.startsWith(p))) {
       return;
     }
 
-    console.log('[AdminAutoRedirect] Redirecting admin to /admin');
-    navigate("/admin", { replace: true });
-  }, [user, isAdmin, isAuthReady, location.pathname, navigate]);
+    if (isAdmin) {
+      console.log('[AdminAutoRedirect] Redirecting admin to /admin');
+      navigate("/admin", { replace: true });
+    } else if (isGuidance) {
+      console.log('[AdminAutoRedirect] Redirecting guidance to /guidance');
+      navigate("/guidance", { replace: true });
+    }
+  }, [user, isAdmin, isGuidance, isAuthReady, location.pathname, navigate]);
 
   return null;
 }

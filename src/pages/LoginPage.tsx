@@ -60,7 +60,7 @@ export default function LoginPage() {
     } else {
       toast({ title: "Welcome back! 🎉" });
       if (data.user) {
-        // Check user role from database (no hardcoded email checks)
+        // Check user role from database
         const { data: roleRecord } = await (supabase as any)
           .from("user_roles")
           .select("role")
@@ -69,6 +69,9 @@ export default function LoginPage() {
           
         if (roleRecord?.role === 'main_admin' || roleRecord?.role === 'member_admin') {
           navigate("/admin");
+          return;
+        } else if (roleRecord?.role === 'guidance') {
+          navigate("/guidance");
           return;
         }
       }
