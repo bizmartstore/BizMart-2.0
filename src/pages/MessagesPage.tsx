@@ -1,7 +1,3 @@
-...
-＜/dyad-write>
-Done. 
-<dyad-chat-summary>Fixed TypeScript scope error for real-time channel cleanup</dyad-chat-summary></think><dyad-write path="src/pages/MessagesPage.tsx">
 import { useState, useEffect, useRef, forwardRef } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -12,7 +8,6 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, ArrowLeft, Send, Store, Shield, Check, CheckCheck, User, Search } from "lucide-react";
-import { toast } from "sonner";
 
 /* ─── Conversation List ─── */
 function ConversationList({ onSelect }: { onSelect: (conv: any) => void }) {
@@ -31,6 +26,7 @@ function ConversationList({ onSelect }: { onSelect: (conv: any) => void }) {
       .order("last_message_at", { ascending: false });
     setConversations(convos || []);
 
+    // Fetch profiles for other participants
     const otherIds = (convos || []).map((c: any) =>
       c.participant_1 === user.id ? c.participant_2 : c.participant_1
     );
@@ -118,104 +114,79 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [cooldown, setCooldown] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const load = async () => {
+    const { data } = await (supabase as any)
+      .from("messages")
+      .select("*")
+      .eq("conversation_id", conversation.id)
+      .order("created_at", { ascending: true })
+      .limit(100);
+    setMessages(data || []);
+
+    // Mark as read
+    if (user) {
+      await (supabase as any)
+        .from("messages")
+        .update({ is_read: true })
+        .eq("conversation_id", conversation.id)
+        .neq("sender_id", user.id)
+        .eq("is_read", false);
+    }
+  };
+
+  useEffect(() => { load(); }, [conversation.id]);
+
   useEffect(() => {
-    if (!conversation) return;
-    
-    let isMounted = true;
-    let ch: any = null;
-
-    const loadAndSubscribe = async () => {
-      ch = supabase.channel(`chat-${conversation.id}`)
-        .on("postgres_changes", { 
-          event: "INSERT", 
-          schema: "public", 
-          table: "messages",
-          filter: `conversation_id=eq.${conversation.id}` 
-        }, (payload: any) => {
-          if (!isMounted) return;
-          setMessages(prev => {
-            if (prev.some(msg => msg.id === payload.new.id)) return prev;
-            return [...prev, payload.new];
-          });
-        })
-        .subscribe();
-
-      try {
-        const { data } = await (supabase as any).from("messages").select("*")
-          .eq("conversation_id", conversation.id).order("created_at", { ascending: true }).limit(200);
-        
-        if (isMounted) {
-          setMessages(data || []);
+    const channel = supabase.channel(`chat-${conversation.id}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages",
+        filter: `conversation_id=eq.${conversation.id}` }, (payload: any) => {
+        setMessages(prev => [...prev, payload.new]);
+        // Mark incoming as read
+        if (user && payload.new.sender_id !== user.id) {
+          (supabase as any).from("messages").update({ is_read: true }).eq("id", payload.new.id);
         }
-      } catch (error) {
-        console.error("Failed to load messages:", error);
-      }
-    };
-
-    loadAndSubscribe();
-
-    return () => {
-      isMounted = false;
-      if (ch) supabase.removeChannel(ch);
-    };
-  }, [conversation?.id, user]);
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [conversation.id, user]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
-  const sendMessage = async () => {
-    if (!input.trim() || !user || !conversation || sending || cooldown) return;
-    
+  const send = async () => {
+    if (!input.trim() || !user) return;
     setSending(true);
     const content = input.trim();
     setInput("");
-    
-    try {
-      const { data, error } = await (supabase as any).from("messages").insert({
-        conversation_id: conversation.id,
-        sender_id: user.id,
-        content,
-      }).select().single();
+    await (supabase as any).from("messages").insert({
+      conversation_id: conversation.id,
+      sender_id: user.id,
+      content,
+    });
+    await (supabase as any).from("conversations").update({
+      last_message: content,
+      last_message_at: new Date().toISOString(),
+    }).eq("id", conversation.id);
 
-      if (error) throw error;
+    // Send push notification to the other participant
+    const recipientId = conversation.participant_1 === user.id ? conversation.participant_2 : conversation.participant_1;
+    const { notifyNewMessage } = await import("@/lib/notifications");
+    const senderName = profile ? `${profile.first_name} ${profile.last_name}` : "Someone";
+    notifyNewMessage(recipientId, senderName, content);
 
-      setMessages(prev => {
-        if (prev.some(msg => msg.id === data.id)) return prev;
-        return [...prev, data];
-      });
-
-      await (supabase as any).from("conversations").update({
-        last_message: content,
-        last_message_at: new Date().toISOString(),
-      }).eq("id", conversation.id);
-      
-      const recipientId = conversation.participant_1 === user.id ? conversation.participant_2 : conversation.participant_1;
-      const { notifyNewMessage } = await import("@/lib/notifications");
-      const senderName = profile ? `${profile.first_name} ${profile.last_name}` : "Someone";
-      notifyNewMessage(recipientId, senderName, content);
-      
-      setCooldown(true);
-      setTimeout(() => setCooldown(false), 10000);
-      
-    } catch (e: any) {
-      console.error("Failed to send message:", e);
-      toast.error("Failed to send message");
-      setInput(content);
-    } finally {
-      setSending(false);
-    }
+    setSending(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-128px)]">
+      {/* Header */}
       <div className="flex items-center gap-3 px-3 py-2.5 border-b border-border bg-card">
         <button onClick={onBack} className="p-1"><ArrowLeft className="h-5 w-5 text-foreground" /></button>
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent flex items-center justify-center">
@@ -233,6 +204,7 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
         </div>
       </div>
 
+      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-3 py-3 space-y-2">
         {messages.map((msg) => {
           const isMine = msg.sender_id === user?.id;
@@ -260,6 +232,7 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
         })}
       </div>
 
+      {/* Input */}
       <div className="px-3 py-2 border-t border-border bg-card flex items-center gap-2">
         <Input
           value={input}
@@ -267,22 +240,11 @@ function ChatView({ conversation, onBack }: { conversation: any; onBack: () => v
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           className="flex-1 text-sm rounded-full"
-          disabled={cooldown}
         />
-        <Button 
-          onClick={sendMessage} 
-          disabled={!input.trim() || sending || cooldown} 
-          size="sm" 
-          className="rounded-full h-9 w-9 p-0"
-        >
-          {sending ? <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin" /> : <Send className="h-4 w-4" />}
+        <Button onClick={send} disabled={!input.trim() || sending} size="sm" className="rounded-full h-9 w-9 p-0">
+          <Send className="h-4 w-4" />
         </Button>
       </div>
-      {cooldown && (
-        <div className="px-3 py-1 text-center text-[10px] text-muted-foreground bg-muted/30">
-          Please wait 10 seconds before sending another message...
-        </div>
-      )}
     </div>
   );
 }
@@ -321,6 +283,7 @@ const NewChatPanel = forwardRef<HTMLDivElement, { onStartChat: (userId: string) 
       const { data: sellerData } = await (supabase as any).from("seller_profiles").select("*").eq("is_active", true);
       setSellers((sellerData || []).filter((s: any) => s.user_id !== user?.id));
 
+      // If admin, load all customer profiles
       if (isAdmin) {
         const { data: allProfiles } = await (supabase as any).from("profiles").select("*").order("first_name");
         const sellerUserIds = (sellerData || []).map((s: any) => s.user_id);
@@ -409,6 +372,7 @@ const NewChatPanel = forwardRef<HTMLDivElement, { onStartChat: (userId: string) 
         </div>
       )}
 
+      {/* Customers - only visible to admins */}
       {isAdmin && customers.length > 0 && (
         <div>
           <p className="font-bold text-xs text-muted-foreground uppercase mb-2">👥 Customers ({customers.length})</p>
@@ -459,6 +423,7 @@ export default function MessagesPage() {
 
   const startChat = async (otherUserId: string) => {
     if (!user) return;
+    // Check if conversation exists
     const { data: existing } = await (supabase as any)
       .from("conversations")
       .select("*")
@@ -466,6 +431,7 @@ export default function MessagesPage() {
       .maybeSingle();
 
     if (existing) {
+      // Fetch name info for header
       const info = await getConvInfo(existing, user.id);
       setActiveConv({ ...existing, ...info });
       setShowNewChat(false);
