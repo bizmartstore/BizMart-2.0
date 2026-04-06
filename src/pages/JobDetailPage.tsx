@@ -111,21 +111,18 @@ export default function JobDetailPage() {
       }
     )
 
-    // =========================
-    // JOB BIDS (REAL-TIME FIXED)
-    // =========================
     .on(
-      "postgres_changes",
-      {
-        event: "INSERT",
-        schema: "public",
-        table: "job_bids",
-        filter: `job_id=eq.${id}`,
-      },
-      (payload: any) => {
-        setBids((prev) => [payload.new, ...prev]);
-      }
-    )
+  "postgres_changes",
+  {
+    event: "INSERT",
+    schema: "public",
+    table: "job_bids",
+    filter: `job_id=eq.${id}`,
+  },
+  async () => {
+    await loadJobData();
+  }
+)
     .on(
       "postgres_changes",
       {
