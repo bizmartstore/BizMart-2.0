@@ -44,12 +44,6 @@ const REDEEM_OPTIONS = [
   { gcash: 500, bcoins: 5000 },
 ];
 
-const statusIcon = {
-  pending: <Clock className="h-4 w-4 text-warning" />,
-  completed: <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />,
-  rejected: <XCircle className="h-4 w-4 text-destructive" />,
-};
-
 // Sample educational games (future-ready, not clickable yet)
 const SAMPLE_GAMES = [
   {
@@ -224,7 +218,7 @@ export default function BCoinsPage() {
   // Compute weekly stats for daily login
   const weeklyStats = useMemo(() => {
     if (loginStreak.length === 0) {
-      return { totalEarned: 0, daysClaimed: 0, maxDays: 7, maxBCoins: 4, hasClaimedToday: false, todayReward: 0.5 };
+      return { totalEarned: 0, daysClaimed: 0, maxDays: 7, maxBCoins: 4, hasClaimedToday: false, todayReward: 0.5, weekClaims: [] };
     }
 
     const now = new Date();
@@ -251,6 +245,7 @@ export default function BCoinsPage() {
     const daysClaimed = weekClaims.length;
     
     // Calculate today's potential reward if not claimed
+    // First 6 claims: 0.5 BCoins each, 7th claim: 1 BCoin (total max 4)
     let todayReward = 0.5;
     if (weekClaimsExcludingToday.length >= 6) {
       todayReward = 1;
