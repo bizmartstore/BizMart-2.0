@@ -4,42 +4,35 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/context/AuthContext";
 
 /**
- * Redirects authenticated admin and guidance users to their respective dashboards 
- * if they land on customer pages.
+ * Redirects authenticated admin users to /admin if they land on customer pages.
+ * Only evaluates after isAuthReady is true to prevent race conditions.
  */
 export default function AdminAutoRedirect() {
-  const { user, isAuthReady, profile } = useAuth();
-  const { isAdmin, isGuidance } = useAdmin();
+  const { user, isAuthReady } = useAuth();
+  const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
     // Block until auth and profile are fully resolved
-    if (!isAuthReady || !profile) {
+    if (!isAuthReady) {
       return;
     }
 
-    // If not an admin or guidance, do nothing
-    if (!user || (!isAdmin && !isGuidance)) {
+    // If not an admin, do nothing
+    if (!user || !isAdmin) {
       return;
     }
 
-    // Only redirect from customer-facing pages
-    const protectedPaths = ["/admin", "/guidance", "/login", "/signup"];
-    const isOnProtectedPath = protectedPaths.some((p) => location.pathname.startsWith(p));
-
-    if (isOnProtectedPath) {
+    // Only redirect from customer-facing pages, not from admin or auth pages
+    const adminPaths = ["/admin", "/login", "/signup"];
+    if (adminPaths.some((p) => location.pathname.startsWith(p))) {
       return;
     }
 
-    if (isAdmin) {
-      console.log('[AdminAutoRedirect] Admin detected, redirecting to /admin');
-      navigate("/admin", { replace: true });
-    } else if (isGuidance) {
-      console.log('[AdminAutoRedirect] Guidance detected, redirecting to /guidance');
-      navigate("/guidance", { replace: true });
-    }
-  }, [user, isAdmin, isGuidance, isAuthReady, profile, location.pathname, navigate]);
+    console.log('[AdminAutoRedirect] Redirecting admin to /admin');
+    navigate("/admin", { replace: true });
+  }, [user, isAdmin, isAuthReady, location.pathname, navigate]);
 
   return null;
 }

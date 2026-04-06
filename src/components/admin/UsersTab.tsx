@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Search, Shield, Crown, User, AlertCircle, HeartHandshake } from "lucide-react";
+import { Search, Shield, Crown, User, AlertCircle } from "lucide-react";
 
 export default function UsersTab() {
   const [users, setUsers] = useState<any[]>([]);
@@ -74,7 +74,6 @@ export default function UsersTab() {
   const roleIcon = (role: string) => {
     if (role === "main_admin") return <Crown className="h-3 w-3 text-destructive" />;
     if (role === "member_admin") return <Shield className="h-3 w-3 text-primary" />;
-    if (role === "guidance") return <HeartHandshake className="h-3 w-3 text-blue-600" />;
     return <User className="h-3 w-3 text-muted-foreground" />;
   };
 
@@ -120,7 +119,6 @@ export default function UsersTab() {
                   <SelectItem value="customer">Customer</SelectItem>
                   <SelectItem value="member_admin">Member Admin</SelectItem>
                   <SelectItem value="main_admin">Main Admin</SelectItem>
-                  <SelectItem value="guidance">Guidance</SelectItem>
                 </SelectContent>
               </Select>
             </div>
