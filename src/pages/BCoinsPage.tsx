@@ -6,7 +6,7 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle } from "lucide-react";
+import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
 import { notifyAdminRedemption } from "@/lib/notifications";
 
 // Robust retry wrapper with exponential backoff for lock conflicts
@@ -53,6 +53,7 @@ export default function BCoinsPage() {
   const [selectedRedeem, setSelectedRedeem] = useState<number | null>(null);
   const [gcashNumber, setGcashNumber] = useState("");
   const [redeeming, setRedeeming] = useState(false);
+  const [showAllTransactions, setShowAllTransactions] = useState(false);
 
   const loadData = async () => {
     if (!user) return;
@@ -60,7 +61,7 @@ export default function BCoinsPage() {
     try {
       const { data: w } = await (supabase as any).from("bcoins_wallets").select("*").eq("user_id", user.id).maybeSingle();
       setWallet(w);
-      const { data: t } = await (supabase as any).from("bcoins_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
+      const { data: t } = await (supabase as any).from("bcoins_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
       setTransactions(t || []);
     } catch (e) {
       console.error(e);
@@ -160,6 +161,10 @@ export default function BCoinsPage() {
     );
   }
 
+  // Show only first 3 transactions when not expanded
+  const displayedTransactions = showAllTransactions ? transactions : transactions.slice(0, 3);
+  const hasMoreTransactions = transactions.length > 3;
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
@@ -219,7 +224,24 @@ export default function BCoinsPage() {
 
         {/* Transaction History */}
         <div>
-          <h3 className="font-bold text-sm mb-3">Transaction History</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-sm">Transaction History</h3>
+            {transactions.length > 3 && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => setShowAllTransactions(!showAllTransactions)}
+                className="h-8 text-xs gap-1"
+              >
+                {showAllTransactions ? (
+                  <>Show Less <ChevronUp className="h-3 w-3" /></>
+                ) : (
+                  <>See More <ChevronDown className="h-3 w-3" /></>
+                )}
+              </Button>
+            )}
+          </div>
+          
           {loading ? (
             <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
           ) : transactions.length === 0 ? (
@@ -229,28 +251,33 @@ export default function BCoinsPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {transactions.map((tx) => (
-                <div key={tx.id} className="bg-card rounded-xl p-3 border border-border flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                      tx.amount > 0 ? "bg-[hsl(var(--success))]/10" : "bg-destructive/10"
-                    }`}>
+              {displayedTransactions.map((tx) => (
+                <div key={tx.id} className="bg-card rounded-xl p-3 border border-border">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
                       {tx.amount > 0 ? (
-                        <ArrowDownCircle className="h-4 w-4 text-[hsl(var(--success))]" />
+                        <ArrowDownCircle className="h-5 w-5 text-[hsl(var(--success))]" />
                       ) : (
-                        <ArrowUpCircle className="h-4 w-4 text-destructive" />
+                        <ArrowUpCircle className="h-5 w-5 text-destructive" />
                       )}
+                      <div>
+                        <p className="font-bold text-xs capitalize">
+                          {tx.type.replace("_", " ")}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {tx.description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-foreground capitalize">{tx.type.replace("_", " ")}</p>
-                      <p className="text-[10px] text-muted-foreground">{tx.description}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className={`text-sm font-bold ${tx.amount > 0 ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      tx.amount > 0 ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : 'bg-destructive/20 text-destructive'
+                    }`}>
                       {tx.amount > 0 ? "+" : ""}{Number(tx.amount).toFixed(1)}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground">{new Date(tx.created_at).toLocaleDateString()}</p>
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                    <span>{new Date(tx.created_at).toLocaleDateString()}</span>
+                    <span>{new Date(tx.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
                   </div>
                 </div>
               ))}
