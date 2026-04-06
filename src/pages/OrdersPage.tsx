@@ -7,9 +7,11 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Package, Printer, Clock, CheckCircle2, XCircle, Truck, AlertCircle } from "lucide-react";
 import OrderReceipt from "@/components/OrderReceipt";
+import { useToast } from "@/hooks/use-toast";
 
 export default function OrdersPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<any[]>([]);
   const [printOrders, setPrintOrders] = useState<any[]>([]);
@@ -79,6 +81,17 @@ export default function OrdersPage() {
     }
   };
 
+  const handleOrderClick = (order: any) => {
+    if (order.status === 'completed') {
+      setSelectedOrder(order);
+    } else {
+      toast({
+        title: "Receipt Unavailable",
+        description: "The official receipt is only available once the order is completed.",
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
@@ -95,7 +108,11 @@ export default function OrdersPage() {
         ) : (
           <div className="space-y-3">
             {allOrders.map(order => (
-              <div key={order.id} onClick={() => setSelectedOrder(order)} className="bg-card rounded-xl p-3 border border-border active:scale-[0.98] transition-all cursor-pointer">
+              <div 
+                key={order.id} 
+                onClick={() => handleOrderClick(order)} 
+                className={`bg-card rounded-xl p-3 border border-border active:scale-[0.98] transition-all ${order.status === 'completed' ? 'cursor-pointer' : 'cursor-default opacity-90'}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     {order.type === 'print' ? <Printer className="h-4 w-4 text-purple-500" /> : <Package className="h-4 w-4 text-primary" />}
@@ -110,7 +127,12 @@ export default function OrdersPage() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] text-muted-foreground">{new Date(order.created_at).toLocaleDateString()}</span>
-                  <span className="text-sm font-extrabold text-primary">₱{Number(order.total || order.cost || 0).toFixed(2)}</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm font-extrabold text-primary">₱{Number(order.total || order.cost || 0).toFixed(2)}</span>
+                    {order.status === 'completed' && (
+                      <span className="text-[8px] font-bold text-[hsl(var(--success))] uppercase tracking-tighter">Tap to view receipt</span>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
