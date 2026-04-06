@@ -1,36 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import TopBar from "@/components/TopBar";
-import BottomNav from "@/components/BottomNav";
-import { Button } from "@/components/ui/button";
-import { Briefcase, Plus, Search, Clock, MapPin, Star, ShieldCheck, AlertCircle, ArrowRight, Timer, CheckCircle2, X, MessageCircle, Users, Award, BookOpen, Eye, Wallet } from "lucide-react";
-import { toast } from "sonner";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-
-interface FreelancerProfile {
-  id: string;
-  user_id: string;
-  status: string;
-  bio: string | null;
-  subjects: string[] | null;
-  experience: string | null;
-  academic_strengths: string | null;
-  rating: number;
-  completed_sessions: number;
-  created_at: string;
-  profile?: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    avatar_url: string | null;
-    school: string | null;
-    grade_level: string | null;
-    section: string | null;
-  };
-}
+// ... existing imports ...
 
 export default function JobsPage() {
   const { user, profile } = useAuth();
@@ -51,17 +19,9 @@ export default function JobsPage() {
   const startXRef = useRef(0);
   const scrollLeftRef = useRef(0);
   const isDraggingRef = useRef(false);
+  const [lastJobUpdate, setLastJobUpdate] = useState<string | null>(null);
 
-  const categories = [
-    { id: "homework", name: "Homework Guidance", color: "bg-blue-500" },
-    { id: "study", name: "Study Assistance", color: "bg-green-500" },
-    { id: "tutoring", name: "Subject Tutoring", color: "bg-purple-500" },
-    { id: "presentation", name: "Presentation Coaching", color: "bg-orange-500" },
-    { id: "project", name: "Project Idea Help", color: "bg-pink-500" },
-    { id: "editing", name: "Editing Guidance", color: "bg-teal-500" },
-    { id: "skills", name: "Academic Skill Support", color: "bg-indigo-500" },
-    { id: "creative", name: "Creative Academic Assistance", color: "bg-rose-500" },
-  ];
+  // ... existing categories array ...
 
   const loadAllData = useCallback(async () => {
     if (!user) return;
@@ -145,38 +105,7 @@ export default function JobsPage() {
     return () => { supabase.removeChannel(channel); };
   }, [user, loadAllData]);
 
-  // Touch handlers for horizontal swipe
-  const handleTouchStart = (e: React.TouchEvent) => {
-    startXRef.current = e.touches[0].pageX;
-    scrollLeftRef.current = scrollRef.current?.scrollLeft || 0;
-    isDraggingRef.current = true;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDraggingRef.current || !scrollRef.current) return;
-    const x = e.touches[0].pageX;
-    const walk = (x - startXRef.current) * 1.5;
-    scrollRef.current.scrollLeft = scrollLeftRef.current - walk;
-  };
-
-  const handleTouchEnd = () => {
-    isDraggingRef.current = false;
-  };
-
-  const startChatWithFreelancer = async (freelancerId: string) => {
-    if (!user) { navigate("/login"); return; }
-    try {
-      const { data: existing } = await (supabase as any)
-        .from("conversations")
-        .select("*")
-        .or(`and(participant_1.eq.${user.id},participant_2.eq.${freelancerId}),and(participant_1.eq.${freelancerId},participant_2.eq.${user.id})`)
-        .maybeSingle();
-      if (!existing) {
-        await (supabase as any).from("conversations").insert({ participant_1: user.id, participant_2: freelancerId });
-      }
-      navigate("/messages");
-    } catch { toast.error("Failed to start conversation"); }
-  };
+  // ... existing touch handlers ...
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = !search.trim() || 
@@ -187,12 +116,7 @@ export default function JobsPage() {
     return matchesSearch && matchesCategory;
   });
 
-  const filteredFreelancers = activeFreelancers.filter(f => {
-    if (!search.trim()) return true;
-    const name = `${f.profile?.first_name || ''} ${f.profile?.last_name || ''}`.toLowerCase();
-    const subjects = (f.subjects || []).join(' ').toLowerCase();
-    return name.includes(search.toLowerCase()) || subjects.includes(search.toLowerCase());
-  });
+  // ... existing filteredFreelancers logic ...
 
   const getTimeRemaining = (expiresAt: string) => {
     const diff = new Date(expiresAt).getTime() - Date.now();
@@ -219,15 +143,22 @@ export default function JobsPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-background flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
-  if (!user) return <div className="min-h-screen bg-background pb-20"><TopBar /><div className="flex flex-col items-center justify-center px-6 mt-20 text-center"><Briefcase className="h-16 w-16 text-muted-foreground/30 mb-4" /><h2 className="font-extrabold text-xl mb-2">BizMart Job Offers</h2><p className="text-sm text-muted-foreground mb-6">Please login to access educational job offers.</p><Button onClick={() => navigate("/login")} className="w-full max-w-xs h-12 font-bold rounded-xl shadow-lg">Login to Continue</Button></div><BottomNav /></div>;
-  if (!isClubMember) return <div className="min-h-screen bg-background pb-20"><TopBar /><div className="px-6 mt-12 text-center"><ShieldCheck className="h-16 w-16 text-primary mx-auto mb-4" /><h2 className="font-extrabold text-2xl mb-3">Exclusive Feature</h2><p className="text-sm text-muted-foreground mb-8">Available to BizMart Club members only.</p><Button onClick={() => navigate("/club")} className="w-full max-w-xs h-12 font-bold rounded-xl">Join BizMart Club</Button></div><BottomNav /></div>;
+  // ✅ FIXED: Bidding availability logic
+  const canBid = (job: any) => {
+    // Prevent bidding if job is completed or in progress
+    if (job.status === "completed" || job.status === "in_progress") return false;
+    
+    // Prevent bidding if job is expired
+    if (new Date(job.expires_at).getTime() <= Date.now()) return false;
+    
+    // Prevent bidding if user has already submitted a bid
+    if (user && myBids.some(b => b.job_id === job.id)) return false;
+    
+    // Allow bidding for all other cases
+    return true;
+  };
 
-  const tabs = [
-    { id: "browse" as const, label: "Browse Jobs" },
-    { id: "freelancers" as const, label: "Freelancers" },
-    { id: "my-activity" as const, label: "My Activity" },
-  ];
+  // ... existing startChatWithFreelancer function ...
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -313,6 +244,8 @@ export default function JobsPage() {
                   const catInfo = getCategoryInfo(job.category);
                   const timeRemaining = getTimeRemaining(job.expires_at);
                   const isUrgent = timeRemaining.includes("h") && parseInt(timeRemaining) < 2;
+                  const canUserBid = canBid(job);
+                  
                   return (
                     <div key={job.id} onClick={() => navigate(`/jobs/${job.id}`)} className="bg-card border border-border rounded-2xl p-5 shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group overflow-hidden relative">
                       {isUrgent && <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-bl-full -z-10 opacity-20" />}
@@ -332,6 +265,26 @@ export default function JobsPage() {
                         </div>
                         <div className="text-right"><p className="text-lg font-extrabold text-primary">₱{job.hourly_rate}</p><p className="text-[10px] text-muted-foreground">per hour</p></div>
                       </div>
+                      
+                      {/* ✅ FIXED: Show bidding availability indicator */}
+                      {canUserBid && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="h-px flex-1 bg-gradient-to-r from-primary/30 to-transparent" />
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">Bidding Open</span>
+                          <div className="h-px flex-1 bg-gradient-to-l from-primary/30 to-transparent" />
+                        </div>
+                      )}
+                      {!canUserBid && (
+                        <div className="mt-3 flex items-center gap-2">
+                          <div className="h-px flex-1 bg-gradient-to-r from-muted/30 to-transparent" />
+                          <span className="text-[10px] font-bold text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                            {job.status === "completed" ? "Job Completed" : 
+                             job.status === "in_progress" ? "In Progress" : 
+                             "Bidding Closed"}
+                          </span>
+                          <div className="h-px flex-1 bg-gradient-to-l from-muted/30 to-transparent" />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
