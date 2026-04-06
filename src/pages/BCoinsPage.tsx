@@ -452,7 +452,6 @@ export default function BCoinsPage() {
   const features = [
     { id: "store" as ActiveSection, label: "BCoins Store", bg: "bg-gradient-to-br from-emerald-500 to-teal-500", emoji: "🎁" },
     { id: "games" as ActiveSection, label: "Ed-Games", bg: "bg-gradient-to-br from-purple-500 to-pink-500", emoji: "🎮" },
-    { id: "daily" as ActiveSection, label: "Daily Login", bg: "bg-gradient-to-br from-orange-500 to-amber-400", emoji: "📅" },
     { id: "history" as ActiveSection, label: "History", bg: "bg-gradient-to-br from-indigo-500 to-violet-500", emoji: "📊" },
   ];
 
