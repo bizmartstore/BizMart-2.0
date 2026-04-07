@@ -5,7 +5,7 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Upload, FileText, Loader2, AlertCircle, Download, Trash2 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import "pdfjs-dist/build/pdf.worker.entry";
@@ -94,7 +94,7 @@ export default function PrintServicePage() {
   const togglePageColor = (pageNum: number) => {
     setPages(prev => prev.map(p => {
       if (p.num === pageNum) {
-        return { ...p, bw: !p.bw, color: !p.bw };
+        return { ...p, bw: !p.bw, color: !p.color };
       }
       return p;
     }));
@@ -247,8 +247,7 @@ export default function PrintServicePage() {
               </div>
               <div>
                 <label className="text-xs font-bold">Delivery</label>
-                <select
-                  value={deliveryType}
+                <select                  value={deliveryType}
                   onChange={(e) => setDeliveryType(e.target.value as "pickup" | "delivery")}
                   className="w-full text-sm h-9 rounded-md border border-input bg-background px-3 py-2"
                 >
@@ -256,14 +255,32 @@ export default function PrintServicePage() {
                   <option value="delivery">Delivery (+₱10)</option>
                 </select>
               </div>
+              <div className="mb-4">
+                <label className="text-xs font-bold">Pickup Date</label>
+                <Input
+                  type="date"
+                  value={pickupDate}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                  min={new Date().toISOString().split("T")[0]}
+                  className="text-sm"
+                />
+              </div>
+              <div className="mb-4">
+                <label className="text-xs font-bold">Pickup Time</label>
+                <Input
+                  type="time"
+                  value={pickupTime}
+                  onChange={(e) => setPickupTime(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
             </div>
 
             {deliveryType === "pickup" ? (
               <>
                 <div className="mb-3">
                   <label className="text-xs font-bold">Pickup Date</label>
-                  <Input
-                    type="date"
+                  <Input                    type="date"
                     value={pickupDate}
                     onChange={(e) => setPickupDate(e.target.value)}
                     min={new Date().toISOString().split("T")[0]}
@@ -283,7 +300,7 @@ export default function PrintServicePage() {
             ) : (
               <div className="mb-4 p-3 bg-muted/30 rounded-xl">
                 <p className="text-xs text-muted-foreground">Delivery fee: ₱10.00</p>
-                <p className="text-[10px] text-muted-foreground">Pickup will be arranged via chat after approval.</p>
+                <p className="text-[10px] text-muted-foreground">Delivery will be arranged via chat after approval.</p>
               </div>
             )}
 
@@ -296,7 +313,7 @@ export default function PrintServicePage() {
                 <span className="text-xs text-muted-foreground">Color Pages</span>
                 <span className="text-xs font-bold">{pages.filter(p => !p.bw).length} × ₱{pageSize === "short" ? "10" : "15"}</span>
               </div>
-              <div className="border-t border-border pt-2 mt-2 flex justify-between items-center">
+              <div className="border-t border-border pt-2 mt-2 flex justify-between">
                 <span className="text-sm font-bold">Total</span>
                 <span className="text-lg font-extrabold text-primary">₱{calculateCost().toFixed(2)}</span>
               </div>
@@ -328,8 +345,8 @@ export default function PrintServicePage() {
                     <span className={`text-[9px] font-bold px-2 py-1 rounded-full ${
                       order.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                       order.status === 'pending' ? 'bg-warning/20 text-warning' :
-                      order.status === 'approved' ? 'bg-primary/20 text-primary' :
-                      'bg-destructive/20 text-destructive'
+                      order.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                      'bg-primary/20 text-primary'
                     }`}>{order.status}</span>
                   </div>
                   <div className="flex justify-between text-[10px] text-muted-foreground">

@@ -5,7 +5,7 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Smartphone, ArrowDownCircle, ArrowUpCircle, Loader2, AlertCircle } from "lucide-react";
 import { validatePhoneNumber, validateNumber } from "@/lib/validation";
 
@@ -218,11 +218,11 @@ export default function GCashPage() {
                     <p className={`text-sm font-bold ${tx.type === "cash_in" ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
                       {tx.type === "cash_in" ? "+" : "-"}₱{Number(tx.amount).toFixed(2)}
                     </p>
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
                       tx.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                       tx.status === 'pending' ? 'bg-warning/20 text-warning' :
                       'bg-destructive/20 text-destructive'
-                    }`}>{tx.status}</span>
+                    }">{tx.status}</span>
                   </div>
                 </div>
               ))}
