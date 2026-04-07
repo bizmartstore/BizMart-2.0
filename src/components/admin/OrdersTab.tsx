@@ -1,5 +1,4 @@
 export default function OrdersTab() {
-  // ... existing code ...
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  // ... rest of component ...
+  // ... rest of component unchanged
 }
