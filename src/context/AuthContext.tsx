@@ -1,10 +1,9 @@
-"use client";
-
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { messaging, isSupported, VAPID_KEY } from "@/firebase";
-import { getToken as getFcmToken } from "firebase/messaging";
+import { messaging } from "@/firebase";
+import { requestUserPermission } from "@/firebase-messaging";
+import { isSupported } from "firebase/messaging";
 
 export interface Profile {
   id: string;
@@ -94,10 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Get FCM token
-      const token = await getFcmToken(messaging, {
-        vapidKey: VAPID_KEY,
-      });
-
+      const token = await requestUserPermission();
       if (token) {
         console.log("[AuthContext] FCM token obtained:", token.slice(0, 20) + "...");
         await saveFcmToken(userId, token, role);

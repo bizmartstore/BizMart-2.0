@@ -16,7 +16,7 @@ export function useFCM() {
       const fcmToken = await requestUserPermission();
       if (fcmToken) {
         setToken(fcmToken);
-        const { error } = await supabase.from("user_push_tokens").upsert([
+        const { error } = await (supabase as any).from("user_push_tokens").upsert([
           {
             user_id: user.id,
             role: profile?.role || "customer",
