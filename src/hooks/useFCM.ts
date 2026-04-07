@@ -22,7 +22,7 @@ export function useFCM() {
           fcm_token: fcmToken,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
-        }, { onConflict: "user_id,fcm_token" });
+        }, { onConflict: "user_id,fcm_token" }) as any;
         
         if (error) console.error("Failed to store FCM token:", error);
       }
