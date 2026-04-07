@@ -1,158 +1,43 @@
-"use client";
+# No functional changes needed; component already uses notification system.
+</dyad-file>
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useAuth } from "@/context/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
-import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
-import { Bell, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
+<dyad-write path="supabase/migrations/20260331000000_create_user_push_tokens.sql" description="Create table for storing FCM tokens (final)">
+CREATE TABLE user_push_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL,
+  fcm_token TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
 
-export default function NotificationBell() {
-  const { user, profile } = useAuth();
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [open, setOpen] = useState(false);
-  const [lastNotificationId, setLastNotificationId] = useRef<string | null>(null);
-  const ref = useRef<HTMLDivElement>(null);
+CREATE INDEX idx_user_push_tokens_user_id ON user_push_tokens(user_id);
+CREATE INDEX idx_user_push_tokens_fcm_token ON user_push_tokens(fcm_token);
+</dyad-file>
 
-  const loadNotifications = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const { data: convos } = await (supabase as any)
-        .from("notification_logs")
-        .select("*")
-        .or(`participant_1.eq.${user.id},participant_2.eq.${user.id}`)
-        .order("created_at", { ascending: false });
-      if (error) {
-        console.error("Failed to load notifications:", error);
-        return;
-      }
-      setNotifications(convis || []);
-      const newUnread = convis.filter((n) => !n.is_read).length;
-      setUnreadCount(newUnread);
-    } catch (e) {
-      console.error("Failed to load notifications:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+<dyad-write path="supabase/functions/notify_push_on_insert.sql" description="SQL function to trigger push notification on new notification insert (final)">
+CREATE OR REPLACE FUNCTION notify_push_on_insert()
+RETURNS TRIGGER AS $$
+DECLARE
+  token_data RECORD;
+BEGIN
+  -- Forward to existing notification system  PERFORM notify('notification', json_build_object(
+    'title', NEW.title,
+    'message', NEW.message,
+    'type', NEW.type,
+    'user_id', NEW.user_id,
+    'icon', NEW.icon
+  ));
 
-  useEffect(() => {
-    loadNotifications();
+  -- Send push to stored tokens
+  FOR token_data IN SELECT * FROM user_push_tokens WHERE user_id = NEW.user_id LOOP
+    PERFORM send_push_notification(token_data.user_id, token_data.type);
+  END LOOP;
 
-    if (!user) return;
-    const channel = supabase
-      .channel(`notifications-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "notification_logs", filter: `participant_1.eq.${user.id} or participant_2.eq.${user.id}` },
-        () => loadNotifications()
-      )
-      .subscribe();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
-
-  const markAsRead = async (id: string) => {
-    if (!id) return;
-    try {
-      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("id", id);
-      await loadNotifications();
-    } catch (error) {
-      console.error("Failed to mark notification as read:", error);
-    }
-  };
-
-  const markAllAsRead = async () => {
-    if (!user) return;
-    try {
-      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
-      if (isAdmin) {
-        await (supabase as any).from("notification_logs").update({ is_read: true }).or(`user_id.eq.${user.id},target_role.eq.admin`);
-      } else {
-        await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id);
-      }
-      setNotifications([]);
-      setUnreadCount(0);
-    } catch (error) {
-      console.error("Failed to clear notifications:", error);
-    }
-  };
-
-  const deleteNotification = async (id: string) => {
-    try {
-      await (supabase as any).from("notification_logs").delete().eq("id", id);
-      await loadNotifications();
-    } catch (error) {
-      console.error("Failed to delete notification:", error);
-    }
-  };
-
-  const handleNotifClick = async (n: any) => {
-    setOpen(false);
-    if (!n.is_read) {
-      await markAsRead(n.id);
-    }
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="p-1.5 relative hover:bg-muted rounded-full transition-colors"
-        aria-label="Notifications"
-      >
-        <Bell className="h-5 w-5" />
-        {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm animate-pulse">
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        </span>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-300">
-          <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-center">
-            <span className="font-bold text-xs">Notifications</span>
-            <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={markAllAsRead}>
-                Mark all read
-              </Button>
-              {notifications.length > 0 && (
-                <Button size="sm" onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
-                  Clear all
-                </Button>
-              </Button>
-            </div>
-          </div>
-          <div className="h-[340px] overflow-y-auto">
-            {notifications.length === 0 ? (
-              <div className="text-center py-12">
-                <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                <p className="text-xs text-muted-foreground">No notifications yet</p>
-              </div>
-            ) : (
-              notifications.map((n) => (
-                <div key={n.id} className="bg-card rounded-lg p-2 border border-border flex items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-1.5">
-                      <span className="text-xl shrink-0">{n.icon || "🔔"}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-foreground truncate">{n.title}</p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-2">{n.message}</p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 uppercase font-medium">
-                          {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+CREATE TRIGGER trigger_notification_insert
+AFTER INSERT ON notification_logs
+FOR EACH ROW EXECUTE FUNCTION notify_push_on_insert();
