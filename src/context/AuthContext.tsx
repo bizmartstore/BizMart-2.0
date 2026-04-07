@@ -29,24 +29,18 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Session timeout configuration (30 minutes)
-const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
-const SESSION_WARNING_MS = 5 * 60 * 1000; // Show warning 5 minutes before timeout
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [sessionExpiresAt, setSessionExpiresAt] = useState<number | null>(null);
   
   // Concurrency guards
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const sessionCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
     if (fetchProfileRef.current) {
@@ -59,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
       
       try {
-        // 1. Fetch existing profile
+        // 1. Fetch existing profile (no timeout, let it fail gracefully)
         let profData: any = null;
         
         try {
@@ -115,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 3. Fetch role
+        // 3. Fetch role (no timeout)
         let roleData: any = null;
         try {
           const { data, error } = await (supabase as any)
@@ -133,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn("[AuthContext] Role fetch exception:", err.message);
         }
 
-        // 4. Fetch wallet balance
+        // 4. Fetch wallet balance (no timeout)
         let wallet: any = null;
         try {
           const { data, error } = await (supabase as any)
@@ -218,38 +212,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  // Session timeout management
-  const startSessionTimer = useCallback((expiresAt: number) => {
-    if (sessionCheckIntervalRef.current) {
-      clearInterval(sessionCheckIntervalRef.current);
-    }
-
-    // Check every minute
-    sessionCheckIntervalRef.current = setInterval(() => {
-      const now = Date.now();
-      const timeLeft = expiresAt - now;
-      
-      if (timeLeft <= SESSION_WARNING_MS && timeLeft > 0) {
-        // Show warning (you could integrate a toast here)
-        console.warn(`Session expires in ${Math.round(timeLeft / 60000)} minutes`);
-      }
-      
-      if (timeLeft <= 0) {
-        // Session expired
-        console.log("Session expired, signing out...");
-        signOut();
-      }
-    }, 60000);
-  }, []);
-
-  const updateSessionExpiry = useCallback((newSession: Session) => {
-    if (newSession?.expires_at) {
-      const expiresAt = newSession.expires_at * 1000; // Convert to ms
-      setSessionExpiresAt(expiresAt);
-      startSessionTimer(expiresAt);
-    }
-  }, [startSessionTimer]);
-
   useEffect(() => {
     mountedRef.current = true;
 
@@ -269,11 +231,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
             setIsAuthReady(true);
           }
-        }, 5000);
+        }, 5000); // 5 second max wait
         
         if (s?.user) {
-          // Set session expiry timer
-          updateSessionExpiry(s);
           // Fetch profile in background (won't block UI)
           fetchProfile(s.user);
         } else {
@@ -303,23 +263,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Mark ready immediately
         setLoading(false);
         setIsAuthReady(true);
-        // Set session expiry timer
-        updateSessionExpiry(s);
         // Fetch profile in background
         fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null);
         setLoading(false);
         setIsAuthReady(true);
-        setSessionExpiresAt(null);
-        if (sessionCheckIntervalRef.current) {
-          clearInterval(sessionCheckIntervalRef.current);
-        }
         requestIdRef.current++;
         fetchProfileRef.current = null;
       } else if (event === 'TOKEN_REFRESHED' && s?.user) {
         setSession(s);
-        updateSessionExpiry(s);
       } else if (event === 'INITIAL_SESSION') {
         // Already handled in init(), but ensure ready state
         setLoading(false);
@@ -338,12 +291,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (initTimeoutRef.current) {
         clearTimeout(initTimeoutRef.current);
       }
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current);
-      }
       subscription?.unsubscribe();
     };
-  }, [fetchProfile, updateSessionExpiry]);
+  }, [fetchProfile]);
 
   // Subscribe to wallet changes
   useEffect(() => {
@@ -396,23 +346,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, profile]);
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      // Clear any stored session data
-      if (user) {
-        localStorage.removeItem(`user_role_${user.id}`);
-      }
-    } catch (error) {
-      console.error("Sign out error:", error);
-    } finally {
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setIsAuthReady(true);
-      setSessionExpiresAt(null);
-      if (sessionCheckIntervalRef.current) {
-        clearInterval(sessionCheckIntervalRef.current);
-      }
+    await supabase.auth.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    setIsAuthReady(true);
+    if (user) {
+      localStorage.removeItem(`user_role_${user.id}`);
     }
   };
 
