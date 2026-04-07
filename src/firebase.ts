@@ -1,5 +1,5 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getMessaging, getToken, onMessage, isSupported } from "firebase/messaging";
+import { getMessaging } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
@@ -12,19 +12,9 @@ const firebaseConfig = {
   measurementId: "G-FP54T49NG5",
 };
 
-// Initialize Firebase only once
-let firebaseApp: any;
-let messaging: any;
+// Initialize Firebase app exactly once
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-if (!getApps().length) {
-  firebaseApp = initializeApp(firebaseConfig);
-  messaging = getMessaging(firebaseApp);
-} else {
-  firebaseApp = getApps()[0];
-  messaging = getMessaging(firebaseApp);
-}
-
-export { messaging, isSupported };
-
-// VAPID key for web push
+// Export modular messaging instance
+export const messaging = getMessaging(app);
 export const VAPID_KEY = "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE";
