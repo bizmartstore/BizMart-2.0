@@ -18,11 +18,9 @@ export async function requestUserPermission() {
     }
 
     // 3. Get FCM token using MODULAR SDK correctly
-    const swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
-    
+    // Note: serviceWorkerRegistration is optional if SW is at root path
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
-      serviceWorkerRegistration: swReg || undefined,
     });
 
     if (token) {
