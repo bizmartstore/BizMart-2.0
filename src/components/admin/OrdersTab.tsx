@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin, FileText } from "lucide-react";
 import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function OrdersTab() {
@@ -160,6 +160,7 @@ export default function OrdersTab() {
   if (selectedOrder) {
     const cust = selectedOrder.customer;
     const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custEmail = cust?.email || "N/A";
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
     const isPrint = selectedOrder.type === 'print';
@@ -191,6 +192,7 @@ export default function OrdersTab() {
               <User className="h-4 w-4 text-primary" />
               <span className="text-xs font-bold text-foreground">{custName}</span>
             </div>
+            <p className="text-[10px] text-muted-foreground">{custEmail}</p>
             <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
           </div>
 
@@ -206,6 +208,61 @@ export default function OrdersTab() {
             </div>
           )}
 
+          {/* Product Items Section - ONLY for product orders */}
+          {!isPrint && selectedOrder.items && Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Items</p>
+              {selectedOrder.items.map((item: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between gap-2 py-1">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {item.image && (
+                      <img src={item.image} alt={item.name} className="h-8 w-8 rounded object-cover flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{item.name}</p>
+                      <p className="text-[10px] text-muted-foreground">₱{Number(item.price).toFixed(2)} × {item.quantity}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-primary whitespace-nowrap">
+                    ₱{(Number(item.price) * Number(item.quantity)).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Print order details */}
+          {isPrint && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Print Details</p>
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="bg-background rounded-lg p-2">
+                  <span className="text-sm font-extrabold block">{selectedOrder.total_pages}</span>
+                  <span className="text-[9px] text-muted-foreground">Total Pages</span>
+                </div>
+                <div className="bg-background rounded-lg p-2">
+                  <span className="text-sm font-extrabold block">{selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long'}</span>
+                  <span className="text-[9px] text-muted-foreground">Paper Size</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                <span>B&W: {selectedOrder.bw_pages} pages</span>
+                <span>Color: {selectedOrder.colored_pages} pages</span>
+              </div>
+              {selectedOrder.file_url && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(selectedOrder.file_url, '_blank')}
+                  className="w-full gap-1 mt-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  View Uploaded File
+                </Button>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="bg-muted rounded-lg p-2">
               <span className="text-sm font-extrabold block">₱{Number(selectedOrder.total || selectedOrder.cost || 0).toFixed(2)}</span>
@@ -216,6 +273,18 @@ export default function OrdersTab() {
               <span className="text-[9px] text-muted-foreground">{isPrint ? 'Pages' : 'Items'}</span>
             </div>
           </div>
+
+          {!isPrint && selectedOrder.delivery_type && (
+            <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedOrder.delivery_type === 'delivery' ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
+                <span className="text-xs font-bold capitalize text-foreground">{selectedOrder.delivery_type}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {selectedOrder.pickup_date || "N/A"} at {selectedOrder.pickup_time || "N/A"}
+              </span>
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-2">
             {selectedOrder.status === "pending" && (
