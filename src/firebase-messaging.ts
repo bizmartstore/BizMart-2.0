@@ -1,8 +1,4 @@
 import { messaging, isSupported } from "./firebase";
-import { requestUserPermission } from "./firebase-messaging-sw-polyfill";
-
-// This polyfill handles the service worker registration
-// The actual firebase-messaging-sw.js is in /public/
 
 export async function requestUserPermission() {
   try {
@@ -20,10 +16,11 @@ export async function requestUserPermission() {
       return null;
     }
 
-    // Get FCM token
+    // Get FCM token using the correct Service Worker registration API
+    const swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js');
     const token = await (messaging as any).getToken({
       vapidKey: "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
-      serviceWorkerRegistration: await self.registration,
+      serviceWorkerRegistration: swReg,
     });
 
     if (token) {
