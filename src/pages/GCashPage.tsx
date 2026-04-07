@@ -5,9 +5,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateNumber, validatePhoneNumber } from "@/lib/validation";
-import { toast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
+import { toast } from "@/hooks/use-toast";
 
 export default function GCashPage() {
   const navigate = useNavigate();
@@ -31,7 +30,7 @@ export default function GCashPage() {
       toast({ title: "Invalid Amount", description: amountValidation.error || "Amount must be between ₱100 and ₱10,000", variant: "destructive" });
       return;
     }
-        setLoading(true);
+      setLoading(true);
     try {
       // ... existing code ...
     } catch (e: any) {
@@ -40,8 +39,6 @@ export default function GCashPage() {
       setLoading(false);
     }
   };
-
-  // ... rest of component ...
 
   return (
     // ... component JSX ...

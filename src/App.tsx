@@ -22,13 +22,19 @@ import CartPage from "@/pages/CartPage";
 import OrdersPage from "@/pages/OrdersPage";
 import ProfilePage from "@/pages/ProfilePage";
 import BCoinsPage from "@/pages/BCoinsPage";
-import GCashPage from "@/pages/GCashPage"; // <-- Fixed import (default export)
+import GCashPage from "@/pages/GCashPage";
 import ClubPage from "@/pages/ClubPage";
 import SellersPage from "@/pages/SellersPage";
 import StoreViewPage from "@/pages/StoreViewPage";
 import SellerStorePage from "@/pages/SellerStorePage";
-import PrintServicePage from "@/pages/PrintServicePage"; // <-- Fixed import (default export)
+import PrintServicePage from "@/pages/PrintServicePage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
+
+export default function App() {
+  return (
+    // ... route definitions ...
+  );
+}
 
 createRoot(document.getElementById("root")!).render(<App />);
