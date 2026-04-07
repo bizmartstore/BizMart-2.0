@@ -21,6 +21,8 @@ export default defineConfig(() => ({
         cleanupOutdatedCaches: true,
         navigateFallback: null,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Exclude Firebase messaging SW from workbox
+        exclude: [/\.map$/, /_redirects$/, /\/firebase-messaging-sw\.js$/],
       },
       manifest: {
         name: "BizMart Store",

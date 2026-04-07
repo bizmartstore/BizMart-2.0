@@ -18,6 +18,7 @@ export async function sendNotification({
   targetRole?: string;
 }) {
   try {
+    // First, insert into notification_logs (existing logic)
     const { error } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
@@ -28,11 +29,16 @@ export async function sendNotification({
       target_role: targetRole || null,
     });
     if (error) throw error;
+
+    // Then, trigger push notification via Supabase function
+    // This will be handled by the database trigger, but we can also call it directly if needed
+    // The database trigger will automatically call the edge function
   } catch (error) {
     console.error("Failed to send notification:", error);
   }
 }
 
+// The rest of the functions remain the same
 export async function triggerNotification({
   title,
   message,

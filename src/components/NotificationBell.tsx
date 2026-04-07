@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { playCustomerNotificationSound } from "@/lib/notificationSound";
-import { Bell } from "lucide-react";
+import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
+import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export default function NotificationBell() {
@@ -12,33 +12,53 @@ export default function NotificationBell() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const lastNotificationId = useRef<string | null>(null);
 
   const loadNotifications = useCallback(async () => {
     if (!user) return;
-    setLoading(true);
     try {
-      const { data: convos, error } = await (supabase as any)
+      let query = (supabase as any)
         .from("notification_logs")
         .select("*")
-        .or(`user_id.eq.${user.id},target_role.eq.${profile?.role}`)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      
+        .order("created_at", { ascending: false });
+
+      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+      if (!isAdmin) {
+        query = query.eq("user_id", user.id);
+      } else {
+        query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+      }
+
+      const { data, error } = await query;
       if (error) {
         console.error("Failed to load notifications:", error);
         return;
       }
-      setNotifications(convos || []);
-      const newUnread = (convos || []).filter((n: any) => !n.is_read).length;
+      const notifs = data || [];
+      setNotifications(notifs);
+
+      const newUnread = notifs.filter((n: any) => !n.is_read).length;
       setUnreadCount(newUnread);
-    } catch (e) {
-      console.error("Failed to load notifications:", e);
-    } finally {
-      setLoading(false);
+
+      // Play sound for new notifications (only for customers)
+      if (newUnread > 0 && notifs.length > 0) {
+        const latest = notifs[0];
+        if (latest.id !== lastNotificationId.current) {
+          lastNotificationId.current = latest.id;
+          const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+          if (!isAdmin) {
+            // Play customer notification sound
+            playCustomerNotificationSound();
+          } else {
+            playAdminNotificationSound();
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
     }
-  }, [user, profile?.role]);
+  }, [user, profile]);
 
   useEffect(() => {
     loadNotifications();
@@ -49,9 +69,22 @@ export default function NotificationBell() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notification_logs" },
-        () => {
+        () => { 
           loadNotifications();
-          playCustomerNotificationSound();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notification_logs" },
+        (payload: any) => {
+          setNotifications((prev) => {
+            const updated = [...prev];
+            const idx = updated.findIndex((n) => n.id === payload.new.id);
+            if (idx > -1) {
+              updated[idx] = { ...updated[idx], is_read: true };
+            }
+            return updated;
+          });
         }
       )
       .subscribe();
@@ -72,17 +105,47 @@ export default function NotificationBell() {
   const markAllAsRead = async () => {
     if (!user) return;
     try {
-      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("user_id", user.id);
+      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+      let query = (supabase as any)
+        .from("notification_logs")
+        .update({ is_read: true })
+        .eq("is_read", false);
+
+      if (isAdmin) {
+        query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+      } else {
+        query = query.eq("user_id", user.id);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
       await loadNotifications();
     } catch (error) {
-      console.error("Failed to mark all as read:", error);
+      console.error("Failed to mark all notifications as read:", error);
+    }
+  };
+
+  const deleteNotification = async (id: string) => {
+    try {
+      await (supabase as any).from("notification_logs").delete().eq("id", id);
+      await loadNotifications();
+    } catch (error) {
+      console.error("Failed to delete notification:", error);
     }
   };
 
   const clearAll = async () => {
-    if (!user) return;
     try {
-      await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
+      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+      if (isAdmin) {
+        // Admins clear all notifications visible to them (targeted to admin or their user_id)
+        await (supabase as any)
+          .from("notification_logs")
+          .delete()
+          .or(`user_id.eq.${user.id},target_role.eq.admin`);
+      } else {
+        await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
+      }
       setNotifications([]);
       setUnreadCount(0);
     } catch (error) {
@@ -113,45 +176,56 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-300">
-          <div className="px-4 py-3 border-b border-border bg-muted/30 flex items-center justify-between">
+        <div className="absolute right-0 top-10 w-80 max-h-[400px] bg-card border border-border rounded-2xl overflow-hidden z-50 animate-in zoom-in-95 fade-in duration-200">
+          <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={markAllAsRead} className="text-[10px] h-7 px-2">
+              <Button size="sm" variant="ghost" onClick={markAllAsRead}>
                 Mark all read
               </Button>
               {notifications.length > 0 && (
-                <Button size="sm" variant="ghost" onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline h-7 px-2">
+                <Button size="sm" onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
                   Clear all
                 </Button>
               )}
             </div>
           </div>
-          <div className="h-[340px] overflow-y-auto">
+          <div className="overflow-y-auto max-h-[340px]">
             {notifications.length === 0 ? (
-              <div className="text-center py-12">
-                <Bell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
+              <div className="py-12 text-center">
+                <Bell className="h-8 w-8 text-muted-foreground/20 mx-auto mb-2" />
                 <p className="text-xs text-muted-foreground">No notifications yet</p>
               </div>
             ) : (
               notifications.map((n) => (
                 <div
                   key={n.id}
-                  className="bg-card rounded-lg p-2 border-b border-border flex items-start gap-2 hover:bg-muted/50 transition-colors cursor-pointer"
-                  onClick={() => handleNotifClick(n)}
+                  className={`w-full text-left px-4 py-2 rounded-lg text-sm transition-colors group relative ${
+                    n.is_read ? "opacity-60" : "bg-primary/5"
+                  }`}
                 >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start gap-1.5">
-                      <span className="text-xl shrink-0 mt-0.5">{n.icon || "🔔"}</span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-foreground truncate">{n.title}</p>
-                        <p className="text-[10px] text-muted-foreground line-clamp-2">{n.message}</p>
-                        <p className="text-[9px] text-muted-foreground mt-0.5 uppercase font-medium">
-                          {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                      </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleNotifClick(n); }}
+                    className="w-full flex items-start gap-2"
+                  >
+                    <span className="text-xl shrink-0 mt-0.5">{n.icon || "🔔"}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-foreground leading-tight">{n.title}</p>
+                      <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
+                      <p className="text-[8px] text-muted-foreground mt-1 uppercase font-medium">
+                        {new Date(n.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </p>
                     </div>
-                  </div>
+                    {!n.is_read && (
+                      <div className="h-2 w-2 rounded-full bg-primary shrink-0 mt-2"></div>
+                    )}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteNotification(n.id); }}
+                    className="absolute top-2 right-2 p-1 rounded-full opacity-0 group-hover:opacity-100 hover:bg-destructive transition-all"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </div>
               ))
             )}
