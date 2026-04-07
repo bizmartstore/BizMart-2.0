@@ -69,8 +69,10 @@ export default function OrdersTab() {
       console.error("Failed to load orders:", e);
       if (showToast) toast.error("Failed to load orders");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (!showToast) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -160,14 +162,20 @@ export default function OrdersTab() {
   if (selectedOrder) {
     const cust = selectedOrder.customer;
     const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custEmail = cust?.email || "N/A";
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
     const isPrint = selectedOrder.type === 'print';
 
+    // Calculate totals for product orders
+    const items = selectedOrder.items || [];
+    const subtotal = items.reduce((sum: number, item: any) => sum + (Number(item.price || 0) * Number(item.quantity || 1)), 0);
+
     return (
       <div className="space-y-3">
         <button onClick={() => setSelectedOrder(null)} className="text-xs text-primary font-bold">← Back to Orders</button>
-        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+        <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-bold text-sm flex items-center gap-2">
@@ -185,15 +193,18 @@ export default function OrdersTab() {
             }`}>{selectedOrder.status.toUpperCase()}</span>
           </div>
 
+          {/* Customer Information */}
           <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
             <div className="flex items-center gap-2">
               <User className="h-4 w-4 text-primary" />
               <span className="text-xs font-bold text-foreground">{custName}</span>
             </div>
+            <p className="text-[10px] text-muted-foreground">{custEmail}</p>
             <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
           </div>
 
+          {/* Delivery Information (Print Orders) */}
           {isPrint && (
             <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -206,18 +217,116 @@ export default function OrdersTab() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2 text-center">
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">₱{Number(selectedOrder.total || selectedOrder.cost || 0).toFixed(2)}</span>
-              <span className="text-[9px] text-muted-foreground">Total</span>
-            </div>
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">{isPrint ? selectedOrder.total_pages : (selectedOrder.items?.length || 0)}</span>
-              <span className="text-[9px] text-muted-foreground">{isPrint ? 'Pages' : 'Items'}</span>
-            </div>
+          {/* Order Items - THIS IS THE FIX */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+              {isPrint ? 'Print Details' : 'Items Ordered'}
+            </p>
+            
+            {isPrint ? (
+              // Print order details
+              <div className="bg-muted/20 rounded-lg p-3 space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-xs font-semibold text-foreground">File Name:</span>
+                  <span className="text-xs text-foreground font-mono">{selectedOrder.file_name}</span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-muted rounded-lg p-2">
+                    <span className="text-sm font-extrabold block">{selectedOrder.total_pages}</span>
+                    <span className="text-[9px] text-muted-foreground">Total Pages</span>
+                  </div>
+                  <div className="bg-muted rounded-lg p-2">
+                    <span className="text-sm font-extrabold block">{selectedOrder.bw_pages}</span>
+                    <span className="text-[9px] text-muted-foreground">B&W</span>
+                  </div>
+                  <div className="bg-muted rounded-lg p-2">
+                    <span className="text-sm font-extrabold block">{selectedOrder.colored_pages}</span>
+                    <span className="text-[9px] text-muted-foreground">Color</span>
+                  </div>
+                </div>
+                <div className="flex justify-between items-center pt-1 border-t border-border">
+                  <span className="text-xs text-muted-foreground">Paper Size:</span>
+                  <span className="text-xs font-bold text-foreground">
+                    {selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long (8.5x13)'}
+                  </span>
+                </div>
+                {selectedOrder.file_url && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => window.open(selectedOrder.file_url, '_blank')}
+                    className="w-full gap-1 mt-2"
+                  >
+                    <Printer className="h-4 w-4" />
+                    View/Download File
+                  </Button>
+                )}
+              </div>
+            ) : (
+              // Product order items
+              <div className="space-y-2">
+                {items.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4 bg-muted/20 rounded-lg">No items in this order</p>
+                ) : (
+                  items.map((item: any, idx: number) => (
+                    <div key={idx} className="bg-muted/20 rounded-lg p-3 flex items-center gap-3">
+                      {/* Product Image */}
+                      <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 border border-border">
+                        {item.image ? (
+                          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-muted flex items-center justify-center">
+                            <Package className="h-5 w-5 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Product Details */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">{item.name}</p>
+                        <p className="text-[10px] text-muted-foreground">
+                          ₱{Number(item.price).toFixed(2)} × {item.quantity}
+                        </p>
+                        {item.category && (
+                          <p className="text-[9px] text-muted-foreground capitalize">{item.category}</p>
+                        )}
+                      </div>
+                      
+                      {/* Item Total */}
+                      <div className="text-right">
+                        <p className="text-sm font-extrabold text-primary">
+                          ₱{(Number(item.price || 0) * Number(item.quantity || 1)).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
+                
+                {/* Order Summary */}
+                {items.length > 0 && (
+                  <div className="border-t border-border pt-2 mt-2 space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span className="font-semibold">₱{subtotal.toFixed(2)}</span>
+                    </div>
+                    {Number(selectedOrder.delivery_fee) > 0 && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Delivery Fee</span>
+                        <span className="font-semibold">₱{Number(selectedOrder.delivery_fee).toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-sm font-bold pt-1 border-t border-border">
+                      <span>Total</span>
+                      <span className="text-primary">₱{Number(selectedOrder.total).toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          {/* Action Buttons */}
+          <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
             {selectedOrder.status === "pending" && (
               <>
                 <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "approved")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
