@@ -1,5 +1,3 @@
-"use client";
-
 import { useRef } from "react";
 import html2canvas from "html2canvas";
 import { Download, X } from "lucide-react";
@@ -12,27 +10,8 @@ interface OrderReceiptProps {
 
 export default function OrderReceipt({ order, onClose }: OrderReceiptProps) {
   const receiptRef = useRef<HTMLDivElement>(null);
-  
-  // Safely parse items - handle both array and JSON string
-  let items: any[] = [];
-  if (order.items) {
-    if (Array.isArray(order.items)) {
-      items = order.items;
-    } else if (typeof order.items === 'string') {
-      try {
-        items = JSON.parse(order.items);
-      } catch (e) {
-        console.error('Failed to parse order items as JSON string:', e);
-        items = [];
-      }
-    } else {
-      console.warn('Order items is not an array or string:', order.items);
-      items = [];
-    }
-  }
-
-  const isPrintOrder = order.type === 'print';
-  const subtotal = isPrintOrder ? 0 : items.reduce((s: number, i: any) => s + (Number(i.price || 0) * Number(i.quantity || 1)), 0);
+  const items = order.items || [];
+  const subtotal = items.reduce((s: number, i: any) => s + i.price * i.quantity, 0);
 
   const handleDownload = async () => {
     if (!receiptRef.current) return;
@@ -122,56 +101,19 @@ export default function OrderReceipt({ order, onClose }: OrderReceiptProps) {
             {/* Dashed line */}
             <div className="border-t-2 border-dashed border-gray-200 my-3" />
 
-            {/* Items - Only show for product orders */}
-            {!isPrintOrder && (
-              <>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Items Purchased</p>
-                <div className="space-y-2">
-                  {items.length === 0 ? (
-                    <p className="text-[10px] text-gray-400 italic">No items found in this order.</p>
-                  ) : (
-                    items.map((item: any, i: number) => (
-                      <div key={i} className="flex justify-between items-start">
-                        <div className="flex-1 min-w-0 mr-2">
-                          <p className="text-[11px] font-semibold text-gray-800 truncate">{item.name}</p>
-                          <p className="text-[10px] text-gray-400">₱{Number(item.price).toFixed(2)} × {item.quantity}</p>
-                        </div>
-                        <p className="text-[11px] font-bold text-gray-800">₱{(Number(item.price) * Number(item.quantity)).toFixed(2)}</p>
-                      </div>
-                    ))
-                  )}
+            {/* Items */}
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Items Purchased</p>
+            <div className="space-y-2">
+              {items.map((item: any, i: number) => (
+                <div key={i} className="flex justify-between items-start">
+                  <div className="flex-1 min-w-0 mr-2">
+                    <p className="text-[11px] font-semibold text-gray-800 truncate">{item.name}</p>
+                    <p className="text-[10px] text-gray-400">₱{Number(item.price).toFixed(2)} × {item.quantity}</p>
+                  </div>
+                  <p className="text-[11px] font-bold text-gray-800">₱{(item.price * item.quantity).toFixed(2)}</p>
                 </div>
-              </>
-            )}
-
-            {/* Print order details */}
-            {isPrintOrder && (
-              <>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Print Details</p>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-[11px] text-gray-800">File Name</span>
-                    <span className="text-[11px] font-bold text-gray-800">{order.file_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[11px] text-gray-800">Total Pages</span>
-                    <span className="text-[11px] font-bold text-gray-800">{order.total_pages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[11px] text-gray-800">B&W Pages</span>
-                    <span className="text-[11px] font-bold text-gray-800">{order.bw_pages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[11px] text-gray-800">Color Pages</span>
-                    <span className="text-[11px] font-bold text-gray-800">{order.colored_pages}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[11px] text-gray-800">Paper Size</span>
-                    <span className="text-[11px] font-bold text-gray-800">{order.page_size === 'short' ? 'Short/A4' : 'Long (8.5x13)'}</span>
-                  </div>
-                </div>
-              </>
-            )}
+              ))}
+            </div>
 
             {/* Dashed line */}
             <div className="border-t-2 border-dashed border-gray-200 my-3" />
@@ -190,18 +132,16 @@ export default function OrderReceipt({ order, onClose }: OrderReceiptProps) {
               )}
               <div className="flex justify-between items-center pt-2 border-t border-gray-100">
                 <span className="text-xs font-bold text-gray-800">TOTAL</span>
-                <span className="text-lg font-extrabold" style={{ color: "#f97316" }}>₱{Number(order.total || order.cost || 0).toFixed(2)}</span>
+                <span className="text-lg font-extrabold" style={{ color: "#f97316" }}>₱{Number(order.total).toFixed(2)}</span>
               </div>
             </div>
 
             {/* BCoins earned */}
-            {order.bcoins_earned && Number(order.bcoins_earned) > 0 && (
-              <div className="mt-3 rounded-xl p-2.5 text-center" style={{ background: "linear-gradient(135deg, #fff7ed, #ffedd5)" }}>
-                <p className="text-[11px] font-bold" style={{ color: "#f97316" }}>
-                  🪙 You earned {Number(order.bcoins_earned).toFixed(1)} BCoins!
-                </p>
-              </div>
-            )}
+            <div className="mt-3 rounded-xl p-2.5 text-center" style={{ background: "linear-gradient(135deg, #fff7ed, #ffedd5)" }}>
+              <p className="text-[11px] font-bold" style={{ color: "#f97316" }}>
+                🪙 You earned {Number(order.bcoins_earned).toFixed(1)} BCoins!
+              </p>
+            </div>
 
             {/* Status badge */}
             <div className="mt-3 text-center">
