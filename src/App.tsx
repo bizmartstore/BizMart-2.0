@@ -4,7 +4,7 @@ import "./index.css";
 import { Toaster } from "@/components/ui/toaster";
 import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/context/AuthContext";
+import { AuthProvider } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
@@ -36,5 +36,3 @@ export default function App() {
     // ... route definitions ...
   );
 }
-
-createRoot(document.getElementById("root")!).render(<App />);

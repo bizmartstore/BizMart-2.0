@@ -3,7 +3,7 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { Search, Printer, AlertCircle, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
@@ -31,7 +31,8 @@ export default function PrintServicePage() {
   };
 
   const analyzePdf = async (file: File) => {
-    // Simulate PDF analysis for demo    setTotalPages(Math.floor(Math.random() * 20) + 1);
+    // Simulate PDF analysis for demo
+    setTotalPages(Math.floor(Math.random() * 20) + 1);
     setBwPages(Math.floor(Math.random() * 15) + 1);
     setColoredPages(Math.floor(Math.random() * 10) + 1);
     
@@ -44,8 +45,7 @@ export default function PrintServicePage() {
     const selected = e.target.files?.[0];
     if (!selected) return;
 
-    // Validate file type
-    if (selected.type !== "application/pdf") {
+    // Validate file type    if (selected.type !== "application/pdf") {
       toast.error("Only PDF files are allowed");
       return;
     }
