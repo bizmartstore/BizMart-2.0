@@ -1,3 +1,5 @@
-const handleOrderClick = (order: any) => {
-  setSelectedOrder(order);
-};
+export default function PrintTab() {
+  // ... existing code ...
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  // ... rest of component ...
+}

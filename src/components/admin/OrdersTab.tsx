@@ -1,3 +1,5 @@
-const handleOrderClick = (order: any) => {
-  setSelectedOrder(order);
-};
+export default function OrdersTab() {
+  // ... existing code ...
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  // ... rest of component ...
+}
