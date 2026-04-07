@@ -16,13 +16,15 @@ export function useFCM() {
       const fcmToken = await requestUserPermission();
       if (fcmToken) {
         setToken(fcmToken);
-        const { error } = await supabase.from("user_push_tokens").upsert({
-          user_id: user.id,
-          role: profile?.role || "customer",
-          fcm_token: fcmToken,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id,fcm_token" });
+        const { error } = await supabase.from("user_push_tokens").upsert([
+          {
+            user_id: user.id,
+            role: profile?.role || "customer",
+            fcm_token: fcmToken,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        ], { onConflict: "user_id,fcm_token" });
         
         if (error) console.error("Failed to store FCM token:", error);
       }
