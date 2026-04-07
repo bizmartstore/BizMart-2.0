@@ -1,37 +1,25 @@
-import { useEffect, useState, useRef } from "react";
-import { requestUserPermission, setBackgroundMessageHandler } from "@/firebase-messaging";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/context/AuthContext";
-
-export function useFCM() {
-  const { user, profile } = useAuth();
-  const isLoaded = useRef(false);
-  const [token, setToken] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (isLoaded.current || !user) return;
-    isLoaded.current = true;
-
-    (async () => {
-      const fcmToken = await requestUserPermission();
-      if (fcmToken) {
-        setToken(fcmToken);
-        const { error } = await supabase.from("user_push_tokens").upsert({
-          user_id: user.id,
-          role: profile?.role || "customer",
-          fcm_token: fcmToken,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        }, { onConflict: "user_id,fcm_token" }) as any;
-        
-        if (error) console.error("Failed to store FCM token:", error);
-      }
-    })();
-  }, [user, profile]);
-
-  useEffect(() => {
-    setBackgroundMessageHandler();
-  }, []);
-
-  return { token };
-}
+// src/hooks/useFCM.ts
+// ... existing imports and code
+// Inside the function where upsert is called:
+const { error } = await supabase.from("user_push_tokens").upsert({
+  user_id: user.id,
+  role: profile?.role || "customer",
+  fcm_token: token,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+}) as any; // <-- cast to any to satisfy TypeScript
+```<dyad-write path="src/context/AuthContext.tsx" description="Fix isSupported usage (it's a boolean, not a function)">
+```ts// src/context/AuthContext.tsx
+// ... existing imports
+import { messaging, isSupported, VAPID_KEY } from "@/firebase";
+// ...
+useEffect(() => {
+  if (!user) return;
+  setLoading(true);
+  try {
+    // isSupported is a boolean flag, not a function call
+    const supported = isSupported; // <-- fixed: removed parentheses
+    if (!supported) {
+      // ... existing logic
+    }
+    // ... rest unchanged
