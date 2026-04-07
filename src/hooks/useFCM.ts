@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { requestUserPermission, setBackgroundMessageHandler } from "@/firebase-messaging";
+import { requestUserPermission } from "@/firebase-messaging-sw-polyfill";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 
@@ -13,6 +13,12 @@ export function useFCM() {
     isLoaded.current = true;
 
     (async () => {
+      // Only request FCM for customers
+      if (profile?.role !== 'customer') {
+        console.log("[useFCM] Skipping FCM token request for non-customer role:", profile?.role);
+        return;
+      }
+
       const fcmToken = await requestUserPermission();
       if (fcmToken) {
         setToken(fcmToken);
@@ -30,10 +36,6 @@ export function useFCM() {
       }
     })();
   }, [user, profile]);
-
-  useEffect(() => {
-    setBackgroundMessageHandler();
-  }, []);
 
   return { token };
 }

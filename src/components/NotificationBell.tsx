@@ -18,6 +18,7 @@ export default function NotificationBell() {
   const loadNotifications = useCallback(async () => {
     if (!user) return;
     try {
+      // Build query based on user role
       let query = (supabase as any)
         .from("notification_logs")
         .select("*")
@@ -25,16 +26,16 @@ export default function NotificationBell() {
 
       const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
       if (!isAdmin) {
+        // Customers only see their own notifications
         query = query.eq("user_id", user.id);
       } else {
+        // Admins see notifications targeted to them OR all admin notifications
         query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
       }
 
       const { data, error } = await query;
-      if (error) {
-        console.error("Failed to load notifications:", error);
-        return;
-      }
+      if (error) throw error;
+      
       const notifs = data || [];
       setNotifications(notifs);
 
@@ -46,9 +47,8 @@ export default function NotificationBell() {
         const latest = notifs[0];
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
-          const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
-          if (!isAdmin) {
-            // Play customer notification sound
+          const isAdminUser = profile?.role === "main_admin" || profile?.role === "member_admin";
+          if (!isAdminUser) {
             playCustomerNotificationSound();
           } else {
             playAdminNotificationSound();
@@ -64,18 +64,35 @@ export default function NotificationBell() {
     loadNotifications();
 
     if (!user) return;
+
+    // Set up real-time subscription with proper filtering
+    const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+    const filter = isAdmin 
+      ? `or(user_id.eq.${user.id},target_role.eq.admin)`
+      : `user_id.eq.${user.id}`;
+
     const channel = supabase
       .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "notification_logs" },
+        { 
+          event: "INSERT", 
+          schema: "public", 
+          table: "notification_logs",
+          filter: filter  // CRITICAL: Only listen to relevant notifications
+        },
         () => { 
           loadNotifications();
         }
       )
       .on(
         "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "notification_logs" },
+        { 
+          event: "UPDATE", 
+          schema: "public", 
+          table: "notification_logs",
+          filter: filter  // CRITICAL: Only listen to relevant notifications
+        },
         (payload: any) => {
           setNotifications((prev) => {
             const updated = [...prev];
@@ -89,8 +106,10 @@ export default function NotificationBell() {
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [user, loadNotifications]);
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
+  }, [user, profile, loadNotifications]);
 
   const markAsRead = async (id: string) => {
     if (!id) return;
@@ -138,7 +157,6 @@ export default function NotificationBell() {
     try {
       const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
       if (isAdmin) {
-        // Admins clear all notifications visible to them (targeted to admin or their user_id)
         await (supabase as any)
           .from("notification_logs")
           .delete()

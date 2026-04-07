@@ -1,12 +1,10 @@
-import { messaging, isSupported } from "./firebase";
-import { requestUserPermission } from "./firebase-messaging-sw-polyfill";
-
-// This polyfill handles the service worker registration
-// The actual firebase-messaging-sw.js is in /public/
+// This file provides a polyfill for service worker registration
+// The actual service worker is in /public/firebase-messaging-sw.js
 
 export async function requestUserPermission() {
   try {
     // Check if Firebase Messaging is supported
+    const { isSupported } = await import("./firebase");
     const supported = await isSupported();
     if (!supported) {
       console.warn("Firebase Messaging is not supported in this browser");
@@ -21,25 +19,14 @@ export async function requestUserPermission() {
     }
 
     // Get FCM token
+    const { messaging } = await import("./firebase");
     const token = await (messaging as any).getToken({
       vapidKey: "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
-      serviceWorkerRegistration: await self.registration,
     });
 
-    if (token) {
-      console.log("FCM token obtained:", token.slice(0, 20) + "...");
-      return token;
-    } else {
-      console.warn("No FCM token received");
-      return null;
-    }
+    return token;
   } catch (error) {
     console.error("Error requesting notification permission:", error);
     return null;
   }
-}
-
-export function setBackgroundMessageHandler() {
-  // This is handled by the service worker in /public/firebase-messaging-sw.js
-  console.log("Background message handler is in firebase-messaging-sw.js");
 }
