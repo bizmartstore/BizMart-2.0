@@ -5,7 +5,7 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { Upload, FileText, Loader2, AlertCircle, Download, Trash2 } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import "pdfjs-dist/build/pdf.worker.entry";
@@ -208,7 +208,7 @@ export default function PrintServicePage() {
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
-          )}
+          </div>
         </div>
 
         {pages.length > 0 && (
@@ -356,7 +356,7 @@ export default function PrintServicePage() {
                 </div>
               ))}
             </div>
-          )}
+          </div>
         </div>
       </div>
       <BottomNav />

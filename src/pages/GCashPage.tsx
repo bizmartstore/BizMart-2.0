@@ -5,7 +5,7 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { toast } from "sonner";
+import { toast } from "@/hooks/use-toast";
 import { Smartphone, ArrowDownCircle, ArrowUpCircle, Loader2, AlertCircle } from "lucide-react";
 import { validatePhoneNumber, validateNumber } from "@/lib/validation";
 
