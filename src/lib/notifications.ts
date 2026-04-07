@@ -1,145 +1,151 @@
 import { supabase } from "@/integrations/supabase/client";
 
-// Notification helper functions
-export async function notifyNewMessage(recipientId: string, senderName: string, content: string) {
-  const title = `New message from ${senderName}`;
-  const message = content.length > 100 ? content.substring(0, 97) + '...' : content;
-  
-  // Insert into notification_logs
-  const { error } = await supabase
-    .from("notification_logs")
-    .insert({
-      user_id: recipientId,
+export async function sendNotification({
+  title,
+  message,
+  type,
+  userId,
+  link,
+  icon,
+  targetRole,
+}: {
+  title: string;
+  message: string;
+  type: string;
+  userId?: string;
+  link?: string;
+  icon?: string;
+  targetRole?: string;
+}) {
+  try {
+    const { error } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
-      type: "message",
-      icon: "💬",
-      is_read: false,
+      type,
+      user_id: userId || null,
+      link: link || null,
+      icon: icon || null,
+      target_role: targetRole || null,
     });
-  
-  if (error) console.error("Failed to create notification:", error);
-}
-
-export async function notifyAdminNewMember(memberName: string) {
-  // Get all admin users
-  const { data: admins } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .in("role", ["main_admin", "member_admin"]);
-  
-  if (!admins) return;
-  
-  const notifications = admins.map(admin => ({
-    user_id: admin.user_id,
-    title: "New Club Member!",
-    message: `${memberName} just joined BizMart Club!`,
-    type: "club",
-    icon: "👑",
-    is_read: false,
-  }));
-  
-  const { error } = await supabase
-    .from("notification_logs")
-    .insert(notifications);
-  
-  if (error) console.error("Failed to send admin notification:", error);
-}
-
-export async function notifyAdminRedemption(userName: string, amount: number) {
-  const { data: admins } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .in("role", ["main_admin", "member_admin"]);
-  
-  if (!admins) return;
-  
-  const notifications = admins.map(admin => ({
-    user_id: admin.user_id,
-    title: "BCoins Redemption Request",
-    message: `${userName} requested ₱${amount} GCash`,
-    type: "bcoins",
-    icon: "🎁",
-    is_read: false,
-  }));
-  
-  const { error } = await supabase
-    .from("notification_logs")
-    .insert(notifications);
-  
-  if (error) console.error("Failed to send redemption notification:", error);
-}
-
-export async function notifyAdminGCash(type: string, userName: string, amount: number) {
-  const { data: admins } = await supabase
-    .from("user_roles")
-    .select("user_id")
-    .in("role", ["main_admin", "member_admin"]);
-  
-  if (!admins) return;
-  
-  const notifications = admins.map(admin => ({
-    user_id: admin.user_id,
-    title: `GCash ${type === 'cash_in' ? 'In' : 'Out'} Request`,
-    message: `${userName} requested ₱${amount} via GCash`,
-    type: "gcash",
-    icon: "💳",
-    is_read: false,
-  }));
-  
-  const { error } = await supabase
-    .from("notification_logs")
-    .insert(notifications);
-  
-  if (error) console.error("Failed to send GCash notification:", error);
-}
-
-export async function notifyCustomerBCoins(userId: string, amount: number, reason: string) {
-  const { error } = await supabase
-    .from("notification_logs")
-    .insert({
-      user_id: userId,
-      title: "BCoins Earned!",
-      message: `You earned +${amount} BCoins for ${reason}`,
-      type: "bcoins",
-      icon: "🪙",
-      is_read: false,
-    });
-  
-  if (error) console.error("Failed to send BCoins notification:", error);
-}
-
-// Send push notification via FCM
-export async function sendPushNotification(userId: string, title: string, body: string, type: string) {
-  try {
-    // Get user's role
-    const { data: roleData } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .single();
-    
-    if (roleData?.role !== "customer") return;
-    
-    // Get FCM tokens
-    const { data: tokens } = await supabase
-      .from("user_push_tokens")
-      .select("fcm_token")
-      .eq("user_id", userId);
-    
-    if (!tokens || tokens.length === 0) return;
-    
-    // Send push via Supabase Edge Function
-    const { error } = await supabase.functions.invoke("send-push", {
-      body: {
-        tokens: tokens.map(t => t.fcm_token),
-        title,
-        body,
-        type,
-      },
-    });
-    
-    if (error) console.error("Push notification failed:", error);
-  } catch (e) {
-    console.error("Push notification error:", e);
+    if (error) throw error;
+  } catch (error) {
+    console.error("Failed to send notification:", error);
   }
 }
+
+export async function triggerNotification({
+  title,
+  message,
+  type,
+  userId,
+  link,
+  icon,
+  targetRole,
+}: {
+  title: string;
+  message: string;
+  type: string;
+  userId?: string;
+  link?: string;
+  icon?: string;
+  targetRole?: string;
+}) {
+  return sendNotification({ title, message, type, userId, link, icon, targetRole });
+}
+
+export const notifyAdminGCash = async (type: string, userName: string, amount: number) => {
+  await sendNotification({
+    title: "💳 New GCash Request",
+    message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
+    type: "gcash_request",
+    targetRole: "admin",
+    link: "/admin?tab=gcash",
+    icon: "💳",
+  });
+};
+
+export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
+  await triggerNotification({
+    title: "🪙 BCoins Earned!",
+    message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
+    type: "bcoins_earned",
+    userId,
+    link: "/bcoins",
+    icon: "🪙"
+  });
+
+  try {
+    const { data: wallet } = await (supabase as any)
+      .from("bcoins_wallets")
+      .select("balance")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    const currentBalance = Number(wallet?.balance || 0);
+    const newBalance = currentBalance + amount;
+    
+    if (wallet) {
+      await (supabase as any)
+        .from("bcoins_wallets")
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+    } else {
+      await (supabase as any)
+        .from("bcoins_wallets")
+        .insert({ user_id: userId, balance: newBalance });
+    }
+    
+    await (supabase as any).from("bcoins_transactions").insert({
+      user_id: userId,
+      amount: amount,
+      type: "earn_gcash",
+      description: reason,
+    });
+  } catch (error) {
+    console.error("Failed to add BCoins to wallet:", error);
+  }
+};
+
+export const notifyAdminRedemption = async (userName: string, amount: number) => {
+  await sendNotification({
+    title: "🎁 New BCoins Redemption",
+    message: `${userName} redeemed ₱${amount} GCash.`,
+    type: "redemption_request",
+    targetRole: "admin",
+    link: "/admin?tab=bcoins",
+    icon: "🎁",
+  });
+};
+
+export const notifyCustomerOrder = async (userId: string, status: string) => {
+  await sendNotification({
+    title: `📦 Order ${status.toUpperCase()}`,
+    message: `Your order has been ${status}.`,
+    type: "order_status",
+    userId,
+    link: "/orders",
+    icon: "📦",
+  });
+};
+
+export const notifyNewMessage = async (recipientId: string, senderName: string, content: string) => {
+  await sendNotification({
+    title: `💬 New message from ${senderName}`,
+    message: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
+    type: "new_message",
+    userId: recipientId,
+    link: "/messages",
+    icon: "💬",
+  });
+};
+
+export const notifyAdminNewMember = async (memberName: string) => {
+  await sendNotification({
+    title: "👑 New Club Member",
+    message: `${memberName} just joined the BizMart Club!`,
+    type: "new_member",
+    targetRole: "admin",
+    link: "/admin?tab=club",
+    icon: "👑",
+  });
+};

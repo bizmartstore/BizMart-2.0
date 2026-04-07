@@ -1,2 +1,3 @@
-// This file should not import from non-existent @/hooks/use-toast
-// Remove problematic imports
+import { useToast, toast } from "@/hooks/use-toast";
+
+export { useToast, toast };
