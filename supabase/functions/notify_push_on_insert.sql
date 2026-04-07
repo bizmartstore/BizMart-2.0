@@ -2,7 +2,6 @@ CREATE OR REPLACE FUNCTION notify_push_on_insert()
 RETURNS TRIGGER AS $$
 DECLARE
   token_data RECORD;
-  push_data JSON;
 BEGIN
   -- Forward to existing notification system
   PERFORM notify('notification', json_build_object(
@@ -22,5 +21,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER trigger_notification_insertAFTER INSERT ON notification_logs
+CREATE TRIGGER trigger_notification_insert
+AFTER INSERT ON notification_logs
 FOR EACH ROW EXECUTE FUNCTION notify_push_on_insert();
