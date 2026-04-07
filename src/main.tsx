@@ -1,5 +1,3 @@
-import { createRoot } from "react-dom/client";
-import App from "./App.tsx";
-import "./index.css";
-
-createRoot(document.getElementById("root")!).render(<App />);
+- import App from "./App.tsx";
++ import App from "./App.tsx";
+// This was already correct, but ensuring it's a default import
