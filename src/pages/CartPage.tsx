@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, Minus, ShoppingBag, Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
 import { format, addDays, isAfter, isBefore, startOfDay } from "date-fns";
+import { sendNotification } from "@/lib/notifications";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -111,6 +112,27 @@ export default function CartPage() {
         setOrderComplete(true);
         clearCart();
         toast.success("Order placed successfully!");
+        console.log("[CartPage] Order created, triggering notifications...");
+        
+        // Notify customer
+        sendNotification({
+          title: "📦 Order Placed!",
+          message: `Your order #${(orderData as any).id.slice(0, 8)} has been received.`,
+          type: "order_placed",
+          userId: user.id,
+          link: "/orders",
+          icon: "📦"
+        });
+
+        // Notify admins
+        sendNotification({
+          title: "🛒 New Order Received",
+          message: `New order #${(orderData as any).id.slice(0, 8)} from ${user.email?.split('@')[0] || 'Customer'}`,
+          type: "new_order",
+          targetRole: "admin",
+          link: "/admin?tab=orders",
+          icon: "🛒"
+        });
       } else {
         throw new Error("No order data returned");
       }

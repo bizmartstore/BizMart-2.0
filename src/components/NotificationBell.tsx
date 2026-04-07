@@ -18,6 +18,7 @@ export default function NotificationBell() {
   const loadNotifications = useCallback(async () => {
     if (!user) return;
     try {
+      console.log("[NotificationBell] Loading notifications for user:", user.id);
       // Build query based on user role
       let query = (supabase as any)
         .from("notification_logs")
@@ -37,6 +38,7 @@ export default function NotificationBell() {
       if (error) throw error;
       
       const notifs = data || [];
+      console.log(`[NotificationBell] Loaded ${notifs.length} notifications`);
       setNotifications(notifs);
 
       const newUnread = notifs.filter((n: any) => !n.is_read).length;
@@ -71,6 +73,7 @@ export default function NotificationBell() {
       ? `or(user_id.eq.${user.id},target_role.eq.admin)`
       : `user_id.eq.${user.id}`;
 
+    console.log("[NotificationBell] Subscribing to realtime with filter:", filter);
     const channel = supabase
       .channel(`notifications-${user.id}`)
       .on(
@@ -79,9 +82,10 @@ export default function NotificationBell() {
           event: "INSERT", 
           schema: "public", 
           table: "notification_logs",
-          filter: filter  // CRITICAL: Only listen to relevant notifications
+          filter: filter
         },
-        () => { 
+        (payload) => { 
+          console.log("[NotificationBell] Realtime INSERT event received:", payload);
           loadNotifications();
         }
       )
@@ -91,9 +95,10 @@ export default function NotificationBell() {
           event: "UPDATE", 
           schema: "public", 
           table: "notification_logs",
-          filter: filter  // CRITICAL: Only listen to relevant notifications
+          filter: filter
         },
         (payload: any) => {
+          console.log("[NotificationBell] Realtime UPDATE event received:", payload);
           setNotifications((prev) => {
             const updated = [...prev];
             const idx = updated.findIndex((n) => n.id === payload.new.id);
@@ -104,7 +109,9 @@ export default function NotificationBell() {
           });
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[NotificationBell] Realtime subscription status:", status);
+      });
 
     return () => { 
       supabase.removeChannel(channel); 

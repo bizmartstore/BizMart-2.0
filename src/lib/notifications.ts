@@ -17,9 +17,10 @@ export async function sendNotification({
   icon?: string;
   targetRole?: string;
 }) {
+  console.log("[Notifications] Preparing notification:", { title, type, userId, targetRole });
   try {
-    // First, insert into notification_logs (existing logic)
-    const { error } = await (supabase as any).from("notification_logs").insert({
+    // 1. Insert into notification_logs
+    const { error: logError } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
       type,
@@ -28,35 +29,52 @@ export async function sendNotification({
       icon: icon || null,
       target_role: targetRole || null,
     });
-    if (error) throw error;
+    if (logError) throw logError;
+    console.log("[Notifications] ✅ Log inserted into DB successfully");
 
-    // Then, trigger push notification via Supabase function
-    // This will be handled by the database trigger, but we can also call it directly if needed
-    // The database trigger will automatically call the edge function
+    // 2. Trigger push notification if userId is provided
+    if (userId) {
+      await triggerPushNotification(userId, title, message, link, icon);
+    }
   } catch (error) {
-    console.error("Failed to send notification:", error);
+    console.error("[Notifications] ❌ Failed to send notification:", error);
   }
 }
 
-// The rest of the functions remain the same
-export async function triggerNotification({
-  title,
-  message,
-  type,
-  userId,
-  link,
-  icon,
-  targetRole,
-}: {
-  title: string;
-  message: string;
-  type: string;
-  userId?: string;
-  link?: string;
-  icon?: string;
-  targetRole?: string;
-}) {
-  return sendNotification({ title, message, type, userId, link, icon, targetRole });
+async function triggerPushNotification(userId: string, title: string, body: string, url?: string, icon?: string) {
+  try {
+    console.log("[Notifications] 📡 Triggering push for user:", userId);
+    
+    // Fetch FCM token
+    const { data: tokens, error: tokenError } = await (supabase as any)
+      .from("user_push_tokens")
+      .select("fcm_token")
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (tokenError) throw tokenError;
+    if (!tokens || tokens.length === 0) {
+      console.warn("[Notifications] ⚠️ No FCM token found for user:", userId);
+      return;
+    }
+
+    // Call edge function
+    console.log("[Notifications] 🚀 Invoking send-push-notification edge function...");
+    const { data, error } = await supabase.functions.invoke("send-push-notification", {
+      body: {
+        userId,
+        title,
+        body,
+        icon: icon || "/pwa-192x192.png",
+        url: url || "/",
+      },
+    });
+
+    if (error) throw error;
+    console.log("[Notifications] ✅ Push notification sent successfully:", data);
+  } catch (error) {
+    console.error("[Notifications] ❌ Failed to trigger push:", error);
+  }
 }
 
 export const notifyAdminGCash = async (type: string, userName: string, amount: number) => {
@@ -71,7 +89,7 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
 };
 
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
-  await triggerNotification({
+  await sendNotification({
     title: "🪙 BCoins Earned!",
     message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
     type: "bcoins_earned",
