@@ -1,9 +1,3 @@
-... (full file content with fix) ...
-＜/dyad-write>
-<dyad-chat-summary>Fixed isSupported TypeScript error＜/dyad-chat-summary>
-I've fixed the TypeScript error by correctly importing `isSupported` from `firebase/messaging` and safely calling it. The type assertion ensures compatibility with your current TypeScript configuration.
-All set!
-</think><dyad-write path="src/context/AuthContext.tsx" description="Fixing isSupported import and call to resolve TS2349">
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const supported = await (isSupported as any)();
+      const supported = await isSupported();
       if (!supported) {
         console.warn("[AuthContext] FCM is not supported in this browser");
         return;
