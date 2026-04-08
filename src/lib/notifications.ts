@@ -53,18 +53,26 @@ export async function triggerNotification({
   return sendNotification({ title, message, type, userId, link, icon, targetRole });
 }
 
+/**
+ * Notify admins about a new GCash request
+ */
 export const notifyAdminGCash = async (type: string, userName: string, amount: number) => {
   await sendNotification({
     title: "💳 New GCash Request",
     message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
     type: "gcash_request",
     targetRole: "admin",
-    link: "/admin?tab=gcash",
+    link: "/admin",
     icon: "💳",
   });
 };
 
+/**
+ * Notify customer about BCoins earned
+ */
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
+  if (!userId) return;
+  
   await triggerNotification({
     title: "🪙 BCoins Earned!",
     message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
@@ -106,21 +114,37 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
   }
 };
 
+/**
+ * Notify admins about a new BCoins redemption
+ */
 export const notifyAdminRedemption = async (userName: string, amount: number) => {
   await sendNotification({
     title: "🎁 New BCoins Redemption",
     message: `${userName} redeemed ₱${amount} GCash.`,
     type: "redemption_request",
     targetRole: "admin",
-    link: "/admin?tab=bcoins",
+    link: "/admin",
     icon: "🎁",
   });
 };
 
-export const notifyCustomerOrder = async (userId: string, status: string) => {
+/**
+ * Notify customer about order status changes
+ */
+export const notifyCustomerOrder = async (userId: string, orderId: string, status: string) => {
+  if (!userId) return;
+  
+  const statusMessages: Record<string, string> = {
+    approved: "Your order has been approved and is being prepared! 📦",
+    ready: "Your order is ready for pickup/delivery! 🚚",
+    completed: "Your order has been completed. Thank you for shopping! 🎉",
+    rejected: "Your order was unfortunately rejected. Please contact support. ❌",
+    canceled: "Your order has been canceled. ⚠️"
+  };
+
   await sendNotification({
     title: `📦 Order ${status.toUpperCase()}`,
-    message: `Your order has been ${status}.`,
+    message: statusMessages[status] || `Your order #${orderId.slice(0, 8)} is now ${status}.`,
     type: "order_status",
     userId,
     link: "/orders",
@@ -128,7 +152,12 @@ export const notifyCustomerOrder = async (userId: string, status: string) => {
   });
 };
 
+/**
+ * Notify customer about a new message
+ */
 export const notifyNewMessage = async (recipientId: string, senderName: string, content: string) => {
+  if (!recipientId) return;
+  
   await sendNotification({
     title: `💬 New message from ${senderName}`,
     message: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
@@ -139,13 +168,16 @@ export const notifyNewMessage = async (recipientId: string, senderName: string, 
   });
 };
 
+/**
+ * Notify admins about a new club member
+ */
 export const notifyAdminNewMember = async (memberName: string) => {
   await sendNotification({
     title: "👑 New Club Member",
     message: `${memberName} just joined the BizMart Club!`,
     type: "new_member",
     targetRole: "admin",
-    link: "/admin?tab=club",
+    link: "/admin",
     icon: "👑",
   });
 };

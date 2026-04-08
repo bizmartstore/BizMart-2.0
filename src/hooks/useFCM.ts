@@ -3,9 +3,10 @@ import { messaging, getToken, onMessage, VAPID_KEY } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export function useFCM() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const saveTokenToDb = useCallback(async (token: string) => {
     if (!user) return;
@@ -41,17 +42,57 @@ export function useFCM() {
   }, [user, saveTokenToDb]);
 
   useEffect(() => {
-    if (user && messaging) {
+    if (!user) return;
+
+    // 1. Request FCM permissions and save token
+    if (messaging) {
       requestPermission();
 
-      const unsubscribe = onMessage(messaging, (payload) => {
-        console.log("Message received in foreground: ", payload);
-        toast(payload.notification?.title || "New Notification", {
-          description: payload.notification?.body,
-        });
+      // Handle foreground FCM messages
+      const unsubscribeFCM = onMessage(messaging, (payload) => {
+        console.log("FCM Message received: ", payload);
+        const title = payload.notification?.title || "New Notification";
+        const body = payload.notification?.body || "";
+        
+        toast(title, { description: body });
+        triggerLocalPushNotification(title, body);
       });
 
-      return () => unsubscribe();
+      // 2. Listen for database notification logs (Real-time Push fallback)
+      // This ensures that even if FCM fails, the user gets a push if the app is active
+      const channel = supabase
+        .channel(`user-notifications-${user.id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "INSERT",
+            schema: "public",
+            table: "notification_logs",
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload: any) => {
+            const notif = payload.new;
+            console.log("DB Notification received:", notif);
+            
+            // Trigger local push
+            triggerLocalPushNotification(notif.title, notif.message);
+            
+            // Show toast
+            toast(notif.title, {
+              description: notif.message,
+              action: notif.link ? {
+                label: "View",
+                onClick: () => window.location.href = notif.link
+              } : undefined
+            });
+          }
+        )
+        .subscribe();
+
+      return () => {
+        unsubscribeFCM();
+        supabase.removeChannel(channel);
+      };
     }
   }, [user, requestPermission]);
 

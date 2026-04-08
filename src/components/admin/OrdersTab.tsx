@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin, FileText } from "lucide-react";
-import { sendNotification, notifyCustomerBCoins } from "@/lib/notifications";
+import { notifyCustomerOrder, notifyCustomerBCoins } from "@/lib/notifications";
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -17,7 +17,6 @@ export default function OrdersTab() {
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
-      // Fetch orders without embedded relationship to avoid PGRST200 error
       const { data: ordersRes, error: ordersError } = await (supabase as any)
         .from("orders")
         .select("*")
@@ -35,7 +34,6 @@ export default function OrdersTab() {
       const combined = [...(ordersRes || [])];
       const printData = printRes || [];
 
-      // Collect all user_ids
       const userIds = new Set<string>();
       combined.forEach((o: any) => { if (o.user_id) userIds.add(o.user_id); });
       printData.forEach((o: any) => { if (o.user_id) userIds.add(o.user_id); });
@@ -96,41 +94,30 @@ export default function OrdersTab() {
   }, [loadOrders]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
+    const orderToUpdate = orders.find(o => o.id === orderId);
+    if (!orderToUpdate) return;
+
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
     }
 
     try {
-      const { data: order } = await (supabase as any).from("orders").select("*").eq("id", orderId).maybeSingle();
-      if (!order) {
-        const { data: printOrder } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
-        if (printOrder) {
-          await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
-          await sendNotification({
-            title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
-            message: `Your print request for "${printOrder.file_name}" is now ${newStatus}.`,
-            type: "print_status",
-            userId: printOrder.user_id,
-            link: "/orders",
-            icon: "🖨️"
-          });
-        }
-      } else {
-        await (supabase as any).from("orders").update({ status: newStatus }).eq("id", orderId);
-        await sendNotification({
-          title: `📦 Order ${newStatus.toUpperCase()}`,
-          message: `Your order #${orderId.slice(0, 8)} is now ${newStatus}.`,
-          type: "order_status",
-          userId: order.user_id,
-          link: "/orders",
-          icon: "📦"
-        });
-        if (newStatus === "completed") {
-          await notifyCustomerBCoins(order.user_id, order.bcoins_earned, "order completion");
-        }
+      const isPrint = orderToUpdate.type === 'print';
+      const table = isPrint ? "print_orders" : "orders";
+      
+      const { error } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
+      if (error) throw error;
+
+      // Trigger Push Notification to Customer
+      await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
+
+      // Award BCoins if completed
+      if (newStatus === "completed" && !isPrint) {
+        await notifyCustomerBCoins(orderToUpdate.user_id, orderToUpdate.bcoins_earned, "order completion");
       }
-      toast.success(`Order ${newStatus}!`);
+
+      toast.success(`Order ${newStatus}! Notification sent to customer.`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
       loadOrders();
@@ -208,7 +195,6 @@ export default function OrdersTab() {
             </div>
           )}
 
-          {/* Product Items Section - ONLY for product orders */}
           {!isPrint && selectedOrder.items && Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 && (
             <div className="bg-muted/30 rounded-lg p-3 space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Items</p>
@@ -231,7 +217,6 @@ export default function OrdersTab() {
             </div>
           )}
 
-          {/* Print order details */}
           {isPrint && (
             <div className="bg-muted/30 rounded-lg p-3 space-y-2">
               <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Print Details</p>
