@@ -17,7 +17,7 @@ export async function triggerLocalPushNotification(title: string, body: string) 
       vibrate: [200, 100, 200],
       tag: 'order-confirmation',
       renotify: true
-    });
+    } as any);
   } else if (Notification.permission !== "denied") {
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
