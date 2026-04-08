@@ -1,9 +1,8 @@
+"use client";
+
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { messaging } from "@/firebase";
-import { requestUserPermission } from "@/firebase-messaging";
-import { isSupported } from "firebase/messaging";
 
 export interface Profile {
   id: string;
@@ -43,68 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mountedRef = useRef(true);
   const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Function to save FCM token to Supabase
-  const saveFcmToken = useCallback(async (userId: string, token: string, role: string) => {
-    try {
-      // Check if token already exists for this user/device
-      const { data: existing } = await (supabase as any)
-        .from("user_push_tokens")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("fcm_token", token)
-        .maybeSingle();
-
-      if (!existing) {
-        // Insert new token
-        await (supabase as any)
-          .from("user_push_tokens")
-          .insert({
-            user_id: userId,
-            role: role,
-            fcm_token: token,
-          });
-        console.log("[AuthContext] FCM token saved for user:", userId);
-      }
-    } catch (error) {
-      console.error("[AuthContext] Failed to save FCM token:", error);
-    }
-  }, []);
-
-  // Function to request notification permission and get FCM token
-  const requestNotificationPermission = useCallback(async (userId: string, role: string) => {
-    // Only request for customers
-    if (role !== "customer") {
-      console.log("[AuthContext] Skipping FCM token request for non-customer role:", role);
-      return;
-    }
-
-    try {
-      const supported = await isSupported();
-      if (!supported) {
-        console.warn("[AuthContext] FCM is not supported in this browser");
-        return;
-      }
-
-      // Request permission
-      const permission = await Notification.requestPermission();
-      if (permission !== "granted") {
-        console.warn("[AuthContext] Notification permission not granted");
-        return;
-      }
-
-      // Get FCM token
-      const token = await requestUserPermission();
-      if (token) {
-        console.log("[AuthContext] FCM token obtained:", token.slice(0, 20) + "...");
-        await saveFcmToken(userId, token, role);
-      } else {
-        console.warn("[AuthContext] No FCM token received");
-      }
-    } catch (error) {
-      console.error("[AuthContext] Error requesting notification permission:", error);
-    }
-  }, [saveFcmToken]);
-
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
     if (fetchProfileRef.current) {
       return fetchProfileRef.current;
@@ -116,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
       
       try {
-        // 1. Fetch existing profile
+        // 1. Fetch existing profile (no timeout, let it fail gracefully)
         let profData: any = null;
         
         try {
@@ -172,7 +109,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // 3. Fetch role
+        // 3. Fetch role (no timeout)
         let roleData: any = null;
         try {
           const { data, error } = await (supabase as any)
@@ -190,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.warn("[AuthContext] Role fetch exception:", err.message);
         }
 
-        // 4. Fetch wallet balance
+        // 4. Fetch wallet balance (no timeout)
         let wallet: any = null;
         try {
           const { data, error } = await (supabase as any)
@@ -219,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
 
         // Update profile with fresh DB data or fallback
-        const newProfile: Profile = {
+        setProfile({
           id: currentUser.id,
           first_name: profData?.first_name || metadata.first_name || 'Student',
           last_name: profData?.last_name || metadata.last_name || '',
@@ -230,15 +167,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           avatar_url: profData?.avatar_url || metadata.avatar_url || null,
           bcoins: Number(wallet?.balance || profData?.bcoins || 0),
           role,
-        };
+        });
         
-        setProfile(newProfile);
         console.log("[AuthContext] Profile loaded successfully. Role:", role);
-
-        // Request FCM token if user is a customer
-        if (role === 'customer') {
-          await requestNotificationPermission(currentUser.id, role);
-        }
       } catch (err: any) {
         console.warn("[AuthContext] Profile fetch issue:", err.message);
         
@@ -272,7 +203,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     fetchProfileRef.current = fetchPromise;
     return fetchPromise;
-  }, [requestNotificationPermission]);
+  }, []);
 
   const refreshProfile = async () => {
     if (user && mountedRef.current) {
@@ -300,7 +231,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
             setIsAuthReady(true);
           }
-        }, 5000);
+        }, 5000); // 5 second max wait
         
         if (s?.user) {
           // Fetch profile in background (won't block UI)

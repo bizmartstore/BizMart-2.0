@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { useAuth } from "@/context/AuthContext";
 
 export default function PWARegister() {
   const { updateServiceWorker } = useRegisterSW({

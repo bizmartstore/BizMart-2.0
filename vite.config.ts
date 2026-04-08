@@ -9,31 +9,19 @@ export default defineConfig(() => ({
     port: 8080,
     hmr: { overlay: false },
   },
-
   plugins: [
     react(),
-
     VitePWA({
       registerType: "autoUpdate",
       injectRegister: "auto",
       strategies: "generateSW",
-
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         navigateFallback: null,
-
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
-
-        // ✅ FIXED: replaced "exclude" with "globIgnores"
-        globIgnores: [
-          "**/*.map",
-          "**/_redirects",
-          "**/firebase-messaging-sw.js",
-        ],
       },
-
       manifest: {
         name: "BizMart Store",
         short_name: "BizMart",
@@ -57,7 +45,6 @@ export default defineConfig(() => ({
       },
     }),
   ],
-
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

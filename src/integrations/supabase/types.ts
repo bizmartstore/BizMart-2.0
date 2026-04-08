@@ -155,30 +155,6 @@ export type Database = {
           seller_id?: string | null;
         };
       };
-      user_push_tokens: {
-        Row: {
-          id: string;
-          user_id: string;
-          role: string;
-          fcm_token: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          user_id: string;
-          role: string;
-          fcm_token: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          user_id?: string;
-          role?: string;
-          fcm_token?: string;
-          created_at?: string;
-          updated_at?: string;
-        };
-      };
     };
     Functions: {
       get_user_role: {

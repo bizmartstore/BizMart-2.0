@@ -18,8 +18,6 @@ export default function NotificationBell() {
   const loadNotifications = useCallback(async () => {
     if (!user) return;
     try {
-      console.log("[NotificationBell] Loading notifications for user:", user.id);
-      // Build query based on user role
       let query = (supabase as any)
         .from("notification_logs")
         .select("*")
@@ -27,33 +25,31 @@ export default function NotificationBell() {
 
       const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
       if (!isAdmin) {
-        // Customers only see their own notifications
         query = query.eq("user_id", user.id);
       } else {
-        // Admins see notifications targeted to them OR all admin notifications
         query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
       }
 
       const { data, error } = await query;
-      if (error) throw error;
-      
+      if (error) {
+        console.error("Failed to load notifications:", error);
+        return;
+      }
       const notifs = data || [];
-      console.log(`[NotificationBell] Loaded ${notifs.length} notifications`);
       setNotifications(notifs);
 
       const newUnread = notifs.filter((n: any) => !n.is_read).length;
       setUnreadCount(newUnread);
 
-      // Play sound for new notifications (only for customers)
       if (newUnread > 0 && notifs.length > 0) {
         const latest = notifs[0];
         if (latest.id !== lastNotificationId.current) {
           lastNotificationId.current = latest.id;
-          const isAdminUser = profile?.role === "main_admin" || profile?.role === "member_admin";
-          if (!isAdminUser) {
-            playCustomerNotificationSound();
-          } else {
+          const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
+          if (isAdmin) {
             playAdminNotificationSound();
+          } else {
+            playCustomerNotificationSound();
           }
         }
       }
@@ -66,39 +62,17 @@ export default function NotificationBell() {
     loadNotifications();
 
     if (!user) return;
-
-    // Set up real-time subscription with proper filtering
-    const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
-    const filter = isAdmin 
-      ? `or(user_id.eq.${user.id},target_role.eq.admin)`
-      : `user_id.eq.${user.id}`;
-
-    console.log("[NotificationBell] Subscribing to realtime with filter:", filter);
     const channel = supabase
       .channel(`notifications-${user.id}`)
       .on(
         "postgres_changes",
-        { 
-          event: "INSERT", 
-          schema: "public", 
-          table: "notification_logs",
-          filter: filter
-        },
-        (payload) => { 
-          console.log("[NotificationBell] Realtime INSERT event received:", payload);
-          loadNotifications();
-        }
+        { event: "INSERT", schema: "public", table: "notification_logs" },
+        () => { loadNotifications(); }
       )
       .on(
         "postgres_changes",
-        { 
-          event: "UPDATE", 
-          schema: "public", 
-          table: "notification_logs",
-          filter: filter
-        },
+        { event: "UPDATE", schema: "public", table: "notification_logs" },
         (payload: any) => {
-          console.log("[NotificationBell] Realtime UPDATE event received:", payload);
           setNotifications((prev) => {
             const updated = [...prev];
             const idx = updated.findIndex((n) => n.id === payload.new.id);
@@ -109,14 +83,10 @@ export default function NotificationBell() {
           });
         }
       )
-      .subscribe((status) => {
-        console.log("[NotificationBell] Realtime subscription status:", status);
-      });
+      .subscribe();
 
-    return () => { 
-      supabase.removeChannel(channel); 
-    };
-  }, [user, profile, loadNotifications]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const markAsRead = async (id: string) => {
     if (!id) return;
@@ -164,6 +134,7 @@ export default function NotificationBell() {
     try {
       const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
       if (isAdmin) {
+        // Admins clear all notifications visible to them (targeted to admin or their user_id)
         await (supabase as any)
           .from("notification_logs")
           .delete()
