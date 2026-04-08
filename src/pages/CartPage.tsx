@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, Minus, ShoppingBag, Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
 import { format, addDays, isAfter, isBefore, startOfDay } from "date-fns";
+import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -107,9 +108,17 @@ export default function CartPage() {
       if (error) throw error;
       
       if (orderData) {
-        setOrderId((orderData as any).id);
+        const newOrderId = (orderData as any).id;
+        setOrderId(newOrderId);
         setOrderComplete(true);
         clearCart();
+        
+        // Trigger Push Notification
+        triggerLocalPushNotification(
+          "Order Successfully Placed! 📦",
+          `Your order #${newOrderId.slice(0, 8)} has been placed. Please wait for admin approval.`
+        );
+        
         toast.success("Order placed successfully!");
       } else {
         throw new Error("No order data returned");

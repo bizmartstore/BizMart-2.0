@@ -11,6 +11,7 @@ import { CartProvider } from "@/context/CartContext";
 import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
+import { useFCM } from "@/hooks/useFCM";
 
 // Pages
 import Index from "@/pages/Index";
@@ -49,6 +50,9 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+  
+  // Initialize FCM
+  useFCM();
 
   useEffect(() => {
     const timer = setTimeout(() => {
