@@ -1,3 +1,4 @@
+/// <reference types="react" />
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,13 +28,46 @@ export default function PrintTab() {
   const [orderComplete, setOrderComplete] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const notifiedPrintIds = useRef<Set<string>>(new Set());   // ← NEW: track notified orders
+  const notifiedPrintIds = useRef<Set<string>>(new Set());   // ← NEW: track notified print orders
 
-  // ... existing code for loading, analyzing, etc. (unchanged) ...
+  const load = async (silent = false) => {
+    if (!isMountedRef.current) return;
+    if (!silent) setLoading(true);
+        try {
+      const { data: printData, error } = await (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      
+      const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
+      let enriched = printData || [];
+      
+      if (userIds.length > 0) {
+        const { data: profiles } = await (supabase as any)
+          .from("profiles")
+          .select("user_id, first_name, last_name, email, grade_level, section")
+          .in("user_id", userIds);
+        
+        const profileMap = new Map(profiles?.map((p: any) => [p.user_id, p]));
+        enriched = printData?.map((o: any) => ({
+          ...o,
+          profiles: profileMap.get(o.user_id) || null,
+        }));
+      }
+      
+      setPages(enriched);
+    } catch (e: any) {
+      console.error("Failed to load print orders:", e);
+      if (!silent) toast.error("Failed to load print orders: " + e.message);
+    } finally {
+      if (!silent && isMountedRef.current) setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const channel = supabase
-      .channel("admin-print-orders-realtime")
+    isMountedRef.current = true;
+    load();
+    
+    const channel = supabase.channel("admin-print-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders", filter: `user_id=eq.${user?.id}` }, (payload: any) => {
         // 👉 Detect a status change to "completed"
         if (payload.new?.status === "completed") {
@@ -57,4 +91,4 @@ export default function PrintTab() {
     };
   }, [user]);
 
-  // ... rest of component unchanged except for the added import and notifiedPrintIds ref
+  // ... rest of component unchanged except for added import and notifiedPrintIds ref

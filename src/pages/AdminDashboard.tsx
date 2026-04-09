@@ -34,7 +34,7 @@ export default function AdminDashboard() {
     bcoins: 0,
     messages: 0,
   });
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null); // ✅ Declare ref
 
   const loadPendingCounts = useCallback(async () => {
     try {
@@ -65,21 +65,7 @@ export default function AdminDashboard() {
     }
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-pending-counts-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loadPendingCounts]);
-
-  // ----------  NEW: Notify customer when status changes ----------
+  // ----------  NEW: Notify the customer when status changes ----------
   const updateStatus = async (id: string, newStatus: string) => {
     setUpdating(id);
     try {
