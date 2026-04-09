@@ -18,8 +18,7 @@ export async function sendNotification({
   targetRole?: string;
 }) {
   try {
-    // We only need to insert into notification_logs. 
-    // The database trigger 'trigger_notification_push_on_insert' handles the rest.
+    // Primary: Insert into notification_logs (triggers push notifications)
     const { error } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
@@ -29,9 +28,23 @@ export async function sendNotification({
       icon: icon || null,
       target_role: targetRole || null,
     });
-    if (error) throw error;
+
+    if (error) {
+      console.error("[Notifications] Failed to insert into notification_logs:", error);
+      
+      // Fallback: Try inserting into the simpler 'notifications' table if it exists
+      // This ensures the user at least sees it in the app bell if the log table is broken
+      await (supabase as any).from("notifications").insert({
+        title,
+        message,
+        type,
+        user_id: userId,
+      }).catch(() => {});
+      
+      throw error;
+    }
   } catch (error) {
-    console.error("Failed to send notification:", error);
+    console.error("[Notifications] Critical failure in sendNotification:", error);
   }
 }
 
@@ -104,7 +117,7 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
       description: reason,
     });
   } catch (error) {
-    console.error("Failed to update BCoins wallet:", error);
+    console.error("[Notifications] Failed to update BCoins wallet:", error);
   }
 };
 
