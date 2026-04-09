@@ -30,7 +30,7 @@ export default function OrdersTab() {
       const combined = [
         ...ordersRes,
         ...printRes,
-      }.map((o) => ({
+      ].map((o) => ({
         ...o,
         type: o.type === "print" ? "print" : "order",
       }));
@@ -53,7 +53,7 @@ export default function OrdersTab() {
       "postgres_changes",
       { event: "*", schema: "public", table: "orders" },
       () => loadOrders(true)
-    }).on(
+    ).on(
       "postgres_changes",
       { event: "*", schema: "public", table: "print_orders" },
       () => loadOrders(true)
