@@ -111,7 +111,6 @@ export default function PrintTab() {
       const { error } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
       
-      // Trigger Push Notification to Customer
       await sendNotification({
         title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
         message: `Your print request for "${order.file_name}" is now ${newStatus}.`,
@@ -121,7 +120,7 @@ export default function PrintTab() {
         icon: "🖨️"
       });
 
-      toast.success(`Print order ${newStatus}! Notification sent to customer.`);
+      toast.success(`Print order ${newStatus}!`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
       load();
