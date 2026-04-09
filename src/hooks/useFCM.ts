@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { messaging, getToken, onMessage, VAPID_KEY } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export function useFCM() {
   const { user } = useAuth();
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
   const saveTokenToDb = useCallback(async (token: string) => {
     if (!user) return;
@@ -26,11 +27,16 @@ export function useFCM() {
     try {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        // Explicitly register the messaging service worker
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        // Only register if not already registered to avoid loops
+        if (!registrationRef.current) {
+          registrationRef.current = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/firebase-cloud-messaging-push-scope'
+          });
+        }
+        
         const token = await getToken(messaging, { 
           vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registration 
+          serviceWorkerRegistration: registrationRef.current 
         });
         
         if (token) {
@@ -44,33 +50,34 @@ export function useFCM() {
   }, [user, saveTokenToDb]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !messaging) return;
 
-    if (messaging) {
-      requestPermission();
+    requestPermission();
 
-      const unsubscribeFCM = onMessage(messaging, (payload) => {
-        const title = payload.notification?.title || "New Notification";
-        const body = payload.notification?.body || "";
-        toast(title, { description: body });
-        triggerLocalPushNotification(title, body);
-      });
+    const unsubscribeFCM = onMessage(messaging, (payload) => {
+      const title = payload.notification?.title || "New Notification";
+      const body = payload.notification?.body || "";
+      toast(title, { description: body });
+      triggerLocalPushNotification(title, body);
+    });
 
-      // Real-time fallback for active sessions
-      const channel = supabase.channel(`user-notifications-${user.id}`)
-        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
-          (payload: any) => {
-            const notif = payload.new;
-            toast(notif.title, { description: notif.message });
-            triggerLocalPushNotification(notif.title, notif.message);
-          }
-        ).subscribe();
+    // Real-time fallback for active sessions
+    const channel = supabase.channel(`user-notifications-${user.id}`)
+      .on("postgres_changes", { 
+        event: "INSERT", 
+        schema: "public", 
+        table: "notification_logs", 
+        filter: `user_id=eq.${user.id}` 
+      }, (payload: any) => {
+        const notif = payload.new;
+        toast(notif.title, { description: notif.message });
+        triggerLocalPushNotification(notif.title, notif.message);
+      }).subscribe();
 
-      return () => {
-        unsubscribeFCM();
-        supabase.removeChannel(channel);
-      };
-    }
+    return () => {
+      unsubscribeFCM();
+      supabase.removeChannel(channel);
+    };
   }, [user, requestPermission]);
 
   return { requestPermission };

@@ -8,10 +8,10 @@ import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
-import PWARegister from "@/components/PWARegister";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
 import { useFCM } from "@/hooks/useFCM";
+import PWAUpdatePrompt from "@/components/PWAUpdatePrompt";
 
 // Pages
 import Index from "@/pages/Index";
@@ -67,7 +67,7 @@ function AppContent() {
 
   return (
     <>
-      <PWARegister />
+      <PWAUpdatePrompt />
       <Toaster />
       <Sonner />
       <TooltipProvider>
