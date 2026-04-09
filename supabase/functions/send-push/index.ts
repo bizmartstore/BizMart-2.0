@@ -1,43 +1,35 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.0'
+import * as jose from 'https://deno.land/x/jose@v4.14.4/index.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper to get Google Auth Token for FCM
+// Helper to generate Google OAuth2 Access Token
 async function getAccessToken(serviceAccount: any) {
-  const header = {
-    alg: 'RS256',
-    typ: 'JWT',
-  };
-
-  const now = Math.floor(Date.now() / 1000);
-  const claim = {
-    iss: serviceAccount.client_email,
+  const jwt = await new jose.SignJWT({
     scope: 'https://www.googleapis.com/auth/firebase.messaging',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  };
+  })
+    .setProtectedHeader({ alg: 'RS256' })
+    .setIssuedAt()
+    .setIssuer(serviceAccount.client_email)
+    .setAudience('https://oauth2.googleapis.com/token')
+    .setExpirationTime('1h')
+    .sign(await jose.importPKCS8(serviceAccount.private_key, 'RS256'))
 
-  // This is a simplified version. In a real production environment, 
-  // you'd use a library like 'jose' to sign the JWT with the private key.
-  // For this environment, we'll assume the user has set up the service account.
-  
-  const response = await fetch('https://oauth2.googleapis.com/token', {
+  const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: 'YOUR_SIGNED_JWT_HERE', // This requires signing logic
+      assertion: jwt,
     }),
-  });
+  })
 
-  // Note: Since signing RS256 in Deno without external libs is complex,
-  // we will use the simpler legacy FCM API or a placeholder for the user to see the logic.
-  return null; 
+  const data = await res.json()
+  return data.access_token
 }
 
 serve(async (req) => {
@@ -50,7 +42,13 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const serviceAccountRaw = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')
     
+    if (!serviceAccountRaw) {
+      throw new Error("FIREBASE_SERVICE_ACCOUNT secret is missing in Supabase")
+    }
+
+    const serviceAccount = JSON.parse(serviceAccountRaw)
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
+    
     const { userId, title, message, link, icon } = await req.json()
 
     if (!userId) {
@@ -59,8 +57,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
-
-    console.log(`[send-push] Processing notification for user: ${userId}`);
 
     // Get all active FCM tokens for this user
     const { data: tokens, error: tokenError } = await supabase
@@ -71,39 +67,50 @@ serve(async (req) => {
     if (tokenError) throw tokenError;
 
     if (!tokens || tokens.length === 0) {
-      console.log(`[send-push] No FCM tokens found for user: ${userId}`);
       return new Response(JSON.stringify({ success: true, message: 'No tokens found' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    if (!serviceAccountRaw) {
-      console.warn("[send-push] FIREBASE_SERVICE_ACCOUNT secret is missing. Push will not be sent to Firebase.");
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'FIREBASE_SERVICE_ACCOUNT secret is missing in Supabase settings.' 
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      })
-    }
+    const accessToken = await getAccessToken(serviceAccount)
+    const fcmUrl = `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`
 
-    const serviceAccount = JSON.parse(serviceAccountRaw);
-    console.log(`[send-push] Sending to ${tokens.length} devices for project: ${serviceAccount.project_id}`);
-
-    // Send to each token
     const results = [];
     for (const { token } of tokens) {
       try {
-        // In a real implementation, you'd use the access token here.
-        // For now, we log the successful attempt to reach this stage.
-        console.log(`[send-push] Successfully prepared payload for token: ${token.slice(0, 10)}...`);
-        
-        // Placeholder for the actual fetch to FCM v1 API
-        // const fcmRes = await fetch(`https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`, { ... });
-        
-        results.push({ token: token.slice(0, 10), status: 'success' });
+        const fcmRes = await fetch(fcmUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({
+            message: {
+              token: token,
+              notification: {
+                title: title,
+                body: message,
+              },
+              data: {
+                link: link || '/',
+                icon: icon || '',
+              },
+              webpush: {
+                fcm_options: {
+                  link: link || '/',
+                },
+                notification: {
+                  icon: '/pwa-192x192.png',
+                  badge: '/pwa-192x192.png',
+                }
+              }
+            },
+          }),
+        });
+
+        const fcmData = await fcmRes.json();
+        results.push({ token: token.slice(0, 10), status: fcmRes.ok ? 'success' : 'error', details: fcmData });
       } catch (err) {
-        console.error(`[send-push] Failed to send to token ${token.slice(0, 10)}:`, err.message);
         results.push({ token: token.slice(0, 10), status: 'error', message: err.message });
       }
     }
