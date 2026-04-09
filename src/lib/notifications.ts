@@ -18,7 +18,7 @@ export async function sendNotification({
   targetRole?: string;
 }) {
   try {
-    const { error } = await (supabase as any).from("notification_logs").insert({
+    const { data, error } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
       type,
@@ -26,8 +26,17 @@ export async function sendNotification({
       link: link || null,
       icon: icon || null,
       target_role: targetRole || null,
-    });
+    }).select().single();
+
     if (error) throw error;
+
+    // Trigger Push Notification via Edge Function if it's for a specific user
+    if (userId && !targetRole && data) {
+      console.log("[notifications] Triggering push for user:", userId);
+      supabase.functions.invoke('send-fcm', {
+        body: { record: data }
+      }).catch(err => console.error("[notifications] Push trigger failed:", err));
+    }
   } catch (error) {
     console.error("Failed to send notification:", error);
   }
