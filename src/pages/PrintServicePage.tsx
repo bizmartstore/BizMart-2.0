@@ -13,7 +13,6 @@ import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, F
 import { format } from "date-fns";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
-import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
@@ -232,12 +231,6 @@ export default function PrintServicePage() {
         const newOrderId = (orderData as any).id;
         setOrderId(newOrderId);
         setOrderComplete(true);
-        
-        // Trigger Push Notification
-        triggerLocalPushNotification(
-          "Print Order Placed! 🖨️",
-          `Your print request for "${file.name}" has been received. Please wait for admin approval.`
-        );
         
         toast.success("Print order submitted successfully!");
       } else {

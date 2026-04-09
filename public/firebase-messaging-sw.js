@@ -18,11 +18,9 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  // Note: If the payload contains a 'notification' property, 
-  // Firebase will automatically show the notification for you.
-  // We only need to manually show it if we are sending 'data-only' messages.
-  // Since our backend sends a 'notification' block, we don't call showNotification here
-  // to avoid duplicates.
+  // CRITICAL: We do NOT call self.registration.showNotification here.
+  // When the payload contains a 'notification' property (which our backend sends),
+  // the Firebase SDK automatically handles displaying it with the correct app icon.
 });
 
 self.addEventListener('notificationclick', (event) => {
