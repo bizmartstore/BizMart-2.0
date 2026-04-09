@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// Valid roles matching the database enum
 const VALID_ROLES = ["main_admin", "member_admin", "customer"];
 
 export async function sendNotification({
@@ -22,8 +23,10 @@ export async function sendNotification({
   sendPush?: boolean;
 }) {
   try {
+    // Defensive validation for targetRole
     let validatedRole = targetRole || null;
     if (validatedRole && !VALID_ROLES.includes(validatedRole)) {
+      console.warn(`[Notifications] Invalid role detected: ${validatedRole}. Defaulting to null.`);
       validatedRole = null;
     }
 
@@ -40,16 +43,12 @@ export async function sendNotification({
 
     if (error) throw error;
 
-    // 2. Trigger Push Notification via Edge Function
+    // 2. Trigger Push Notification via Edge Function if it's for a specific user
     if (sendPush && userId) {
+      console.log(`[Notifications] Triggering push for user: ${userId}`);
       supabase.functions.invoke("send-push", {
         body: { userId, title, message, link, icon }
       }).catch(err => console.error("[Notifications] Push trigger failed:", err));
-    } else if (sendPush && validatedRole) {
-      // For role-based notifications (admins), we fetch tokens for those roles in the Edge Function
-      supabase.functions.invoke("send-push", {
-        body: { targetRole: validatedRole, title, message, link, icon }
-      }).catch(err => console.error("[Notifications] Role push failed:", err));
     }
 
     return data;
@@ -58,107 +57,141 @@ export async function sendNotification({
   }
 }
 
+export async function triggerNotification(params: any) {
+  return sendNotification(params);
+}
+
+/**
+ * Notify admins about a new GCash request
+ */
 export const notifyAdminGCash = async (type: string, userName: string, amount: number) => {
   await sendNotification({
     title: "💳 New GCash Request",
     message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
     type: "gcash_request",
-    targetRole: "main_admin",
+    targetRole: "main_admin", // Use explicit valid role
     link: "/admin",
-    icon: "💳"
+    icon: "💳",
+    sendPush: true
   });
 };
 
-export const notifyAdminNewOrder = async (userName: string, total: number) => {
-  await sendNotification({
-    title: "📦 New Order Received",
-    message: `${userName} just placed an order for ₱${total.toFixed(2)}.`,
-    type: "new_order",
-    targetRole: "main_admin",
-    link: "/admin",
-    icon: "📦"
-  });
-};
-
-export const notifyAdminNewPrintOrder = async (userName: string, cost: number) => {
-  await sendNotification({
-    title: "🖨️ New Print Order",
-    message: `${userName} submitted a print request for ₱${cost.toFixed(2)}.`,
-    type: "new_print_order",
-    targetRole: "main_admin",
-    link: "/admin",
-    icon: "🖨️"
-  });
-};
-
+/**
+ * Notify customer about BCoins earned
+ */
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
   if (!userId) return;
+  
   await sendNotification({
     title: "🪙 BCoins Earned!",
-    message: `You earned ${amount.toFixed(1)} BCoins from ${reason}!`,
+    message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
     type: "bcoins_earned",
     userId,
     link: "/bcoins",
-    icon: "🪙"
+    icon: "🪙",
+    sendPush: true
   });
-  const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", userId).maybeSingle();
-  const currentBalance = Number(wallet?.balance || 0);
-  if (wallet) {
-    await (supabase as any).from("bcoins_wallets").update({ balance: currentBalance + amount, updated_at: new Date().toISOString() }).eq("user_id", userId);
-  } else {
-    await (supabase as any).from("bcoins_wallets").insert({ user_id: userId, balance: amount });
+
+  try {
+    const { data: wallet } = await (supabase as any)
+      .from("bcoins_wallets")
+      .select("balance")
+      .eq("user_id", userId)
+      .maybeSingle();
+    
+    const currentBalance = Number(wallet?.balance || 0);
+    const newBalance = currentBalance + amount;
+    
+    if (wallet) {
+      await (supabase as any)
+        .from("bcoins_wallets")
+        .update({ balance: newBalance, updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+    } else {
+      await (supabase as any)
+        .from("bcoins_wallets")
+        .insert({ user_id: userId, balance: newBalance });
+    }
+    
+    await (supabase as any).from("bcoins_transactions").insert({
+      user_id: userId,
+      amount: amount,
+      type: "earn_gcash",
+      description: reason,
+    });
+  } catch (error) {
+    console.error("Failed to add BCoins to wallet:", error);
   }
-  await (supabase as any).from("bcoins_transactions").insert({ user_id: userId, amount, type: "earned", description: reason });
 };
 
+/**
+ * Notify admins about a new BCoins redemption
+ */
 export const notifyAdminRedemption = async (userName: string, amount: number) => {
   await sendNotification({
     title: "🎁 New BCoins Redemption",
     message: `${userName} redeemed ₱${amount} GCash.`,
     type: "redemption_request",
-    targetRole: "main_admin",
+    targetRole: "main_admin", // Use explicit valid role
     link: "/admin",
-    icon: "🎁"
+    icon: "🎁",
+    sendPush: true
   });
 };
 
+/**
+ * Notify customer about order status changes
+ */
 export const notifyCustomerOrder = async (userId: string, orderId: string, status: string) => {
   if (!userId) return;
+  
   const statusMessages: Record<string, string> = {
-    approved: "Your order is being prepared! 📦",
-    ready: "Your order is ready! 🚚",
-    completed: "Order completed. Thank you! 🎉",
-    rejected: "Your order was rejected. ❌"
+    approved: "Your order has been approved and is being prepared! 📦",
+    ready: "Your order is ready for pickup/delivery! 🚚",
+    completed: "Your order has been completed. Thank you for shopping! 🎉",
+    rejected: "Your order was unfortunately rejected. Please contact support. ❌",
+    canceled: "Your order has been canceled. ⚠️"
   };
+
   await sendNotification({
     title: `📦 Order ${status.toUpperCase()}`,
     message: statusMessages[status] || `Your order #${orderId.slice(0, 8)} is now ${status}.`,
     type: "order_status",
     userId,
     link: "/orders",
-    icon: "📦"
+    icon: "📦",
+    sendPush: true
   });
 };
 
+/**
+ * Notify customer about a new message
+ */
 export const notifyNewMessage = async (recipientId: string, senderName: string, content: string) => {
   if (!recipientId) return;
+  
   await sendNotification({
     title: `💬 New message from ${senderName}`,
     message: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
     type: "new_message",
     userId: recipientId,
     link: "/messages",
-    icon: "💬"
+    icon: "💬",
+    sendPush: true
   });
 };
 
+/**
+ * Notify admins about a new club member
+ */
 export const notifyAdminNewMember = async (memberName: string) => {
   await sendNotification({
     title: "👑 New Club Member",
-    message: `${memberName} just joined the Club!`,
+    message: `${memberName} just joined the BizMart Club!`,
     type: "new_member",
-    targetRole: "main_admin",
+    targetRole: "main_admin", // Use explicit valid role
     link: "/admin",
-    icon: "👑"
+    icon: "👑",
+    sendPush: true
   });
 };
