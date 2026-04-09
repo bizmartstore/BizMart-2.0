@@ -1,29 +1,3 @@
-...code...
-＜/dyad-write>
-
-Then update OrdersTab.tsx to call the function with correct parameters. The current call in OrdersTab.tsx uses:
-
-await supabase.functions.invoke("notify", {
-  title: "📦 Order Completed!",
-  message: `Your order #${orderId} is now completed.`,
-  type: "order_status",
-  userId: order.id,
-  link: "/orders",
-  icon: "📦"
-});
-
-That seems fine. Maybe need to adjust type checking? The function expects certain fields; we can type it.
-
-We can update OrdersTab.tsx to type the payload.
-
-Provide updated OrdersTab.tsx with proper typing.
-
-Let's output updated OrdersTab.tsx via ＜dyad-write>.
-
-Also ensure we close tags.
-
-Proceed.
-</think><dyad-write path="supabase/functions/notify/index.ts" description="Create notify edge function to handle notification logging and realtime updates.">
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -45,7 +19,16 @@ serve(async (req) => {
 
   try {
     // Verify caller has permission (service‑role can always call)
-    // Add extra checks here if you need role‑specific logic    // Parse JSON payload
+    // Add extra checks here if you need role‑specific logic
+    const authHeader = req.headers.get("authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse JSON payload
     const payload = await req.json(); // expected: {title, message, type, userId, link, icon, ...}
 
     // Insert a row into notification_logs so the realtime channel fires
