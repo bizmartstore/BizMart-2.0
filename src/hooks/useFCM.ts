@@ -3,7 +3,6 @@ import { messaging, getToken, onMessage, VAPID_KEY } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export function useFCM() {
   const { user } = useAuth();
@@ -27,7 +26,6 @@ export function useFCM() {
     try {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        // Only register if not already registered to avoid loops
         if (!registrationRef.current) {
           registrationRef.current = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
             scope: '/firebase-cloud-messaging-push-scope'
@@ -54,29 +52,27 @@ export function useFCM() {
 
     requestPermission();
 
+    // Handle foreground messages via FCM only
+    // We removed the Supabase Realtime listener here because it was causing duplicates
     const unsubscribeFCM = onMessage(messaging, (payload) => {
       const title = payload.notification?.title || "New Notification";
       const body = payload.notification?.body || "";
-      toast(title, { description: body });
-      triggerLocalPushNotification(title, body);
+      
+      // Show in-app toast for foreground users
+      toast(title, { 
+        description: body,
+        action: payload.data?.link ? {
+          label: "View",
+          onClick: () => window.location.href = payload.data?.link
+        } : undefined
+      });
+      
+      // We do NOT call triggerLocalPushNotification here because it creates 
+      // a system notification on top of the toast, which feels like a duplicate.
     });
-
-    // Real-time fallback for active sessions
-    const channel = supabase.channel(`user-notifications-${user.id}`)
-      .on("postgres_changes", { 
-        event: "INSERT", 
-        schema: "public", 
-        table: "notification_logs", 
-        filter: `user_id=eq.${user.id}` 
-      }, (payload: any) => {
-        const notif = payload.new;
-        toast(notif.title, { description: notif.message });
-        triggerLocalPushNotification(notif.title, notif.message);
-      }).subscribe();
 
     return () => {
       unsubscribeFCM();
-      supabase.removeChannel(channel);
     };
   }, [user, requestPermission]);
 
