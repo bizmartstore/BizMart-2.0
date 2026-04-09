@@ -53,13 +53,23 @@ export default function UsersTab() {
 
   const assignRole = async (userId: string, role: string) => {
     try {
+      // First, remove any existing role entry
       await (supabase as any).from("user_roles").delete().eq("user_id", userId);
+      
+      // If the role is not 'customer', insert the new role
+      // Regular customers don't need an entry in user_roles as they are the default
       if (role !== "customer") {
-        await (supabase as any).from("user_roles").insert({ user_id: userId, role });
+        const { error } = await (supabase as any).from("user_roles").insert({ user_id: userId, role });
+        if (error) throw error;
       }
+      
+      // Also update the profile role for consistency
+      await (supabase as any).from("profiles").update({ role }).eq("user_id", userId);
+      
       toast.success(`Role updated to ${role}`);
       load();
     } catch (e: any) {
+      console.error("Role assignment error:", e);
       toast.error(e.message || "Failed to update role");
     }
   };

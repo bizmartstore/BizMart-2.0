@@ -1,5 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
+// Valid roles matching the database enum
+const VALID_ROLES = ["main_admin", "member_admin", "customer"];
+
 export async function sendNotification({
   title,
   message,
@@ -20,6 +23,13 @@ export async function sendNotification({
   sendPush?: boolean;
 }) {
   try {
+    // Defensive validation for targetRole
+    let validatedRole = targetRole || null;
+    if (validatedRole && !VALID_ROLES.includes(validatedRole)) {
+      console.warn(`[Notifications] Invalid role detected: ${validatedRole}. Defaulting to null.`);
+      validatedRole = null;
+    }
+
     // 1. Save to database for the in-app notification bell
     const { data, error } = await (supabase as any).from("notification_logs").insert({
       title,
@@ -28,7 +38,7 @@ export async function sendNotification({
       user_id: userId || null,
       link: link || null,
       icon: icon || null,
-      target_role: targetRole || null,
+      target_role: validatedRole,
     }).select().single();
 
     if (error) throw error;
@@ -36,7 +46,6 @@ export async function sendNotification({
     // 2. Trigger Push Notification via Edge Function if it's for a specific user
     if (sendPush && userId) {
       console.log(`[Notifications] Triggering push for user: ${userId}`);
-      // We don't await this to keep the UI responsive
       supabase.functions.invoke("send-push", {
         body: { userId, title, message, link, icon }
       }).catch(err => console.error("[Notifications] Push trigger failed:", err));
@@ -60,10 +69,10 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
     title: "💳 New GCash Request",
     message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
     type: "gcash_request",
-    targetRole: "admin",
+    targetRole: "main_admin", // Use explicit valid role
     link: "/admin",
     icon: "💳",
-    sendPush: true // Admins should also get push if they have tokens
+    sendPush: true
   });
 };
 
@@ -123,7 +132,7 @@ export const notifyAdminRedemption = async (userName: string, amount: number) =>
     title: "🎁 New BCoins Redemption",
     message: `${userName} redeemed ₱${amount} GCash.`,
     type: "redemption_request",
-    targetRole: "admin",
+    targetRole: "main_admin", // Use explicit valid role
     link: "/admin",
     icon: "🎁",
     sendPush: true
@@ -180,7 +189,7 @@ export const notifyAdminNewMember = async (memberName: string) => {
     title: "👑 New Club Member",
     message: `${memberName} just joined the BizMart Club!`,
     type: "new_member",
-    targetRole: "admin",
+    targetRole: "main_admin", // Use explicit valid role
     link: "/admin",
     icon: "👑",
     sendPush: true
