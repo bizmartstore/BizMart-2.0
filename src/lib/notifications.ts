@@ -18,7 +18,6 @@ export async function sendNotification({
   targetRole?: string;
 }) {
   try {
-    // Primary: Insert into notification_logs (triggers push notifications)
     const { error } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
@@ -28,48 +27,43 @@ export async function sendNotification({
       icon: icon || null,
       target_role: targetRole || null,
     });
-
-    if (error) {
-      console.error("[Notifications] Failed to insert into notification_logs:", error);
-      
-      // Fallback: Try inserting into the simpler 'notifications' table if it exists
-      // This ensures the user at least sees it in the app bell if the log table is broken
-      await (supabase as any).from("notifications").insert({
-        title,
-        message,
-        type,
-        user_id: userId,
-      }).catch(() => {});
-      
-      throw error;
-    }
+    if (error) throw error;
   } catch (error) {
-    console.error("[Notifications] Critical failure in sendNotification:", error);
+    console.error("Failed to send notification:", error);
   }
 }
 
-/**
- * Notify customer about order status changes (Products or Printing)
- */
-export const notifyCustomerOrder = async (userId: string, orderId: string, status: string, isPrint: boolean = false) => {
-  if (!userId) return;
-  
-  const prefix = isPrint ? "🖨️ Print Order" : "📦 Order";
-  const statusMessages: Record<string, string> = {
-    approved: `Your ${isPrint ? 'print request' : 'order'} has been approved! ${isPrint ? '🖨️' : '📦'}`,
-    ready: `Your ${isPrint ? 'print' : 'order'} is ready for pickup/delivery! 🚚`,
-    completed: `Your ${isPrint ? 'print' : 'order'} is completed. Thank you! 🎉`,
-    rejected: `Your ${isPrint ? 'print request' : 'order'} was rejected. ❌`,
-    canceled: `Your ${isPrint ? 'print request' : 'order'} has been canceled. ⚠️`
-  };
+export async function triggerNotification({
+  title,
+  message,
+  type,
+  userId,
+  link,
+  icon,
+  targetRole,
+}: {
+  title: string;
+  message: string;
+  type: string;
+  userId?: string;
+  link?: string;
+  icon?: string;
+  targetRole?: string;
+}) {
+  return sendNotification({ title, message, type, userId, link, icon, targetRole });
+}
 
+/**
+ * Notify admins about a new GCash request
+ */
+export const notifyAdminGCash = async (type: string, userName: string, amount: number) => {
   await sendNotification({
-    title: `${prefix} ${status.toUpperCase()}`,
-    message: statusMessages[status] || `Your order #${orderId.slice(0, 8)} is now ${status}.`,
-    type: isPrint ? "print_status" : "order_status",
-    userId,
-    link: "/orders",
-    icon: isPrint ? "🖨️" : "📦",
+    title: "💳 New GCash Request",
+    message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
+    type: "gcash_request",
+    targetRole: "admin",
+    link: "/admin",
+    icon: "💳",
   });
 };
 
@@ -79,7 +73,7 @@ export const notifyCustomerOrder = async (userId: string, orderId: string, statu
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
   if (!userId) return;
   
-  await sendNotification({
+  await triggerNotification({
     title: "🪙 BCoins Earned!",
     message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
     type: "bcoins_earned",
@@ -88,7 +82,6 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
     icon: "🪙"
   });
 
-  // Update wallet balance
   try {
     const { data: wallet } = await (supabase as any)
       .from("bcoins_wallets")
@@ -117,21 +110,13 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
       description: reason,
     });
   } catch (error) {
-    console.error("[Notifications] Failed to update BCoins wallet:", error);
+    console.error("Failed to add BCoins to wallet:", error);
   }
 };
 
-export const notifyAdminGCash = async (type: string, userName: string, amount: number) => {
-  await sendNotification({
-    title: "💳 New GCash Request",
-    message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
-    type: "gcash_request",
-    targetRole: "admin",
-    link: "/admin",
-    icon: "💳",
-  });
-};
-
+/**
+ * Notify admins about a new BCoins redemption
+ */
 export const notifyAdminRedemption = async (userName: string, amount: number) => {
   await sendNotification({
     title: "🎁 New BCoins Redemption",
@@ -143,8 +128,36 @@ export const notifyAdminRedemption = async (userName: string, amount: number) =>
   });
 };
 
+/**
+ * Notify customer about order status changes
+ */
+export const notifyCustomerOrder = async (userId: string, orderId: string, status: string) => {
+  if (!userId) return;
+  
+  const statusMessages: Record<string, string> = {
+    approved: "Your order has been approved and is being prepared! 📦",
+    ready: "Your order is ready for pickup/delivery! 🚚",
+    completed: "Your order has been completed. Thank you for shopping! 🎉",
+    rejected: "Your order was unfortunately rejected. Please contact support. ❌",
+    canceled: "Your order has been canceled. ⚠️"
+  };
+
+  await sendNotification({
+    title: `📦 Order ${status.toUpperCase()}`,
+    message: statusMessages[status] || `Your order #${orderId.slice(0, 8)} is now ${status}.`,
+    type: "order_status",
+    userId,
+    link: "/orders",
+    icon: "📦",
+  });
+};
+
+/**
+ * Notify customer about a new message
+ */
 export const notifyNewMessage = async (recipientId: string, senderName: string, content: string) => {
   if (!recipientId) return;
+  
   await sendNotification({
     title: `💬 New message from ${senderName}`,
     message: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
@@ -155,6 +168,9 @@ export const notifyNewMessage = async (recipientId: string, senderName: string, 
   });
 };
 
+/**
+ * Notify admins about a new club member
+ */
 export const notifyAdminNewMember = async (memberName: string) => {
   await sendNotification({
     title: "👑 New Club Member",

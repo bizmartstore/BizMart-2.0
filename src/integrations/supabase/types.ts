@@ -22,11 +22,8 @@ export type Database = {
           avatar_url: string | null;
           created_at: string;
           updated_at: string;
-          role: string | null;
-          bcoins: number | null;
         };
         Insert: {
-          id?: string;
           user_id: string;
           first_name: string;
           last_name: string;
@@ -35,8 +32,6 @@ export type Database = {
           grade_level?: string | null;
           section?: string | null;
           avatar_url?: string | null;
-          role?: string | null;
-          bcoins?: number | null;
         };
         Update: {
           first_name?: string;
@@ -45,59 +40,6 @@ export type Database = {
           grade_level?: string | null;
           section?: string | null;
           avatar_url?: string | null;
-          role?: string | null;
-          bcoins?: number | null;
-        };
-      };
-      notification_logs: {
-        Row: {
-          id: string;
-          user_id: string | null;
-          target_user_id: string | null;
-          target_role: string | null;
-          type: string;
-          title: string;
-          message: string;
-          icon: string | null;
-          link: string | null;
-          is_read: boolean;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id?: string | null;
-          target_user_id?: string | null;
-          target_role?: string | null;
-          type: string;
-          title: string;
-          message: string;
-          icon?: string | null;
-          link?: string | null;
-          is_read?: boolean;
-          created_at?: string;
-        };
-        Update: {
-          is_read?: boolean;
-        };
-      };
-      user_push_tokens: {
-        Row: {
-          id: string;
-          user_id: string;
-          role: string;
-          fcm_token: string;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          role: string;
-          fcm_token: string;
-        };
-        Update: {
-          fcm_token?: string;
-          role?: string;
         };
       };
       orders: {
@@ -106,7 +48,7 @@ export type Database = {
           user_id: string;
           items: any[];
           total: number;
-          delivery_type: string;
+          delivery_type: "pickup" | "delivery";
           pickup_date: string;
           pickup_time: string;
           delivery_fee: number;
@@ -118,7 +60,7 @@ export type Database = {
           user_id: string;
           items: any[];
           total: number;
-          delivery_type: string;
+          delivery_type: "pickup" | "delivery";
           pickup_date: string;
           pickup_time: string;
           delivery_fee: number;
@@ -138,8 +80,8 @@ export type Database = {
           total_pages: number;
           bw_pages: number;
           colored_pages: number;
-          page_size: string;
-          delivery_type: string;
+          page_size: "short" | "long";
+          delivery_type: "pickup" | "delivery";
           pickup_date: string;
           pickup_time: string;
           cost: number;
@@ -153,8 +95,8 @@ export type Database = {
           total_pages: number;
           bw_pages: number;
           colored_pages: number;
-          page_size: string;
-          delivery_type: string;
+          page_size: "short" | "long";
+          delivery_type: "pickup" | "delivery";
           pickup_date: string;
           pickup_time: string;
           cost: number;
@@ -217,7 +159,7 @@ export type Database = {
     Functions: {
       get_user_role: {
         Args: { _user_id: string };
-        Returns: string;
+        Returns: any;
       };
     };
   };

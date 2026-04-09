@@ -12,81 +12,56 @@ export function useFCM() {
     if (!user) return;
     
     try {
-      const userRole = profile?.role || 'customer';
-      console.log(`[FCM] Attempting to save token for user ${user.id} with role ${userRole}`);
-      
-      // We use 'fcm_token' as the conflict target because each token is unique to a device/browser
       const { error } = await (supabase as any)
-        .from("user_push_tokens")
+        .from("fcm_tokens")
         .upsert(
-          { 
-            user_id: user.id, 
-            fcm_token: token, 
-            role: userRole,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: "fcm_token" }
+          { user_id: user.id, token, device_type: "web" },
+          { onConflict: "user_id,token" }
         );
       
-      if (error) {
-        console.error("[FCM] Error saving token:", error);
-        // Fallback: if upsert fails, try a simple insert and ignore errors
-        if (error.code === '42P10') {
-          console.warn("[FCM] Unique constraint missing, falling back to simple insert");
-          await (supabase as any).from("user_push_tokens").insert({ 
-            user_id: user.id, 
-            fcm_token: token, 
-            role: userRole 
-          }).catch(() => {});
-        }
-      } else {
-        console.log("[FCM] Token saved successfully");
-      }
+      if (error) console.error("Error saving FCM token:", error);
     } catch (err) {
-      console.error("[FCM] Critical failure saving token:", err);
+      console.error("Failed to save FCM token to database:", err);
     }
-  }, [user, profile]);
+  }, [user]);
 
   const requestPermission = useCallback(async () => {
     if (!messaging || !user) return;
 
     try {
       const permission = await Notification.requestPermission();
-      
       if (permission === "granted") {
-        // Ensure service worker is ready
-        const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-        
-        const token = await getToken(messaging, { 
-          vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registration
-        });
-
+        const token = await getToken(messaging, { vapidKey: VAPID_KEY });
         if (token) {
           await saveTokenToDb(token);
         }
       }
     } catch (error) {
-      console.error("[FCM] Permission/Token request error:", error);
+      console.error("An error occurred while requesting permission to notify:", error);
     }
   }, [user, saveTokenToDb]);
 
   useEffect(() => {
     if (!user) return;
 
+    // 1. Request FCM permissions and save token
     if (messaging) {
       requestPermission();
 
+      // Handle foreground FCM messages
       const unsubscribeFCM = onMessage(messaging, (payload) => {
+        console.log("FCM Message received: ", payload);
         const title = payload.notification?.title || "New Notification";
         const body = payload.notification?.body || "";
+        
         toast(title, { description: body });
         triggerLocalPushNotification(title, body);
       });
 
-      // Real-time listener for the notification_logs table
+      // 2. Listen for database notification logs (Real-time Push fallback)
+      // This ensures that even if FCM fails, the user gets a push if the app is active
       const channel = supabase
-        .channel(`user-notifs-${user.id}`)
+        .channel(`user-notifications-${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -97,7 +72,12 @@ export function useFCM() {
           },
           (payload: any) => {
             const notif = payload.new;
+            console.log("DB Notification received:", notif);
+            
+            // Trigger local push
             triggerLocalPushNotification(notif.title, notif.message);
+            
+            // Show toast
             toast(notif.title, {
               description: notif.message,
               action: notif.link ? {
