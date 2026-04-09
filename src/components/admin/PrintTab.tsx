@@ -77,13 +77,7 @@ export default function PrintTab() {
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
         load(true);
       })
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log("[PrintTab] Real-time subscription active");
-        } else if (status === 'CHANNEL_ERROR') {
-          console.warn("[PrintTab] Real-time channel error, relying on polling");
-        }
-      });
+      .subscribe();
 
     pollIntervalRef.current = setInterval(() => {
       load(true);
@@ -111,16 +105,18 @@ export default function PrintTab() {
       const { error } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
       
+      // This will now trigger both DB log and Push Notification
       await sendNotification({
         title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
         message: `Your print request for "${order.file_name}" is now ${newStatus}.`,
         type: "print_status",
         userId: order.user_id,
         link: "/orders",
-        icon: "🖨️"
+        icon: "🖨️",
+        sendPush: true
       });
 
-      toast.success(`Print order ${newStatus}!`);
+      toast.success(`Print order ${newStatus}! Notification sent.`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
       load();

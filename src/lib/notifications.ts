@@ -8,6 +8,7 @@ export async function sendNotification({
   link,
   icon,
   targetRole,
+  sendPush = true,
 }: {
   title: string;
   message: string;
@@ -16,9 +17,11 @@ export async function sendNotification({
   link?: string;
   icon?: string;
   targetRole?: string;
+  sendPush?: boolean;
 }) {
   try {
-    const { error } = await (supabase as any).from("notification_logs").insert({
+    // 1. Save to database for the in-app notification bell
+    const { data, error } = await (supabase as any).from("notification_logs").insert({
       title,
       message,
       type,
@@ -26,31 +29,27 @@ export async function sendNotification({
       link: link || null,
       icon: icon || null,
       target_role: targetRole || null,
-    });
+    }).select().single();
+
     if (error) throw error;
+
+    // 2. Trigger Push Notification via Edge Function if it's for a specific user
+    if (sendPush && userId) {
+      console.log(`[Notifications] Triggering push for user: ${userId}`);
+      // We don't await this to keep the UI responsive
+      supabase.functions.invoke("send-push", {
+        body: { userId, title, message, link, icon }
+      }).catch(err => console.error("[Notifications] Push trigger failed:", err));
+    }
+
+    return data;
   } catch (error) {
     console.error("Failed to send notification:", error);
   }
 }
 
-export async function triggerNotification({
-  title,
-  message,
-  type,
-  userId,
-  link,
-  icon,
-  targetRole,
-}: {
-  title: string;
-  message: string;
-  type: string;
-  userId?: string;
-  link?: string;
-  icon?: string;
-  targetRole?: string;
-}) {
-  return sendNotification({ title, message, type, userId, link, icon, targetRole });
+export async function triggerNotification(params: any) {
+  return sendNotification(params);
 }
 
 /**
@@ -64,6 +63,7 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
     targetRole: "admin",
     link: "/admin",
     icon: "💳",
+    sendPush: true // Admins should also get push if they have tokens
   });
 };
 
@@ -73,13 +73,14 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
   if (!userId) return;
   
-  await triggerNotification({
+  await sendNotification({
     title: "🪙 BCoins Earned!",
     message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
     type: "bcoins_earned",
     userId,
     link: "/bcoins",
-    icon: "🪙"
+    icon: "🪙",
+    sendPush: true
   });
 
   try {
@@ -125,6 +126,7 @@ export const notifyAdminRedemption = async (userName: string, amount: number) =>
     targetRole: "admin",
     link: "/admin",
     icon: "🎁",
+    sendPush: true
   });
 };
 
@@ -149,6 +151,7 @@ export const notifyCustomerOrder = async (userId: string, orderId: string, statu
     userId,
     link: "/orders",
     icon: "📦",
+    sendPush: true
   });
 };
 
@@ -165,6 +168,7 @@ export const notifyNewMessage = async (recipientId: string, senderName: string, 
     userId: recipientId,
     link: "/messages",
     icon: "💬",
+    sendPush: true
   });
 };
 
@@ -179,5 +183,6 @@ export const notifyAdminNewMember = async (memberName: string) => {
     targetRole: "admin",
     link: "/admin",
     icon: "👑",
+    sendPush: true
   });
 };
