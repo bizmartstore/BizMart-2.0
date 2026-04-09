@@ -14,25 +14,22 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
+// Background message handler
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification.title;
-  const notificationOptions = {
-    body: payload.notification.body,
-    icon: '/pwa-192x192.png',
-    badge: '/pwa-192x192.png',
-    data: {
-      url: payload.data?.link || '/'
-    }
-  };
-
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  // Note: If the payload contains a 'notification' property, 
+  // Firebase will automatically show the notification for you.
+  // We only need to manually show it if we are sending 'data-only' messages.
+  // Since our backend sends a 'notification' block, we don't call showNotification here
+  // to avoid duplicates.
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || '/';
+  
+  // Extract link from data payload
+  const urlToOpen = event.notification.data?.link || event.notification.data?.url || '/';
   
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
