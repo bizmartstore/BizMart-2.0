@@ -13,6 +13,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, Minus, ShoppingBag, Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
 import { format, addDays, isAfter, isBefore, startOfDay } from "date-fns";
+import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -111,6 +112,12 @@ export default function CartPage() {
         setOrderId(newOrderId);
         setOrderComplete(true);
         clearCart();
+        
+        // Trigger Push Notification
+        triggerLocalPushNotification(
+          "Order Successfully Placed! 📦",
+          `Your order #${newOrderId.slice(0, 8)} has been placed. Please wait for admin approval.`
+        );
         
         toast.success("Order placed successfully!");
       } else {
@@ -260,8 +267,7 @@ export default function CartPage() {
 
             <div>
               <label className="text-xs font-bold">Date</label>
-              <Input
-                type="date"
+              <Input                type="date"
                 value={pickupDate}
                 onChange={(e) => setPickupDate(e.target.value)}
                 min={todayManila}
@@ -273,8 +279,7 @@ export default function CartPage() {
 
             <div>
               <label className="text-xs font-bold">Time</label>
-              <Input
-                type="time"
+              <Input                type="time"
                 value={pickupTime}
                 onChange={(e) => setPickupTime(e.target.value)}
                 min={noTimesToday ? undefined : minTimeString}
@@ -299,8 +304,7 @@ export default function CartPage() {
           </div>
         </div>
 
-        <Button
-          onClick={handleCheckout}
+        <Button          onClick={handleCheckout}
           disabled={checkingOut || items.length === 0 || noTimesToday || !pickupTime}
           className="w-full h-12 font-bold rounded-xl"
         >
