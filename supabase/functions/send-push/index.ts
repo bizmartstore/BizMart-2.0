@@ -35,19 +35,31 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
-    const { userId, title, message, link, icon } = await req.json()
+    const { userId, targetRole, title, message, link, icon } = await req.json()
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
     const serviceAccountRaw = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')
 
     if (!serviceAccountRaw) {
-      console.error("[send-push] Missing FIREBASE_SERVICE_ACCOUNT secret");
-      return new Response(JSON.stringify({ error: 'Server configuration missing' }), { status: 500, headers: corsHeaders })
+      return new Response(JSON.stringify({ error: 'Server config missing' }), { status: 500, headers: corsHeaders })
     }
 
     const serviceAccount = JSON.parse(serviceAccountRaw)
     
-    // Get user tokens
-    const { data: tokens } = await supabase.from('fcm_tokens').select('token').eq('user_id', userId)
+    // Get tokens for either a specific user OR a target role (admins)
+    let tokensQuery = supabase.from('fcm_tokens').select('token');
+    if (userId) {
+      tokensQuery = tokensQuery.eq('user_id', userId);
+    } else if (targetRole) {
+      // Find all users with this role
+      const { data: roleUsers } = await supabase.from('user_roles').select('user_id').eq('role', targetRole);
+      const userIds = (roleUsers || []).map(r => r.user_id);
+      if (userIds.length === 0) return new Response(JSON.stringify({ success: true, message: 'No users in role' }), { headers: corsHeaders });
+      tokensQuery = tokensQuery.in('user_id', userIds);
+    } else {
+      return new Response(JSON.stringify({ error: 'Missing target' }), { status: 400, headers: corsHeaders });
+    }
+
+    const { data: tokens } = await tokensQuery;
     if (!tokens || tokens.length === 0) return new Response(JSON.stringify({ success: true, message: 'No tokens' }), { headers: corsHeaders })
 
     const accessToken = await getAccessToken(serviceAccount)
@@ -64,18 +76,25 @@ serve(async (req) => {
           body: JSON.stringify({
             message: {
               token,
-              notification: { title, body: message },
+              notification: { 
+                title, 
+                body: message,
+                icon: 'https://zvtwkhlmexvkefgwvfdp.supabase.co/storage/v1/object/public/pwa-icons/pwa-192x192.png'
+              },
               data: { link: link || '/', icon: icon || '' },
               webpush: {
+                notification: {
+                  icon: '/pwa-192x192.png',
+                  badge: '/pwa-192x192.png'
+                },
                 fcm_options: { link: link || '/' }
               }
             }
           })
         })
-        const resData = await fcmRes.json()
-        results.push({ token: token.slice(0, 10), status: fcmRes.ok ? 'success' : 'error', details: resData })
+        results.push({ token: token.slice(0, 10), status: fcmRes.ok ? 'success' : 'error' })
       } catch (err) {
-        results.push({ token: token.slice(0, 10), status: 'failed', error: err.message })
+        results.push({ token: token.slice(0, 10), status: 'failed' })
       }
     }
 

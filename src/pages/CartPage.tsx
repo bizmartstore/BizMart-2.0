@@ -13,22 +13,20 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, Minus, ShoppingBag, Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
 import { format, addDays, isAfter, isBefore, startOfDay } from "date-fns";
-import { triggerLocalPushNotification } from "@/lib/pushNotifications";
+import { notifyAdminNewOrder } from "@/lib/notifications";
 
 export default function CartPage() {
   const navigate = useNavigate();
   const { items, removeItem, updateQuantity, totalItems, totalPrice, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { storeOpen } = useAppSettings();
   
-  // 👇 Use Manila timezone for date calculations
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // en-CA locale guarantees YYYY-MM-DD format required by <input type="date" />
   const todayManila = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const minTime = new Date(now.getTime() + 10 * 60 * 1000);
   const minTimeString = minTime.toTimeString().slice(0, 5);
@@ -113,15 +111,11 @@ export default function CartPage() {
         setOrderComplete(true);
         clearCart();
         
-        // Trigger Push Notification
-        triggerLocalPushNotification(
-          "Order Successfully Placed! 📦",
-          `Your order #${newOrderId.slice(0, 8)} has been placed. Please wait for admin approval.`
-        );
+        // Notify Admin instead of triggering a local self-notification
+        const userName = profile ? `${profile.first_name} ${profile.last_name}` : "A student";
+        await notifyAdminNewOrder(userName, orderTotal);
         
         toast.success("Order placed successfully!");
-      } else {
-        throw new Error("No order data returned");
       }
     } catch (error: any) {
       toast.error("Failed to place order: " + error.message);
@@ -170,28 +164,18 @@ export default function CartPage() {
             <h1 className="text-xl font-bold text-primary">Your Cart</h1>
           </div>
         </div>
-        
-        {/* Enhanced Empty Cart State */}
         <div className="flex min-h-[calc(100vh-160px)] items-center justify-center">
           <div className="text-center space-y-6 px-6">
-            {/* Icon/Illustration */}
             <div className="flex items-center justify-center w-24 h-24 bg-primary/10 rounded-full mb-4">
               <ShoppingBag className="h-8 w-8 text-primary/50" />
             </div>
-            
-            {/* Message */}
             <div className="space-y-3">
               <p className="text-2xl font-bold text-foreground">Your cart is empty</p>
               <p className="text-lg text-muted-foreground max-w-xl">
                 Add some amazing products to your cart and enjoy shopping at BizMart!
               </p>
             </div>
-            
-            {/* Action Button */}
-            <Button 
-              onClick={() => navigate("/")} 
-              className="w-full max-w-xs h-12 font-bold rounded-lg shadow-lg hover:shadow-xl transition-all"
-            >
+            <Button onClick={() => navigate("/")} className="w-full max-w-xs h-12 font-bold rounded-lg shadow-lg hover:shadow-xl transition-all">
               Continue Shopping
             </Button>
           </div>
@@ -250,64 +234,26 @@ export default function CartPage() {
             <div>
               <label className="text-xs font-bold">Delivery Type</label>
               <div className="grid grid-cols-2 gap-1">
-                <button
-                  onClick={() => setDeliveryType("pickup")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                >
-                  Pickup
-                </button>
-                <button
-                  onClick={() => setDeliveryType("delivery")}
-                  className={`py-2 rounded-lg text-xs font-bold transition-all ${deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
-                >
-                  Delivery (+₱10)
-                </button>
+                <button onClick={() => setDeliveryType("pickup")} className={`py-2 rounded-lg text-xs font-bold transition-all ${deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>Pickup</button>
+                <button onClick={() => setDeliveryType("delivery")} className={`py-2 rounded-lg text-xs font-bold transition-all ${deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>Delivery (+₱10)</button>
               </div>
             </div>
-
             <div>
               <label className="text-xs font-bold">Date</label>
-              <Input                type="date"
-                value={pickupDate}
-                onChange={(e) => setPickupDate(e.target.value)}
-                min={todayManila}
-                max={todayManila}
-                disabled
-                className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2 opacity-80"
-              />
+              <Input type="date" value={pickupDate} min={todayManila} max={todayManila} disabled className="text-sm h-8 opacity-80" />
             </div>
-
             <div>
               <label className="text-xs font-bold">Time</label>
-              <Input                type="time"
-                value={pickupTime}
-                onChange={(e) => setPickupTime(e.target.value)}
-                min={noTimesToday ? undefined : minTimeString}
-                disabled={noTimesToday}
-                className="text-sm h-8 rounded-md border border-input bg-background px-3 py-2"
-              />
-              {noTimesToday && (
-                <p className="text-[10px] text-destructive mt-1">No available times for today</p>
-              )}
+              <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} min={noTimesToday ? undefined : minTimeString} disabled={noTimesToday} className="text-sm h-8" />
+              {noTimesToday && <p className="text-[10px] text-destructive mt-1">No available times for today</p>}
             </div>
           </div>
-
-          <div className="flex items-center gap-2 mt-2">
-            <span className="text-[10px] text-muted-foreground">Delivery Fee: ₱{deliveryFee}</span>
-          </div>
-
           <div className="flex items-center justify-between mt-2">
             <span className="text-[10px] text-muted-foreground">Subtotal</span>
-            <span className="text-[11px] font-bold text-primary">
-              ₱{(totalPrice + deliveryFee).toFixed(2)}
-            </span>
+            <span className="text-[11px] font-bold text-primary">₱{(totalPrice + deliveryFee).toFixed(2)}</span>
           </div>
         </div>
-
-        <Button          onClick={handleCheckout}
-          disabled={checkingOut || items.length === 0 || noTimesToday || !pickupTime}
-          className="w-full h-12 font-bold rounded-xl"
-        >
+        <Button onClick={handleCheckout} disabled={checkingOut || items.length === 0 || noTimesToday || !pickupTime} className="w-full h-12 font-bold rounded-xl mt-4">
           {checkingOut ? "Processing..." : "Place Order"}
         </Button>
       </div>
