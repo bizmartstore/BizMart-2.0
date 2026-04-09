@@ -12,25 +12,38 @@ export function useFCM() {
     if (!user) return;
     
     try {
-      // The database trigger 'send_push_notification' reads from 'user_push_tokens'
-      // We must save the token there with the correct role.
       const userRole = profile?.role || 'customer';
+      console.log(`[FCM] Attempting to save token for user ${user.id} with role ${userRole}`);
       
+      // We use 'fcm_token' as the conflict target because each token is unique to a device/browser
       const { error } = await (supabase as any)
         .from("user_push_tokens")
         .upsert(
           { 
             user_id: user.id, 
             fcm_token: token, 
-            role: userRole 
+            role: userRole,
+            updated_at: new Date().toISOString()
           },
-          { onConflict: "user_id,fcm_token" }
+          { onConflict: "fcm_token" }
         );
       
-      if (error) console.error("[FCM] Error saving token to user_push_tokens:", error);
-      else console.log("[FCM] Token saved successfully for role:", userRole);
+      if (error) {
+        console.error("[FCM] Error saving token:", error);
+        // Fallback: if upsert fails, try a simple insert and ignore errors
+        if (error.code === '42P10') {
+          console.warn("[FCM] Unique constraint missing, falling back to simple insert");
+          await (supabase as any).from("user_push_tokens").insert({ 
+            user_id: user.id, 
+            fcm_token: token, 
+            role: userRole 
+          }).catch(() => {});
+        }
+      } else {
+        console.log("[FCM] Token saved successfully");
+      }
     } catch (err) {
-      console.error("[FCM] Failed to save token to database:", err);
+      console.error("[FCM] Critical failure saving token:", err);
     }
   }, [user, profile]);
 
@@ -38,13 +51,10 @@ export function useFCM() {
     if (!messaging || !user) return;
 
     try {
-      console.log("[FCM] Requesting notification permission...");
       const permission = await Notification.requestPermission();
       
       if (permission === "granted") {
-        console.log("[FCM] Permission granted. Registering service worker...");
-        
-        // Explicitly register the service worker to avoid timeout issues
+        // Ensure service worker is ready
         const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
         
         const token = await getToken(messaging, { 
@@ -53,37 +63,30 @@ export function useFCM() {
         });
 
         if (token) {
-          console.log("[FCM] Token generated:", token.slice(0, 10) + "...");
           await saveTokenToDb(token);
         }
-      } else {
-        console.warn("[FCM] Permission denied for notifications");
       }
     } catch (error) {
-      console.error("[FCM] Error during permission/token request:", error);
+      console.error("[FCM] Permission/Token request error:", error);
     }
   }, [user, saveTokenToDb]);
 
   useEffect(() => {
     if (!user) return;
 
-    // Initialize FCM
     if (messaging) {
       requestPermission();
 
-      // Handle foreground messages
       const unsubscribeFCM = onMessage(messaging, (payload) => {
-        console.log("[FCM] Foreground message received:", payload);
         const title = payload.notification?.title || "New Notification";
         const body = payload.notification?.body || "";
-        
         toast(title, { description: body });
         triggerLocalPushNotification(title, body);
       });
 
-      // Real-time fallback for active app sessions
+      // Real-time listener for the notification_logs table
       const channel = supabase
-        .channel(`user-notifications-${user.id}`)
+        .channel(`user-notifs-${user.id}`)
         .on(
           "postgres_changes",
           {
@@ -94,10 +97,7 @@ export function useFCM() {
           },
           (payload: any) => {
             const notif = payload.new;
-            console.log("[FCM] DB Notification received:", notif);
-            
             triggerLocalPushNotification(notif.title, notif.message);
-            
             toast(notif.title, {
               description: notif.message,
               action: notif.link ? {
