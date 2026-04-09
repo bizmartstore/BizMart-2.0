@@ -168,7 +168,7 @@ export default function BCoinsPage() {
       return;
     }
 
-    setRededeeming(true);
+    setRedeeming(true);
     try {
       const { error: walletErr } = await (supabase as any)
         .from("bcoins_wallets")
