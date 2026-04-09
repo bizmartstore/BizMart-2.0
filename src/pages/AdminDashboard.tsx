@@ -3,10 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import TopBar from "@/components/TopBar";
+import TopBar from "@/components/Bar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen } from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -23,12 +23,14 @@ import SellersTab from "@/components/admin/SellersTab";
 import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
+import BroadcastTab from "@/components/admin/BroadcastTab";
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
     { id: "overview", label: "Overview", icon: <BarChart3 className="h-4 w-4" />, badge: null },
     { id: "orders", label: "Orders", icon: <ShoppingCart className="h-4 w-4" />, badge: pendingCounts.orders > 0 ? pendingCounts.orders : null },
     { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
+    { id: "broadcast", label: "Broadcast", icon: <Megaphone className="h-4 w-4" />, badge: null },
     { id: "categories", label: "Categories", icon: <FolderOpen className="h-4 w-4" />, badge: null },
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
     { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4" />, badge: null },
@@ -138,7 +140,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
             {availableTabs.map((tab) => (
               <TabsTrigger
                 key={tab.id}
@@ -161,6 +163,7 @@ export default function AdminDashboard() {
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
+          <TabsContent value="broadcast"><BroadcastTab /></TabsContent>
           <TabsContent value="categories"><CategoriesTab /></TabsContent>
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="sellers"><SellersTab /></TabsContent>
