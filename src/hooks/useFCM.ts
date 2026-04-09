@@ -6,22 +6,17 @@ import { toast } from "sonner";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export function useFCM() {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
 
   const saveTokenToDb = useCallback(async (token: string) => {
     if (!user) return;
-    
     try {
-      const { error } = await (supabase as any)
-        .from("fcm_tokens")
-        .upsert(
-          { user_id: user.id, token, device_type: "web" },
-          { onConflict: "user_id,token" }
-        );
-      
-      if (error) console.error("Error saving FCM token:", error);
+      await (supabase as any).from("fcm_tokens").upsert(
+        { user_id: user.id, token, device_type: "web" },
+        { onConflict: "user_id,token" }
+      );
     } catch (err) {
-      console.error("Failed to save FCM token to database:", err);
+      console.error("Failed to save FCM token:", err);
     }
   }, [user]);
 
@@ -31,63 +26,45 @@ export function useFCM() {
     try {
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        const token = await getToken(messaging, { vapidKey: VAPID_KEY });
+        // Explicitly register the messaging service worker
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+        const token = await getToken(messaging, { 
+          vapidKey: VAPID_KEY,
+          serviceWorkerRegistration: registration 
+        });
+        
         if (token) {
           await saveTokenToDb(token);
+          console.log("[FCM] Token generated and saved");
         }
       }
     } catch (error) {
-      console.error("An error occurred while requesting permission to notify:", error);
+      console.error("[FCM] Permission/Token error:", error);
     }
   }, [user, saveTokenToDb]);
 
   useEffect(() => {
     if (!user) return;
 
-    // 1. Request FCM permissions and save token
     if (messaging) {
       requestPermission();
 
-      // Handle foreground FCM messages
       const unsubscribeFCM = onMessage(messaging, (payload) => {
-        console.log("FCM Message received: ", payload);
         const title = payload.notification?.title || "New Notification";
         const body = payload.notification?.body || "";
-        
         toast(title, { description: body });
         triggerLocalPushNotification(title, body);
       });
 
-      // 2. Listen for database notification logs (Real-time Push fallback)
-      // This ensures that even if FCM fails, the user gets a push if the app is active
-      const channel = supabase
-        .channel(`user-notifications-${user.id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "INSERT",
-            schema: "public",
-            table: "notification_logs",
-            filter: `user_id=eq.${user.id}`,
-          },
+      // Real-time fallback for active sessions
+      const channel = supabase.channel(`user-notifications-${user.id}`)
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "notification_logs", filter: `user_id=eq.${user.id}` },
           (payload: any) => {
             const notif = payload.new;
-            console.log("DB Notification received:", notif);
-            
-            // Trigger local push
+            toast(notif.title, { description: notif.message });
             triggerLocalPushNotification(notif.title, notif.message);
-            
-            // Show toast
-            toast(notif.title, {
-              description: notif.message,
-              action: notif.link ? {
-                label: "View",
-                onClick: () => window.location.href = notif.link
-              } : undefined
-            });
           }
-        )
-        .subscribe();
+        ).subscribe();
 
       return () => {
         unsubscribeFCM();
