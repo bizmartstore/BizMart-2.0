@@ -5,44 +5,26 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin, FileText } from "lucide-react";
 import { notifyCustomerOrder, notifyCustomerBCoins } from "@/lib/notifications";
-import { useAdmin } from "@/context/AuthContext";
-import { useNavigate } from "react-router-dom";
-import { useSupabase } from "@/hooks/useSupabase";
-import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
-import { useToast } from "@/hooks/useToast";
 
 export default function OrdersTab() {
-  const { isAdmin, isMainAdmin } = useAdmin();
-  const navigate = useNavigate();
-  const { supabase: supabaseClient } = useSupabase();
-  const { channel } = useSupabaseRealtime();
-  const { addToast } = useToast();
-
   const [orders, setOrders] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [pendingCounts, setPendingCounts] = useState({
-    orders: 0,
-    print: 0,
-    gcash: 0,
-    bcoins: 0,
-    messages: 0,
-  });
-  const pendingPollRef = useRef<NodeJS.Timeout | null>(null);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
-      const { data: ordersRes, error: ordersError } = await supabaseClient
+      const { data: ordersRes, error: ordersError } = await (supabase as any)
         .from("orders")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (ordersError) throw ordersError;
 
-      const { data: printRes, error: printError } = await supabaseClient
+      const { data: printRes, error: printError } = await (supabase as any)
         .from("print_orders")
         .select("*")
         .order("created_at", { ascending: false });
@@ -58,7 +40,7 @@ export default function OrdersTab() {
 
       let profileMap: Record<string, any> = {};
       if (userIds.size > 0) {
-        const { data: profiles } = await supabaseClient
+        const { data: profiles } = await (supabase as any)
           .from("profiles")
           .select("user_id, first_name, last_name, section, grade_level")
           .in("user_id", Array.from(userIds));
@@ -90,75 +72,41 @@ export default function OrdersTab() {
     }
   }, []);
 
-  const loadPendingCounts = useCallback(async () => {
-    try {
-      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
-        supabaseClient
-          .from("orders")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending"),
-        supabaseClient
-          .from("print_orders")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending"),
-        supabaseClient
-          .from("gcash_transactions")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending"),
-        supabaseClient
-          .from("bcoins_redemptions")
-          .select("id", { count: "exact", head: true })
-          .eq("status", "pending"),
-      ]);
-
-      setPendingCounts({
-        orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
-        print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
-        gcash: gcashRes.status === "fulfilled" ? (gcashRes.value.count || 0) : 0,
-        bcoins: bcoinsRes.status === "fulfilled" ? (bcoinsRes.value.count || 0) : 0,
-        messages: 0,
-      });
-    } catch (e) {
-      console.error("Failed to load pending counts:", e);
-    }
-  }, []);
-
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
 
   useEffect(() => {
-    if (!isAdmin) return;
-
-    const channel = supabaseClient
+    const channel = supabase
       .channel("admin-orders-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadOrders(true))
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadOrders(true))
       .subscribe();
 
     pollIntervalRef.current = setInterval(() => {
-      loadPendingCounts();
+      loadOrders(true);
     }, 15000);
 
     return () => {
-      supabaseClient.removeChannel(channel);
+      supabase.removeChannel(channel);
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [isAdmin, loadPendingCounts]);
+  }, [loadOrders]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
     const orderToUpdate = orders.find(o => o.id === orderId);
     if (!orderToUpdate) return;
 
+    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
+    if (selectedOrder?.id === orderId) {
+      setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
+    }
+
     try {
       const isPrint = orderToUpdate.type === 'print';
       const table = isPrint ? "print_orders" : "orders";
-
-      const { error } = await supabaseClient
-        .from(table)
-        .update({ status: newStatus })
-        .eq("id", orderId);
-
+      
+      const { error } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
 
       // Trigger Push Notification to Customer
@@ -169,9 +117,9 @@ export default function OrdersTab() {
         await notifyCustomerBCoins(orderToUpdate.user_id, orderToUpdate.bcoins_earned, "order completion");
       }
 
-      addToast(`Order ${newStatus}! Notification sent to customer.`, { status: "success" });
+      toast.success(`Order ${newStatus}! Notification sent to customer.`);
     } catch (e: any) {
-      addToast(e.message || "Failed to update order", { status: "error" });
+      toast.error(e.message || "Failed to update order");
       loadOrders();
     }
   };
@@ -216,7 +164,13 @@ export default function OrdersTab() {
               </h3>
               <p className="text-[10px] text-muted-foreground">{new Date(selectedOrder.created_at).toLocaleString()}</p>
             </div>
-            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' : selectedOrder.status === 'rejected' ? 'bg-destructive/20 text-destructive' : selectedOrder.status === 'approved' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>{selectedOrder.status.toUpperCase()}</span>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+              selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+              selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' :
+              selectedOrder.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+              selectedOrder.status === 'approved' ? 'bg-primary/20 text-primary' :
+              'bg-muted text-muted-foreground'
+            }`}>{selectedOrder.status.toUpperCase()}</span>
           </div>
 
           <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
@@ -296,7 +250,7 @@ export default function OrdersTab() {
 
           <div className="grid grid-cols-2 gap-2 text-center">
             <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">₱{(Number(selectedOrder.total || selectedOrder.cost || 0).toFixed(2))}</span>
+              <span className="text-sm font-extrabold block">₱{Number(selectedOrder.total || selectedOrder.cost || 0).toFixed(2)}</span>
               <span className="text-[9px] text-muted-foreground">Total</span>
             </div>
             <div className="bg-muted rounded-lg p-2">
@@ -327,7 +281,7 @@ export default function OrdersTab() {
             {selectedOrder.status === "approved" && (
               <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 w-full"><CheckCircle2 className="h-3 w-3" /> Mark Complete</Button>
             )}
-            {[ "pending", "approved" ].includes(selectedOrder.status) && (
+            {["pending", "approved"].includes(selectedOrder.status) && (
               <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Cancel</Button>
             )}
           </div>
@@ -344,7 +298,9 @@ export default function OrdersTab() {
             <button
               key={key}
               onClick={() => setFilter(key)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${
+                filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+              }`}
             >
               {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
             </button>
@@ -378,7 +334,12 @@ export default function OrdersTab() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${o.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : o.status === 'pending' ? 'bg-warning/20 text-warning' : o.status === 'rejected' ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}`}>{o.status}</span>
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                  o.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
+                  o.status === 'pending' ? 'bg-warning/20 text-warning' :
+                  o.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
+                  'bg-primary/20 text-primary'
+                }`}>{o.status}</span>
                 <button onClick={() => setSelectedOrder(o)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
               </div>
             </div>
