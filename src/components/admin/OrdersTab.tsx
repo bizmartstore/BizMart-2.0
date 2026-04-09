@@ -5,26 +5,44 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin, FileText } from "lucide-react";
 import { notifyCustomerOrder, notifyCustomerBCoins } from "@/lib/notifications";
+import { useAdmin } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { useSupabase } from "@/hooks/useSupabase";
+import { useSupabaseRealtime } from "@/hooks/useSupabaseRealtime";
+import { useToast } from "@/hooks/useToast";
 
 export default function OrdersTab() {
+  const { isAdmin, isMainAdmin } = useAdmin();
+  const navigate = useNavigate();
+  const { supabase: supabaseClient } = useSupabase();
+  const { channel } = useSupabaseRealtime();
+  const { addToast } = useToast();
+
   const [orders, setOrders] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const [pendingCounts, setPendingCounts] = useState({
+    orders: 0,
+    print: 0,
+    gcash: 0,
+    bcoins: 0,
+    messages: 0,
+  });
+  const pendingPollRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadOrders = useCallback(async (showToast = false) => {
     try {
-      const { data: ordersRes, error: ordersError } = await (supabase as any)
+      const { data: ordersRes, error: ordersError } = await supabaseClient
         .from("orders")
         .select("*")
         .order("created_at", { ascending: false });
 
       if (ordersError) throw ordersError;
 
-      const { data: printRes, error: printError } = await (supabase as any)
+      const { data: printRes, error: printError } = await supabaseClient
         .from("print_orders")
         .select("*")
         .order("created_at", { ascending: false });
@@ -40,7 +58,7 @@ export default function OrdersTab() {
 
       let profileMap: Record<string, any> = {};
       if (userIds.size > 0) {
-        const { data: profiles } = await (supabase as any)
+        const { data: profiles } = await supabaseClient
           .from("profiles")
           .select("user_id, first_name, last_name, section, grade_level")
           .in("user_id", Array.from(userIds));
@@ -72,99 +90,302 @@ export default function OrdersTab() {
     }
   }, []);
 
+  const loadPendingCounts = useCallback(async () => {
+    try {
+      const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
+        supabaseClient
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabaseClient
+          .from("print_orders")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabaseClient
+          .from("gcash_transactions")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+        supabaseClient
+          .from("bcoins_redemptions")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "pending"),
+      ]);
+
+      setPendingCounts({
+        orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
+        print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
+        gcash: gcashRes.status === "fulfilled" ? (gcashRes.value.count || 0) : 0,
+        bcoins: bcoinsRes.status === "fulfilled" ? (bcoinsRes.value.count || 0) : 0,
+        messages: 0,
+      });
+    } catch (e) {
+      console.error("Failed to load pending counts:", e);
+    }
+  }, []);
+
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
 
   useEffect(() => {
-    if (!isAuthReady || !isAdmin) return;
-    
-    const channel = supabase
-      .channel("admin-pending-counts-realtime")
+    if (!isAdmin) return;
+
+    const channel = supabaseClient
+      .channel("admin-orders-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
-      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
       .subscribe();
-      
-    pendingPollRef.current = setInterval(() => {
+
+    pollIntervalRef.current = setInterval(() => {
       loadPendingCounts();
-    }, 5000);
-      
+    }, 15000);
+
     return () => {
-      supabase.removeChannel(channel);
-      if (pendingPollRef.current) clearInterval(pendingPollRef.current);
+      supabaseClient.removeChannel(channel);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [isAuthReady, isAdmin, loadPendingCounts]);
+  }, [isAdmin, loadPendingCounts]);
 
-  const availableTabs = getAvailableTabs(isMainAdmin, pendingCounts);
+  const updateStatus = async (orderId: string, newStatus: string) => {
+    const orderToUpdate = orders.find(o => o.id === orderId);
+    if (!orderToUpdate) return;
 
-  if (!isAuthReady) {
+    try {
+      const isPrint = orderToUpdate.type === 'print';
+      const table = isPrint ? "print_orders" : "orders";
+
+      const { error } = await supabaseClient
+        .from(table)
+        .update({ status: newStatus })
+        .eq("id", orderId);
+
+      if (error) throw error;
+
+      // Trigger Push Notification to Customer
+      await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
+
+      // Award BCoins if completed
+      if (newStatus === "completed" && !isPrint) {
+        await notifyCustomerBCoins(orderToUpdate.user_id, orderToUpdate.bcoins_earned, "order completion");
+      }
+
+      addToast(`Order ${newStatus}! Notification sent to customer.`, { status: "success" });
+    } catch (e: any) {
+      addToast(e.message || "Failed to update order", { status: "error" });
+      loadOrders();
+    }
+  };
+
+  const filtered = orders.filter(o => {
+    const cust = o.customer;
+    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
+    const matchFilter = filter === "all" || o.status === filter;
+    const matchSearch = !search || 
+      custName.toLowerCase().includes(search.toLowerCase()) ||
+      (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
+      (cust?.section || "").toLowerCase().includes(search.toLowerCase()) ||
+      (cust?.grade_level || "").toLowerCase().includes(search.toLowerCase());
+    return matchFilter && matchSearch;
+  });
+
+  const statusCounts = {
+    all: orders.length,
+    pending: orders.filter(o => o.status === "pending").length,
+    approved: orders.filter(o => o.status === "approved").length,
+    completed: orders.filter(o => o.status === "completed").length,
+    rejected: orders.filter(o => o.status === "rejected").length,
+  };
+
+  if (selectedOrder) {
+    const cust = selectedOrder.customer;
+    const custName = cust ? `${cust.first_name} ${cust.last_name}` : "Unknown User";
+    const custEmail = cust?.email || "N/A";
+    const custGrade = cust?.grade_level || "N/A";
+    const custSection = cust?.section || "N/A";
+    const isPrint = selectedOrder.type === 'print';
+
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="space-y-3">
+        <button onClick={() => setSelectedOrder(null)} className="text-xs text-primary font-bold">← Back to Orders</button>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-sm flex items-center gap-2">
+                {isPrint ? <Printer className="h-4 w-4 text-primary" /> : <Package className="h-4 w-4 text-primary" />}
+                {isPrint ? selectedOrder.file_name : `Order #${selectedOrder.id.slice(0, 8)}`}
+              </h3>
+              <p className="text-[10px] text-muted-foreground">{new Date(selectedOrder.created_at).toLocaleString()}</p>
+            </div>
+            <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${selectedOrder.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : selectedOrder.status === 'pending' ? 'bg-warning/20 text-warning' : selectedOrder.status === 'rejected' ? 'bg-destructive/20 text-destructive' : selectedOrder.status === 'approved' ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground'}`}>{selectedOrder.status.toUpperCase()}</span>
+          </div>
+
+          <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
+            <div className="flex items-center gap-2">
+              <User className="h-4 w-4 text-primary" />
+              <span className="text-xs font-bold text-foreground">{custName}</span>
+            </div>
+            <p className="text-[10px] text-muted-foreground">{custEmail}</p>
+            <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
+          </div>
+
+          {isPrint && (
+            <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedOrder.delivery_type === 'delivery' ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
+                <span className="text-xs font-bold capitalize text-foreground">{selectedOrder.delivery_type || 'pickup'}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {selectedOrder.pickup_date || "N/A"} at {selectedOrder.pickup_time || "N/A"}
+              </span>
+            </div>
+          )}
+
+          {!isPrint && selectedOrder.items && Array.isArray(selectedOrder.items) && selectedOrder.items.length > 0 && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Order Items</p>
+              {selectedOrder.items.map((item: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between gap-2 py-1">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    {item.image && (
+                      <img src={item.image} alt={item.name} className="h-8 w-8 rounded object-cover flex-shrink-0" />
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-foreground truncate">{item.name}</p>
+                      <p className="text-[10px] text-muted-foreground">₱{Number(item.price).toFixed(2)} × {item.quantity}</p>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-primary whitespace-nowrap">
+                    ₱{(Number(item.price) * Number(item.quantity)).toFixed(2)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {isPrint && (
+            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Print Details</p>
+              <div className="grid grid-cols-2 gap-2 text-center">
+                <div className="bg-background rounded-lg p-2">
+                  <span className="text-sm font-extrabold block">{selectedOrder.total_pages}</span>
+                  <span className="text-[9px] text-muted-foreground">Total Pages</span>
+                </div>
+                <div className="bg-background rounded-lg p-2">
+                  <span className="text-sm font-extrabold block">{selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long'}</span>
+                  <span className="text-[9px] text-muted-foreground">Paper Size</span>
+                </div>
+              </div>
+              <div className="flex justify-between text-xs text-muted-foreground pt-1">
+                <span>B&W: {selectedOrder.bw_pages} pages</span>
+                <span>Color: {selectedOrder.colored_pages} pages</span>
+              </div>
+              {selectedOrder.file_url && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(selectedOrder.file_url, '_blank')}
+                  className="w-full gap-1 mt-2"
+                >
+                  <FileText className="h-4 w-4" />
+                  View Uploaded File
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-2 text-center">
+            <div className="bg-muted rounded-lg p-2">
+              <span className="text-sm font-extrabold block">₱{(Number(selectedOrder.total || selectedOrder.cost || 0).toFixed(2))}</span>
+              <span className="text-[9px] text-muted-foreground">Total</span>
+            </div>
+            <div className="bg-muted rounded-lg p-2">
+              <span className="text-sm font-extrabold block">{isPrint ? selectedOrder.total_pages : (selectedOrder.items?.length || 0)}</span>
+              <span className="text-[9px] text-muted-foreground">{isPrint ? 'Pages' : 'Items'}</span>
+            </div>
+          </div>
+
+          {!isPrint && selectedOrder.delivery_type && (
+            <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {selectedOrder.delivery_type === 'delivery' ? <Truck className="h-4 w-4 text-primary" /> : <MapPin className="h-4 w-4 text-primary" />}
+                <span className="text-xs font-bold capitalize text-foreground">{selectedOrder.delivery_type}</span>
+              </div>
+              <span className="text-[10px] text-muted-foreground">
+                {selectedOrder.pickup_date || "N/A"} at {selectedOrder.pickup_time || "N/A"}
+              </span>
+            </div>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            {selectedOrder.status === "pending" && (
+              <>
+                <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "approved")} className="gap-1 flex-1"><CheckCircle2 className="h-3 w-3" /> Approve</Button>
+                <Button size="sm" variant="destructive" onClick={() => updateStatus(selectedOrder.id, "rejected")} className="gap-1 flex-1"><XCircle className="h-3 w-3" /> Reject</Button>
+              </>
+            )}
+            {selectedOrder.status === "approved" && (
+              <Button size="sm" onClick={() => updateStatus(selectedOrder.id, "completed")} className="gap-1 w-full"><CheckCircle2 className="h-3 w-3" /> Mark Complete</Button>
+            )}
+            {[ "pending", "approved" ].includes(selectedOrder.status) && (
+              <Button size="sm" variant="outline" onClick={() => updateStatus(selectedOrder.id, "canceled")} className="gap-1 w-full"><XCircle className="h-3 w-3" /> Cancel</Button>
+            )}
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (!isAdmin) {
-    navigate("/");
-    return null;
-  }
-
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <TopBar />
-      <div className="px-4 mt-4">
-        <div className="mb-6">
-          <h1 className="font-extrabold text-xl text-foreground">Admin Dashboard</h1>
-          <p className="text-xs text-muted-foreground">
-            {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
-          </p>
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {Object.entries(statusCounts).map(([key, count]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-[10px] font-bold transition-all ${filter === key ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
+            >
+              {key.charAt(0).toUpperCase() + key.slice(1)} ({count})
+            </button>
+          ))}
         </div>
-
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-4 lg:grid-cols-7 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
-            {availableTabs.map((tab) => (
-              <TabsTrigger
-                key={tab.id}
-                value={tab.id}
-                className="flex flex-col items-center gap-1 text-[10px] font-medium transition-all hover:bg-primary/10"
-              >
-                <div className="relative">
-                  {tab.icon}
-                  {tab.badge && (
-                    <span className="absolute -top-1.5 -right-2 bg-destructive text-destructive-foreground text-[8px] font-bold rounded-full h-3.5 min-w-3.5">
-                      {tab.badge}
-                    </span>
-                  )}
-                </div>
-                <span className="hidden sm:inline">{tab.label}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-
-          <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="categories"><CategoriesTab /></TabsContent>
-          <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="sellers"><SellersTab /></TabsContent>
-          <TabsContent value="print"><PrintTab /></TabsContent>
-          <TabsContent value="messages"><MessagesTab /></TabsContent>
-          <TabsContent value="codes"><CodesTab /></TabsContent>
-          <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="banners"><BannerTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
-          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
-          <TabsContent value="gcash"><GCashTab /></TabsContent>
-          {isMainAdmin ? (
-            <TabsContent value="settings"><SettingsTab /></TabsContent>
-          ) : (
-            <TabsContent value="settings"><MemberAdminSettingsTab /></TabsContent>
-          )}
-        </Tabs>
+        <Button size="sm" variant="outline" onClick={() => loadOrders(true)} disabled={refreshing}>
+          <RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} />
+        </Button>
       </div>
-      <BottomNav />
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search orders..." className="pl-9 text-xs h-9" />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+      ) : (
+        <div className="space-y-2 max-h-[500px] overflow-y-auto">
+          {filtered.map(o => (
+            <div key={o.id} className="bg-card rounded-xl border border-border p-3 flex items-center justify-between">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  {o.type === 'print' ? <Printer className="h-4 w-4 text-purple-500 flex-shrink-0" /> : <Package className="h-4 w-4 text-primary flex-shrink-0" />}
+                  <span className="font-bold text-xs truncate">
+                    {o.type === 'print' ? o.file_name : `Order #${o.id.slice(0, 8)}`}
+                  </span>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  {o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : 'Unknown'} • ₱{Number(o.total || o.cost || 0).toFixed(2)}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${o.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' : o.status === 'pending' ? 'bg-warning/20 text-warning' : o.status === 'rejected' ? 'bg-destructive/20 text-destructive' : 'bg-primary/20 text-primary'}`}>{o.status}</span>
+                <button onClick={() => setSelectedOrder(o)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
+              </div>
+            </div>
+          ))}
+          {filtered.length === 0 && <p className="text-center text-xs text-muted-foreground py-8">No orders found</p>}
+        </div>
+      )}
     </div>
-  );
+  );
+}
