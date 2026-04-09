@@ -1,2 +1,1 @@
-import { MessageCircle, Send, ArrowLeft, User, Search, Check, CheckCheck, RefreshCw } from "lucide-react";
-// import { notifyNewMessage } from "@/lib/notifications";   // ← REMOVED
+remove the line `import { notifyNewMessage } from "@/lib/notifications";` – already removed above.

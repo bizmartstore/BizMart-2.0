@@ -1,9 +1,6 @@
-// ... existing code ...
-await (supabase as any).from("messages").update({ is_read: true })
-  .eq("conversation_id", conversation_id)
-  .neq("sender_id", user.id)
-  .eq("is_read", false);
-  
-// Trigger Push Notification to Customer
-await notifyCustomerOrder(recipientId); // Remove extra argument
-// If notifyCustomerOrder expects only userId, adjust its signature accordingly.
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import { toast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+// conversation_id and user are derived from selected conversation; ensure they are in scope
