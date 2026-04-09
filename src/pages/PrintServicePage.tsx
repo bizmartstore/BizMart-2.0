@@ -9,19 +9,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Upload, FileText, Printer, MapPin, CheckCircle2, X, 
-  Loader2, Palette, File, Info, AlertTriangle, Trash2,
-  ChevronRight, Clock, Calendar
-} from "lucide-react";
-import TopBar from "@/components/TopBar";
-import BottomNav from "@/components/BottomNav";
+import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
+import { format } from "date-fns";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
-import { sendPushNotification } from "@/lib/notifications";
 
-// Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
 interface PageInfo {
@@ -33,7 +26,7 @@ interface PageInfo {
 export default function PrintServicePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { storeOpen, closeMessage } = useAppSettings();
+  const { storeOpen } = useAppSettings();
   
   const [file, setFile] = useState<File | null>(null);
   const [pages, setPages] = useState<PageInfo[]>([]);
@@ -48,16 +41,23 @@ export default function PrintServicePage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Manila Timezone Logic
+  // 👇 Dynamic current time in Manila timezone
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
+  // en-CA locale guarantees YYYY-MM-DD format required by <input type="date" />
   const todayManila = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-  const minTime = new Date(now.getTime() + 15 * 60 * 1000); // 15 mins buffer
+  const minTime = new Date(now.getTime() + 10 * 60 * 1000);
   const minTimeString = minTime.toTimeString().slice(0, 5);
+  const noTimesToday = minTime.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' }) !== todayManila;
+
+  const timeToMinutes = (time: string) => {
+    const [h, m] = time.split(':').map(Number);
+    return h * 60 + m;
+  };
 
   useEffect(() => {
     setPickupDate(todayManila);
@@ -73,7 +73,6 @@ export default function PrintServicePage() {
         disableFontFace: true,
         useSystemFonts: true,
       }).promise;
-      
       const analyzedPages: PageInfo[] = [];
 
       for (let i = 1; i <= pdf.numPages; i++) {
@@ -90,17 +89,13 @@ export default function PrintServicePage() {
           canvas: canvas,
           viewport,
         } as any).promise;
-
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let isColor = false;
-        
-        // Sample pixels to detect color
         for (let j = 0; j < imageData.data.length; j += 16) {
           const r = imageData.data[j];
           const g = imageData.data[j + 1];
           const b = imageData.data[j + 2];
-          // If RGB values differ significantly, it's likely color
-          if (Math.abs(r - g) > 20 || Math.abs(r - b) > 20 || Math.abs(g - b) > 20) {
+          if (Math.abs(r - g) > 15 || Math.abs(r - b) > 15 || Math.abs(g - b) > 15) {
             isColor = true;
             break;
           }
@@ -108,11 +103,9 @@ export default function PrintServicePage() {
         analyzedPages.push({ pageNum: i, isColor, selected: true });
       }
       setPages(analyzedPages);
-      toast.success(`Analyzed ${pdf.numPages} pages successfully!`);
     } catch (err) {
-      console.error("PDF analysis error:", err);
-      toast.error("Failed to analyze PDF. Please try a different file.");
-      setFile(null);
+      console.error("PDF detailed error:", err);
+      toast.error("Failed to analyze PDF. Please try again.");
     } finally {
       setAnalyzing(false);
     }
@@ -123,18 +116,33 @@ export default function PrintServicePage() {
     if (!selected) return;
 
     if (selected.type !== "application/pdf") {
-      toast.error("Only PDF files are supported.");
+      toast.error("Please upload a PDF file only");
       return;
     }
 
+    // Increased from 15MB to 50MB
     if (selected.size > 50 * 1024 * 1024) {
-      toast.error("File size exceeds 50MB limit.");
+      toast.error("File size must be less than 50MB");
       return;
     }
 
     setFile(selected);
     setPages([]);
     await analyzePdf(selected);
+  };
+
+  const removeFile = () => {
+    setFile(null);
+    setPages([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const togglePage = (pageNum: number) => {
+    setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, selected: !p.selected } : p));
+  };
+
+  const selectAll = (select: boolean) => {
+    setPages(prev => prev.map(p => ({ ...p, selected: select })));
   };
 
   const getPrice = (isColor: boolean, size: "short" | "long") => {
@@ -155,35 +163,51 @@ export default function PrintServicePage() {
   const handleSubmit = async () => {
     if (!user) { navigate("/login"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
-    if (!file || pages.length === 0) { toast.error("Please upload and analyze a PDF first."); return; }
+    if (!file) { toast.error("Please upload a PDF file"); return; }
+    if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
+    if (!pickupDate || !pickupTime) { toast.error("Please select date and time"); return; }
     
+    if (pickupDate !== todayManila) {
+      toast.error("Pickup date must be today.");
+      return;
+    }
+
+    if (noTimesToday) {
+      toast.error("No available times for today. Please choose a different date.");
+      return;
+    }
+    const selectedMinutes = timeToMinutes(pickupTime);
+    const minMinutes = timeToMinutes(minTimeString);
+    if (selectedMinutes < minMinutes) {
+      toast.error(`Pickup time must be at least 10 minutes from now.`);
+      return;
+    }
+
     const selectedPages = pages.filter(p => p.selected);
     if (selectedPages.length === 0) {
-      toast.error("Please select at least one page to print.");
+      toast.error("Please select at least one page to print");
       return;
     }
 
     setSubmitting(true);
     try {
-      // 1. Upload file to storage
       const fileExt = file.name.split(".").pop();
-      const storagePath = `${user.id}/${Date.now()}_${file.name}`;
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from("print-orders")
-        .upload(storagePath, file);
+        .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
         .from("print-orders")
-        .getPublicUrl(storagePath);
+        .getPublicUrl(fileName);
 
-      // 2. Create order record
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
       const coloredPages = selectedPages.filter(p => p.isColor).length * copies;
       const totalCost = calculateCost();
 
-      const { data: orderData, error } = await (supabase as any)
+      const { data: orderData, error } = await supabase
         .from("print_orders")
         .insert({
           user_id: user.id,
@@ -198,30 +222,29 @@ export default function PrintServicePage() {
           pickup_time: pickupTime,
           cost: totalCost,
           status: "pending",
-        })
+        } as any)
         .select()
         .single();
 
       if (error) throw error;
       
-      setOrderId(orderData.id);
-      setOrderComplete(true);
-      
-      // 3. Notifications
-      await sendPushNotification(user.id, {
-        title: "Print Order Received! 🖨️",
-        body: `Your request for "${file.name}" is pending approval.`,
-        data: { orderId: orderData.id, link: "/orders" }
-      });
-      
-      triggerLocalPushNotification(
-        "Print Order Placed!",
-        `Order #${orderData.id.slice(0, 8)} has been submitted.`
-      );
-      
-      toast.success("Print order submitted!");
+      if (orderData) {
+        const newOrderId = (orderData as any).id;
+        setOrderId(newOrderId);
+        setOrderComplete(true);
+        
+        // Trigger Push Notification
+        triggerLocalPushNotification(
+          "Print Order Placed! 🖨️",
+          `Your print request for "${file.name}" has been received. Please wait for admin approval.`
+        );
+        
+        toast.success("Print order submitted successfully!");
+      } else {
+        throw new Error("No order data returned");
+      }
     } catch (error: any) {
-      toast.error("Submission failed: " + error.message);
+      toast.error("Failed to submit order: " + error.message);
     } finally {
       setSubmitting(false);
     }
@@ -230,320 +253,282 @@ export default function PrintServicePage() {
   if (orderComplete) {
     return (
       <div className="min-h-screen bg-background pb-20">
-        <TopBar />
-        <div className="px-4 py-12 text-center animate-in fade-in zoom-in duration-300">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-            <CheckCircle2 className="h-12 w-12 text-green-600" />
+        <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
+          <button onClick={() => navigate("/")} className="p-1.5">
+            <Printer className="h-5 w-5 text-primary" />
+          </button>
+          <span className="font-bold text-sm ml-2">Order Confirmed</span>
+        </div>
+        <div className="px-4 py-8 text-center">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="h-10 w-10 text-green-600" />
           </div>
-          <h2 className="text-2xl font-extrabold text-foreground mb-2">Order Confirmed!</h2>
-          <p className="text-sm text-muted-foreground mb-8 px-6">
-            Your print request <strong>#{orderId?.slice(0, 8)}</strong> has been received. We'll notify you once it's approved.
-          </p>
-          <div className="space-y-3 max-w-xs mx-auto">
-            <Button onClick={() => navigate("/orders")} className="w-full h-12 font-bold rounded-2xl shadow-lg">
-              View My Orders
+          <h2 className="text-2xl font-extrabold mb-3">Print Order Placed!</h2>
+          <p className="text-sm text-muted-foreground mb-2">Your print request #{orderId?.slice(0, 8)} has been received.</p>
+          <p className="text-sm text-muted-foreground mb-8">We'll notify you when it's ready for {deliveryType}.</p>
+          <div className="space-y-3">
+            <Button onClick={() => navigate("/orders")} className="w-full h-12 font-bold rounded-xl">
+              View Orders
             </Button>
-            <Button onClick={() => navigate("/")} variant="outline" className="w-full h-12 font-bold rounded-2xl">
-              Back to Home
+            <Button onClick={() => navigate("/")} variant="outline" className="w-full h-12 font-bold rounded-xl">
+              Continue Shopping
             </Button>
           </div>
         </div>
-        <BottomNav />
       </div>
     );
   }
 
+  const selectedPages = pages.filter(p => p.selected);
+  const bwCount = selectedPages.filter(p => !p.isColor).length;
+  const colorCount = selectedPages.filter(p => p.isColor).length;
+
   return (
-    <div className="min-h-screen bg-background pb-32">
-      <TopBar />
-      
-      <div className="px-4 mt-4">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center shadow-sm">
-            <Printer className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="font-extrabold text-xl text-foreground">Print Service</h1>
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Upload & Print Documents</p>
-          </div>
+    <div className="min-h-screen bg-background pb-20">
+      <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
+        <button onClick={() => navigate(-1)} className="p-1.5">
+          <Printer className="h-5 w-5 text-primary" />
+        </button>
+        <div className="flex-1 text-center">
+          <h1 className="text-lg font-bold text-primary">Print Service</h1>
         </div>
+      </div>
 
-        {!storeOpen && (
-          <div className="mb-6 bg-destructive/10 border border-destructive/20 rounded-2xl p-4 flex items-start gap-3">
-            <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-bold text-destructive">Store is Closed</p>
-              <p className="text-[10px] text-destructive/80 leading-relaxed">{closeMessage || "We are not accepting print orders at this time."}</p>
+      <div className="px-4 py-4 space-y-4">
+        <div className="bg-card rounded-xl border border-border p-4">
+          <Label className="text-sm font-bold flex items-center gap-2 mb-3">
+            <FileText className="h-4 w-4 text-primary" /> Upload Document
+          </Label>
+          
+          {!file ? (
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+            >
+              <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+              <p className="text-sm font-medium text-foreground">Tap to upload PDF</p>
+              <p className="text-xs text-muted-foreground mt-1">Max 50MB • Auto-analyzes pages</p>
             </div>
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {/* File Upload Section */}
-          <div className="bg-card rounded-2xl border border-border p-5 shadow-sm">
-            <Label className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground mb-4 block">
-              1. Upload Document
-            </Label>
-            
-            {!file ? (
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-primary/20 rounded-2xl p-8 text-center cursor-pointer hover:bg-primary/5 hover:border-primary/40 transition-all group"
-              >
-                <div className="w-14 h-14 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:scale-110 transition-transform">
-                  <Upload className="h-7 w-7 text-primary" />
+          ) : (
+            <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 min-w-0">
+                <FileText className="h-5 w-5 text-primary flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-bold truncate">{file.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{(file.size / 1024 / 1024).toFixed(2)} MB • {pages.length} pages</p>
                 </div>
-                <p className="text-sm font-bold text-foreground">Tap to select PDF</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Maximum file size: 50MB</p>
               </div>
-            ) : (
-              <div className="bg-muted/30 rounded-2xl p-4 flex items-center justify-between border border-border">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-10 h-10 bg-primary/20 rounded-xl flex items-center justify-center shrink-0">
-                    <FileText className="h-5 w-5 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold truncate text-foreground">{file.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB • {pages.length || "..."} pages
-                    </p>
-                  </div>
-                </div>
-                <button 
-                  onClick={() => { setFile(null); setPages([]); }} 
-                  className="p-2 rounded-full hover:bg-destructive/10 text-destructive transition-colors"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-          </div>
-
-          {/* Page Analysis & Selection */}
-          {analyzing && (
-            <div className="bg-card rounded-2xl border border-border p-8 text-center shadow-sm">
-              <Loader2 className="h-8 w-8 text-primary animate-spin mx-auto mb-3" />
-              <p className="text-sm font-bold text-foreground">Analyzing Document...</p>
-              <p className="text-[10px] text-muted-foreground mt-1">Detecting color and black & white pages</p>
+              <button onClick={removeFile} className="p-1 hover:bg-muted rounded-full">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
             </div>
           )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+        </div>
 
-          {pages.length > 0 && !analyzing && (
-            <div className="bg-card rounded-2xl border border-border p-5 shadow-sm animate-in slide-in-from-bottom-2 duration-300">
-              <div className="flex items-center justify-between mb-4">
-                <Label className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">
-                  2. Page Selection
-                </Label>
-                <div className="flex gap-2">
-                  <button onClick={() => selectAll(true)} className="text-[10px] font-bold text-primary hover:underline">Select All</button>
-                  <span className="text-muted-foreground text-[10px]">|</span>
-                  <button onClick={() => selectAll(false)} className="text-[10px] font-bold text-muted-foreground hover:underline">Clear</button>
-                </div>
+        {pages.length > 0 && (
+          <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm font-bold flex items-center gap-2">
+                <File className="h-4 w-4 text-primary" /> Select Pages
+              </Label>
+              <div className="flex gap-2">
+                <button onClick={() => selectAll(true)} className="text-[10px] font-bold text-primary hover:underline">All</button>
+                <button onClick={() => selectAll(false)} className="text-[10px] font-bold text-muted-foreground hover:underline">None</button>
               </div>
-
-              <div className="grid grid-cols-5 gap-2 max-h-48 overflow-y-auto p-1 scrollbar-hide">
-                {pages.map((p) => (
+            </div>
+            
+            {analyzing ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                <span className="text-xs text-muted-foreground">Analyzing pages...</span>
+              </div>
+            ) : (
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto pr-1">
+                {pages.map((page) => (
                   <button
-                    key={p.pageNum}
-                    onClick={() => togglePage(p.pageNum)}
-                    className={`relative aspect-[3/4] rounded-lg border-2 transition-all flex flex-col items-center justify-center gap-1 ${
-                      p.selected 
-                        ? "border-primary bg-primary/5 shadow-sm" 
-                        : "border-border bg-muted/20 opacity-60"
+                    key={page.pageNum}
+                    onClick={() => togglePage(page.pageNum)}
+                    className={`relative p-2 rounded-lg border text-center transition-all ${
+                      page.selected 
+                        ? "border-primary bg-primary/10" 
+                        : "border-border bg-muted/30 opacity-60"
                     }`}
                   >
-                    <span className="text-[10px] font-bold">{p.pageNum}</span>
-                    {p.isColor ? (
-                      <Palette className="h-3 w-3 text-orange-500" />
-                    ) : (
-                      <File className="h-3 w-3 text-muted-foreground" />
-                    )}
-                    {p.selected && (
-                      <div className="absolute -top-1.5 -right-1.5 bg-primary text-white rounded-full p-0.5 shadow-sm">
-                        <CheckCircle2 className="h-3 w-3" />
+                    <span className="text-xs font-bold block">{page.pageNum}</span>
+                    <div className="flex items-center justify-center mt-1">
+                      {page.isColor ? (
+                        <Palette className="h-3 w-3 text-orange-500" />
+                      ) : (
+                        <File className="h-3 w-3 text-gray-500" />
+                      )}
+                    </div>
+                    {page.selected && (
+                      <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center">
+                        <CheckCircle2 className="h-3 w-3 text-white" />
                       </div>
                     )}
                   </button>
                 ))}
               </div>
+            )}
+            <div className="flex items-center gap-3 text-[10px] text-muted-foreground pt-1 border-t border-border">
+              <span className="flex items-center gap-1"><File className="h-3 w-3" /> B&W: {bwCount}</span>
+              <span className="flex items-center gap-1"><Palette className="h-3 w-3 text-orange-500" /> Color: {colorCount}</span>
+              <span className="ml-auto font-bold text-foreground">Selected: {selectedPages.length}/{pages.length}</span>
+            </div>
+          </div>
+        )}
 
-              <div className="mt-4 flex items-center justify-between bg-muted/30 rounded-xl p-3">
-                <div className="flex gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <File className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-[10px] font-bold">{pages.filter(p => p.selected && !p.isColor).length} B&W</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <Palette className="h-3.5 w-3.5 text-orange-500" />
-                    <span className="text-[10px] font-bold">{pages.filter(p => p.selected && p.isColor).length} Color</span>
-                  </div>
-                </div>
-                <span className="text-[10px] font-extrabold text-primary">{pages.filter(p => p.selected).length} Total</span>
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-bold flex items-center gap-2">
+            <Printer className="h-4 w-4 text-primary" /> Print Settings
+          </Label>
+          
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[10px]">Page Size</Label>
+              <div className="grid grid-cols-2 gap-1 mt-1">
+                <button
+                  onClick={() => setPageSize("short")}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                    pageSize === "short" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  Short/A4
+                </button>
+                <button
+                  onClick={() => setPageSize("long")}
+                  className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                    pageSize === "long" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  Long
+                </button>
               </div>
             </div>
-          )}
 
-          {/* Print Options */}
-          {pages.length > 0 && (
-            <div className="bg-card rounded-2xl border border-border p-5 shadow-sm space-y-5">
-              <Label className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground block">
-                3. Print Options
-              </Label>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Paper Size</Label>
-                  <div className="flex bg-muted/50 rounded-xl p-1">
-                    <button
-                      onClick={() => setPageSize("short")}
-                      className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all ${pageSize === "short" ? "bg-white text-primary shadow-sm" : "text-muted-foreground"}`}
-                    >
-                      Short (A4)
-                    </button>
-                    <button
-                      onClick={() => setPageSize("long")}
-                      className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all ${pageSize === "long" ? "bg-white text-primary shadow-sm" : "text-muted-foreground"}`}
-                    >
-                      Long (8.5x13)
-                    </button>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Copies</Label>
-                  <div className="flex items-center gap-3 bg-muted/50 rounded-xl p-1">
-                    <button 
-                      onClick={() => setCopies(Math.max(1, copies - 1))}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-primary shadow-sm active:scale-90 transition-transform"
-                    >
-                      -
-                    </button>
-                    <span className="flex-1 text-center text-xs font-bold">{copies}</span>
-                    <button 
-                      onClick={() => setCopies(copies + 1)}
-                      className="w-8 h-8 flex items-center justify-center rounded-lg bg-white text-primary shadow-sm active:scale-90 transition-transform"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[10px] font-bold text-muted-foreground">Delivery Method</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setDeliveryType("pickup")}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                      deliveryType === "pickup" 
-                        ? "border-primary bg-primary/5 text-primary font-bold" 
-                        : "border-border bg-card text-muted-foreground font-medium"
-                    }`}
-                  >
-                    <MapPin className="h-4 w-4" />
-                    <span className="text-xs">Pickup</span>
-                  </button>
-                  <button
-                    onClick={() => setDeliveryType("delivery")}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
-                      deliveryType === "delivery" 
-                        ? "border-primary bg-primary/5 text-primary font-bold" 
-                        : "border-border bg-card text-muted-foreground font-medium"
-                    }`}
-                  >
-                    <Truck className="h-4 w-4" />
-                    <span className="text-xs">Delivery (+₱10)</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Date</Label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      type="date"
-                      value={pickupDate}
-                      min={todayManila}
-                      max={todayManila}
-                      disabled
-                      className="pl-9 text-xs h-10 rounded-xl bg-muted/30 border-none opacity-70"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold text-muted-foreground">Time</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                    <Input
-                      type="time"
-                      value={pickupTime}
-                      onChange={(e) => setPickupTime(e.target.value)}
-                      min={minTimeString}
-                      className="pl-9 text-xs h-10 rounded-xl bg-muted/30 border-none focus:ring-2 focus:ring-primary/20"
-                    />
-                  </div>
-                </div>
+            <div>
+              <Label className="text-[10px]">Copies</Label>
+              <div className="flex items-center gap-3 mt-1">
+                <button
+                  onClick={() => setCopies(Math.max(1, copies - 1))}
+                  className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                >
+                  -
+                </button>
+                <span className="text-sm font-bold w-8 text-center">{copies}</span>
+                <button
+                  onClick={() => setCopies(copies + 1)}
+                  className="h-9 w-9 rounded-lg border border-border flex items-center justify-center hover:bg-muted"
+                >
+                  +
+                </button>
               </div>
             </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bottom Summary & Action */}
-      {file && pages.length > 0 && (
-        <div className="fixed bottom-16 left-0 right-0 z-40 bg-card/95 backdrop-blur-lg border-t border-border p-4 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] animate-in slide-in-from-bottom duration-500">
-          <div className="max-w-md mx-auto">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total Cost</p>
-                <div className="flex items-baseline gap-1">
-                  <span className="text-2xl font-black text-primary">₱{calculateCost().toFixed(2)}</span>
-                  <span className="text-[10px] text-muted-foreground font-medium">incl. fees</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Summary</p>
-                <p className="text-xs font-bold text-foreground">
-                  {pages.filter(p => p.selected).length * copies} Pages • {copies} {copies === 1 ? 'Copy' : 'Copies'}
-                </p>
-              </div>
-            </div>
-            
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || !storeOpen || pages.filter(p => p.selected).length === 0}
-              className="w-full h-14 rounded-2xl font-black text-base shadow-lg shadow-primary/20 active:scale-[0.98] transition-all gap-2"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Submitting Order...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="h-5 w-5" />
-                  Confirm Print Order
-                </>
-              )}
-            </Button>
-            
-            <p className="text-[9px] text-center text-muted-foreground mt-3 font-medium">
-              By confirming, you agree to pay the total amount upon {deliveryType}.
-            </p>
           </div>
         </div>
-      )}
 
-      <BottomNav />
+        <div className="bg-card rounded-xl border border-border p-4 space-y-3">
+          <Label className="text-sm font-bold flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" /> Delivery
+          </Label>
+          
+          <div>
+            <Label className="text-[10px]">Type</Label>
+            <div className="grid grid-cols-2 gap-1 mt-1">
+              <button
+                onClick={() => setDeliveryType("pickup")}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  deliveryType === "pickup" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                Pickup
+              </button>
+              <button
+                onClick={() => setDeliveryType("delivery")}
+                className={`py-2 rounded-lg text-xs font-bold transition-all ${
+                  deliveryType === "delivery" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
+                }`}
+              >
+                Delivery (+₱10)
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label className="text-[10px]">Date</Label>
+              <Input
+                type="date"
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
+                min={todayManila}
+                max={todayManila}
+                disabled
+                className="text-sm h-9 mt-1 opacity-80"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px]">Time</Label>
+              <Input
+                type="time"
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                min={noTimesToday ? undefined : minTimeString}
+                disabled={noTimesToday}
+                className="text-sm h-9 mt-1"
+              />
+              {noTimesToday && (
+                <p className="text-[10px] text-destructive mt-1">No available times for today</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card rounded-xl border border-border p-4">
+          <h3 className="text-sm font-bold mb-3">Cost Summary</h3>
+          <div className="space-y-2 text-xs">
+            {bwCount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">B&W Pages ({bwCount} × {copies})</span>
+                <span className="font-bold">₱{(bwCount * getPrice(false, pageSize) * copies).toFixed(2)}</span>
+              </div>
+            )}
+            {colorCount > 0 && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Color Pages ({colorCount} × {copies})</span>
+                <span className="font-bold">₱{(colorCount * getPrice(true, pageSize) * copies).toFixed(2)}</span>
+              </div>
+            )}
+            {deliveryType === "delivery" && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Delivery Fee</span>
+                <span className="font-bold">₱10.00</span>
+              </div>
+            )}
+            <div className="border-t border-border pt-2 flex justify-between">
+              <span className="font-bold">Total</span>
+              <span className="font-extrabold text-primary text-base">₱{calculateCost().toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday}
+          className="w-full h-12 font-bold rounded-xl"
+        >
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+          {submitting ? "Submitting..." : "Submit Print Order"}
+        </Button>
+      </div>
     </div>
   );
 }

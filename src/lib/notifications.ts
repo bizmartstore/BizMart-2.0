@@ -129,7 +129,7 @@ export const notifyAdminRedemption = async (userName: string, amount: number) =>
 };
 
 /**
- * Notify customer about order status changes with push notification
+ * Notify customer about order status changes
  */
 export const notifyCustomerOrder = async (userId: string, orderId: string, status: string) => {
   if (!userId) return;
@@ -142,88 +142,14 @@ export const notifyCustomerOrder = async (userId: string, orderId: string, statu
     canceled: "Your order has been canceled. ⚠️"
   };
 
-  const statusTitles: Record<string, string> = {
-    approved: "📦 Order Approved",
-    ready: "🚚 Order Ready",
-    completed: "🎉 Order Completed",
-    rejected: "❌ Order Rejected",
-    canceled: "⚠️ Order Canceled"
-  };
-
-  // Send database notification
   await sendNotification({
-    title: statusTitles[status] || `📦 Order ${status.toUpperCase()}`,
+    title: `📦 Order ${status.toUpperCase()}`,
     message: statusMessages[status] || `Your order #${orderId.slice(0, 8)} is now ${status}.`,
     type: "order_status",
     userId,
     link: "/orders",
     icon: "📦",
   });
-
-  // Send push notification
-  await sendPushNotification(userId, {
-    title: statusTitles[status] || `📦 Order ${status.toUpperCase()}`,
-    body: statusMessages[status] || `Your order #${orderId.slice(0, 8)} is now ${status}.`,
-    data: {
-      orderId,
-      status,
-      link: "/orders"
-    }
-  });
-};
-
-/**
- * Send push notification to a specific user
- */
-export const sendPushNotification = async (userId: string, payload: { title: string; body: string; data?: any }) => {
-  try {
-    // Get user's FCM tokens
-    const { data: tokens, error } = await (supabase as any)
-      .from("fcm_tokens")
-      .select("token")
-      .eq("user_id", userId);
-    
-    if (error) {
-      console.error("Error fetching FCM tokens:", error);
-      return;
-    }
-
-    if (!tokens || tokens.length === 0) {
-      console.log("No FCM tokens found for user");
-      return;
-    }
-
-    // Send push notification to each token
-    for (const tokenRecord of tokens) {
-      try {
-        const response = await fetch("https://fcm.googleapis.com/fcm/send", {
-          method: "POST",
-          headers: {
-            "Authorization": `key=${import.meta.env.VITE_FCM_SERVER_KEY}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            to: tokenRecord.token,
-            notification: {
-              title: payload.title,
-              body: payload.body,
-              icon: "/pwa-192x192.png",
-              badge: "/pwa-192x192.png"
-            },
-            data: payload.data || {}
-          })
-        });
-
-        if (!response.ok) {
-          console.error("FCM error response:", await response.text());
-        }
-      } catch (err) {
-        console.error("Error sending FCM message:", err);
-      }
-    }
-  } catch (error) {
-    console.error("Error in sendPushNotification:", error);
-  }
 };
 
 /**

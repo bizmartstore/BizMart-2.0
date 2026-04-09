@@ -14,7 +14,6 @@ import { Separator } from "@/components/ui/separator";
 import { Trash2, Plus, Minus, ShoppingBag, Calendar, Clock, MapPin, AlertCircle } from "lucide-react";
 import { format, addDays, isAfter, isBefore, startOfDay } from "date-fns";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
-import { sendPushNotification } from "@/lib/notifications";
 
 export default function CartPage() {
   const navigate = useNavigate();
@@ -115,16 +114,6 @@ export default function CartPage() {
         clearCart();
         
         // Trigger Push Notification
-        await sendPushNotification(user.id, {
-          title: "Order Successfully Placed! 📦",
-          body: `Your order #${newOrderId.slice(0, 8)} has been placed. Please wait for admin approval.`,
-          data: {
-            orderId: newOrderId,
-            status: "pending",
-            link: "/orders"
-          }
-        });
-        
         triggerLocalPushNotification(
           "Order Successfully Placed! 📦",
           `Your order #${newOrderId.slice(0, 8)} has been placed. Please wait for admin approval.`

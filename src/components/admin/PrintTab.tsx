@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle, Palette, File, Download } from "lucide-react";
-import { notifyCustomerOrder } from "@/lib/notifications";
+import { sendNotification } from "@/lib/notifications";
 
 export default function PrintTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -96,22 +96,31 @@ export default function PrintTab() {
   }, [load]);
 
   const updateStatus = async (orderId: string, newStatus: string) => {
-    const orderToUpdate = orders.find(o => o.id === orderId);
-    if (!orderToUpdate) return;
-
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
     }
 
     try {
+      const { data: order } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
+      if (!order) {
+        toast.error("Order not found");
+        return;
+      }
+
       const { error } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
       
-      // Trigger Push Notification to Customer
-      await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
+      await sendNotification({
+        title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
+        message: `Your print request for "${order.file_name}" is now ${newStatus}.`,
+        type: "print_status",
+        userId: order.user_id,
+        link: "/orders",
+        icon: "🖨️"
+      });
 
-      toast.success(`Print order ${newStatus}! Notification sent to customer.`);
+      toast.success(`Print order ${newStatus}!`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
       load();
