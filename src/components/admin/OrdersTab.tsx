@@ -109,8 +109,8 @@ export default function OrdersTab() {
       const { error } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
 
-      // Trigger Push Notification to Customer
-      await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
+      // Trigger Push Notification to Customer with correct type flag
+      await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus, isPrint);
 
       // Award BCoins if completed
       if (newStatus === "completed" && !isPrint) {
@@ -338,7 +338,8 @@ export default function OrdersTab() {
                   o.status === 'completed' ? 'bg-[hsl(var(--success))]/20 text-[hsl(var(--success))]' :
                   o.status === 'pending' ? 'bg-warning/20 text-warning' :
                   o.status === 'rejected' ? 'bg-destructive/20 text-destructive' :
-                  'bg-primary/20 text-primary'
+                  o.status === 'approved' ? 'bg-primary/20 text-primary' :
+                  'bg-muted text-muted-foreground'
                 }`}>{o.status}</span>
                 <button onClick={() => setSelectedOrder(o)} className="p-1.5 rounded-lg bg-muted hover:bg-muted/80"><Eye className="h-3.5 w-3.5" /></button>
               </div>
