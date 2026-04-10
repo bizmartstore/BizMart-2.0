@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File } from "lucide-react";
-import { format } from "date-fns";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
@@ -41,14 +40,12 @@ export default function PrintServicePage() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // 👇 Dynamic current time in Manila timezone
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
 
-  // en-CA locale guarantees YYYY-MM-DD format required by <input type="date" />
   const todayManila = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
   const minTime = new Date(now.getTime() + 10 * 60 * 1000);
   const minTimeString = minTime.toTimeString().slice(0, 5);
@@ -120,7 +117,6 @@ export default function PrintServicePage() {
       return;
     }
 
-    // Increased from 15MB to 50MB
     if (selected.size > 50 * 1024 * 1024) {
       toast.error("File size must be less than 50MB");
       return;
@@ -193,14 +189,16 @@ export default function PrintServicePage() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      // Use print_files bucket name
       const { error: uploadError } = await supabase.storage
-        .from("print-orders")
+        .from("print_files")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("print-orders")
+        .from("print_files")
         .getPublicUrl(fileName);
 
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
@@ -233,15 +231,12 @@ export default function PrintServicePage() {
         setOrderId(newOrderId);
         setOrderComplete(true);
         
-        // Trigger Push Notification
         triggerLocalPushNotification(
           "Print Order Placed! 🖨️",
           `Your print request for "${file.name}" has been received. Please wait for admin approval.`
         );
         
         toast.success("Print order submitted successfully!");
-      } else {
-        throw new Error("No order data returned");
       }
     } catch (error: any) {
       toast.error("Failed to submit order: " + error.message);
@@ -249,35 +244,6 @@ export default function PrintServicePage() {
       setSubmitting(false);
     }
   };
-
-  if (orderComplete) {
-    return (
-      <div className="min-h-screen bg-background pb-20">
-        <div className="sticky top-0 z-40 bg-card flex items-center px-3 py-2.5 border-b border-border">
-          <button onClick={() => navigate("/")} className="p-1.5">
-            <Printer className="h-5 w-5 text-primary" />
-          </button>
-          <span className="font-bold text-sm ml-2">Order Confirmed</span>
-        </div>
-        <div className="px-4 py-8 text-center">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <CheckCircle2 className="h-10 w-10 text-green-600" />
-          </div>
-          <h2 className="text-2xl font-extrabold mb-3">Print Order Placed!</h2>
-          <p className="text-sm text-muted-foreground mb-2">Your print request #{orderId?.slice(0, 8)} has been received.</p>
-          <p className="text-sm text-muted-foreground mb-8">We'll notify you when it's ready for {deliveryType}.</p>
-          <div className="space-y-3">
-            <Button onClick={() => navigate("/orders")} className="w-full h-12 font-bold rounded-xl">
-              View Orders
-            </Button>
-            <Button onClick={() => navigate("/")} variant="outline" className="w-full h-12 font-bold rounded-xl">
-              Continue Shopping
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const selectedPages = pages.filter(p => p.selected);
   const bwCount = selectedPages.filter(p => !p.isColor).length;
