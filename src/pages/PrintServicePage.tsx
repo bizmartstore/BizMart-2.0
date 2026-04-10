@@ -120,6 +120,7 @@ export default function PrintServicePage() {
       return;
     }
 
+    // Increased from 15MB to 50MB
     if (selected.size > 50 * 1024 * 1024) {
       toast.error("File size must be less than 50MB");
       return;
@@ -192,16 +193,14 @@ export default function PrintServicePage() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
-      // Fixed: Using 'print_files' bucket instead of 'print-orders'
       const { error: uploadError } = await supabase.storage
-        .from("print_files")
+        .from("print-orders")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("print_files")
+        .from("print-orders")
         .getPublicUrl(fileName);
 
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
@@ -234,6 +233,7 @@ export default function PrintServicePage() {
         setOrderId(newOrderId);
         setOrderComplete(true);
         
+        // Trigger Push Notification
         triggerLocalPushNotification(
           "Print Order Placed! 🖨️",
           `Your print request for "${file.name}" has been received. Please wait for admin approval.`
