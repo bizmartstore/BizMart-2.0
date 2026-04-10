@@ -99,6 +99,13 @@ export default function ProductCard({ product }: ProductCardProps) {
             <span className="text-sm text-muted-foreground line-through">₱{product.originalPrice}</span>
           )}
         </div>
+        {/* NEW: Display BCoins earned */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-medium text-primary">
+            🪙 {product.bcoins ?? 0}
+          </span>
+          <span className="text-[9px] text-muted-foreground">BCoins earned</span>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={handleAddToCart}
@@ -112,7 +119,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             disabled={!storeOpen}
             className="flex-1 bg-primary text-primary-foreground text-xs font-bold py-2 rounded-lg hover:bg-primary/80 disabled:opacity-50"
           >
-            Buy Now
+            <ShoppingCart className="h-3 w-3 inline mr-1" /> Buy Now
           </button>
         </div>
       </div>
