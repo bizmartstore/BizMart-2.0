@@ -21,7 +21,7 @@ export default function SettingsTab() {
     gcashFee: gcashFee,
     maxSellers: 5,
     flashSaleMinDiscount: 5,
-    flashSaleMaxDiscount: 15,
+    flashSaleMaxDiscount: 10, // default now 10% max
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,7 +36,7 @@ export default function SettingsTab() {
       gcashFee,
       maxSellers: maxSellersSetting?.value?.max ?? 5,
       flashSaleMinDiscount: flashSaleMinSetting?.value?.percentage ?? 5,
-      flashSaleMaxDiscount: flashSaleMaxSetting?.value?.percentage ?? 15,
+      flashSaleMaxDiscount: flashSaleMaxSetting?.value?.percentage ?? 10, // enforce 10% max
     });
   }, [allSettings, storeOpen, closeMessage, gcashFee]);
 
@@ -129,14 +129,14 @@ export default function SettingsTab() {
           <Zap className="h-5 w-5 text-warning" />
           <h3 className="font-bold text-sm">Flash Sale Discount Rate</h3>
         </div>
-        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 6 products and apply discounts between the minimum and maximum percentage for 2 hours. Applies to all products including synced defaults.</p>
+        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 4 products and apply discounts between the minimum and maximum percentage for 2 hours. Applies to all products including synced defaults.</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-[10px]">Minimum Discount (%)</Label>
             <Input 
               type="number" 
               value={settings.flashSaleMinDiscount} 
-              onChange={(e) => setSettings(s => ({ ...s, flashSaleMinDiscount: Math.max(5, Math.min(15, Number(e.target.value))) }))} 
+              onChange={(e) => setSettings(s => ({ ...s, flashSaleMinDiscount: Math.max(5, Math.min(10, Number(e.target.value))) }))} 
               className="text-xs h-8"
             />
           </div>
@@ -145,7 +145,7 @@ export default function SettingsTab() {
             <Input 
               type="number" 
               value={settings.flashSaleMaxDiscount} 
-              onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(5, Math.min(15, Number(e.target.value))) }))} 
+              onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(5, Math.min(10, Number(e.target.value))) }))} 
               className="text-xs h-8"
             />
           </div>
