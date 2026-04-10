@@ -193,16 +193,14 @@ export default function PrintServicePage() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
-      // Use the correct bucket name 'print_files' to match migrations
       const { error: uploadError } = await supabase.storage
-        .from("print_files")
+        .from("print-orders")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("print_files")
+        .from("print-orders")
         .getPublicUrl(fileName);
 
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
