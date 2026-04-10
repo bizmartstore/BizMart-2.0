@@ -36,29 +36,6 @@ const REDEEM_OPTIONS = [
   { gcash: 500, bcoins: 5000 },
 ];
 
-// Robust retry wrapper with exponential backoff for lock conflicts
-async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
-  let lastError: any;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await operation();
-    } catch (error: any) {
-      lastError = error;
-      const isLockError = error?.message?.includes('lock') || 
-                         error?.message?.includes('steal') || 
-                         error?.name === 'AbortError' ||
-                         error?.code === '40P01';
-      
-      if (isLockError && i < maxRetries - 1) {
-        await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, i)));
-        continue;
-      }
-      throw error;
-    }
-  }
-  throw lastError;
-}
-
 export default function BCoinsPage() {
   const { user, profile, refreshProfile } = useAuth();
   const [wallet, setWallet] = useState<any>(null);
@@ -69,7 +46,7 @@ export default function BCoinsPage() {
   const [redeeming, setRedeeming] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   
-  // Daily Login State (Now backed by Database)
+  // Daily Login State
   const [dailyLogin, setDailyLogin] = useState<DailyLoginState>({
     lastClaim: null,
     currentDay: 1,
@@ -102,16 +79,19 @@ export default function BCoinsPage() {
     const now = new Date();
     const lastClaimDate = new Date(state.lastClaim);
     
-    // Check if it's a different calendar day in Manila time
-    const manilaTime = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', day: 'numeric' }).format(now);
-    const lastClaimManilaDay = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', day: 'numeric' }).format(lastClaimDate);
-    const manilaMonth = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'numeric' }).format(now);
-    const lastClaimManilaMonth = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Manila', month: 'numeric' }).format(lastClaimDate);
+    // Use Intl.DateTimeFormat to get Manila calendar date parts
+    const options: Intl.DateTimeFormatOptions = { timeZone: 'Asia/Manila', year: 'numeric', month: 'numeric', day: 'numeric' };
+    const formatter = new Intl.DateTimeFormat('en-US', options);
+    
+    const nowParts = formatter.formatToParts(now);
+    const claimParts = formatter.formatToParts(lastClaimDate);
+    
+    const nowStr = `${nowParts.find(p => p.type === 'year')?.value}-${nowParts.find(p => p.type === 'month')?.value}-${nowParts.find(p => p.type === 'day')?.value}`;
+    const claimStr = `${claimParts.find(p => p.type === 'year')?.value}-${claimParts.find(p => p.type === 'month')?.value}-${claimParts.find(p => p.type === 'day')?.value}`;
 
-    return manilaTime !== lastClaimManilaDay || manilaMonth !== lastClaimManilaMonth;
+    return nowStr !== claimStr;
   };
 
-  // Initialize Daily Login from Database
   const loadDailyRewardState = useCallback(async () => {
     if (!user) return;
     
@@ -133,14 +113,13 @@ export default function BCoinsPage() {
         setDailyLogin(state);
         setCanClaimDaily(checkDailyClaimability(state));
       } else {
-        // First time user, create record
-        const newState = {
+        const initialState = {
           user_id: user.id,
           current_day: 1,
           cycle_start_at: new Date().toISOString(),
         };
-        await (supabase as any).from("daily_login_rewards").insert(newState);
-        setDailyLogin({ lastClaim: null, currentDay: 1, cycleStart: newState.cycle_start_at });
+        await (supabase as any).from("daily_login_rewards").insert(initialState);
+        setDailyLogin({ lastClaim: null, currentDay: 1, cycleStart: initialState.cycle_start_at });
         setCanClaimDaily(true);
       }
     } catch (err) {
@@ -172,65 +151,59 @@ export default function BCoinsPage() {
     setClaimingDaily(true);
     try {
       const reward = DAILY_REWARDS[dailyLogin.currentDay - 1] || 0.5;
+      const now = new Date().toISOString();
       
-      await withRetry(async () => {
-        // 1. Update Wallet
-        const { data: currentWallet } = await (supabase as any)
-          .from("bcoins_wallets")
-          .select("balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        
-        const currentBalance = Number(currentWallet?.balance || 0);
-        const calculatedNewBalance = currentBalance + reward;
+      // Update DB state
+      const isCycleEnd = dailyLogin.currentDay >= 7;
+      const nextDay = isCycleEnd ? 1 : dailyLogin.currentDay + 1;
+      
+      const { error: updateStateError } = await (supabase as any)
+        .from("daily_login_rewards")
+        .update({
+          last_claim_at: now,
+          current_day: nextDay,
+          cycle_start_at: isCycleEnd ? now : dailyLogin.cycleStart,
+          updated_at: now
+        })
+        .eq("user_id", user.id);
 
-        if (currentWallet) {
-          await (supabase as any)
-            .from("bcoins_wallets")
-            .update({ balance: calculatedNewBalance, updated_at: new Date().toISOString() })
-            .eq("user_id", user.id);
-        } else {
-          await (supabase as any)
-            .from("bcoins_wallets")
-            .insert({ user_id: user.id, balance: calculatedNewBalance });
-        }
+      if (updateStateError) throw updateStateError;
 
-        // 2. Log Transaction
-        await (supabase as any).from("bcoins_transactions").insert({
-          user_id: user.id,
-          amount: reward,
-          type: "daily_login",
-          description: `Day ${dailyLogin.currentDay} reward claimed`,
-        });
+      // Update Wallet
+      const { data: currentWallet } = await (supabase as any)
+        .from("bcoins_wallets")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      const currentBalance = Number(currentWallet?.balance || 0);
+      const newBalance = currentBalance + reward;
 
-        // 3. Update Reward State in DB
-        const isCycleEnd = dailyLogin.currentDay >= 7;
-        const nextDay = isCycleEnd ? 1 : dailyLogin.currentDay + 1;
-        const now = new Date().toISOString();
-        
-        await (supabase as any)
-          .from("daily_login_rewards")
-          .update({
-            last_claim_at: now,
-            current_day: nextDay,
-            cycle_start_at: isCycleEnd ? now : dailyLogin.cycleStart,
-            updated_at: now
-          })
-          .eq("user_id", user.id);
+      if (currentWallet) {
+        await (supabase as any).from("bcoins_wallets").update({ balance: newBalance, updated_at: now }).eq("user_id", user.id);
+      } else {
+        await (supabase as any).from("bcoins_wallets").insert({ user_id: user.id, balance: newBalance });
+      }
 
-        const updatedState: DailyLoginState = {
-          lastClaim: now,
-          currentDay: nextDay,
-          cycleStart: isCycleEnd ? now : dailyLogin.cycleStart,
-        };
-        
-        setDailyLogin(updatedState);
-        setCanClaimDaily(false);
-        setWallet((prev: any) => ({ ...prev, balance: calculatedNewBalance }));
-        toast({ 
-          title: "Reward Claimed! 🎉", 
-          description: `+${reward} BCoins earned! ${isCycleEnd ? "Cycle complete! Starting Day 1 tomorrow." : `Come back tomorrow for Day ${nextDay}.`}` 
-        });
+      // Log Transaction
+      await (supabase as any).from("bcoins_transactions").insert({
+        user_id: user.id,
+        amount: reward,
+        type: "daily_login",
+        description: `Day ${dailyLogin.currentDay} reward claimed`,
+      });
+
+      setDailyLogin({
+        lastClaim: now,
+        currentDay: nextDay,
+        cycleStart: isCycleEnd ? now : dailyLogin.cycleStart,
+      });
+      setCanClaimDaily(false);
+      setWallet((prev: any) => ({ ...prev, balance: newBalance }));
+      
+      toast({ 
+        title: "Reward Claimed! 🎉", 
+        description: `+${reward} BCoins earned! ${isCycleEnd ? "7-day cycle complete! Day 1 starts tomorrow." : `Come back tomorrow for Day ${nextDay}.`}` 
       });
       
       refreshProfile();
@@ -257,27 +230,20 @@ export default function BCoinsPage() {
 
     setRedeeming(true);
     try {
-      await withRetry(async () => {
-        const { data: currentWallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", user.id).maybeSingle();
-        if (!currentWallet) throw new Error("Wallet not found");
-
-        const newBalance = Number(currentWallet.balance) - option.bcoins;
-        if (newBalance < 0) throw new Error("Insufficient balance");
-
-        await (supabase as any).from("bcoins_wallets").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("user_id", user.id);
-        await (supabase as any).from("bcoins_transactions").insert({
-          user_id: user.id,
-          amount: -option.bcoins,
-          type: "redeem_gcash",
-          description: `Redeemed ₱${option.gcash} GCash to ${gcashNumber}`,
-        });
-        await (supabase as any).from("bcoins_redemptions").insert({
-          user_id: user.id,
-          bcoins_amount: option.bcoins,
-          gcash_amount: option.gcash,
-          gcash_number: gcashNumber,
-          status: "pending",
-        });
+      const newBalance = Number(wallet.balance) - option.bcoins;
+      await (supabase as any).from("bcoins_wallets").update({ balance: newBalance, updated_at: new Date().toISOString() }).eq("user_id", user.id);
+      await (supabase as any).from("bcoins_transactions").insert({
+        user_id: user.id,
+        amount: -option.bcoins,
+        type: "redeem_gcash",
+        description: `Redeemed ₱${option.gcash} GCash to ${gcashNumber}`,
+      });
+      await (supabase as any).from("bcoins_redemptions").insert({
+        user_id: user.id,
+        bcoins_amount: option.bcoins,
+        gcash_amount: option.gcash,
+        gcash_number: gcashNumber,
+        status: "pending",
       });
 
       const userName = profile ? `${profile.first_name} ${profile.last_name}` : "User";
@@ -404,7 +370,8 @@ export default function BCoinsPage() {
 }
 
 function DailyLoginCard({ onClaim, canClaim, currentDay, lastClaim, isClaiming }: { onClaim: () => void; canClaim: boolean; currentDay: number; lastClaim: string | null; isClaiming: boolean }) {
-  const todayReward = DAILY_REWARDS[currentDay - 1] || 0.5;
+  // Correctly calculate which day is actually "Next"
+  const activeDay = canClaim ? currentDay : (currentDay === 1 ? 7 : currentDay - 1);
   
   return (
     <div className="bg-gradient-to-br from-orange-500/10 to-amber-400/10 rounded-2xl border border-orange-200/30 p-4 shadow-sm">
@@ -426,17 +393,20 @@ function DailyLoginCard({ onClaim, canClaim, currentDay, lastClaim, isClaiming }
       <div className="grid grid-cols-7 gap-1.5 mb-4">
         {DAILY_REWARDS.map((reward, idx) => {
           const dayNum = idx + 1;
-          const isActuallyToday = dayNum === currentDay && canClaim;
-          const isPreviouslyClaimed = dayNum < currentDay || (dayNum === currentDay && !canClaim);
+          const isPreviouslyClaimed = !canClaim ? dayNum < currentDay : dayNum < currentDay;
+          const isActuallyToday = canClaim && dayNum === currentDay;
+          const isClaimedToday = !canClaim && dayNum === (currentDay === 1 ? 7 : currentDay - 1);
           
+          const isCheckmarked = isPreviouslyClaimed || isClaimedToday;
+
           return (
             <div key={dayNum} className={`relative flex flex-col items-center justify-center p-1.5 rounded-lg text-center transition-all ${
-              isPreviouslyClaimed ? "bg-green-100 border border-green-200" : 
+              isCheckmarked ? "bg-green-100 border border-green-200" : 
               isActuallyToday ? "bg-orange-100 border-2 border-orange-400 shadow-sm scale-105 z-10" : "bg-muted/50 border border-border opacity-60"
             }`}>
               <span className="text-[8px] font-bold text-muted-foreground">Day {dayNum}</span>
-              <span className={`text-xs font-extrabold ${isPreviouslyClaimed ? "text-green-600" : isActuallyToday ? "text-orange-600" : "text-muted-foreground"}`}>
-                {isPreviouslyClaimed ? "✓" : `+${reward}`}
+              <span className={`text-xs font-extrabold ${isCheckmarked ? "text-green-600" : isActuallyToday ? "text-orange-600" : "text-muted-foreground"}`}>
+                {isCheckmarked ? "✓" : `+${reward}`}
               </span>
             </div>
           );
@@ -447,9 +417,9 @@ function DailyLoginCard({ onClaim, canClaim, currentDay, lastClaim, isClaiming }
         {isClaiming ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Gift className="h-4 w-4 mr-2" />}
         {canClaim ? `Claim Day ${currentDay} Reward` : "Claimed for Today"}
       </Button>
-      {!canClaim && (
+      {!canClaim && lastClaim && (
         <p className="text-[10px] text-center text-muted-foreground mt-2 font-medium">
-          Next reward available in {24 - Math.floor((new Date().getTime() - new Date(lastClaim!).getTime()) / (1000 * 60 * 60))} hours
+          Next reward available tomorrow!
         </p>
       )}
     </div>
