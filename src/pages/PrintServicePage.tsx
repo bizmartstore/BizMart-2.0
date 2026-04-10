@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File, CheckSquare, Square } from "lucide-react";
+import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File, CheckSquare, Square, Truck } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
