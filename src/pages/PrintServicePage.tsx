@@ -193,6 +193,8 @@ export default function PrintServicePage() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      // Use the correct bucket name 'print-orders'
       const { error: uploadError } = await supabase.storage
         .from("print-orders")
         .upload(fileName, file);
