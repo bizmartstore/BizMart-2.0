@@ -203,13 +203,13 @@ export default function PrintServicePage() {
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
       const { error: uploadError } = await supabase.storage
-        .from("print_files")
+        .from("print-files")
         .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("print_files")
+        .from("print-files")
         .getPublicUrl(fileName);
 
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
