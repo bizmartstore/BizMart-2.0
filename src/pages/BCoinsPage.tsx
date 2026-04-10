@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import TopBar from "@/components/TopBar";
@@ -33,12 +33,6 @@ const REDEEM_OPTIONS = [
   { gcash: 200, bcoins: 2000 },
   { gcash: 500, bcoins: 5000 },
 ];
-
-const statusIcon = {
-  pending: <Clock className="h-4 w-4 text-warning" />,
-  completed: <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />,
-  rejected: <XCircle className="h-4 w-4 text-destructive" />,
-};
 
 // Robust retry wrapper with exponential backoff for lock conflicts
 async function withRetry<T>(operation: () => Promise<T>, maxRetries = 3): Promise<T> {
@@ -81,6 +75,7 @@ export default function BCoinsPage() {
   });
   const [canClaimDaily, setCanClaimDaily] = useState(false);
   const [claimingDaily, setClaimingDaily] = useState(false);
+  const [loadingDaily, setLoadingDaily] = useState(true);
 
   // BizMon Arena state
   const [showBizMon, setShowBizMon] = useState(false);
@@ -99,86 +94,86 @@ export default function BCoinsPage() {
     setLoading(false);
   };
 
-  // Initialize Daily Login with error handling
-  useEffect(() => {
+  // Initialize Daily Login from Database
+  const loadDailyState = useCallback(async () => {
     if (!user) return;
-    
+    setLoadingDaily(true);
     try {
-      const stored = localStorage.getItem(`bcoins_daily_${user.id}`);
+      const { data, error } = await (supabase as any)
+        .from("daily_rewards")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       const now = new Date();
       
-      if (stored) {
-        let parsed: DailyLoginState;
-        try {
-          parsed = JSON.parse(stored);
-        } catch (parseError) {
-          console.error("Failed to parse daily login state:", parseError);
-          const newState: DailyLoginState = {
-            lastClaim: null,
-            currentDay: 1,
-            cycleStart: now.toISOString(),
-          };
-          setDailyLogin(newState);
-          localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
-          setCanClaimDaily(true);
-          return;
-        }
-        
-        const cycleStart = new Date(parsed.cycleStart);
-        if (isNaN(cycleStart.getTime())) {
-          throw new Error("Invalid cycleStart date");
-        }
-        
+      if (data) {
+        const cycleStart = new Date(data.cycle_start_at);
         const daysSinceCycle = Math.floor((now.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
         
+        // If cycle is older than 7 days, reset it
         if (daysSinceCycle >= 7) {
-          const newState: DailyLoginState = {
+          const newState = {
             lastClaim: null,
             currentDay: 1,
             cycleStart: now.toISOString(),
           };
           setDailyLogin(newState);
-          localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
           setCanClaimDaily(true);
-        } else {
-          setDailyLogin(parsed);
           
-          if (parsed.lastClaim) {
-            const lastClaimDate = new Date(parsed.lastClaim);
-            const hoursSinceClaim = (now.getTime() - lastClaimDate.getTime()) / (1000 * 60 * 60);
-            setCanClaimDaily(hoursSinceClaim >= 24 && parsed.currentDay <= 7);
+          // Update DB
+          await (supabase as any).from("daily_rewards").update({
+            last_claim_at: null,
+            current_day: 1,
+            cycle_start_at: now.toISOString()
+          }).eq("user_id", user.id);
+        } else {
+          setDailyLogin({
+            lastClaim: data.last_claim_at,
+            currentDay: data.current_day,
+            cycleStart: data.cycle_start_at,
+          });
+          
+          if (data.last_claim_at) {
+            const lastClaimDate = new Date(data.last_claim_at);
+            // Check if it's a different calendar day in Manila (UTC+8)
+            const lastClaimDay = new Date(lastClaimDate.getTime() + (8 * 60 * 60 * 1000)).getUTCDate();
+            const currentDayManila = new Date(now.getTime() + (8 * 60 * 60 * 1000)).getUTCDate();
+            
+            setCanClaimDaily(lastClaimDay !== currentDayManila && data.current_day <= 7);
           } else {
             setCanClaimDaily(true);
           }
         }
       } else {
-        const newState: DailyLoginState = {
+        // First time user - create record
+        const newState = {
           lastClaim: null,
           currentDay: 1,
           cycleStart: now.toISOString(),
         };
         setDailyLogin(newState);
-        localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
         setCanClaimDaily(true);
+        
+        await (supabase as any).from("daily_rewards").insert({
+          user_id: user.id,
+          current_day: 1,
+          cycle_start_at: now.toISOString()
+        });
       }
     } catch (error) {
-      console.error("Daily login initialization error:", error);
-      const now = new Date();
-      const safeState: DailyLoginState = {
-        lastClaim: null,
-        currentDay: 1,
-        cycleStart: now.toISOString(),
-      };
-      setDailyLogin(safeState);
-      setCanClaimDaily(true);
+      console.error("Daily login load error:", error);
+    } finally {
+      setLoadingDaily(false);
     }
   }, [user]);
 
   useEffect(() => { 
     if (user) {
       loadData();
+      loadDailyState();
     }
-  }, [user]);
+  }, [user, loadDailyState]);
 
   useEffect(() => {
     if (!user) return;
@@ -204,6 +199,7 @@ export default function BCoinsPage() {
       let calculatedNewBalance: number;
       
       await withRetry(async () => {
+        // 1. Update Wallet
         const { data: currentWallet } = await (supabase as any)
           .from("bcoins_wallets")
           .select("balance")
@@ -224,31 +220,40 @@ export default function BCoinsPage() {
             .insert({ user_id: user.id, balance: calculatedNewBalance });
         }
 
+        // 2. Record Transaction
         await (supabase as any).from("bcoins_transactions").insert({
           user_id: user.id,
           amount: reward,
           type: "daily_login",
           description: `Day ${dailyLogin.currentDay} daily login reward`,
         });
+
+        // 3. Update Daily Reward State in DB
+        const now = new Date();
+        const nextDay = dailyLogin.currentDay >= 7 ? 1 : dailyLogin.currentDay + 1;
+        const isCycleReset = dailyLogin.currentDay >= 7;
+
+        await (supabase as any).from("daily_rewards").update({
+          last_claim_at: now.toISOString(),
+          current_day: nextDay,
+          cycle_start_at: isCycleReset ? now.toISOString() : dailyLogin.cycleStart
+        }).eq("user_id", user.id);
+
+        // Update local state
+        setDailyLogin({
+          lastClaim: now.toISOString(),
+          currentDay: nextDay,
+          cycleStart: isCycleReset ? now.toISOString() : dailyLogin.cycleStart,
+        });
+        setCanClaimDaily(false);
       });
 
-      const now = new Date();
-      const nextDay = dailyLogin.currentDay >= 7 ? 1 : dailyLogin.currentDay + 1;
-      const newState: DailyLoginState = {
-        lastClaim: now.toISOString(),
-        currentDay: nextDay,
-        cycleStart: dailyLogin.currentDay >= 7 ? now.toISOString() : dailyLogin.cycleStart,
-      };
-      
-      setDailyLogin(newState);
-      localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
-      setCanClaimDaily(false);
-      
       setWallet(prev => prev ? { ...prev, balance: calculatedNewBalance } : { balance: calculatedNewBalance });
+      refreshProfile();
       
       toast({ 
         title: "Daily Reward Claimed! 🎉", 
-        description: `You earned +${reward} BCoins! Come back tomorrow for Day ${nextDay}.` 
+        description: `You earned +${reward} BCoins! Come back tomorrow.` 
       });
     } catch (e: any) {
       console.error("Daily claim error:", e);
@@ -361,12 +366,18 @@ export default function BCoinsPage() {
             <BCoinsFeatures activeSection={activeSection} onSectionChange={setActiveSection} />
 
             <div className="mt-5">
-              <DailyLoginCard 
-                onClaim={handleDailyClaim} 
-                canClaim={canClaimDaily} 
-                currentDay={dailyLogin.currentDay}
-                lastClaim={dailyLogin.lastClaim}
-              />
+              {loadingDaily ? (
+                <div className="bg-muted/30 rounded-2xl h-40 flex items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : (
+                <DailyLoginCard 
+                  onClaim={handleDailyClaim} 
+                  canClaim={canClaimDaily} 
+                  currentDay={dailyLogin.currentDay}
+                  lastClaim={dailyLogin.lastClaim}
+                />
+              )}
             </div>
 
             {activeSection === 'store' && (
