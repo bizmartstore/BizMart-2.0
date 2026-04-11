@@ -170,15 +170,15 @@ export default function ProductsTab() {
   };
 
   const edit = (p: any) => {
-    setForm({
-      name: p.name, price: Number(p.price),
-      original_price: p.original_price || "", image: p.image || "",
-      images: p.images || [],
-      category: p.category || "", stock: p.stock || 0,
-      description: p.description || "", is_flash_sale: p.is_flash_sale || false,
-    });
-    setEditId(p.id); setShowForm(true);
-  };
+      setForm({
+        name: p.name, price: Number(p.price),
+        original_price: p.original_price !== null && p.original_price !== undefined ? String(p.original_price) : "", image: p.image || "",
+        images: p.images || [],
+        category: p.category || "", stock: p.stock || 0,
+        description: p.description || "", is_flash_sale: p.is_flash_sale || false,
+      });
+      setEditId(p.id); setShowForm(true);
+    };
 
   const remove = async (id: string) => {
     if (!confirm("Delete this product?")) return;
