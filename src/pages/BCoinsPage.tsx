@@ -7,7 +7,7 @@ import BCoinsFeatures from "@/components/BCoinsFeatures";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, Store, ArrowLeft, Disc, Sparkles, Trophy } from "lucide-react";
+import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, Store, ArrowLeft, Disc, Sparkles, Trophy, Info, Star } from "lucide-react";
 import { notifyAdminRedemption } from "@/lib/notifications";
 
 const DAILY_REWARDS = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0];
@@ -20,14 +20,14 @@ const REDEEM_OPTIONS = [
 ];
 
 const WHEEL_SEGMENTS = [
-  { label: "Better Luck", color: "#94a3b8" },
-  { label: "1 BCoin", color: "#10b981" },
-  { label: "Better Luck", color: "#94a3b8" },
-  { label: "2 BCoins", color: "#3b82f6" },
-  { label: "Better Luck", color: "#94a3b8" },
-  { label: "3 BCoins", color: "#8b5cf6" },
-  { label: "Better Luck", color: "#94a3b8" },
-  { label: "10 BCoins", color: "#f59e0b" },
+  { label: "Better Luck", color: "#94a3b8", textColor: "#ffffff" },
+  { label: "1 BCoin", color: "#10b981", textColor: "#ffffff" },
+  { label: "Better Luck", color: "#64748b", textColor: "#ffffff" },
+  { label: "2 BCoins", color: "#3b82f6", textColor: "#ffffff" },
+  { label: "Better Luck", color: "#94a3b8", textColor: "#ffffff" },
+  { label: "3 BCoins", color: "#8b5cf6", textColor: "#ffffff" },
+  { label: "Better Luck", color: "#64748b", textColor: "#ffffff" },
+  { label: "10 BCoins", color: "#f59e0b", textColor: "#ffffff" },
 ];
 
 interface DailyLoginState {
@@ -151,21 +151,18 @@ export default function BCoinsPage() {
 
     const rand = Math.random() * 100;
     let reward = 0;
-    let targetSegment = 0; // Index in WHEEL_SEGMENTS
+    let targetSegment = 0; 
 
     if (rand < 2) { reward = 10; targetSegment = 7; }
     else if (rand < 7) { reward = 3; targetSegment = 5; }
     else if (rand < 15) { reward = 2; targetSegment = 3; }
     else if (rand < 30) { reward = 1; targetSegment = 1; }
     else { 
-      reward = 0; 
-      // Randomly pick one of the "Better Luck" segments (0, 2, 4, 6)
       const luckSegments = [0, 2, 4, 6];
       targetSegment = luckSegments[Math.floor(Math.random() * luckSegments.length)];
+      reward = 0;
     }
 
-    // Calculate rotation: 5 full spins + segment offset
-    // Each segment is 45 degrees (360/8)
     const segmentAngle = 360 / WHEEL_SEGMENTS.length;
     const extraRotation = 360 - (targetSegment * segmentAngle);
     const totalRotation = rotation + (360 * 5) + extraRotation;
@@ -324,68 +321,157 @@ export default function BCoinsPage() {
           <button onClick={() => setActiveSection(null)} className="p-1"><ArrowLeft className="h-5 w-5" /></button>
           <h1 className="font-extrabold text-lg">Spin the Wheel</h1>
         </div>
-        <div className="px-4 py-12 flex flex-col items-center text-center space-y-8">
+        
+        <div className="px-4 py-8 flex flex-col items-center text-center space-y-8">
           <div className="relative">
             {/* Pointer */}
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-10 bg-primary rounded-b-full shadow-lg z-20 flex items-center justify-center">
               <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-white mt-2" />
             </div>
             
-            {/* The Wheel */}
+            {/* The Wheel SVG */}
             <div 
               className="w-72 h-72 rounded-full border-8 border-card shadow-2xl relative overflow-hidden transition-transform duration-[4000ms] cubic-bezier(0.15, 0, 0.15, 1)"
               style={{ transform: `rotate(${rotation}deg)` }}
             >
-              {WHEEL_SEGMENTS.map((seg, i) => {
-                const angle = 360 / WHEEL_SEGMENTS.length;
-                const rotate = i * angle;
-                return (
-                  <div 
-                    key={i}
-                    className="absolute top-0 left-1/2 w-1/2 h-full origin-left flex items-center justify-center"
-                    style={{ 
-                      transform: `rotate(${rotate}deg)`,
-                      backgroundColor: seg.color,
-                      clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
-                      width: "50%",
-                      height: "100%",
-                      left: "50%",
-                      transformOrigin: "0% 50%"
-                    }}
-                  >
-                    <div 
-                      className="absolute left-4 text-[10px] font-black text-white uppercase tracking-tighter whitespace-nowrap"
-                      style={{ transform: `rotate(${angle / 2}deg)` }}
-                    >
-                      {seg.label}
-                    </div>
-                  </div>
-                );
-              })}
-              {/* Center Pin */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-card rounded-full shadow-lg z-10 flex items-center justify-center border-4 border-primary/20">
-                <div className="w-2 h-2 bg-primary rounded-full" />
-              </div>
+              <svg viewBox="0 0 300 300" className="w-full h-full">
+                <defs>
+                  {WHEEL_SEGMENTS.map((seg, i) => (
+                    <linearGradient key={`grad-${i}`} id={`grad-${i}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor={seg.color} />
+                      <stop offset="100%" stopColor={seg.color} stopOpacity="0.8" />
+                    </linearGradient>
+                  ))}
+                </defs>
+                {WHEEL_SEGMENTS.map((seg, i) => {
+                  const angle = 360 / WHEEL_SEGMENTS.length;
+                  const startAngle = i * angle;
+                  const endAngle = (i + 1) * angle;
+                  
+                  // SVG Path for a pie slice
+                  const x1 = 150 + 140 * Math.cos((Math.PI * startAngle) / 180);
+                  const y1 = 150 + 140 * Math.sin((Math.PI * startAngle) / 180);
+                  const x2 = 150 + 140 * Math.cos((Math.PI * endAngle) / 180);
+                  const y2 = 150 + 140 * Math.sin((Math.PI * endAngle) / 180);
+                  
+                  return (
+                    <g key={i}>
+                      <path
+                        d={`M 150 150 L ${x1} ${y1} A 140 140 0 0 1 ${x2} ${y2} Z`}
+                        fill={`url(#grad-${i})`}
+                        stroke="rgba(255,255,255,0.2)"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="220"
+                        y="150"
+                        fill={seg.textColor}
+                        fontSize="10"
+                        fontWeight="900"
+                        textAnchor="middle"
+                        transform={`rotate(${startAngle + angle / 2}, 150, 150)`}
+                        style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}
+                      >
+                        {seg.label}
+                      </text>
+                    </g>
+                  );
+                })}
+                {/* Center Pin */}
+                <circle cx="150" cy="150" r="15" fill="white" shadow="0 4px 6px rgba(0,0,0,0.1)" />
+                <circle cx="150" cy="150" r="8" fill="#e8612d" />
+              </svg>
             </div>
           </div>
 
-          <div className="max-w-xs space-y-4">
-            <h2 className="text-2xl font-black text-foreground">Try Your Luck!</h2>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              Spin the wheel once a day for a chance to win BCoins!
-            </p>
+          <div className="max-w-xs w-full space-y-6">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-foreground flex items-center justify-center gap-2">
+                <Sparkles className="h-6 w-6 text-warning" />
+                Daily Lucky Spin
+                <Sparkles className="h-6 w-6 text-warning" />
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Test your luck today! You can spin the wheel once every 24 hours to win free BCoins.
+              </p>
+            </div>
             
             <Button 
               onClick={handleSpin} 
               disabled={!canSpin || isSpinning || checkingSpin} 
-              className="w-full h-14 rounded-2xl font-black text-lg bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 shadow-xl shadow-purple-500/20 active:scale-95 transition-all"
+              className="w-full h-16 rounded-2xl font-black text-xl bg-gradient-to-r from-primary to-orange-600 hover:from-orange-600 hover:to-primary shadow-xl shadow-primary/20 active:scale-95 transition-all"
             >
-              {isSpinning ? "SPINNING..." : canSpin ? "SPIN NOW!" : "COME BACK TOMORROW"}
+              {isSpinning ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-6 w-6 animate-spin" />
+                  SPINNING...
+                </div>
+              ) : canSpin ? (
+                "SPIN NOW!"
+              ) : (
+                "COME BACK TOMORROW"
+              )}
             </Button>
             
             {!canSpin && !isSpinning && !checkingSpin && (
-              <p className="text-[10px] text-muted-foreground font-bold uppercase">Next spin available in 24 hours</p>
+              <div className="bg-muted/50 rounded-xl p-3 flex items-center justify-center gap-2">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Next spin available in 24 hours</p>
+              </div>
             )}
+
+            {/* Prize Table & Info */}
+            <div className="bg-card border border-border rounded-2xl p-5 text-left space-y-4 shadow-sm">
+              <div className="flex items-center gap-2 border-b border-border pb-2">
+                <Trophy className="h-4 w-4 text-warning" />
+                <h3 className="font-bold text-xs uppercase tracking-widest">Prize Pool & Odds</h3>
+              </div>
+              
+              <div className="space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#f59e0b]" />
+                    <span className="text-xs font-bold">Grand Prize (10 BCoins)</span>
+                  </div>
+                  <span className="text-[10px] font-black text-primary">2% CHANCE</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
+                    <span className="text-xs font-bold">Rare Prize (3 BCoins)</span>
+                  </div>
+                  <span className="text-[10px] font-black text-primary">5% CHANCE</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
+                    <span className="text-xs font-bold">Common Prize (2 BCoins)</span>
+                  </div>
+                  <span className="text-[10px] font-black text-primary">8% CHANCE</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#10b981]" />
+                    <span className="text-xs font-bold">Starter Prize (1 BCoin)</span>
+                  </div>
+                  <span className="text-[10px] font-black text-primary">15% CHANCE</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-[#94a3b8]" />
+                    <span className="text-xs font-bold">Better Luck Next Time</span>
+                  </div>
+                  <span className="text-[10px] font-black text-muted-foreground">70% CHANCE</span>
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-start gap-2">
+                <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                <p className="text-[9px] text-muted-foreground leading-relaxed">
+                  BCoins won are automatically added to your wallet and can be redeemed for GCash in the BCoins Store.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
         <BottomNav />
