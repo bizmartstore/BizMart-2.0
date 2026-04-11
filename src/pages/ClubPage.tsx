@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Crown, Download, Shield, Store, Sparkles, ArrowRight, 
   FileText, Coins, CreditCard, Info, Star, ChevronRight, 
-  Zap, Gift, Wallet, Disc
+  Zap, Gift, Wallet, Disc, Loader2
 } from "lucide-react";
 import { notifyAdminNewMember } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
@@ -148,6 +148,34 @@ export default function ClubPage() {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     }
     setActivatingSeller(false);
+  };
+
+  const handleSubmitApplication = async () => {
+    if (!user || !appForm.full_name.trim() || !appForm.business_type.trim()) {
+      toast({ title: "Missing Fields", description: "Please fill out all required fields.", variant: "destructive" });
+      return;
+    }
+    setSubmittingApp(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("seller_applications")
+        .insert({
+          user_id: user.id,
+          ...appForm,
+          status: "pending"
+        })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      setApplication(data);
+      setShowApplication(false);
+      toast({ title: "Application Submitted! ✅", description: "We will review your application soon." });
+    } catch (e: any) {
+      toast({ title: "Error", description: e.message, variant: "destructive" });
+    } finally {
+      setSubmittingApp(false);
+    }
   };
 
   const downloadId = async () => {
