@@ -91,7 +91,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <span className="text-xs text-muted-foreground">({product.sold} sold)</span>
         </div>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg font-extrabold text-primary">₱{product.price}</span><span className="text-sm text-muted-foreground">Bcoins: ₱{bcoins}</span>
+          <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
           {product.originalPrice && (
             <span className="text-sm text-muted-foreground line-through">₱{product.originalPrice}</span>
           )}
