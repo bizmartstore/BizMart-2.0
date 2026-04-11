@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { Star, ShoppingCart } from "lucide-react";
+import { Star, ShoppingCart, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
@@ -16,7 +16,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const navigate = useNavigate();
   const { addItem } = useCart();
   const { storeOpen } = useAppSettings();
-  const [liked, setLiked] = React.useState(false);
+  // const [liked, setLiked] = React.useState(false); // unused, removed
 
   const discount = product.originalPrice
       ? Math.round((1 - product.price / product.originalPrice) * 100)
@@ -77,15 +77,10 @@ export default function ProductCard({ product }: ProductCardProps) {
             FLASH SALE
           </span>
         )}
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setLiked(!liked);
-          }}
-          className="absolute bottom-2 right-2 p-1.5 bg-white/80 backdrop-blur-sm rounded-full shadow-sm"
-        >
-          <Star className={`h-4 w-4 ${liked ? "fill-yellow-400 text-yellow-400" : "text-gray-400"}`} />
-        </button>
+        <div className="absolute bottom-2 right-2 flex items-center space-x-1 bg-white/80 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm">
+                  <Coins className="h-4 w-4 text-yellow-500" />
+                  <span className="text-xs font-medium text-yellow-700">{bcoins} Bcoins</span>
+                </div>
       </div>
       
       <div className="p-3">
