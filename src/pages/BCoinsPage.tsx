@@ -119,6 +119,7 @@ export default function BCoinsPage() {
       const currentBalance = Number(wallet?.balance || 0);
       const newBalance = currentBalance + reward;
 
+      // Permanent DB update
       await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
       await (supabase as any).from("bcoins_transactions").insert({
         user_id: user.id,
@@ -137,6 +138,7 @@ export default function BCoinsPage() {
       localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
       setCanClaimDaily(false);
       setWallet({ ...wallet, balance: newBalance });
+      refreshProfile(); // Sync AuthContext
       toast({ title: "Reward Claimed! 🎉", description: `+${reward} BCoins added to your wallet.` });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -173,6 +175,7 @@ export default function BCoinsPage() {
         const currentBalance = Number(wallet?.balance || 0);
         const newBalance = currentBalance + reward;
 
+        // Permanent DB update - will reflect even if app is reinstalled
         await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
         await (supabase as any).from("bcoins_transactions").insert({
           user_id: user.id,
@@ -184,6 +187,7 @@ export default function BCoinsPage() {
         setSpinResult(reward);
         setCanSpin(false);
         setWallet({ ...wallet, balance: newBalance });
+        refreshProfile(); // Trigger AuthContext refresh to update profile/dashboard
         
         if (reward > 0) {
           toast({ title: "Congratulations! 🏆", description: `You won ${reward} BCoins!` });
@@ -235,6 +239,7 @@ export default function BCoinsPage() {
       toast({ title: "Redemption Submitted! 🎉", description: `₱${option.gcash} GCash will be sent after approval.` });
       setSelectedRedeem(null);
       setGcashNumber("");
+      refreshProfile();
       loadData();
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -420,57 +425,11 @@ export default function BCoinsPage() {
               </div>
             )}
 
-            {/* Prize Table & Info */}
-            <div className="bg-card border border-border rounded-2xl p-5 text-left space-y-4 shadow-sm">
-              <div className="flex items-center gap-2 border-b border-border pb-2">
-                <Trophy className="h-4 w-4 text-warning" />
-                <h3 className="font-bold text-xs uppercase tracking-widest">Prize Pool & Odds</h3>
-              </div>
-              
-              <div className="space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#f59e0b]" />
-                    <span className="text-xs font-bold">Grand Prize (10 BCoins)</span>
-                  </div>
-                  <span className="text-[10px] font-black text-primary">2% CHANCE</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#8b5cf6]" />
-                    <span className="text-xs font-bold">Rare Prize (3 BCoins)</span>
-                  </div>
-                  <span className="text-[10px] font-black text-primary">5% CHANCE</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
-                    <span className="text-xs font-bold">Common Prize (2 BCoins)</span>
-                  </div>
-                  <span className="text-[10px] font-black text-primary">8% CHANCE</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#10b981]" />
-                    <span className="text-xs font-bold">Starter Prize (1 BCoin)</span>
-                  </div>
-                  <span className="text-[10px] font-black text-primary">15% CHANCE</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-[#94a3b8]" />
-                    <span className="text-xs font-bold">Better Luck Next Time</span>
-                  </div>
-                  <span className="text-[10px] font-black text-muted-foreground">70% CHANCE</span>
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-start gap-2">
-                <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                <p className="text-[9px] text-muted-foreground leading-relaxed">
-                  BCoins won are automatically added to your wallet and can be redeemed for GCash in the BCoins Store.
-                </p>
-              </div>
+            <div className="pt-2 flex items-start gap-2 bg-card border border-border p-4 rounded-xl shadow-sm">
+              <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-[10px] text-muted-foreground leading-relaxed text-left">
+                BCoins won are automatically saved to your account and can be redeemed for GCash in the BCoins Store. All rewards are permanent and synced across devices.
+              </p>
             </div>
           </div>
         </div>
