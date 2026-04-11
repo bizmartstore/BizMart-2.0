@@ -97,6 +97,8 @@ export default function OrdersTab() {
     const orderToUpdate = orders.find(o => o.id === orderId);
     if (!orderToUpdate) return;
 
+    // Optimistic UI update
+    const previousStatus = orderToUpdate.status;
     setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
     if (selectedOrder?.id === orderId) {
       setSelectedOrder(prev => prev ? { ...prev, status: newStatus } : null);
@@ -109,6 +111,34 @@ export default function OrdersTab() {
       const { error } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
 
+      // Handle Product Stock and Sold Update
+      if (newStatus === "completed" && !isPrint && previousStatus !== "completed") {
+        if (orderToUpdate.items && Array.isArray(orderToUpdate.items)) {
+          for (const item of orderToUpdate.items) {
+            // Get current product data
+            const { data: product } = await (supabase as any)
+              .from("products")
+              .select("sold, stock")
+              .eq("id", item.id)
+              .maybeSingle();
+            
+            if (product) {
+              const currentSold = Number(product.sold) || 0;
+              const currentStock = Number(product.stock) || 0;
+              const quantity = Number(item.quantity) || 1;
+
+              await (supabase as any)
+                .from("products")
+                .update({ 
+                  sold: currentSold + quantity,
+                  stock: Math.max(0, currentStock - quantity)
+                })
+                .eq("id", item.id);
+            }
+          }
+        }
+      }
+
       // Trigger Push Notification to Customer
       await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
 
@@ -117,7 +147,7 @@ export default function OrdersTab() {
         await notifyCustomerBCoins(orderToUpdate.user_id, orderToUpdate.bcoins_earned, "order completion");
       }
 
-      toast.success(`Order ${newStatus}! Notification sent to customer.`);
+      toast.success(`Order ${newStatus}! Product stats updated.`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
       loadOrders();
