@@ -378,7 +378,7 @@ export default function BCoinsPage() {
                   );
                 })}
                 {/* Center Pin */}
-                <circle cx="150" cy="150" r="15" fill="white" shadow="0 4px 6px rgba(0,0,0,0.1)" />
+                <circle cx="150" cy="150" r="15" fill="white" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }} />
                 <circle cx="150" cy="150" r="8" fill="#e8612d" />
               </svg>
             </div>
