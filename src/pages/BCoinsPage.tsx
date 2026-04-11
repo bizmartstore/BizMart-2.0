@@ -376,7 +376,7 @@ export default function BCoinsPage() {
             </p>
             
             <Button 
-              onClick={handleSpin} 
+              onClick={handleDailyClaim} 
               disabled={!canSpin || isSpinning || checkingSpin} 
               className="w-full h-14 rounded-2xl font-black text-lg bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 shadow-xl shadow-purple-500/20 active:scale-95 transition-all"
             >
