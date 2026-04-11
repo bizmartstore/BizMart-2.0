@@ -19,6 +19,17 @@ const REDEEM_OPTIONS = [
   { gcash: 500, bcoins: 5000 },
 ];
 
+const WHEEL_SEGMENTS = [
+  { label: "Better Luck", color: "#94a3b8" },
+  { label: "1 BCoin", color: "#10b981" },
+  { label: "Better Luck", color: "#94a3b8" },
+  { label: "2 BCoins", color: "#3b82f6" },
+  { label: "Better Luck", color: "#94a3b8" },
+  { label: "3 BCoins", color: "#8b5cf6" },
+  { label: "Better Luck", color: "#94a3b8" },
+  { label: "10 BCoins", color: "#f59e0b" },
+];
+
 interface DailyLoginState {
   lastClaim: string | null;
   currentDay: number;
@@ -49,6 +60,7 @@ export default function BCoinsPage() {
   const [spinResult, setSpinResult] = useState<number | null>(null);
   const [canSpin, setCanSpin] = useState(false);
   const [checkingSpin, setCheckingSpin] = useState(true);
+  const [rotation, setRotation] = useState(0);
 
   const loadData = useCallback(async () => {
     if (!user) return;
@@ -59,7 +71,6 @@ export default function BCoinsPage() {
       const { data: t } = await (supabase as any).from("bcoins_transactions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20);
       setTransactions(t || []);
       
-      // Check if user can spin today (stored in DB transactions)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -83,8 +94,6 @@ export default function BCoinsPage() {
   useEffect(() => {
     if (user) {
       loadData();
-      
-      // Load daily login from local storage (as requested, only spin is DB-backed for now)
       const stored = localStorage.getItem(`bcoins_daily_${user.id}`);
       if (stored) {
         const parsed = JSON.parse(stored);
@@ -140,27 +149,33 @@ export default function BCoinsPage() {
     setIsSpinning(true);
     setSpinResult(null);
 
-    // Probabilities:
-    // 70% - Better luck next time (0)
-    // 15% - 1 BCoin
-    // 8% - 2 BCoins
-    // 5% - 3 BCoins
-    // 2% - 10 BCoins
     const rand = Math.random() * 100;
     let reward = 0;
-    if (rand < 2) reward = 10;
-    else if (rand < 7) reward = 3;
-    else if (rand < 15) reward = 2;
-    else if (rand < 30) reward = 1;
-    else reward = 0;
+    let targetSegment = 0; // Index in WHEEL_SEGMENTS
 
-    // Simulate spin animation delay
+    if (rand < 2) { reward = 10; targetSegment = 7; }
+    else if (rand < 7) { reward = 3; targetSegment = 5; }
+    else if (rand < 15) { reward = 2; targetSegment = 3; }
+    else if (rand < 30) { reward = 1; targetSegment = 1; }
+    else { 
+      reward = 0; 
+      // Randomly pick one of the "Better Luck" segments (0, 2, 4, 6)
+      const luckSegments = [0, 2, 4, 6];
+      targetSegment = luckSegments[Math.floor(Math.random() * luckSegments.length)];
+    }
+
+    // Calculate rotation: 5 full spins + segment offset
+    // Each segment is 45 degrees (360/8)
+    const segmentAngle = 360 / WHEEL_SEGMENTS.length;
+    const extraRotation = 360 - (targetSegment * segmentAngle);
+    const totalRotation = rotation + (360 * 5) + extraRotation;
+    setRotation(totalRotation);
+
     setTimeout(async () => {
       try {
         const currentBalance = Number(wallet?.balance || 0);
         const newBalance = currentBalance + reward;
 
-        // Save to DB immediately so it persists even if app is reinstalled
         await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
         await (supabase as any).from("bcoins_transactions").insert({
           user_id: user.id,
@@ -183,7 +198,7 @@ export default function BCoinsPage() {
       } finally {
         setIsSpinning(false);
       }
-    }, 3000);
+    }, 4000);
   };
 
   const handleRedeem = async () => {
@@ -245,7 +260,6 @@ export default function BCoinsPage() {
     );
   }
 
-  // ─── STORE VIEW ───
   if (activeSection === 'store') {
     return (
       <div className="min-h-screen bg-background pb-20">
@@ -303,7 +317,6 @@ export default function BCoinsPage() {
     );
   }
 
-  // ─── SPIN VIEW ───
   if (activeSection === 'spin') {
     return (
       <div className="min-h-screen bg-background pb-20">
@@ -313,41 +326,57 @@ export default function BCoinsPage() {
         </div>
         <div className="px-4 py-12 flex flex-col items-center text-center space-y-8">
           <div className="relative">
-            <div className={`w-64 h-64 rounded-full border-8 border-primary/20 flex items-center justify-center bg-gradient-to-br from-purple-600 to-pink-500 shadow-2xl relative ${isSpinning ? 'animate-spin' : ''}`} style={{ animationDuration: isSpinning ? '0.5s' : '0s' }}>
-              <Disc className="h-48 w-48 text-white/20 absolute" />
-              <div className="z-10 flex flex-col items-center">
-                {spinResult !== null ? (
-                  <div className="animate-bounce">
-                    <p className="text-5xl font-black text-white">{spinResult > 0 ? `+${spinResult}` : "😢"}</p>
-                    <p className="text-xs font-bold text-white/80 uppercase tracking-widest mt-1">{spinResult > 0 ? "BCoins!" : "No Luck"}</p>
-                  </div>
-                ) : (
-                  <Sparkles className="h-16 w-16 text-white animate-pulse" />
-                )}
-              </div>
-              {/* Wheel segments decoration */}
-              <div className="absolute inset-0 rounded-full border-4 border-white/10 pointer-events-none" />
-            </div>
             {/* Pointer */}
-            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-6 h-8 bg-primary rounded-b-full shadow-lg z-20" />
+            <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-10 bg-primary rounded-b-full shadow-lg z-20 flex items-center justify-center">
+              <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-white mt-2" />
+            </div>
+            
+            {/* The Wheel */}
+            <div 
+              className="w-72 h-72 rounded-full border-8 border-card shadow-2xl relative overflow-hidden transition-transform duration-[4000ms] cubic-bezier(0.15, 0, 0.15, 1)"
+              style={{ transform: `rotate(${rotation}deg)` }}
+            >
+              {WHEEL_SEGMENTS.map((seg, i) => {
+                const angle = 360 / WHEEL_SEGMENTS.length;
+                const rotate = i * angle;
+                return (
+                  <div 
+                    key={i}
+                    className="absolute top-0 left-1/2 w-1/2 h-full origin-left flex items-center justify-center"
+                    style={{ 
+                      transform: `rotate(${rotate}deg)`,
+                      backgroundColor: seg.color,
+                      clipPath: "polygon(0 0, 100% 0, 100% 100%, 0 100%)",
+                      width: "50%",
+                      height: "100%",
+                      left: "50%",
+                      transformOrigin: "0% 50%"
+                    }}
+                  >
+                    <div 
+                      className="absolute left-4 text-[10px] font-black text-white uppercase tracking-tighter whitespace-nowrap"
+                      style={{ transform: `rotate(${angle / 2}deg)` }}
+                    >
+                      {seg.label}
+                    </div>
+                  </div>
+                );
+              })}
+              {/* Center Pin */}
+              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-card rounded-full shadow-lg z-10 flex items-center justify-center border-4 border-primary/20">
+                <div className="w-2 h-2 bg-primary rounded-full" />
+              </div>
+            </div>
           </div>
 
           <div className="max-w-xs space-y-4">
             <h2 className="text-2xl font-black text-foreground">Try Your Luck!</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              Spin the wheel once a day for a chance to win up to <span className="text-primary font-bold">10 BCoins</span>!
+              Spin the wheel once a day for a chance to win BCoins!
             </p>
             
-            <div className="bg-muted/50 rounded-2xl p-4 grid grid-cols-2 gap-2 text-[10px] font-bold uppercase tracking-tighter">
-              <div className="flex items-center gap-1.5 text-muted-foreground"><div className="w-2 h-2 rounded-full bg-muted" /> 70% Better Luck</div>
-              <div className="flex items-center gap-1.5 text-emerald-500"><div className="w-2 h-2 rounded-full bg-emerald-500" /> 15% 1 BCoin</div>
-              <div className="flex items-center gap-1.5 text-blue-500"><div className="w-2 h-2 rounded-full bg-blue-500" /> 8% 2 BCoins</div>
-              <div className="flex items-center gap-1.5 text-purple-500"><div className="w-2 h-2 rounded-full bg-purple-500" /> 5% 3 BCoins</div>
-              <div className="flex items-center gap-1.5 text-orange-500 col-span-2 justify-center"><Trophy className="h-3 w-3" /> 2% 10 BCoins!</div>
-            </div>
-
             <Button 
-              onClick={handleSpin} 
+              onClick={handleDailyClaim} 
               disabled={!canSpin || isSpinning || checkingSpin} 
               className="w-full h-14 rounded-2xl font-black text-lg bg-gradient-to-r from-purple-600 to-pink-500 hover:from-purple-700 hover:to-pink-600 shadow-xl shadow-purple-500/20 active:scale-95 transition-all"
             >
@@ -364,7 +393,6 @@ export default function BCoinsPage() {
     );
   }
 
-  // ─── MAIN VIEW ───
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
