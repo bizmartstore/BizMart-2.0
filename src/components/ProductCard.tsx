@@ -19,8 +19,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const [liked, setLiked] = React.useState(false);
 
   const discount = product.originalPrice
-    ? Math.round((1 - product.price / product.originalPrice) * 100)
-    : 0;
+      ? Math.round((1 - product.price / product.originalPrice) * 100)
+      : 0;
+  
+    const bcoins = Number((product.price * 0.10).toFixed(2));
 
   const handleAddToCart = () => {
     if (!storeOpen) {
@@ -94,7 +96,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <span className="text-xs text-muted-foreground">({product.sold} sold)</span>
         </div>
         <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
+          <span className="text-lg font-extrabold text-primary">₱{product.price}</span><span className="text-sm text-muted-foreground">Bcoins: ₱{bcoins}</span>
           {product.originalPrice && (
             <span className="text-sm text-muted-foreground line-through">₱{product.originalPrice}</span>
           )}
