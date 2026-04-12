@@ -1,9 +1,10 @@
+"use client";
+
 import TopBar from "@/components/TopBar";
 import BannerCarousel from "@/components/BannerCarousel";
 import ProductCard from "@/components/ProductCard";
 import BottomNav from "@/components/BottomNav";
 import BizMartFeatures from "@/components/BizMartFeatures";
-import BizMartATMCard from "@/components/BizMartATMCard"; // Added missing import
 import AnnouncementPopup from "@/components/AnnouncementPopup";
 import LiveShoutoutTicker from "@/components/LiveShoutoutTicker";
 import NewsCarousel from "@/components/NewsCarousel";
@@ -141,7 +142,6 @@ export default function Index() {
 
       <BannerCarousel />
       <BizMartFeatures />
-      <BizMartATMCard />
       <NewsCarousel />
 
       <div className="mt-5 px-3">
@@ -192,14 +192,24 @@ export default function Index() {
       )}
 
       <div className="mt-6 px-3">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-lg">🔥</span>
-          <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Popular</span>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🔥</span>
+            <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Popular</span>
+          </div>
+          <button onClick={() => navigate("/marketplace")} className="flex items-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
+            See All <ArrowRight className="h-3 w-3" />
+          </button>
         </div>
-        <button onClick={() => navigate("/marketplace")} className="flex items-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
-          See All <ArrowRight className="h-3 w-3" />
-        </button>
+        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
+          {products.filter(p => !p.isFlashSale).slice(0, 6).map((product) => (
+            <div key={product.id} className="flex-shrink-0 w-36">
+              <ProductCard product={product} />
+            </div>
+          ))}
+        </div>
       </div>
+
       <div className="mt-6 px-3">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg">💎</span>

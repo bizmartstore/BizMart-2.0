@@ -30,7 +30,15 @@ const features = [
     emoji: "👑",
     path: "/club",
   },
-  // BCoins feature removed as it's now part of BizMart Club
+  {
+    id: "bcoins",
+    label: "BCoins",
+    desc: "Earn & Redeem",
+    icon: Coins,
+    bg: "bg-gradient-to-br from-emerald-500 to-teal-500",
+    emoji: "🪙",
+    path: "/bcoins",
+  },
   {
     id: "gcash",
     label: "GCash",
