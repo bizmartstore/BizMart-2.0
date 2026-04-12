@@ -297,7 +297,7 @@ export default function ClubPage() {
                   ref={idRef}
                   className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
                   style={{
-  backgroundImage: `url("https://i.ibb.co/Q7L6H77G/ATM-BG.png")`,
+  backgroundImage: `url(${atmBg})`,
   backgroundSize: "cover",
   backgroundPosition: "center",
   backgroundRepeat: "no-repeat",
