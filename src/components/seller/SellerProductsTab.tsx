@@ -65,7 +65,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
         category: form.category.trim(),
         stock: form.stock,
         description: form.description.trim(),
-        is_flash_sale: form.is_flash_sale,
+        isFlashSale: form.isFlashSale,
         seller_id: user.id,
         is_active: true,
         rating: 4.5,
