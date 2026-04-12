@@ -351,7 +351,7 @@ export default function ClubPage() {
                   <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
                     <div className="flex-1 min-w-0 pr-4">
                       <p className="text-[8px] text-white/60 uppercase font-bold tracking-widest mb-0.5">Card Holder</p>
-                      <p className="text-white text-sm font-bold uppercase truncate tracking-wide">
+                      <p className="text-white text-sm font-bold uppercase tracking-wide">
                         {profile?.first_name} {profile?.last_name}
                       </p>
                     </div>
