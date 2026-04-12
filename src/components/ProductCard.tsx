@@ -20,10 +20,6 @@ export default function ProductCard({ product }: ProductCardProps) {
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
   const isFlashSale = product.isFlashSale === true;
 
-  const discount = isFlashSale
-    ? Number(product.discount_percent || 0)
-    : 0;
-
   // Use original_price from DB if it exists, otherwise fallback to normal price
   const basePrice = isFlashSale 
     ? Number(product.original_price || product.price) 
@@ -33,6 +29,11 @@ export default function ProductCard({ product }: ProductCardProps) {
   const finalPrice = isFlashSale
     ? Number(product.sale_price || product.price)
     : product.price;
+
+  // Calculate discount percentage (fallback if discount_percent is missing)
+  const discount = isFlashSale && basePrice > finalPrice
+    ? Number(product.discount_percent || Math.round((1 - finalPrice / basePrice) * 100))
+    : 0;
 
   const bcoins = Number((finalPrice * 0.10).toFixed(2));
   const stock = Number(product.stock) || 0;
@@ -153,7 +154,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        {/* ✅ PRICE DISPLAY FIX */}
+        {/* ✅ PRICE DISPLAY */}
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg font-extrabold text-primary">
             ₱{finalPrice}
