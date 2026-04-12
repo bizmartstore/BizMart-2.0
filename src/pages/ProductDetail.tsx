@@ -241,13 +241,13 @@ export default function ProductDetail() {
         </button>
       </div>
 
-      {!isOutOfStock && (
+      {showCarousel && (
         <ImageCarouselModal
           images={allImages}
           isOpen={showCarousel}
           onClose={() => setShowCarousel(false)}
         />
-      )
+      )}
 
       <BottomNav />
     </div>

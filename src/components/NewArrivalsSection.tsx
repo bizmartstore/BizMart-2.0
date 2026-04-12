@@ -14,7 +14,11 @@ export default function NewArrivalsSection() {
 
   // Get newest products (by created_at)
   const newArrivals = [...products]
-    .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+    .sort((a, b) => {
+      const dateA = new Date((a as any).created_at || 0).getTime();
+      const dateB = new Date((b as any).created_at || 0).getTime();
+      return dateB - dateA;
+    })
     .slice(0, 8);
 
   useEffect(() => {
