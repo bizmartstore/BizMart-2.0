@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Store, MessageCircle, Search, X, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
-  
+
 type SortOption =
   | "default"
   | "price-low"
@@ -128,18 +128,18 @@ export default function MarketplacePage() {
   }, [products, search, selectedCategory, sortBy]);
 
   // ================================
-  // 🔥 FLASH SALE (IMPORTANT FIX)
-  // ================================
-  const flashSaleProducts = useMemo(() => {
-    return filteredProducts.filter((p) => p.is_flash_sale === true);
-  }, [filteredProducts]);
+// 🔥 FLASH SALE (IMPORTANT FIX)
+// ================================
+const flashSaleProducts = useMemo(() => {
+  return filteredProducts.filter((p) => p.isFlashSale === true);
+}, [filteredProducts]);
 
-  // ================================
-  // NORMAL PRODUCTS (NO FLASH SALE)
-  // ================================
-  const normalProducts = useMemo(() => {
-    return filteredProducts.filter((p) => !p.is_flash_sale);
-  }, [filteredProducts]);
+// ================================
+// NORMAL PRODUCTS (NO FLASH SALE)
+// ================================
+const normalProducts = useMemo(() => {
+  return filteredProducts.filter((p) => !p.isFlashSale);
+}, [filteredProducts]);
 
   const adminProducts = normalProducts.filter((p) => !(p as any).seller_id);
 
