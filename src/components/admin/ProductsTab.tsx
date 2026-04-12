@@ -214,7 +214,7 @@ export default function ProductsTab() {
               id: p.id, name: p.name, price: p.price,
               original_price: p.originalPrice || null, image: p.image,
               images: p.images || null, category: p.category, stock: p.stock || 100,
-              description: p.description, is_flash_sale: p.isFlashSale || false,
+              description: p.description, isFlashSale: p.isFlashSale || false,
               is_active: true, seller_id: null, rating: p.rating, sold: p.sold,
             });
             if (error) errors++; else addedProds++;
