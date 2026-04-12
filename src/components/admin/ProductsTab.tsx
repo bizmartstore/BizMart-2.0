@@ -103,7 +103,6 @@ export default function ProductsTab() {
     
     setSaving(true);
     try {
-      // Generate UUID for new products to satisfy NOT NULL constraint
       const productId = editId || crypto.randomUUID();
       
       const payload: any = {
@@ -114,14 +113,13 @@ export default function ProductsTab() {
         category: form.category.trim(),
         stock: Number(form.stock),
         description: form.description.trim(),
-        isFlashSale: !!form.isFlashSale,
+        is_flash_sale: !!form.isFlashSale, // ✅ FIXED: Changed from isFlashSale to is_flash_sale
         is_active: true,
         rating: 4.5,
         sold: 0,
         seller_id: null,
       };
 
-      // Safely handle optional fields
       if (form.original_price && form.original_price.trim() !== "") {
         payload.original_price = form.original_price.trim();
       }
@@ -129,33 +127,20 @@ export default function ProductsTab() {
         payload.images = form.images;
       }
 
-      console.log('[ProductsTab] Inserting product with payload:', payload);
-
       if (editId) {
-        const { data, error } = await (supabase as any)
+        const { error } = await (supabase as any)
           .from("products")
           .update(payload)
-          .eq("id", editId)
-          .select();
+          .eq("id", editId);
         
-        if (error) {
-          console.error('[ProductsTab] Update error:', error);
-          throw error;
-        }
-        console.log('[ProductsTab] Update success:', data);
+        if (error) throw error;
         toast.success("Product updated!");
       } else {
-        const { data, error } = await (supabase as any)
+        const { error } = await (supabase as any)
           .from("products")
-          .insert(payload)
-          .select();
+          .insert(payload);
         
-        if (error) {
-          console.error('[ProductsTab] Insert error:', error);
-          toast.error(`DB Error: ${error.message || error.details || "Check console"}`);
-          throw error;
-        }
-        console.log('[ProductsTab] Insert success:', data);
+        if (error) throw error;
         toast.success("Product added!");
       }
       
@@ -165,6 +150,7 @@ export default function ProductsTab() {
       setEditId(null);
     } catch (e: any) {
       console.error('[ProductsTab] Save failed:', e);
+      toast.error(`Error: ${e.message || "Failed to save product"}`);
     }
     setSaving(false);
   };
@@ -214,7 +200,7 @@ export default function ProductsTab() {
               id: p.id, name: p.name, price: p.price,
               original_price: p.originalPrice || null, image: p.image,
               images: p.images || null, category: p.category, stock: p.stock || 100,
-              description: p.description, isFlashSale: p.isFlashSale || false,
+              description: p.description, is_flash_sale: p.isFlashSale || false,
               is_active: true, seller_id: null, rating: p.rating, sold: p.sold,
             });
             if (error) errors++; else addedProds++;
