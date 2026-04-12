@@ -199,7 +199,10 @@ export default function HottestSaleSection() {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
               className="flex-shrink-0 w-40"
-              onClick={() => navigate(`/product/${product.id}`)}
+              onClick={(e) => {
+  e.stopPropagation();
+  navigate(`/product/${product.id}`);
+}}
             >
               <div className="relative">
                 {/* Discount Badge - BIG and RED */}
