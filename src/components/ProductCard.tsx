@@ -17,20 +17,21 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { addItem } = useCart();
   const { storeOpen } = useAppSettings();
 
-  // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
+  // ONLY FLASH SALE CONTROLS DISCOUNT
   const isFlashSale = product.isFlashSale === true;
 
-  // Use prices from DB
-  const basePrice = isFlashSale 
-    ? Number(product.original_price || product.price) 
-    : product.price;
+  // Use prices directly from the database record
+  // If flash sale, sale_price is the discounted one. original_price is the old one.
+  const basePrice = isFlashSale && product.original_price 
+    ? Number(product.original_price) 
+    : Number(product.price);
     
-  const finalPrice = isFlashSale
-    ? Number(product.sale_price || product.price)
-    : product.price;
+  const finalPrice = isFlashSale && product.sale_price
+    ? Number(product.sale_price)
+    : Number(product.price);
 
-  // ✅ Dynamic calculation based on actual price difference
-  const discount = isFlashSale && basePrice > finalPrice
+  // Dynamic calculation based on actual price difference in DB
+  const discount = (isFlashSale && basePrice > finalPrice)
     ? Math.round(((basePrice - finalPrice) / basePrice) * 100)
     : 0;
 
@@ -108,7 +109,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         ) : (
           <>
-            {/* ✅ RED NOTICE DISCOUNT BADGE (TOP LEFT) */}
+            {/* RED DISCOUNT BADGE (TOP LEFT) */}
             {isFlashSale && discount > 0 && (
               <div className="absolute top-0 left-0 z-10">
                 <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
@@ -118,7 +119,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               </div>
             )}
 
-            {/* ✅ FLASH SALE TAG (TOP RIGHT) */}
+            {/* FLASH SALE TAG (TOP RIGHT) */}
             {isFlashSale && (
               <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10">
                 FLASH SALE
@@ -153,7 +154,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
         </div>
 
-        {/* ✅ PRICE DISPLAY */}
+        {/* PRICE DISPLAY */}
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg font-extrabold text-primary">
             ₱{finalPrice}
@@ -170,7 +171,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <button
             onClick={handleAddToCart}
             disabled={!storeOpen || isOutOfStock}
-            className="flex-1 bg-secondary text-secondary-foreground text-xs font-bold py-2 rounded-lg hover:bg-secondary/80 disabled:opacity-50 disabled:grayscale transition-all"
+            className="flex-1 bg-secondary text-secondary-foreground text-xs font-bold py-2 rounded-lg hover:bg-secondary/80 disabled:opacity-50 transition-all"
           >
             <ShoppingCart className="h-3 w-3 inline mr-1" /> Add
           </button>
@@ -178,7 +179,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           <button
             onClick={handleBuyNow}
             disabled={!storeOpen || isOutOfStock}
-            className="flex-1 bg-primary text-primary-foreground text-xs font-bold py-2 rounded-lg hover:bg-primary/80 disabled:opacity-50 disabled:grayscale transition-all"
+            className="flex-1 bg-primary text-primary-foreground text-xs font-bold py-2 rounded-lg hover:bg-primary/80 disabled:opacity-50 transition-all"
           >
             Buy Now
           </button>
