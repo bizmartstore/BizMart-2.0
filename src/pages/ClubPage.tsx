@@ -295,12 +295,13 @@ export default function ClubPage() {
                 <div
                   ref={idRef}
                   className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
-                  style={{ 
-                    background: isPremium 
-                      ? 'linear-gradient(135deg, #1e1e1e 0%, #2c2c2c 50%, #1e1e1e 100%)' 
-                      : 'linear-gradient(135deg, #e8612d 0%, #f97316 100%)',
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-                  }}
+                  style={{
+  backgroundImage: `url("https://i.ibb.co/Q7L6H77G/ATM-BG.png")`,
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundRepeat: "no-repeat",
+  boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+}}
                 >
                   {/* Gloss Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
