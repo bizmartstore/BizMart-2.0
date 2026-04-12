@@ -68,60 +68,47 @@ export default function HottestSaleSection() {
       className="px-3 mt-4"
     >
       {/* Hottest Sale Header with Fire Animation */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className={`rounded-2xl p-4 mb-4 shadow-lg relative overflow-hidden ${
-          isHovered ? "ring-2 ring-orange-500" : ""
-        }`}
-        onHoverStart={() => setIsHovered(true)}
-        onHoverEnd={() => setIsHovered(false)}
-        style={{
-          background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 50%, #f59e0b 100%)"
-        }}
-      >
-        <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent" />
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <motion.div
-              animate={{
-                scale: [1, 1.1, 1],
-                rotate: [0, -5, 5, 0]
-              }}
-              transition={{
-                repeat: Infinity,
-                duration: 2,
-                ease: "easeInOut"
-              }}
-              className="relative"
-            >
-              <div className="absolute -top-2 -left-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
-                <Flame className="h-4 w-4 text-white" />
-              </div>
-              <Flame className="h-8 w-8 text-red-600 drop-shadow-lg" />
-            </motion.div>
-            <div>
-              <h3 className="font-extrabold text-red-600 text-lg uppercase tracking-wide">
-                Hottest Sale!
-              </h3>
-              <p className="text-red-600/80 text-[11px] font-medium">
-                Limited time discounts - up to {Math.max(...productsWithDiscount.map(p => p.discountPercent))}% OFF!
-              </p>
-            </div>
-          </div>
-
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate("/marketplace")}
-            className="bg-red-600 text-white px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 shadow-lg"
+      <div className="flex items-center justify-between mb-4">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-3"
+        >
+          <motion.div
+            animate={{
+              scale: [1, 1.1, 1],
+              rotate: [0, -5, 5, 0]
+            }}
+            transition={{
+              repeat: Infinity,
+              duration: 2,
+              ease: "easeInOut"
+            }}
+            className="relative"
           >
-            <ArrowRight className="h-3 w-3" />
-            View All
-          </motion.button>
-        </div>
-      </motion.div>
+            <div className="absolute -top-2 -left-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+              <Flame className="h-4 w-4 text-white" />
+            </div>
+            <Flame className="h-8 w-8 text-red-600 drop-shadow-lg" />
+          </motion.div>
+          <div>
+            <h3 className="font-extrabold text-red-600 text-lg uppercase tracking-wide">
+              Hottest Sale!
+            </h3>
+            <p className="text-red-600/80 text-[11px] font-medium">
+              Limited time discounts - up to {Math.max(...productsWithDiscount.map(p => p.discountPercent))}% OFF!
+            </p>
+          </div>
+        </motion.div>
+        <button
+          onClick={() => navigate("/marketplace")}
+          className="bg-red-600 text-white px-4 py-2 rounded-full font-bold text-xs flex items-center gap-1 shadow-lg hover:bg-red-700 transition-colors"
+        >
+          <ArrowRight className="h-3 w-3" />
+          See All
+        </button>
+      </div>
 
       {/* HORIZONTAL SCROLLING MARQUEE - VERY SLOW AND CONTINUOUS */}
       <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-white/50">
@@ -280,31 +267,6 @@ export default function HottestSaleSection() {
         </motion.div>
       </div>
 
-      {/* Floating Sparkles Animation */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.6, duration: 0.5 }}
-        className="mt-3 flex justify-center"
-      >
-        <div className="relative">
-          {[...Array(8)].map((_, i) => (
-            <motion.span
-              key={i}
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.1, type: "spring", stiffness: 200 }}
-              className="absolute text-yellow-400 text-lg"
-              style={{
-                left: `${Math.random() * 100}%`,
-                animationDelay: `${Math.random() * 2}s`
-              }}
-            >
-              ✨
-            </motion.span>
-          ))}
-        </div>
-      </motion.div>
     </motion.div>
   );
 }

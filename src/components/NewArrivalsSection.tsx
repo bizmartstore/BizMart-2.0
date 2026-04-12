@@ -59,15 +59,23 @@ export default function NewArrivalsSection() {
 
   return (
     <div className="px-3 mt-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center gap-2 mb-3"
-      >
-        <PackagePlus className="h-5 w-5 text-green-500" />
-        <span className="font-extrabold text-sm uppercase tracking-wide text-green-500">New Arrivals</span>
-      </motion.div>
+      <div className="flex items-center justify-between mb-3">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-2"
+        >
+          <PackagePlus className="h-5 w-5 text-green-500" />
+          <span className="font-extrabold text-sm uppercase tracking-wide text-green-500">New Arrivals</span>
+        </motion.div>
+        <button
+          onClick={() => navigate("/marketplace")}
+          className="text-xs text-green-500 font-bold flex items-center gap-1 hover:text-green-500/80 transition-colors"
+        >
+          See All <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0 }}
@@ -87,20 +95,6 @@ export default function NewArrivalsSection() {
         ))}
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-        className="mt-2"
-      >
-        <button
-          onClick={() => navigate("/marketplace")}
-          className="w-full flex items-center justify-center gap-1 text-xs text-green-500 font-bold bg-green-500/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-        >
-          <ArrowRight className="h-3 w-3" />
-          View All New Products
-        </button>
-      </motion.div>
     </div>
   );
 }

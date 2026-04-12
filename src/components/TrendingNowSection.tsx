@@ -55,15 +55,23 @@ export default function TrendingNowSection() {
 
   return (
     <div className="px-3 mt-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center gap-2 mb-3"
-      >
-        <TrendingUp className="h-5 w-5 text-primary" />
-        <span className="font-extrabold text-sm uppercase tracking-wide text-primary">Trending Now</span>
-      </motion.div>
+      <div className="flex items-center justify-between mb-3">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-2"
+        >
+          <TrendingUp className="h-5 w-5 text-primary" />
+          <span className="font-extrabold text-sm uppercase tracking-wide text-primary">Trending Now</span>
+        </motion.div>
+        <button
+          onClick={() => navigate("/marketplace")}
+          className="text-xs text-primary font-bold flex items-center gap-1 hover:text-primary/80 transition-colors"
+        >
+          See All <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0 }}
@@ -83,20 +91,6 @@ export default function TrendingNowSection() {
         ))}
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-        className="mt-2"
-      >
-        <button
-          onClick={() => navigate("/marketplace")}
-          className="w-full flex items-center justify-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-        >
-          <ArrowRight className="h-3 w-3" />
-          View All Trending Products
-        </button>
-      </motion.div>
     </div>
   );
 }

@@ -199,7 +199,7 @@ export default function FlashSaleSection({
 
               {/* FLASH SALE TAG */}
               {product.isFlashSale && (
-                <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10">
+                <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10 z-20">
                   FLASH SALE
                 </span>
               )}
@@ -253,20 +253,6 @@ export default function FlashSaleSection({
         ))}
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-        className="mt-2"
-      >
-        <button
-          onClick={() => navigate("/marketplace")}
-          className="w-full flex items-center justify-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-        >
-          <ArrowRight className="h-3 w-3" />
-          View All Flash Sale Products
-        </button>
-      </motion.div>
     </div>
   );
 }

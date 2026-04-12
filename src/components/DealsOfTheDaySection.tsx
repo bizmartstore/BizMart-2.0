@@ -68,25 +68,33 @@ export default function DealsOfTheDaySection() {
       transition={{ duration: 0.5 }}
       className="px-3 mt-5"
     >
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center gap-2 mb-3"
-        onHoverStart={() => setIsHovered(true)}
-        onHoverEnd={() => setIsHovered(false)}
-      >
+      <div className="flex items-center justify-between mb-3">
         <motion.div
-          animate={{ rotate: [0, 5, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-2"
+          onHoverStart={() => setIsHovered(true)}
+          onHoverEnd={() => setIsHovered(false)}
         >
-          <Tag className="h-5 w-5 text-orange-500" />
+          <motion.div
+            animate={{ rotate: [0, 5, 0] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+          >
+            <Tag className="h-5 w-5 text-orange-500" />
+          </motion.div>
+          <div>
+            <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">Deals of the Day</span>
+            <p className="text-[10px] text-muted-foreground">Best discounts available right now!</p>
+          </div>
         </motion.div>
-        <div>
-          <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">Deals of the Day</span>
-          <p className="text-[10px] text-muted-foreground">Best discounts available right now!</p>
-        </div>
-      </motion.div>
+        <button
+          onClick={() => navigate("/marketplace")}
+          className="text-xs text-orange-500 font-bold flex items-center gap-1 hover:text-orange-500/80 transition-colors"
+        >
+          See All <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0 }}
@@ -106,20 +114,6 @@ export default function DealsOfTheDaySection() {
         ))}
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.4, duration: 0.5 }}
-        className="mt-2"
-      >
-        <button
-          onClick={() => navigate("/marketplace")}
-          className="w-full flex items-center justify-center gap-1 text-xs text-orange-500 font-bold bg-orange-500/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-        >
-          <ArrowRight className="h-3 w-3" />
-          View All Deals
-        </button>
-      </motion.div>
     </motion.div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCategories } from "@/hooks/useProducts";
 import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
 
 interface CategoryHighlightSectionProps {
   title?: string;
@@ -46,15 +47,23 @@ export default function CategoryHighlightSection({
 
   return (
     <div className="px-3 mt-6">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex items-center gap-2 mb-3"
-      >
-        <span className="text-lg">📂</span>
-        <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">{title.replace("📂", "").trim()}</span>
-      </motion.div>
+      <div className="flex items-center justify-between mb-3">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-2"
+        >
+          <span className="text-lg">📂</span>
+          <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">{title.replace("📂", "").trim()}</span>
+        </motion.div>
+        <button
+          onClick={() => navigate("/categories")}
+          className="text-xs text-secondary font-bold flex items-center gap-1 hover:text-secondary/80 transition-colors"
+        >
+          See All <ArrowRight className="h-3 w-3" />
+        </button>
+      </div>
 
       <motion.div
         initial={{ opacity: 0 }}

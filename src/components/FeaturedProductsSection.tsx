@@ -59,9 +59,17 @@ export default function FeaturedProductsSection() {
 
   return (
     <div className="px-3 mt-6">
-      <div className="flex items-center gap-2 mb-3">
-        <Sparkles className="h-5 w-5 text-secondary" />
-        <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Featured Products</span>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-secondary" />
+          <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Featured Products</span>
+        </div>
+        <button
+          onClick={() => navigate("/marketplace")}
+          className="text-xs text-secondary font-bold flex items-center gap-1 hover:text-secondary/80 transition-colors"
+        >
+          See All <ArrowRight className="h-3 w-3" />
+        </button>
       </div>
 
       <motion.div
@@ -81,20 +89,6 @@ export default function FeaturedProductsSection() {
         ))}
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3, duration: 0.5 }}
-        className="mt-4"
-      >
-        <button
-          onClick={() => navigate("/marketplace")}
-          className="w-full flex items-center justify-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-        >
-          <ArrowRight className="h-3 w-3" />
-          View All Products
-        </button>
-      </motion.div>
     </div>
   );
 }
