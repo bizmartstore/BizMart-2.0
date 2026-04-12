@@ -215,10 +215,11 @@ export default function MarketplacePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <TopBar />
+    <>
+      <div className="min-h-screen bg-background pb-20">
+        <TopBar />
 
-      <div className="px-3 mt-4">
+        <div className="px-3 mt-4">
         <h1 className="font-extrabold text-lg mb-1">Marketplace</h1>
         <p className="text-xs text-muted-foreground mb-3">
           Browse all products from verified sellers
