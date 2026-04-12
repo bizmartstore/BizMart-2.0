@@ -41,14 +41,14 @@ export default function HottestSaleSection() {
   if (!container || discountedProducts.length < 2) return;
 
   let lastTime = 0;
-  const speed = 0.05; // 🔥 lower = slower (0.03–0.1 ideal)
+  const speed = 0.03; // 🔥 lower = smoother/slower
 
-  const maxScroll = () =>
+  const getMaxScroll = () =>
     container.scrollWidth - container.clientWidth;
 
-  // start at right side only once
+  // start at RIGHT side once
   if (scrollPosRef.current === 0) {
-    scrollPosRef.current = maxScroll();
+    scrollPosRef.current = getMaxScroll();
     container.scrollLeft = scrollPosRef.current;
   }
 
@@ -57,12 +57,12 @@ export default function HottestSaleSection() {
       const delta = lastTime ? time - lastTime : 16;
       lastTime = time;
 
-      // 👉 MOVE LEFT (important: subtract)
-      scrollPosRef.current -= speed * (delta / 16);
+      // ✅ MOVE RIGHT → LEFT (THIS IS THE KEY)
+      scrollPosRef.current -= speed * delta;
 
-      // 👉 LOOP RESET (smooth infinite)
+      // ✅ LOOP RESET (infinite seamless)
       if (scrollPosRef.current <= 0) {
-        scrollPosRef.current = maxScroll();
+        scrollPosRef.current = getMaxScroll();
       }
 
       container.scrollLeft = scrollPosRef.current;
