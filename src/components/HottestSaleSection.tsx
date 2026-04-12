@@ -14,32 +14,35 @@ export default function HottestSaleSection() {
   const animationRef = useRef<number>(0);
   const scrollPosRef = useRef(0);
 
-  // Calculate discount percentage for each product
-  const productsWithDiscount = useMemo(() => {
+  // Get discounted products (products with actual price difference)
+  const discountedProducts = useMemo(() => {
     return products
-      .filter(p => p.isFlashSale === true)
-      .map(product => {
-        const basePrice = product.originalPrice ? Number(product.originalPrice) : Number(product.price);
-        const salePrice = product.sale_price ? Number(product.sale_price) : basePrice;
-        const discountPercent = basePrice > salePrice
-          ? Math.round(((basePrice - salePrice) / basePrice) * 100)
-          : 0;
-        return { ...product, discountPercent };
+      .filter(p => {
+        const basePrice = p.originalPrice ? Number(p.originalPrice) : Number(p.price);
+        const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
+        return salePrice < basePrice; // Has actual discount
       })
-      .filter(p => p.discountPercent > 0) // Only products with actual discount
-      .sort((a, b) => b.discountPercent - a.discountPercent); // Sort by highest discount
+      .sort((a, b) => {
+        // Sort by highest discount percentage
+        const aBase = a.originalPrice ? Number(a.originalPrice) : Number(a.price);
+        const aSale = a.sale_price ? Number(a.sale_price) : aBase;
+        const aDiscount = Math.round(((aBase - aSale) / aBase) * 100);
+
+        const bBase = b.originalPrice ? Number(b.originalPrice) : Number(b.price);
+        const bSale = b.sale_price ? Number(b.sale_price) : bBase;
+        const bDiscount = Math.round(((bBase - bSale) / bBase) * 100);
+
+        return bDiscount - aDiscount;
+      });
   }, [products]);
 
   // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || productsWithDiscount.length < 2) return;
+    if (!container || discountedProducts.length <= 4) return;
 
     // Set initial scroll position to the end (right side)
-    const maxScroll = container.scrollWidth - container.clientWidth;
-
-scrollPosRef.current = maxScroll;
-container.scrollLeft = maxScroll;
+    container.scrollLeft = container.scrollWidth;
 
     let lastTime = 0;
     const speed = 0.5; // SLOW speed like BizMart Features
@@ -52,15 +55,10 @@ container.scrollLeft = maxScroll;
         // Move left continuously
         scrollPosRef.current -= speed * (delta / 16);
 
-        const maxScroll = container.scrollWidth - container.clientWidth;
-
-// move left
-scrollPosRef.current -= speed * (delta / 16);
-
-// reset when reaching start
-if (scrollPosRef.current <= 0) {
-  scrollPosRef.current = maxScroll;
-}
+        // Reset position when we've scrolled past the start
+        if (scrollPosRef.current <= -container.clientWidth) {
+          scrollPosRef.current = container.scrollWidth;
+        }
 
         container.scrollLeft = scrollPosRef.current;
       } else {
@@ -76,7 +74,7 @@ if (scrollPosRef.current <= 0) {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [productsWithDiscount.length, isPaused]);
+  }, [discountedProducts.length, isPaused]);
 
   // Handle interaction start/end for pause
   const handleInteractionStart = () => setIsPaused(true);
@@ -115,7 +113,7 @@ if (scrollPosRef.current <= 0) {
     );
   }
 
-  if (productsWithDiscount.length === 0) {
+  if (discountedProducts.length === 0) {
     return null;
   }
 
@@ -156,7 +154,7 @@ if (scrollPosRef.current <= 0) {
               Hottest Sale!
             </h3>
             <p className="text-red-600/80 text-[11px] font-medium">
-              Limited time discounts - up to {Math.max(...productsWithDiscount.map(p => p.discountPercent))}% OFF!
+              Limited time discounts - up to {discountedProducts.length > 0 ? Math.round(((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) - Number(discountedProducts[0].sale_price || discountedProducts[0].price)) / (Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) * 100) : 0}% OFF!
             </p>
           </div>
         </motion.div>
@@ -179,63 +177,79 @@ if (scrollPosRef.current <= 0) {
         onMouseUp={handleInteractionEnd}
         onMouseLeave={handleInteractionEnd}
       >
-        {productsWithDiscount.slice(0, 4).map((product) => (
-          <motion.div
-            key={product.id}
-            whileHover={{ scale: 1.05, y: -5 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex-shrink-0 w-40"
-          >
-            <div className="relative">
-              {/* Discount Badge - BIG and RED */}
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
-                className="absolute top-0 left-0 z-20"
-              >
-                <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
-                  <span className="text-lg">{product.discountPercent}%</span>
-                  <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
-                </div>
-              </motion.div>
+        {discountedProducts.slice(0, 4).map((product) => {
+          // Calculate discount
+          const basePrice = product.originalPrice ? Number(product.originalPrice) : Number(product.price);
+          const salePrice = product.sale_price ? Number(product.sale_price) : basePrice;
+          const discountPercent = Math.round(((basePrice - salePrice) / basePrice) * 100);
 
-              {/* Enhanced Product Card */}
-              <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
-                <div className="relative aspect-square overflow-hidden">
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                </div>
+          return (
+            <motion.div
+              key={product.id}
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex-shrink-0 w-40"
+              onClick={() => navigate(`/product/${product.id}`)}
+            >
+              <div className="relative">
+                {/* Discount Badge - BIG and RED */}
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
+                  className="absolute top-0 left-0 z-20"
+                >
+                  <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
+                    <span className="text-lg">{discountPercent}%</span>
+                    <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
+                  </div>
+                </motion.div>
 
-                <div className="p-3">
-                  <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
-                    {product.name}
-                  </h3>
-
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1">
-                      <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
-                      {product.originalPrice && product.price < product.originalPrice && (
-                        <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
-                          ₱{product.originalPrice}
-                        </span>
-                      )}
-                    </div>
+                {/* Enhanced Product Card */}
+                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                  <div className="relative aspect-square overflow-hidden">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
                   </div>
 
-                  <div className="flex items-center gap-1 mb-2">
-                    <span className="text-[10px] text-muted-foreground">
-                      {product.sold} sold
-                    </span>
+                  <div className="p-3">
+                    <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
+                      {product.name}
+                    </h3>
+
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
+                        {basePrice > salePrice && (
+                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
+                            ₱{basePrice}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 mb-2">
+                      <span className="text-[10px] text-muted-foreground">
+                        {product.sold} sold
+                      </span>
+                    </div>
+
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
+                    >
+                      View Details
+                    </motion.button>
                   </div>
                 </div>
               </div>
-            </div>
-          </motion.div>
-        ))}
+            </motion.div>
+          );
+        })}
       </div>
 
     </motion.div>
