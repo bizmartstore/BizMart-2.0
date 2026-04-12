@@ -53,7 +53,7 @@ export default function HottestSaleSection() {
         lastTime = time;
 
         // Move left continuously
-        scrollPosRef.current -= speed * (delta / 16);
+        scrollPosRef.current -= speed;
 
         // Reset position when we've scrolled past the start
         if (scrollPosRef.current <= -container.clientWidth) {
