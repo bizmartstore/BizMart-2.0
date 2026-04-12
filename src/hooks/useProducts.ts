@@ -36,7 +36,7 @@ export function useProducts() {
             sold: p.sold || 0,
             stock: p.stock ?? 0,
             description: p.description || '',
-            isFlashSale: p.is_flash_sale || false,
+            isFlashSale: p.isFlashSale || false,
             seller_id: p.seller_id || null,
           })) as Product[];
         }
