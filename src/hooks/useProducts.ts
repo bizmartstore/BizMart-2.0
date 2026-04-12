@@ -67,6 +67,7 @@ export function useFlashSaleProducts() {
         const { data, error } = await (supabase as any)
           .from("flash_sale_products")
           .select("*")
+          .eq("is_active", true)
           .gt("stock", 0);
 
         if (error) {
@@ -75,11 +76,11 @@ export function useFlashSaleProducts() {
         }
 
         if (data) {
-          // Filter to only include products with actual discounts (price < original_price)
+          // Filter to only include products with actual discounts
           const discountedProducts = data.filter((p: any) => {
-            const originalPrice = p.original_price ? Number(p.original_price) : Number(p.price);
-            const currentPrice = Number(p.price);
-            return currentPrice < originalPrice;
+            const basePrice = p.original_price ? Number(p.original_price) : Number(p.price);
+            const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
+            return salePrice < basePrice;
           });
 
           return discountedProducts.map((p: any) => ({
@@ -95,9 +96,8 @@ export function useFlashSaleProducts() {
             stock: p.stock ?? 0,
             description: p.description || "",
             isFlashSale: true,
-            // For flash sale products, price is already the discounted price
-            sale_price: p.price,
-            discount_percent: p.original_price ? Math.round(((Number(p.original_price) - Number(p.price)) / Number(p.original_price)) * 100) : 0,
+            sale_price: p.sale_price,
+            discount_percent: p.discount_percent,
             original_price: p.original_price,
             seller_id: p.seller_id || null,
           })) as Product[];
