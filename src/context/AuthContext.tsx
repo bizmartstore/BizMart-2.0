@@ -21,6 +21,7 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  membership: any | null;
   loading: boolean;
   isAuthReady: boolean;
   signOut: () => Promise<void>;
@@ -33,171 +34,55 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [membership, setMembership] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
   
-  // Concurrency guards
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
-    if (fetchProfileRef.current) {
-      return fetchProfileRef.current;
-    }
-
+    if (fetchProfileRef.current) return fetchProfileRef.current;
     const currentRequestId = ++requestIdRef.current;
     
     const fetchPromise = (async () => {
-      console.log(`[AuthContext] Fetching profile for: ${currentUser.email} (Request #${currentRequestId})`);
-      
       try {
-        // 1. Fetch existing profile (no timeout, let it fail gracefully)
-        let profData: any = null;
+        // 1. Fetch Profile
+        const { data: profData } = await (supabase as any).from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
         
-        try {
-          const { data, error } = await (supabase as any)
-            .from("profiles")
-            .select("*")
-            .eq("id", currentUser.id)
-            .maybeSingle();
-          
-          if (!error && data) {
-            profData = data;
-          } else if (error) {
-            console.warn("[AuthContext] Profile fetch error:", error.message);
-          }
-        } catch (err: any) {
-          console.warn("[AuthContext] Profile fetch exception:", err.message);
-        }
+        // 2. Fetch Role
+        const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle();
+        
+        // 3. Fetch Wallet
+        const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle();
 
-        const metadata = currentUser.user_metadata || {};
+        // 4. Fetch Membership
+        const { data: memData } = await (supabase as any).from("club_memberships").select("*").eq("user_id", currentUser.id).eq("status", "active").maybeSingle();
 
-        // 2. Create profile if missing
-        if (!profData) {
-          console.log("[AuthContext] Profile missing, creating...");
-          try {
-            const { data: newProf, error: insertError } = await (supabase as any)
-              .from("profiles")
-              .insert({
-                user_id: currentUser.id,
-                email: currentUser.email,
-                first_name: metadata.first_name || '',
-                last_name: metadata.last_name || '',
-                school: metadata.school || null,
-                section: metadata.section || null,
-                grade_level: metadata.grade_level || null,
-                avatar_url: metadata.avatar_url || null,
-              })
-              .select()
-              .single();
-            
-            if (!insertError && newProf) {
-              profData = newProf;
-            } else if (insertError) {
-              console.warn("[AuthContext] Profile creation failed:", insertError.message);
-            }
-          } catch (err: any) {
-            console.warn("[AuthContext] Profile creation exception:", err.message);
-          }
-        }
-
-        // Check if this request is still the latest
-        if (currentRequestId !== requestIdRef.current) {
-          console.log(`[AuthContext] Stale response ignored (Request #${currentRequestId})`);
-          return;
-        }
-
-        // 3. Fetch role (no timeout)
-        let roleData: any = null;
-        try {
-          const { data, error } = await (supabase as any)
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", currentUser.id)
-            .maybeSingle();
-          
-          if (!error && data) {
-            roleData = data;
-          } else if (error) {
-            console.warn("[AuthContext] Role fetch error:", error.message);
-          }
-        } catch (err: any) {
-          console.warn("[AuthContext] Role fetch exception:", err.message);
-        }
-
-        // 4. Fetch wallet balance (no timeout)
-        let wallet: any = null;
-        try {
-          const { data, error } = await (supabase as any)
-            .from("bcoins_wallets")
-            .select("balance")
-            .eq("user_id", currentUser.id)
-            .maybeSingle();
-          
-          if (!error && data) {
-            wallet = data;
-          } else if (error) {
-            console.warn("[AuthContext] Wallet fetch error:", error.message);
-          }
-        } catch (err: any) {
-          console.warn("[AuthContext] Wallet fetch exception:", err.message);
-        }
-
-        // Final check before state update
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
         const role = roleData?.role || 'customer';
-        
-        // Persist role for future fallback
-        if (roleData?.role) {
-          localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
-        }
+        if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
 
-        // Update profile with fresh DB data or fallback
+        setMembership(memData);
         setProfile({
           id: currentUser.id,
-          first_name: profData?.first_name || metadata.first_name || 'Student',
-          last_name: profData?.last_name || metadata.last_name || '',
-          section: profData?.section || metadata.section || 'N/A',
-          grade_level: profData?.grade_level || metadata.grade_level || 'N/A',
-          school: profData?.school || metadata.school || 'N/A',
+          first_name: profData?.first_name || currentUser.user_metadata?.first_name || 'Student',
+          last_name: profData?.last_name || currentUser.user_metadata?.last_name || '',
+          section: profData?.section || currentUser.user_metadata?.section || 'N/A',
+          grade_level: profData?.grade_level || currentUser.user_metadata?.grade_level || 'N/A',
+          school: profData?.school || currentUser.user_metadata?.school || 'N/A',
           email: profData?.email || currentUser.email || '',
-          avatar_url: profData?.avatar_url || metadata.avatar_url || null,
+          avatar_url: profData?.avatar_url || currentUser.user_metadata?.avatar_url || null,
           bcoins: Number(wallet?.balance || profData?.bcoins || 0),
           role,
         });
-        
-        console.log("[AuthContext] Profile loaded successfully. Role:", role);
-      } catch (err: any) {
-        console.warn("[AuthContext] Profile fetch issue:", err.message);
-        
-        // Check if still valid
-        if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
-
-        // ON ERROR: Use localStorage fallback to preserve admin role
-        const storedRole = localStorage.getItem(`user_role_${currentUser.id}`) || 'customer';
-        const metadata = currentUser.user_metadata || {};
-        
-        console.warn("[AuthContext] Using localStorage fallback. Role:", storedRole);
-        
-        setProfile({
-          id: currentUser.id,
-          first_name: metadata.first_name || 'User',
-          last_name: metadata.last_name || '',
-          section: metadata.section || 'N/A',
-          grade_level: metadata.grade_level || 'N/A',
-          school: metadata.school || 'N/A',
-          email: currentUser.email || '',
-          avatar_url: metadata.avatar_url || null,
-          bcoins: 0,
-          role: storedRole,
-        });
+      } catch (err) {
+        console.warn("[AuthContext] Fetch issue:", err);
       } finally {
-        if (fetchProfileRef.current === fetchPromise) {
-          fetchProfileRef.current = null;
-        }
+        if (fetchProfileRef.current === fetchPromise) fetchProfileRef.current = null;
       }
     })();
 
@@ -207,157 +92,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refreshProfile = async () => {
     if (user && mountedRef.current) {
-      fetchProfileRef.current = null; // Force new fetch
+      fetchProfileRef.current = null;
       await fetchProfile(user);
     }
   };
 
   useEffect(() => {
     mountedRef.current = true;
-
     const init = async () => {
       try {
-        console.log("[AuthContext] Starting initialization...");
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mountedRef.current) return;
-        
         setSession(s);
         setUser(s?.user ?? null);
-        
-        // Set a safety timeout to ensure isAuthReady is always set
         initTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) {
-            console.log("[AuthContext] Safety timeout triggered - forcing ready state");
-            setLoading(false);
-            setIsAuthReady(true);
-          }
-        }, 5000); // 5 second max wait
-        
-        if (s?.user) {
-          // Fetch profile in background (won't block UI)
-          fetchProfile(s.user);
-        } else {
-          // No user, we're ready immediately
-          setLoading(false);
-          setIsAuthReady(true);
-        }
+          if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
+        }, 5000);
+        if (s?.user) fetchProfile(s.user);
+        else { setLoading(false); setIsAuthReady(true); }
       } catch (err) {
-        console.error("[AuthContext] Init error:", err);
-        if (mountedRef.current) {
-          setLoading(false);
-          setIsAuthReady(true);
-        }
+        if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
       }
     };
-
     init();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
-      console.log(`[AuthContext] Auth state changed: ${event}`);
       if (!mountedRef.current) return;
-
       setSession(s);
       setUser(s?.user ?? null);
-      
       if (event === 'SIGNED_IN' && s?.user) {
-        // Mark ready immediately
-        setLoading(false);
-        setIsAuthReady(true);
-        // Fetch profile in background
+        setLoading(false); setIsAuthReady(true);
         fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        setLoading(false);
-        setIsAuthReady(true);
-        requestIdRef.current++;
-        fetchProfileRef.current = null;
-      } else if (event === 'TOKEN_REFRESHED' && s?.user) {
-        setSession(s);
-      } else if (event === 'INITIAL_SESSION') {
-        // Already handled in init(), but ensure ready state
-        setLoading(false);
-        setIsAuthReady(true);
+        setProfile(null); setMembership(null); setLoading(false); setIsAuthReady(true);
+        requestIdRef.current++; fetchProfileRef.current = null;
       } else {
-        // For any other event, ensure we're marked as ready
-        setLoading(false);
-        setIsAuthReady(prev => prev || true);
+        setLoading(false); setIsAuthReady(prev => prev || true);
       }
     });
 
     return () => {
       mountedRef.current = false;
-      requestIdRef.current++;
-      fetchProfileRef.current = null;
-      if (initTimeoutRef.current) {
-        clearTimeout(initTimeoutRef.current);
-      }
+      if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
       subscription?.unsubscribe();
     };
   }, [fetchProfile]);
 
-  // Subscribe to wallet changes
+  // Real-time membership listener
   useEffect(() => {
     if (!user) return;
-
-    const syncWallet = async () => {
-      try {
-        const { data: wallet } = await (supabase as any)
-          .from("bcoins_wallets")
-          .select("balance")
-          .eq("user_id", user.id)
-          .maybeSingle();
-        if (wallet && profile) {
-          const walletBcoins = Number((wallet as any).balance);
-          if (profile.bcoins !== walletBcoins) {
-            setProfile(prev => prev ? { ...prev, bcoins: walletBcoins } : prev);
-          }
-        }
-      } catch (err) {
-        console.warn("[AuthContext] Wallet sync error:", err);
-      }
-    };
-
-    syncWallet();
-
-    const channel = supabase
-      .channel(`wallet-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "bcoins_wallets",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload: any) => {
-          if (!mountedRef.current) return;
-          if (payload.event === 'DELETE') {
-            setProfile(prev => prev ? { ...prev, bcoins: 0 } : prev);
-          } else if (payload.new) {
-            setProfile(prev => prev ? { ...prev, bcoins: Number((payload.new as any).balance) } : prev);
-          }
-        }
-      )
+    const channel = supabase.channel(`membership-${user.id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "club_memberships", filter: `user_id=eq.${user.id}` }, () => refreshProfile())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user, profile]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user, refreshProfile]);
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setIsAuthReady(true);
-    if (user) {
-      localStorage.removeItem(`user_role_${user.id}`);
-    }
+    setUser(null); setSession(null); setProfile(null); setMembership(null); setIsAuthReady(true);
+    if (user) localStorage.removeItem(`user_role_${user.id}`);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, isAuthReady, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, membership, loading, isAuthReady, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

@@ -1,15 +1,16 @@
-import { ArrowLeft, Settings, ChevronRight, Package, Heart, HelpCircle, LogOut, GraduationCap, Coins, ShoppingCart, Loader2 } from "lucide-react";
+import { ArrowLeft, Settings, ChevronRight, Package, Heart, HelpCircle, LogOut, GraduationCap, Coins, ShoppingCart, Loader2, Lock } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { totalItems } = useCart();
-  const { user, profile, signOut, loading: authLoading } = useAuth();
+  const { user, profile, membership, signOut, loading: authLoading } = useAuth();
   const [orderCount, setOrderCount] = useState(0);
 
   useEffect(() => {
@@ -38,7 +39,19 @@ export default function ProfilePage() {
 
   const menuItems = [
     { icon: Package, label: "My Orders", badge: orderCount > 0 ? String(orderCount) : undefined, action: () => navigate("/orders") },
-    { icon: Coins, label: "My BCoins", action: () => navigate("/bcoins") },
+    { 
+      icon: Coins, 
+      label: "My BCoins", 
+      isLocked: !membership,
+      action: () => {
+        if (!membership) {
+          toast.error("BizMart Club Membership required to access BCoins wallet.");
+          navigate("/club");
+        } else {
+          navigate("/bcoins");
+        }
+      } 
+    },
     { icon: ShoppingCart, label: "Cart", badge: totalItems > 0 ? String(totalItems) : undefined, action: () => navigate("/cart") },
     { icon: Heart, label: "Wishlist" },
     { icon: HelpCircle, label: "Help Center" },
@@ -97,7 +110,18 @@ export default function ProfilePage() {
         {[
           { label: "In Cart", value: totalItems, action: () => navigate("/cart") },
           { label: "Orders", value: orderCount, action: () => navigate("/orders") },
-          { label: "BCoins", value: Number(profile?.bcoins || 0).toFixed(1), action: () => navigate("/bcoins") },
+          { 
+            label: "BCoins", 
+            value: Number(profile?.bcoins || 0).toFixed(1), 
+            action: () => {
+              if (!membership) {
+                toast.error("Membership required to view BCoins wallet.");
+                navigate("/club");
+              } else {
+                navigate("/bcoins");
+              }
+            }
+          },
         ].map((stat) => (
           <button key={stat.label} onClick={stat.action} className="text-center">
             <p className="text-lg font-extrabold text-primary">{stat.value}</p>
@@ -108,9 +132,14 @@ export default function ProfilePage() {
 
       <div className="mx-3 mt-3 bg-card rounded-xl border border-border overflow-hidden">
         {menuItems.map((item, i) => (
-          <button key={item.label} onClick={item.action} className={`w-full flex items-center gap-3 px-4 py-3.5 ${i < menuItems.length - 1 ? "border-b border-border" : ""}`}>
+          <button 
+            key={item.label} 
+            onClick={item.action} 
+            className={`w-full flex items-center gap-3 px-4 py-3.5 ${i < menuItems.length - 1 ? "border-b border-border" : ""} ${item.isLocked ? "opacity-60" : ""}`}
+          >
             <item.icon className="h-5 w-5 text-primary" />
             <span className="flex-1 text-left text-sm font-semibold">{item.label}</span>
+            {item.isLocked && <Lock className="h-3 w-3 text-muted-foreground" />}
             {item.badge && <span className="bg-primary text-primary-foreground text-[10px] font-bold px-1.5 py-0.5 rounded-full">{item.badge}</span>}
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </button>

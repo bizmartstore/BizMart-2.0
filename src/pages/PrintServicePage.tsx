@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File, CheckSquare, Square, Truck } from "lucide-react";
+import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, File, CheckSquare, Square, Truck, Crown } from "lucide-react";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
@@ -24,7 +24,7 @@ interface PageInfo {
 
 export default function PrintServicePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, membership } = useAuth();
   const { storeOpen } = useAppSettings();
   
   const [file, setFile] = useState<File | null>(null);
@@ -77,7 +77,7 @@ export default function PrintServicePage() {
       for (let i = 1; i <= pdf.numPages; i++) {
         setAnalysisProgress(Math.round((i / pdf.numPages) * 100));
         const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 0.2 }); // Lower scale for faster analysis
+        const viewport = page.getViewport({ scale: 0.2 });
         const canvas = document.createElement("canvas");
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -92,12 +92,10 @@ export default function PrintServicePage() {
         
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let isColor = false;
-        // Sample pixels for faster color detection
         for (let j = 0; j < imageData.data.length; j += 32) {
           const r = imageData.data[j];
           const g = imageData.data[j + 1];
           const b = imageData.data[j + 2];
-          // If RGB values differ significantly, it's likely a color pixel
           if (Math.abs(r - g) > 20 || Math.abs(r - b) > 20 || Math.abs(g - b) > 20) {
             isColor = true;
             break;
@@ -108,7 +106,7 @@ export default function PrintServicePage() {
       setPages(analyzedPages);
     } catch (err) {
       console.error("PDF analysis error:", err);
-      toast.error("Failed to analyze PDF. It might be encrypted or corrupted.");
+      toast.error("Failed to analyze PDF.");
       removeFile();
     } finally {
       setAnalyzing(false);
@@ -118,17 +116,14 @@ export default function PrintServicePage() {
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
     if (!selected) return;
-
     if (selected.type !== "application/pdf") {
       toast.error("Please upload a PDF file only");
       return;
     }
-
     if (selected.size > 50 * 1024 * 1024) {
       toast.error("File size must be less than 50MB");
       return;
     }
-
     setFile(selected);
     setPages([]);
     await analyzePdf(selected);
@@ -170,6 +165,7 @@ export default function PrintServicePage() {
 
   const handleSubmit = async () => {
     if (!user) { navigate("/login"); return; }
+    if (!membership) { navigate("/club"); return; }
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!file) { toast.error("Please upload a PDF file"); return; }
     if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
@@ -253,6 +249,42 @@ export default function PrintServicePage() {
     }
   };
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <TopBar />
+        <div className="flex flex-col items-center justify-center px-6 mt-20 text-center">
+          <Printer className="h-16 w-16 text-muted-foreground/30 mb-4" />
+          <h2 className="font-extrabold text-lg mb-2">Print Service</h2>
+          <p className="text-sm text-muted-foreground mb-6">Please login to access the print service.</p>
+          <Button onClick={() => navigate("/login")}>Login to Continue</Button>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  if (!membership) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <TopBar />
+        <div className="flex flex-col items-center justify-center px-6 mt-20 text-center">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+            <Crown className="h-10 w-10 text-primary" />
+          </div>
+          <h2 className="font-extrabold text-xl mb-2">Club Membership Required</h2>
+          <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+            The Print Service is exclusive to <strong className="text-foreground">BizMart Club Members</strong>. Join the club to unlock document printing!
+          </p>
+          <Button onClick={() => navigate("/club")} className="w-full max-w-xs h-12 font-bold rounded-xl shadow-lg">
+            Join BizMart Club Now
+          </Button>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
   if (orderComplete) {
     return (
       <div className="min-h-screen bg-background pb-20">
@@ -291,17 +323,12 @@ export default function PrintServicePage() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
-        {/* File Upload */}
         <div className="bg-card rounded-xl border border-border p-4">
           <Label className="text-sm font-bold flex items-center gap-2 mb-3">
             <FileText className="h-4 w-4 text-primary" /> Upload Document
           </Label>
-          
           {!file ? (
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-            >
+            <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-border rounded-xl p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors">
               <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm font-bold text-foreground">Tap to upload PDF</p>
               <p className="text-[10px] text-muted-foreground mt-1 uppercase tracking-wider">Max 50MB • PDF Only</p>
@@ -325,7 +352,6 @@ export default function PrintServicePage() {
           <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} />
         </div>
 
-        {/* Page Selection */}
         {(analyzing || pages.length > 0) && (
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -339,7 +365,6 @@ export default function PrintServicePage() {
                 </div>
               )}
             </div>
-            
             {analyzing ? (
               <div className="py-8 text-center space-y-3">
                 <div className="relative w-16 h-16 mx-auto">
@@ -362,49 +387,22 @@ export default function PrintServicePage() {
                 </div>
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
                   {pages.map((page) => (
-                    <button
-                      key={page.pageNum}
-                      onClick={() => togglePage(page.pageNum)}
-                      className={`relative p-2.5 rounded-xl border-2 text-center transition-all ${
-                        page.selected 
-                          ? "border-primary bg-primary/5 shadow-sm" 
-                          : "border-transparent bg-muted/30 opacity-60"
-                      }`}
-                    >
+                    <button key={page.pageNum} onClick={() => togglePage(page.pageNum)} className={`relative p-2.5 rounded-xl border-2 text-center transition-all ${ page.selected ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-muted/30 opacity-60" }`}>
                       <span className="text-[10px] font-extrabold block mb-1">#{page.pageNum}</span>
                       <div className="flex items-center justify-center">
-                        {page.isColor ? (
-                          <Palette className="h-4 w-4 text-orange-500" />
-                        ) : (
-                          <File className="h-4 w-4 text-gray-400" />
-                        )}
+                        {page.isColor ? <Palette className="h-4 w-4 text-orange-500" /> : <File className="h-4 w-4 text-gray-400" />}
                       </div>
-                      {page.selected && (
-                        <div className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm">
-                          <CheckCircle2 className="h-2.5 w-2.5 text-white" />
-                        </div>
-                      )}
+                      {page.selected && <div className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
                     </button>
                   ))}
-                </div>
-                <div className="flex items-center justify-between text-[10px] font-bold pt-2 border-t border-border">
-                  <div className="flex gap-3">
-                    <span className="flex items-center gap-1 text-muted-foreground"><File className="h-3 w-3" /> B&W: {bwCount}</span>
-                    <span className="flex items-center gap-1 text-orange-600"><Palette className="h-3 w-3" /> Color: {colorCount}</span>
-                  </div>
-                  <span className="text-primary">Selected: {selectedPages.length}/{pages.length}</span>
                 </div>
               </>
             )}
           </div>
         )}
 
-        {/* Settings */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-4">
-          <Label className="text-sm font-bold flex items-center gap-2">
-            <Printer className="h-4 w-4 text-primary" /> Print Settings
-          </Label>
-          
+          <Label className="text-sm font-bold flex items-center gap-2"><Printer className="h-4 w-4 text-primary" /> Print Settings</Label>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Page Size</Label>
@@ -413,7 +411,6 @@ export default function PrintServicePage() {
                 <button onClick={() => setPageSize("long")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "long" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>Long</button>
               </div>
             </div>
-
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Copies</Label>
               <div className="flex items-center justify-between bg-muted/50 rounded-lg p-1">
@@ -425,24 +422,15 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        {/* Delivery */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-4">
-          <Label className="text-sm font-bold flex items-center gap-2">
-            <MapPin className="h-4 w-4 text-primary" /> Delivery & Schedule
-          </Label>
-          
+          <Label className="text-sm font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Delivery & Schedule</Label>
           <div className="space-y-1.5">
             <Label className="text-[10px] font-bold uppercase text-muted-foreground">Method</Label>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setDeliveryType("pickup")} className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "pickup" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>
-                <MapPin className="h-3.5 w-3.5" /> Pickup
-              </button>
-              <button onClick={() => setDeliveryType("delivery")} className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "delivery" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>
-                <Truck className="h-3.5 w-3.5" /> Delivery (+₱10)
-              </button>
+              <button onClick={() => setDeliveryType("pickup")} className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "pickup" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}><MapPin className="h-3.5 w-3.5" /> Pickup</button>
+              <button onClick={() => setDeliveryType("delivery")} className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "delivery" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}><Truck className="h-3.5 w-3.5" /> Delivery (+₱10)</button>
             </div>
           </div>
-
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Date</Label>
@@ -453,31 +441,11 @@ export default function PrintServicePage() {
               <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} min={noTimesToday ? undefined : minTimeString} disabled={noTimesToday} className="text-xs h-9 font-bold" />
             </div>
           </div>
-          {noTimesToday && <p className="text-[10px] text-destructive font-bold text-center">⚠️ No available times for today</p>}
         </div>
 
-        {/* Cost Summary */}
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
-            {bwCount > 0 && (
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground">B&W ({bwCount} pgs × {copies})</span>
-                <span className="font-bold">₱{(bwCount * getPrice(false, pageSize) * copies).toFixed(2)}</span>
-              </div>
-            )}
-            {colorCount > 0 && (
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground">Color ({colorCount} pgs × {copies})</span>
-                <span className="font-bold">₱{(colorCount * getPrice(true, pageSize) * copies).toFixed(2)}</span>
-              </div>
-            )}
-            {deliveryType === "delivery" && (
-              <div className="flex justify-between text-[11px]">
-                <span className="text-muted-foreground">Delivery Fee</span>
-                <span className="font-bold">₱10.00</span>
-              </div>
-            )}
             <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
               <span className="font-extrabold text-xs">TOTAL COST</span>
               <span className="font-black text-primary text-lg">₱{calculateCost().toFixed(2)}</span>
@@ -485,11 +453,7 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        <Button
-          onClick={handleSubmit}
-          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday}
-          className="w-full h-14 font-black text-base rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
-        >
+        <Button onClick={handleSubmit} disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday} className="w-full h-14 font-black text-base rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">
           {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Printer className="h-5 w-5 mr-2" />}
           {submitting ? "SUBMITTING..." : "SUBMIT PRINT ORDER"}
         </Button>

@@ -7,8 +7,9 @@ import BCoinsFeatures from "@/components/BCoinsFeatures";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/hooks/use-toast";
-import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, Store, ArrowLeft, Disc, Sparkles, Trophy, Info, Star } from "lucide-react";
+import { Coins, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, Loader2, Gift, AlertCircle, Store, ArrowLeft, Disc, Sparkles, Trophy, Info, Star, Crown } from "lucide-react";
 import { notifyAdminRedemption } from "@/lib/notifications";
+import { useNavigate } from "react-router-dom";
 
 const DAILY_REWARDS = [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1.0];
 
@@ -37,7 +38,8 @@ interface DailyLoginState {
 }
 
 export default function BCoinsPage() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, membership, refreshProfile } = useAuth();
+  const navigate = useNavigate();
   const [wallet, setWallet] = useState<any>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +48,6 @@ export default function BCoinsPage() {
   const [redeeming, setRedeeming] = useState(false);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   
-  // Daily Login State
   const [dailyLogin, setDailyLogin] = useState<DailyLoginState>({
     lastClaim: null,
     currentDay: 1,
@@ -55,7 +56,6 @@ export default function BCoinsPage() {
   const [canClaimDaily, setCanClaimDaily] = useState(false);
   const [claimingDaily, setClaimingDaily] = useState(false);
 
-  // Spin the Wheel State
   const [isSpinning, setIsSpinning] = useState(false);
   const [spinResult, setSpinResult] = useState<number | null>(null);
   const [canSpin, setCanSpin] = useState(false);
@@ -63,7 +63,7 @@ export default function BCoinsPage() {
   const [rotation, setRotation] = useState(0);
 
   const loadData = useCallback(async () => {
-    if (!user) return;
+    if (!user || !membership) return;
     setLoading(true);
     try {
       const { data: w } = await (supabase as any).from("bcoins_wallets").select("*").eq("user_id", user.id).maybeSingle();
@@ -89,10 +89,10 @@ export default function BCoinsPage() {
       setLoading(false);
       setCheckingSpin(false);
     }
-  }, [user]);
+  }, [user, membership]);
 
   useEffect(() => {
-    if (user) {
+    if (user && membership) {
       loadData();
       const stored = localStorage.getItem(`bcoins_daily_${user.id}`);
       if (stored) {
@@ -109,7 +109,7 @@ export default function BCoinsPage() {
         setCanClaimDaily(true);
       }
     }
-  }, [user, loadData]);
+  }, [user, membership, loadData]);
 
   const handleDailyClaim = async () => {
     if (!user || !canClaimDaily || claimingDaily) return;
@@ -119,7 +119,6 @@ export default function BCoinsPage() {
       const currentBalance = Number(wallet?.balance || 0);
       const newBalance = currentBalance + reward;
 
-      // Permanent DB update
       await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
       await (supabase as any).from("bcoins_transactions").insert({
         user_id: user.id,
@@ -138,7 +137,7 @@ export default function BCoinsPage() {
       localStorage.setItem(`bcoins_daily_${user.id}`, JSON.stringify(newState));
       setCanClaimDaily(false);
       setWallet({ ...wallet, balance: newBalance });
-      refreshProfile(); // Sync AuthContext
+      refreshProfile();
       toast({ title: "Reward Claimed! 🎉", description: `+${reward} BCoins added to your wallet.` });
     } catch (e: any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
@@ -175,7 +174,6 @@ export default function BCoinsPage() {
         const currentBalance = Number(wallet?.balance || 0);
         const newBalance = currentBalance + reward;
 
-        // Permanent DB update - will reflect even if app is reinstalled
         await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
         await (supabase as any).from("bcoins_transactions").insert({
           user_id: user.id,
@@ -187,7 +185,7 @@ export default function BCoinsPage() {
         setSpinResult(reward);
         setCanSpin(false);
         setWallet({ ...wallet, balance: newBalance });
-        refreshProfile(); // Trigger AuthContext refresh to update profile/dashboard
+        refreshProfile();
         
         if (reward > 0) {
           toast({ title: "Congratulations! 🏆", description: `You won ${reward} BCoins!` });
@@ -255,7 +253,28 @@ export default function BCoinsPage() {
           <Coins className="h-16 w-16 text-muted-foreground/30 mb-4" />
           <h2 className="font-extrabold text-lg mb-2">BCoins Wallet</h2>
           <p className="text-sm text-muted-foreground mb-6">Please login to view your BCoins.</p>
-          <Button onClick={() => window.location.href = "/login"}>Login</Button>
+          <Button onClick={() => navigate("/login")}>Login</Button>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  if (!membership) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <TopBar />
+        <div className="flex flex-col items-center justify-center px-6 mt-20 text-center">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+            <Crown className="h-10 w-10 text-primary" />
+          </div>
+          <h2 className="font-extrabold text-xl mb-2">Club Membership Required</h2>
+          <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+            The BCoins Wallet and redemption features are exclusive to <strong className="text-foreground">BizMart Club Members</strong>. Join the club to unlock your wallet!
+          </p>
+          <Button onClick={() => navigate("/club")} className="w-full max-w-xs h-12 font-bold rounded-xl shadow-lg">
+            Join BizMart Club Now
+          </Button>
         </div>
         <BottomNav />
       </div>
@@ -329,12 +348,10 @@ export default function BCoinsPage() {
         
         <div className="px-4 py-8 flex flex-col items-center text-center space-y-8">
           <div className="relative">
-            {/* Pointer */}
             <div className="absolute -top-4 left-1/2 -translate-x-1/2 w-8 h-10 bg-primary rounded-b-full shadow-lg z-20 flex items-center justify-center">
               <div className="w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[10px] border-t-white mt-2" />
             </div>
             
-            {/* The Wheel SVG */}
             <div 
               className="w-72 h-72 rounded-full border-8 border-card shadow-2xl relative overflow-hidden transition-transform duration-[4000ms] cubic-bezier(0.15, 0, 0.15, 1)"
               style={{ transform: `rotate(${rotation}deg)` }}
@@ -352,37 +369,19 @@ export default function BCoinsPage() {
                   const angle = 360 / WHEEL_SEGMENTS.length;
                   const startAngle = i * angle;
                   const endAngle = (i + 1) * angle;
-                  
-                  // SVG Path for a pie slice
                   const x1 = 150 + 140 * Math.cos((Math.PI * startAngle) / 180);
                   const y1 = 150 + 140 * Math.sin((Math.PI * startAngle) / 180);
                   const x2 = 150 + 140 * Math.cos((Math.PI * endAngle) / 180);
                   const y2 = 150 + 140 * Math.sin((Math.PI * endAngle) / 180);
-                  
                   return (
                     <g key={i}>
-                      <path
-                        d={`M 150 150 L ${x1} ${y1} A 140 140 0 0 1 ${x2} ${y2} Z`}
-                        fill={`url(#grad-${i})`}
-                        stroke="rgba(255,255,255,0.2)"
-                        strokeWidth="1"
-                      />
-                      <text
-                        x="220"
-                        y="150"
-                        fill={seg.textColor}
-                        fontSize="10"
-                        fontWeight="900"
-                        textAnchor="middle"
-                        transform={`rotate(${startAngle + angle / 2}, 150, 150)`}
-                        style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}
-                      >
+                      <path d={`M 150 150 L ${x1} ${y1} A 140 140 0 0 1 ${x2} ${y2} Z`} fill={`url(#grad-${i})`} stroke="rgba(255,255,255,0.2)" strokeWidth="1" />
+                      <text x="220" y="150" fill={seg.textColor} fontSize="10" fontWeight="900" textAnchor="middle" transform={`rotate(${startAngle + angle / 2}, 150, 150)`} style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
                         {seg.label}
                       </text>
                     </g>
                   );
                 })}
-                {/* Center Pin */}
                 <circle cx="150" cy="150" r="15" fill="white" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }} />
                 <circle cx="150" cy="150" r="8" fill="#e8612d" />
               </svg>
@@ -392,30 +391,13 @@ export default function BCoinsPage() {
           <div className="max-w-xs w-full space-y-6">
             <div className="space-y-2">
               <h2 className="text-2xl font-black text-foreground flex items-center justify-center gap-2">
-                <Sparkles className="h-6 w-6 text-warning" />
-                Daily Lucky Spin
-                <Sparkles className="h-6 w-6 text-warning" />
+                <Sparkles className="h-6 w-6 text-warning" /> Daily Lucky Spin <Sparkles className="h-6 w-6 text-warning" />
               </h2>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Test your luck today! You can spin the wheel once every 24 hours to win free BCoins.
-              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">Test your luck today! You can spin the wheel once every 24 hours to win free BCoins.</p>
             </div>
             
-            <Button 
-              onClick={handleSpin} 
-              disabled={!canSpin || isSpinning || checkingSpin} 
-              className="w-full h-16 rounded-2xl font-black text-xl bg-gradient-to-r from-primary to-orange-600 hover:from-orange-600 hover:to-primary shadow-xl shadow-primary/20 active:scale-95 transition-all"
-            >
-              {isSpinning ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  SPINNING...
-                </div>
-              ) : canSpin ? (
-                "SPIN NOW!"
-              ) : (
-                "COME BACK TOMORROW"
-              )}
+            <Button onClick={handleSpin} disabled={!canSpin || isSpinning || checkingSpin} className="w-full h-16 rounded-2xl font-black text-xl bg-gradient-to-r from-primary to-orange-600 hover:from-orange-600 hover:to-primary shadow-xl shadow-primary/20 active:scale-95 transition-all">
+              {isSpinning ? <div className="flex items-center gap-2"><Loader2 className="h-6 w-6 animate-spin" /> SPINNING...</div> : canSpin ? "SPIN NOW!" : "COME BACK TOMORROW"}
             </Button>
             
             {!canSpin && !isSpinning && !checkingSpin && (
@@ -424,13 +406,6 @@ export default function BCoinsPage() {
                 <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">Next spin available in 24 hours</p>
               </div>
             )}
-
-            <div className="pt-2 flex items-start gap-2 bg-card border border-border p-4 rounded-xl shadow-sm">
-              <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-              <p className="text-[10px] text-muted-foreground leading-relaxed text-left">
-                BCoins won are automatically saved to your account and can be redeemed for GCash in the BCoins Store. All rewards are permanent and synced across devices.
-              </p>
-            </div>
           </div>
         </div>
         <BottomNav />
@@ -490,11 +465,7 @@ export default function BCoinsPage() {
               })}
             </div>
 
-            <Button 
-              onClick={handleDailyClaim} 
-              disabled={!canClaimDaily || claimingDaily} 
-              className="w-full h-11 font-bold rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-600 hover:to-amber-500 text-white shadow-md"
-            >
+            <Button onClick={handleDailyClaim} disabled={!canClaimDaily || claimingDaily} className="w-full h-11 font-bold rounded-xl bg-gradient-to-r from-orange-500 to-amber-400 hover:from-orange-600 hover:to-amber-500 text-white shadow-md">
               {claimingDaily ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Gift className="h-4 w-4 mr-2" />}
               {canClaimDaily ? `Claim Day ${dailyLogin.currentDay} Reward` : "Come back tomorrow"}
             </Button>
@@ -515,14 +486,8 @@ export default function BCoinsPage() {
               {transactions.map((tx) => (
                 <div key={tx.id} className="bg-card rounded-xl p-3 border border-border flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                      (tx.amount || 0) > 0 ? "bg-green-100" : "bg-red-100"
-                    }`}>
-                      {(tx.amount || 0) > 0 ? (
-                        <ArrowDownCircle className="h-4 w-4 text-green-600" />
-                      ) : (
-                        <ArrowUpCircle className="h-4 w-4 text-red-600" />
-                      )}
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${ (tx.amount || 0) > 0 ? "bg-green-100" : "bg-red-100" }`}>
+                      {(tx.amount || 0) > 0 ? <ArrowDownCircle className="h-4 w-4 text-green-600" /> : <ArrowUpCircle className="h-4 w-4 text-red-600" />}
                     </div>
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-foreground capitalize truncate">{(tx.type || "").replace("_", " ")}</p>

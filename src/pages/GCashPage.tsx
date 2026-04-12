@@ -4,25 +4,21 @@ import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/context/AuthContext";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { Smartphone, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, RefreshCw, Plus } from "lucide-react";
+import { Smartphone, ArrowDownCircle, ArrowUpCircle, Clock, CheckCircle2, XCircle, RefreshCw, Plus, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { notifyAdminGCash } from "@/lib/notifications";
+import { useNavigate } from "react-router-dom";
 
 const GCASH_ADMIN_NUMBER = "09957656049";
 const ALLOWED_AMOUNTS = [100, 150, 200, 250, 300, 350, 400, 450, 500];
 
 type TransactionType = "cash_in" | "cash_out";
 
-const statusIcon = {
-  pending: <Clock className="h-4 w-4 text-warning" />,
-  completed: <CheckCircle2 className="h-4 w-4 text-[hsl(var(--success))]" />,
-  rejected: <XCircle className="h-4 w-4 text-destructive" />,
-};
-
 export default function GCashPage() {
-  const { user } = useAuth();
+  const { user, membership } = useAuth();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const { gcashFee } = useAppSettings();
   const [type, setType] = useState<TransactionType>("cash_in");
@@ -34,7 +30,7 @@ export default function GCashPage() {
   const [refreshing, setRefreshing] = useState(false);
 
   const loadTransactions = async () => {
-    if (!user) return;
+    if (!user || !membership) return;
     setRefreshing(true);
     try {
       const { data, error } = await (supabase as any)
@@ -52,18 +48,17 @@ export default function GCashPage() {
     setRefreshing(false);
   };
 
-  useEffect(() => { loadTransactions(); }, [user]);
+  useEffect(() => { loadTransactions(); }, [user, membership]);
 
-  // Realtime updates for transactions
   useEffect(() => {
-    if (!user) return;
+    if (!user || !membership) return;
     const channel = supabase.channel("gcash-tx-updates")
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions", filter: `user_id=eq.${user.id}` }, () => {
         loadTransactions();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user]);
+  }, [user, membership]);
 
   const handleSubmit = async () => {
     if (!amount || !gcashNumber.trim() || !user) return;
@@ -91,18 +86,15 @@ export default function GCashPage() {
         .single();
       if (error) throw error;
       
-      // Add to local state immediately
       setTransactions((prev) => [data, ...prev]);
-
       const userName = `User ${user.email?.split("@")[0] || "Student"}`;
       notifyAdminGCash(type, userName, amount);
 
       toast({
         title: "Request Submitted! ✅",
-        description: `Ref: ${refNo}. Send ₱${amount + gcashFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcashFee} fee). BCoins will be awarded upon completion.`,
+        description: `Ref: ${refNo}. Send ₱${amount + gcashFee} to ${GCASH_ADMIN_NUMBER} (incl. ₱${gcashFee} fee).`,
       });
       
-      // Reset form but keep it visible for another submission
       setAmount(null);
       setGcashNumber("");
     } catch (e: any) {
@@ -110,12 +102,6 @@ export default function GCashPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const resetForm = () => {
-    setAmount(null);
-    setGcashNumber("");
-    setShowForm(true);
   };
 
   if (!user) {
@@ -126,7 +112,28 @@ export default function GCashPage() {
           <Smartphone className="h-16 w-16 text-muted-foreground/30 mb-4" />
           <h2 className="font-extrabold text-lg mb-2">GCash Transactions</h2>
           <p className="text-sm text-muted-foreground mb-6">Please login to access GCash services.</p>
-          <Button onClick={() => window.location.href = "/login"}>Login to Continue</Button>
+          <Button onClick={() => navigate("/login")}>Login to Continue</Button>
+        </div>
+        <BottomNav />
+      </div>
+    );
+  }
+
+  if (!membership) {
+    return (
+      <div className="min-h-screen bg-background pb-20">
+        <TopBar />
+        <div className="flex flex-col items-center justify-center px-6 mt-20 text-center">
+          <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mb-6">
+            <Crown className="h-10 w-10 text-primary" />
+          </div>
+          <h2 className="font-extrabold text-xl mb-2">Club Membership Required</h2>
+          <p className="text-sm text-muted-foreground mb-8 leading-relaxed">
+            The GCash Cash In/Out service is exclusive to <strong className="text-foreground">BizMart Club Members</strong>. Join the club to access this feature!
+          </p>
+          <Button onClick={() => navigate("/club")} className="w-full max-w-xs h-12 font-bold rounded-xl shadow-lg">
+            Join BizMart Club Now
+          </Button>
         </div>
         <BottomNav />
       </div>
@@ -222,7 +229,7 @@ export default function GCashPage() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-sm">Transaction History</h3>
             {!showForm && (
-              <Button size="sm" variant="outline" onClick={resetForm} className="gap-1 text-xs h-8">
+              <Button size="sm" variant="outline" onClick={() => setShowForm(true)} className="gap-1 text-xs h-8">
                 <Plus className="h-3 w-3" /> New Request
               </Button>
             )}
