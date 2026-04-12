@@ -119,7 +119,7 @@ export type Database = {
           sold: number;
           stock: number | null;
           description: string;
-          is_flash_sale: boolean;
+          isFlashSale: boolean;
           is_active: boolean;
           seller_id: string | null;
         };
