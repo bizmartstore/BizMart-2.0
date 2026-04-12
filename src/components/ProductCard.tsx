@@ -85,13 +85,13 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all ${
+      className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer ${
         isOutOfStock ? "opacity-75" : ""
       }`}
+      onClick={() => navigate(`/product/${product.id}`)}
     >
       <div
-        className="relative aspect-square cursor-pointer"
-        onClick={() => navigate(`/product/${product.id}`)}
+        className="relative aspect-square"
       >
         <img
           src={product.image}
