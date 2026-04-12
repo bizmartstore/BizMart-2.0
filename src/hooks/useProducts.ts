@@ -10,12 +10,10 @@ export function useProducts() {
   return useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      console.log("[useProducts] Fetching products from Supabase...");
       try {
         const { data, error } = await (supabase as any)
           .from("products")
           .select("*")
-          // Include products where is_active is true OR null/missing
           .or("is_active.eq.true,is_active.is.null")
           .order("created_at", { ascending: false });
 
@@ -24,16 +22,12 @@ export function useProducts() {
           return fallbackProducts;
         }
 
-        console.log(`[useProducts] Found ${data?.length || 0} products in DB`);
-
         if (data && data.length > 0) {
           return data.map((p: any) => ({
             id: p.id,
             name: p.name,
             price: Number(p.price),
-            originalPrice: p.original_price
-              ? Number(p.original_price)
-              : undefined,
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
             image: p.image || "",
             images: p.images || [],
             category: p.category || "",
@@ -41,15 +35,15 @@ export function useProducts() {
             sold: p.sold || 0,
             stock: p.stock ?? 0,
             description: p.description || "",
-
-            // ✅ IMPORTANT FIX (ONLY NORMALIZED FIELD USED IN FRONTEND)
-            isFlashSale: p.is_flash_sale || false,
-
+            isFlashSale: !!p.is_flash_sale,
+            // Pass these through for the components to use
+            sale_price: p.sale_price,
+            discount_percent: p.discount_percent,
+            original_price: p.original_price,
             seller_id: p.seller_id || null,
           })) as Product[];
         }
 
-        console.log("[useProducts] DB empty, falling back to defaults");
         return fallbackProducts;
       } catch (err: any) {
         console.error("[useProducts] Unexpected error:", err);
@@ -69,9 +63,6 @@ export function useFlashSaleProducts() {
   return useQuery({
     queryKey: ["flash-sale-products"],
     queryFn: async () => {
-      console.log(
-        "[useFlashSaleProducts] Fetching flash sale products from view..."
-      );
       try {
         const { data, error } = await (supabase as any)
           .from("flash_sale_products")
@@ -87,9 +78,7 @@ export function useFlashSaleProducts() {
             id: p.id,
             name: p.name,
             price: Number(p.price),
-            originalPrice: p.original_price
-              ? Number(p.original_price)
-              : undefined,
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
             image: p.image || "",
             images: p.images || [],
             category: p.category || "",
@@ -97,10 +86,10 @@ export function useFlashSaleProducts() {
             sold: p.sold || 0,
             stock: p.stock ?? 0,
             description: p.description || "",
-
-            // always true for flash sale table
             isFlashSale: true,
-
+            sale_price: p.sale_price,
+            discount_percent: p.discount_percent,
+            original_price: p.original_price,
             seller_id: p.seller_id || null,
           })) as Product[];
         }
@@ -127,10 +116,7 @@ export function useCategories() {
         .order("sort_order");
 
       if (error) {
-        console.warn(
-          "Failed to fetch categories from DB, using fallback:",
-          error
-        );
+        console.warn("Failed to fetch categories from DB, using fallback:", error);
         return fallbackCategories;
       }
 
