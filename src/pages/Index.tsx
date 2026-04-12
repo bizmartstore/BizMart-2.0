@@ -156,9 +156,9 @@ export default function Index() {
               onClick={() => navigate(`/categories?selected=${cat.id}`)}
               className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-[0.95] transition-all group"
             >
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/10 to-accent flex items-center justify-center shadow-sm border border-border group-hover:shadow-md group-hover:border-primary/30 transition-all">
-                <span className="text-2xl">{cat.icon}</span>
-              </div>
+              <div className="bg-gradient-to-br from-sky-500 to-blue-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
+                              <span className="text-2xl text-white">{cat.icon}</span>
+                            </div>
               <span className="text-[10px] text-foreground font-bold whitespace-nowrap leading-tight">{cat.name}</span>
             </button>
           ))}
