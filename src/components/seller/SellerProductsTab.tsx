@@ -16,7 +16,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     name: "", price: 0, original_price: "", image: "", category: "",
-    stock: 0, description: "", is_flash_sale: false,
+    stock: 0, description: "", isFlashSale: false,
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
