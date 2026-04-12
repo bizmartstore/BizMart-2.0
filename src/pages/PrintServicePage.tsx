@@ -13,6 +13,8 @@ import { Upload, FileText, Printer, MapPin, CheckCircle2, X, Loader2, Palette, F
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorker from "pdfjs-dist/build/pdf.worker.mjs?url";
 import { triggerLocalPushNotification } from "@/lib/pushNotifications";
+import TopBar from "@/components/TopBar";
+import BottomNav from "@/components/BottomNav";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorker;
 
