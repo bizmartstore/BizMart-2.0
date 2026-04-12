@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Star, ShoppingCart, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
@@ -39,7 +39,10 @@ export default function ProductCard({ product }: ProductCardProps) {
   const stock = Number(product.stock) || 0;
   const isOutOfStock = product.stock !== undefined && stock <= 0;
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (!storeOpen) {
       toast.error("Store is currently closed");
       return;
@@ -61,7 +64,10 @@ export default function ProductCard({ product }: ProductCardProps) {
     toast.success(`Added ${product.name} to cart!`);
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
     if (!storeOpen) {
       toast.error("Store is currently closed");
       return;
@@ -85,18 +91,16 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer ${
+      className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group ${
         isOutOfStock ? "opacity-75" : ""
       }`}
       onClick={() => navigate(`/product/${product.id}`)}
     >
-      <div
-        className="relative aspect-square"
-      >
+      <div className="relative aspect-square overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
-          className={`w-full h-full object-cover ${
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
             isOutOfStock ? "grayscale" : ""
           }`}
         />
@@ -138,7 +142,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       </div>
 
       <div className="p-3">
-        <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
+        <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">
           {product.name}
         </h3>
 
@@ -171,15 +175,15 @@ export default function ProductCard({ product }: ProductCardProps) {
           <button
             onClick={handleAddToCart}
             disabled={!storeOpen || isOutOfStock}
-            className="flex-1 bg-secondary text-secondary-foreground text-xs font-bold py-2 rounded-lg hover:bg-secondary/80 disabled:opacity-50 transition-all"
+            className="flex-1 bg-secondary text-secondary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-secondary/80 disabled:opacity-50 transition-all flex items-center justify-center gap-1"
           >
-            <ShoppingCart className="h-3 w-3 inline mr-1" /> Add
+            <ShoppingCart className="h-3 w-3" /> Add
           </button>
 
           <button
             onClick={handleBuyNow}
             disabled={!storeOpen || isOutOfStock}
-            className="flex-1 bg-primary text-primary-foreground text-xs font-bold py-2 rounded-lg hover:bg-primary/80 disabled:opacity-50 transition-all"
+            className="flex-1 bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 disabled:opacity-50 transition-all flex items-center justify-center"
           >
             Buy Now
           </button>
