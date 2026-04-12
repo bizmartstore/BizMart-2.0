@@ -311,7 +311,7 @@ export default function ProductsTab() {
 
           <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
           <div className="flex items-center gap-2">
-            <Switch checked={form.is_flash_sale} onCheckedChange={(v) => setForm(f => ({ ...f, is_flash_sale: v }))} />
+            <Switch checked={form.isFlashSale} onCheckedChange={(v) => setForm(f => ({ ...f, isFlashSale: v }))} />
             <Label className="text-[10px]">Flash Sale Product</Label>
           </div>
           <Button onClick={save} disabled={saving} size="sm" className="w-full gap-1">
