@@ -29,7 +29,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
 
   const resetForm = () => setForm({
     name: "", price: 0, original_price: "", image: "", category: "",
-    stock: 0, description: "", is_flash_sale: false,
+    stock: 0, description: "", isFlashSale: false,
   });
 
   const uploadImage = async (file: File) => {
