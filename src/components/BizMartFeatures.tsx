@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShoppingBag, Store, Crown, Smartphone, Printer } from "lucide-react";
+import { ShoppingBag, Store, Crown, Coins, Smartphone, Printer } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 
 const features = [
@@ -29,6 +29,15 @@ const features = [
     bg: "bg-gradient-to-br from-yellow-500 to-orange-500",
     emoji: "👑",
     path: "/club",
+  },
+  {
+    id: "bcoins",
+    label: "BCoins",
+    desc: "Earn & Redeem",
+    icon: Coins,
+    bg: "bg-gradient-to-br from-emerald-500 to-teal-500",
+    emoji: "🪙",
+    path: "/bcoins",
   },
   {
     id: "gcash",
