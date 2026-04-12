@@ -117,6 +117,14 @@ export default function HottestSaleSection() {
     return null;
   }
 
+  // Calculate max discount for display
+  const maxDiscount = discountedProducts.length > 0
+    ? Math.round(
+        ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) - Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
+        (Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) * 100
+      )
+    : 0;
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -154,7 +162,7 @@ export default function HottestSaleSection() {
               Hottest Sale!
             </h3>
             <p className="text-red-600/80 text-[11px] font-medium">
-              Limited time discounts - up to {discountedProducts.length > 0 ? Math.round(((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) - Number(discountedProducts[0].sale_price || discountedProducts[0].price)) / (Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) * 100) : 0}% OFF!
+              Limited time discounts - up to {maxDiscount}% OFF!
             </p>
           </div>
         </motion.div>
