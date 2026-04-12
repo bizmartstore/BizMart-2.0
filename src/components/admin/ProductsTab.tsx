@@ -28,7 +28,7 @@ export default function ProductsTab() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     name: "", price: 0, original_price: "", image: "", images: [] as string[], category: "",
-    stock: 0, description: "", is_flash_sale: false,
+    stock: 0, description: "", isFlashSale: false,
   });
   const fileRef = useRef<HTMLInputElement>(null);
   const additionalFileRef = useRef<HTMLInputElement>(null);
@@ -55,7 +55,7 @@ export default function ProductsTab() {
 
   const resetForm = () => setForm({
     name: "", price: 0, original_price: "", image: "", images: [], category: "",
-    stock: 0, description: "", is_flash_sale: false,
+    stock: 0, description: "", isFlashSale: false,
   });
 
   const uploadImage = async (file: File, isAdditional = false) => {
@@ -114,7 +114,7 @@ export default function ProductsTab() {
         category: form.category.trim(),
         stock: Number(form.stock),
         description: form.description.trim(),
-        is_flash_sale: !!form.is_flash_sale,
+        isFlashSale: !!form.isFlashSale,
         is_active: true,
         rating: 4.5,
         sold: 0,
@@ -214,7 +214,7 @@ export default function ProductsTab() {
               id: p.id, name: p.name, price: p.price,
               original_price: p.originalPrice || null, image: p.image,
               images: p.images || null, category: p.category, stock: p.stock || 100,
-              description: p.description, is_flash_sale: p.isFlashSale || false,
+              description: p.description, isFlashSale: p.isFlashSale || false,
               is_active: true, seller_id: null, rating: p.rating, sold: p.sold,
             });
             if (error) errors++; else addedProds++;
@@ -311,7 +311,7 @@ export default function ProductsTab() {
 
           <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
           <div className="flex items-center gap-2">
-            <Switch checked={form.is_flash_sale} onCheckedChange={(v) => setForm(f => ({ ...f, is_flash_sale: v }))} />
+            <Switch checked={form.isFlashSale} onCheckedChange={(v) => setForm(f => ({ ...f, isFlashSale: v }))} />
             <Label className="text-[10px]">Flash Sale Product</Label>
           </div>
           <Button onClick={save} disabled={saving} size="sm" className="w-full gap-1">
