@@ -446,6 +446,6 @@ export default function MarketplacePage() {
       )}
     </div>
 
-    <BottomNav />
+    
   );
 }
