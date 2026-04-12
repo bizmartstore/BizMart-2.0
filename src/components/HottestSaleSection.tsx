@@ -49,7 +49,7 @@ export default function HottestSaleSection() {
   container.scrollLeft = maxScroll;
 
   const animate = (time: number) => {
-    if (!isPaused && container) {
+    if (!isPaused && container && document.visibilityState === "visible") {
       const delta = lastTime ? time - lastTime : 16;
       lastTime = time;
 
