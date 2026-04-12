@@ -36,47 +36,45 @@ export default function HottestSaleSection() {
       });
   }, [products]);
 
+  // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
-  const container = scrollRef.current;
-  if (!container || discountedProducts.length < 2) return;
+    const container = scrollRef.current;
+    if (!container || discountedProducts.length <= 4) return;
 
-  let lastTime = 0;
-  const speed = 0.03; // 🔥 lower = smoother/slower
+    // Set initial scroll position to the end (right side)
+    container.scrollLeft = container.scrollWidth;
 
-  const getMaxScroll = () =>
-    container.scrollWidth - container.clientWidth;
+    let lastTime = 0;
+    const speed = 0.5; // SLOW speed like BizMart Features
 
-  // start at RIGHT side once
-  if (scrollPosRef.current === 0) {
-    scrollPosRef.current = getMaxScroll();
-    container.scrollLeft = scrollPosRef.current;
-  }
+    const animate = (time: number) => {
+      if (!isPaused) {
+        const delta = lastTime ? time - lastTime : 16;
+        lastTime = time;
 
-  const animate = (time: number) => {
-    if (!isPaused && document.visibilityState === "visible") {
-      const delta = lastTime ? time - lastTime : 16;
-      lastTime = time;
+        // Move left continuously
+        scrollPosRef.current -= speed * (delta / 16);
 
-      // ✅ MOVE RIGHT → LEFT (THIS IS THE KEY)
-      scrollPosRef.current -= speed * delta;
+        // Reset position when we've scrolled past the start
+        if (scrollPosRef.current <= -container.clientWidth) {
+          scrollPosRef.current = container.scrollWidth;
+        }
 
-      // ✅ LOOP RESET (infinite seamless)
-      if (scrollPosRef.current <= 0) {
-        scrollPosRef.current = getMaxScroll();
+        container.scrollLeft = scrollPosRef.current;
+      } else {
+        lastTime = 0;
       }
-
-      container.scrollLeft = scrollPosRef.current;
-    } else {
-      lastTime = 0;
-    }
+      animationRef.current = requestAnimationFrame(animate);
+    };
 
     animationRef.current = requestAnimationFrame(animate);
-  };
 
-  animationRef.current = requestAnimationFrame(animate);
-
-  return () => cancelAnimationFrame(animationRef.current);
-}, [discountedProducts.length, isPaused]);
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [discountedProducts.length, isPaused]);
 
   // Handle interaction start/end for pause
   const handleInteractionStart = () => setIsPaused(true);
@@ -119,13 +117,13 @@ export default function HottestSaleSection() {
     return null;
   }
 
+  // Calculate max discount for display
   const maxDiscount = discountedProducts.length > 0
-  ? Math.round(
-      ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) -
-        Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
-        Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) * 100
-    )
-  : 0;
+    ? Math.round(
+        ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) - Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
+        (Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) * 100
+      )
+    : 0;
 
   return (
     <motion.div
@@ -188,7 +186,7 @@ export default function HottestSaleSection() {
         onMouseLeave={handleInteractionEnd}
       >
         {discountedProducts.slice(0, 4).map((product) => {
-          // Calculate discount
+          // Calculate prices correctly
           const basePrice = product.originalPrice ? Number(product.originalPrice) : Number(product.price);
           const salePrice = product.sale_price ? Number(product.sale_price) : basePrice;
           const discountPercent = Math.round(((basePrice - salePrice) / basePrice) * 100);
@@ -199,10 +197,7 @@ export default function HottestSaleSection() {
               whileHover={{ scale: 1.05, y: -5 }}
               whileTap={{ scale: 0.95 }}
               className="flex-shrink-0 w-40"
-              onClick={(e) => {
-  e.stopPropagation();
-  navigate(`/product/${product.id}`);
-}}
+              onClick={() => navigate(`/product/${product.id}`)}
             >
               <div className="relative">
                 {/* Discount Badge - BIG and RED */}
@@ -235,7 +230,9 @@ export default function HottestSaleSection() {
 
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-1">
-                        <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
+                        {/* Show the sale price (discounted price) */}
+                        <span className="text-lg font-extrabold text-primary">₱{salePrice}</span>
+                        {/* Show original price crossed out if it's different from sale price */}
                         {basePrice > salePrice && (
                           <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
                             ₱{basePrice}
