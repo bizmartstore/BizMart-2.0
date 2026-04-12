@@ -114,7 +114,7 @@ export default function ProductsTab() {
         category: form.category.trim(),
         stock: Number(form.stock),
         description: form.description.trim(),
-        is_flash_sale: !!form.is_flash_sale,
+        isFlashSale: !!form.isFlashSale,
         is_active: true,
         rating: 4.5,
         sold: 0,
