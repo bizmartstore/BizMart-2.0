@@ -18,19 +18,18 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { storeOpen } = useAppSettings();
 
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
+  // We use the normalized camelCase property from our hook
   const isFlashSale = product.isFlashSale === true;
 
   const discount = isFlashSale
-    ? Number(product.discount_percent || 0)
+    ? Number((product as any).discount_percent || 0)
     : 0;
 
-  // Normal Price is always the 'price' column
-  const normalPrice = Number(product.price);
-  
-  // Final Price is sale_price if in flash sale, otherwise normal price
+  // If not a flash sale, we ignore any original_price/originalPrice to ensure no "fake" discounts show
+  const basePrice = isFlashSale ? Number((product as any).original_price || product.originalPrice || product.price) : product.price;
   const finalPrice = isFlashSale
-    ? Number(product.sale_price || product.price)
-    : normalPrice;
+    ? Number((product as any).sale_price || product.price)
+    : product.price;
 
   const bcoins = Number((finalPrice * 0.10).toFixed(2));
   const stock = Number(product.stock) || 0;
@@ -50,7 +49,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       id: product.id,
       name: product.name,
       price: finalPrice,
-      originalPrice: isFlashSale ? normalPrice : undefined,
+      originalPrice: isFlashSale ? basePrice : undefined,
       image: product.image,
       category: product.category,
     });
@@ -72,7 +71,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       id: product.id,
       name: product.name,
       price: finalPrice,
-      originalPrice: isFlashSale ? normalPrice : undefined,
+      originalPrice: isFlashSale ? basePrice : undefined,
       image: product.image,
       category: product.category,
     });
@@ -106,19 +105,16 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         ) : (
           <>
-            {/* ✅ AWESOME DISCOUNT BADGE (TOP LEFT) */}
+            {/* ✅ SHOW DISCOUNT ONLY IF FLASH SALE */}
             {isFlashSale && discount > 0 && (
-              <div className="absolute top-0 left-0 z-10">
-                <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
-                  <span>{discount}%</span>
-                  <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
-                </div>
-              </div>
+              <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
+                -{discount}%
+              </span>
             )}
 
-            {/* ✅ FLASH SALE TAG (TOP RIGHT) */}
+            {/* ✅ FLASH SALE TAG */}
             {isFlashSale && (
-              <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10">
+              <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
                 FLASH SALE
               </span>
             )}
@@ -157,9 +153,9 @@ export default function ProductCard({ product }: ProductCardProps) {
             ₱{finalPrice}
           </span>
 
-          {isFlashSale && !isOutOfStock && normalPrice > finalPrice && (
-            <span className="text-sm text-muted-foreground line-through opacity-50">
-              ₱{normalPrice}
+          {isFlashSale && !isOutOfStock && basePrice > finalPrice && (
+            <span className="text-sm text-muted-foreground line-through">
+              ₱{basePrice}
             </span>
           )}
         </div>
