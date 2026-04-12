@@ -18,13 +18,15 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { storeOpen } = useAppSettings();
 
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
-  const isFlashSale = (product as any).is_flash_sale === true;
+  // We use the normalized camelCase property from our hook
+  const isFlashSale = product.isFlashSale === true;
 
   const discount = isFlashSale
     ? Number((product as any).discount_percent || 0)
     : 0;
 
-  const basePrice = Number((product as any).original_price || product.price);
+  // If not a flash sale, we ignore any original_price/originalPrice to ensure no "fake" discounts show
+  const basePrice = isFlashSale ? Number((product as any).original_price || product.originalPrice || product.price) : product.price;
   const finalPrice = isFlashSale
     ? Number((product as any).sale_price || product.price)
     : product.price;
@@ -46,7 +48,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     addItem({
       id: product.id,
       name: product.name,
-      price: finalPrice, // ✅ USE FINAL PRICE
+      price: finalPrice,
       originalPrice: isFlashSale ? basePrice : undefined,
       image: product.image,
       category: product.category,
@@ -68,7 +70,7 @@ export default function ProductCard({ product }: ProductCardProps) {
     addItem({
       id: product.id,
       name: product.name,
-      price: finalPrice, // ✅ USE FINAL PRICE
+      price: finalPrice,
       originalPrice: isFlashSale ? basePrice : undefined,
       image: product.image,
       category: product.category,
@@ -151,7 +153,7 @@ export default function ProductCard({ product }: ProductCardProps) {
             ₱{finalPrice}
           </span>
 
-          {isFlashSale && !isOutOfStock && (
+          {isFlashSale && !isOutOfStock && basePrice > finalPrice && (
             <span className="text-sm text-muted-foreground line-through">
               ₱{basePrice}
             </span>
