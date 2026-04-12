@@ -50,7 +50,7 @@ export function useProducts() {
         return fallbackProducts;
       }
     },
-    staleTime: 30000,
+    staleTime: 10000,  // Reduce stale time to get updates faster
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -66,7 +66,9 @@ export function useFlashSaleProducts() {
       try {
         const { data, error } = await (supabase as any)
           .from("flash_sale_products")
-          .select("*");
+          .select("*")
+          .eq("is_active", true)
+          .gt("stock", 0);
 
         if (error) {
           console.error("[useFlashSaleProducts] Supabase error:", error.message);
@@ -74,7 +76,14 @@ export function useFlashSaleProducts() {
         }
 
         if (data) {
-          return data.map((p: any) => ({
+          // Filter to only include products with actual discounts
+          const discountedProducts = data.filter((p: any) => {
+            const basePrice = p.original_price ? Number(p.original_price) : Number(p.price);
+            const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
+            return salePrice < basePrice;
+          });
+
+          return discountedProducts.map((p: any) => ({
             id: p.id,
             name: p.name,
             price: Number(p.price),
@@ -100,8 +109,8 @@ export function useFlashSaleProducts() {
         return [];
       }
     },
-    staleTime: 60000,
-    refetchInterval: 5 * 60 * 1000,
+    staleTime: 30000,
+    refetchInterval: 30000,
   });
 }
 

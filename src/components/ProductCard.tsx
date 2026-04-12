@@ -22,11 +22,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   // Use prices directly from the database record
   // If flash sale, sale_price is the discounted one. original_price is the old one.
-  const basePrice = isFlashSale && product.original_price 
-    ? Number(product.original_price) 
+  const basePrice = isFlashSale && product.original_price
+    ? Number(product.original_price)
     : Number(product.price);
     
-  const finalPrice = isFlashSale && product.sale_price
+  const finalPrice = isFlashSale && product.sale_price && Number(product.sale_price) < basePrice
     ? Number(product.sale_price)
     : Number(product.price);
 
