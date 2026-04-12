@@ -27,8 +27,9 @@ export default function ProductDetail() {
   const basePrice = isFlashSale ? Number(product.original_price || product.price) : product.price;
   const finalPrice = isFlashSale ? Number(product.sale_price || product.price) : product.price;
 
+  // ✅ Dynamic calculation
   const discount = isFlashSale && basePrice > finalPrice
-    ? Number(product.discount_percent || Math.round((1 - finalPrice / basePrice) * 100))
+    ? Math.round(((basePrice - finalPrice) / basePrice) * 100)
     : 0;
 
   const stock = Number(product.stock) || 0;

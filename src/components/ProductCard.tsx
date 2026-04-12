@@ -20,19 +20,18 @@ export default function ProductCard({ product }: ProductCardProps) {
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
   const isFlashSale = product.isFlashSale === true;
 
-  // Use original_price from DB if it exists, otherwise fallback to normal price
+  // Use prices from DB
   const basePrice = isFlashSale 
     ? Number(product.original_price || product.price) 
     : product.price;
     
-  // Use sale_price from DB if it exists, otherwise fallback to normal price
   const finalPrice = isFlashSale
     ? Number(product.sale_price || product.price)
     : product.price;
 
-  // Calculate discount percentage (fallback if discount_percent is missing)
+  // ✅ Dynamic calculation based on actual price difference
   const discount = isFlashSale && basePrice > finalPrice
-    ? Number(product.discount_percent || Math.round((1 - finalPrice / basePrice) * 100))
+    ? Math.round(((basePrice - finalPrice) / basePrice) * 100)
     : 0;
 
   const bcoins = Number((finalPrice * 0.10).toFixed(2));
