@@ -67,7 +67,7 @@ CREATE TABLE public.products (
   rating numeric DEFAULT 4.5,
   sold integer DEFAULT 0,
   description text DEFAULT '',
-  is_flash_sale boolean DEFAULT false,
+  isFlashSale boolean DEFAULT false,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
