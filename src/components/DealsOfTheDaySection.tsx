@@ -1,46 +1,49 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProducts } from "@/hooks/useProducts";
+import { useFlashSaleProducts } from "@/hooks/useProducts";
 import ProductCard from "@/components/ProductCard";
 import { Tag, ArrowRight, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function DealsOfTheDaySection() {
   const navigate = useNavigate();
-  const { data: products = [], isLoading } = useProducts();
+  const { data: flashSaleProducts = [], isLoading } = useFlashSaleProducts();
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Get products with highest discount
-  const dealProducts = [...products]
-    .filter(p => p.isFlashSale === true)
-    .sort((a, b) => {
-      const aDiscount = a.isFlashSale && a.originalPrice && a.price ? Math.round(((a.originalPrice - a.price) / a.originalPrice) * 100) : 0;
-      const bDiscount = b.isFlashSale && b.originalPrice && b.price ? Math.round(((b.originalPrice - b.price) / b.originalPrice) * 100) : 0;
-      return bDiscount - aDiscount;
-    })
-    .slice(0, 8);
-
+  // Auto-scroll through products
   useEffect(() => {
-    if (dealProducts.length <= 4) return;
+    if (flashSaleProducts.length <= 4) return;
 
     const interval = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % (dealProducts.length - 3));
-    }, 6000);
+      setCurrentIndex(prev => (prev + 1) % (flashSaleProducts.length - 3));
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [dealProducts.length]);
+  }, [flashSaleProducts.length]);
 
-  const visibleProducts = dealProducts.slice(currentIndex, currentIndex + 4);
+  const visibleProducts = useMemo(() => {
+    if (flashSaleProducts.length <= 4) return flashSaleProducts;
+    return [
+      ...flashSaleProducts.slice(currentIndex, currentIndex + 4),
+      ...flashSaleProducts.slice(0, Math.max(0, 4 - (flashSaleProducts.length - currentIndex)))
+    ];
+  }, [flashSaleProducts, currentIndex]);
 
   if (isLoading) {
     return (
-      <div className="px-3 mt-6">
-        <div className="flex items-center gap-2 mb-3">
+      <div className="px-3 mt-5">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="flex items-center gap-2 mb-3"
+        >
           <Tag className="h-5 w-5 text-orange-500" />
           <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">Deals of the Day</span>
-        </div>
+        </motion.div>
         <div className="grid grid-cols-2 gap-2">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="bg-card rounded-xl p-4 border border-border animate-pulse">
@@ -54,20 +57,35 @@ export default function DealsOfTheDaySection() {
     );
   }
 
-  if (dealProducts.length === 0) {
+  if (flashSaleProducts.length === 0) {
     return null;
   }
 
   return (
-    <div className="px-3 mt-6">
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="px-3 mt-5"
+    >
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
         className="flex items-center gap-2 mb-3"
+        onHoverStart={() => setIsHovered(true)}
+        onHoverEnd={() => setIsHovered(false)}
       >
-        <Tag className="h-5 w-5 text-orange-500" />
-        <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">Deals of the Day</span>
+        <motion.div
+          animate={{ rotate: [0, 5, 0] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+        >
+          <Tag className="h-5 w-5 text-orange-500" />
+        </motion.div>
+        <div>
+          <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">Deals of the Day</span>
+          <p className="text-[10px] text-muted-foreground">Best discounts available right now!</p>
+        </div>
       </motion.div>
 
       <motion.div
@@ -102,6 +120,6 @@ export default function DealsOfTheDaySection() {
           View All Deals
         </button>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }

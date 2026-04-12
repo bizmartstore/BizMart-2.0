@@ -15,6 +15,10 @@ import { Zap, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import DealsOfTheDaySection from "@/components/DealsOfTheDaySection";
+import FlashSaleSection from "@/components/FlashSaleSection";
+import FeaturedProductsSection from "@/components/FeaturedProductsSection";
+import TrendingNowSection from "@/components/TrendingNowSection";
 
 function FlashTimer({ endsAt, onExpired }: { endsAt?: string | null; onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0);
@@ -32,10 +36,10 @@ function FlashTimer({ endsAt, onExpired }: { endsAt?: string | null; onExpired: 
         const windowSize = 7200; // 2 hours
         targetTime = (Math.floor(epoch / windowSize) + 1) * windowSize * 1000;
       }
-      
+
       const diff = Math.max(0, Math.floor((targetTime - now) / 1000));
       setRemaining(diff);
-      
+
       if (diff <= 0) {
         onExpired();
       }
@@ -73,8 +77,8 @@ export default function Index() {
   const [forceShow, setForceShow] = useState(false);
 
   // Extract flash sale end time from settings
-  const flashSaleState = useMemo(() => 
-    allSettings?.find((s: any) => s.key === 'flash_sale_state')?.value, 
+  const flashSaleState = useMemo(() =>
+    allSettings?.find((s: any) => s.key === 'flash_sale_state')?.value,
   [allSettings]);
 
   useEffect(() => {
@@ -91,6 +95,7 @@ export default function Index() {
     console.log("[Index] Refreshing all data...");
     queryClient.invalidateQueries({ queryKey: ["products"] });
     queryClient.invalidateQueries({ queryKey: ["flash-sale-products"] });
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
     refetchSettings();
   }, [queryClient, refetchSettings]);
 
@@ -101,11 +106,11 @@ export default function Index() {
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         refreshAllData();
       })
-      .on("postgres_changes", { 
-        event: "UPDATE", 
-        schema: "public", 
+      .on("postgres_changes", {
+        event: "UPDATE",
+        schema: "public",
         table: "app_settings",
-        filter: "key=eq.flash_sale_state" 
+        filter: "key=eq.flash_sale_state"
       }, () => {
         console.log("[Index] Flash sale rotation detected via settings update");
         refreshAllData();
@@ -153,7 +158,7 @@ export default function Index() {
       <div className="mt-5 px-3">
         <div className="flex items-center gap-2 mb-3">
           <span className="text-lg">📂</span>
-          <span className="font-extrabold text-sm text-secondary uppercase tracking-wide">Categories</span>
+          <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Categories</span>
         </div>
         <div className="flex gap-2.5 overflow-x-auto scrollbar-hide pb-2">
           {categories.map((cat) => (
@@ -171,6 +176,10 @@ export default function Index() {
         </div>
       </div>
 
+      {/* DEALS OF THE DAY SECTION - NEW! */}
+      <DealsOfTheDaySection />
+
+      {/* PRIMARY FLASH SALE SECTION */}
       {flashSaleProducts.length > 0 && (
         <div className="mt-5 px-3">
           <div className="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 rounded-2xl p-3.5 mb-3 shadow-lg relative overflow-hidden">
@@ -197,24 +206,9 @@ export default function Index() {
         </div>
       )}
 
-      <div className="mt-6 px-3">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🔥</span>
-            <span className="font-extrabold text-sm uppercase tracking-wide text-secondary">Popular</span>
-          </div>
-          <button onClick={() => navigate("/marketplace")} className="flex items-center gap-1 text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform">
-            See All <ArrowRight className="h-3 w-3" />
-          </button>
-        </div>
-        <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-          {products.filter(p => !p.isFlashSale).slice(0, 6).map((product) => (
-            <div key={product.id} className="flex-shrink-0 w-36">
-              <ProductCard product={product} />
-            </div>
-          ))}
-        </div>
-      </div>
+      <FeaturedProductsSection />
+
+      <TrendingNowSection />
 
       <div className="mt-6 px-3">
         <div className="flex items-center gap-2 mb-3">
