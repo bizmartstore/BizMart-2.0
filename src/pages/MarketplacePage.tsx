@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { Store, MessageCircle, Search, X, ArrowUpDown } from "lucide-react";
 import { Input } from "@/components/ui/input";
-
+  
 type SortOption =
   | "default"
   | "price-low"
