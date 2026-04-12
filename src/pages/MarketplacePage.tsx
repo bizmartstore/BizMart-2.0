@@ -444,9 +444,8 @@ export default function MarketplacePage() {
           </div>
         </div>
       )}
-      </div>
-
-      <BottomNav />
     </div>
-  );
-}
+
+    <BottomNav />
+  </div>
+);
