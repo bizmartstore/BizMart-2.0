@@ -11,6 +11,10 @@ export interface Product {
   stock?: number;
   description: string;
   isFlashSale?: boolean;
+  // Database fields for flash sale
+  sale_price?: number;
+  discount_percent?: number;
+  original_price?: number;
 }
 
 export const categories = [
@@ -35,7 +39,7 @@ export const products: Product[] = [
   { 
     id: "1", 
     name: "Premium Spiral Notebook A4", 
-    price: 89, // Set to Normal Price
+    price: 89, 
     image: "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=300", 
     images: [
       "https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=600",
@@ -54,7 +58,7 @@ export const products: Product[] = [
   { 
     id: "2", 
     name: "Gel Pen Set (12 Colors)", 
-    price: 65, // Set to Normal Price
+    price: 65, 
     image: "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=300", 
     images: [
       "https://images.unsplash.com/photo-1513542789411-b6a5d4f31634?w=600",

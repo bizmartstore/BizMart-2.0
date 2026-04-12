@@ -24,11 +24,16 @@ export default function ProductDetail() {
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
   const isFlashSale = product.isFlashSale === true;
   
-  const basePrice = isFlashSale ? Number((product as any).original_price || product.originalPrice || product.price) : product.price;
-  const finalPrice = isFlashSale ? Number((product as any).sale_price || product.price) : product.price;
+  // Normal Price is always the 'price' column
+  const normalPrice = Number(product.price);
+  
+  // Final Price is sale_price if in flash sale, otherwise normal price
+  const finalPrice = isFlashSale 
+    ? Number(product.sale_price || product.price) 
+    : normalPrice;
 
-  const discount = isFlashSale && basePrice > finalPrice
-    ? Math.round((1 - finalPrice / basePrice) * 100)
+  const discount = isFlashSale && normalPrice > finalPrice
+    ? Number(product.discount_percent || Math.round((1 - finalPrice / normalPrice) * 100))
     : 0;
 
   const stock = Number(product.stock) || 0;
@@ -63,7 +68,7 @@ export default function ProductDetail() {
         id: product.id,
         name: product.name,
         price: finalPrice,
-        originalPrice: isFlashSale ? basePrice : undefined,
+        originalPrice: isFlashSale ? normalPrice : undefined,
         image: product.image,
         category: product.category,
       });
@@ -139,16 +144,19 @@ export default function ProductDetail() {
           </div>
         )}
         
-        {/* ✅ SHOW DISCOUNT ONLY IF FLASH SALE */}
+        {/* ✅ AWESOME DISCOUNT BADGE (TOP LEFT) */}
         {isFlashSale && discount > 0 && !isOutOfStock && (
-          <span className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md">
-            -{discount}%
-          </span>
+          <div className="absolute top-0 left-0 z-10">
+            <div className="bg-red-600 text-white text-xs font-black px-4 py-2 rounded-br-2xl shadow-2xl flex flex-col items-center leading-none animate-in slide-in-from-top-4 slide-in-from-left-4 duration-500">
+              <span className="text-lg">{discount}%</span>
+              <span className="text-[8px] mt-1 uppercase tracking-widest">OFF NOW</span>
+            </div>
+          </div>
         )}
         
         {/* ✅ FLASH SALE TAG */}
         {isFlashSale && !isOutOfStock && (
-          <span className="absolute top-3 right-16 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-0.5">
+          <span className="absolute top-3 right-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-md flex items-center gap-1 border border-black/10">
             ⚡ FLASH SALE
           </span>
         )}
@@ -157,8 +165,8 @@ export default function ProductDetail() {
       <div className="px-4 py-3 bg-card">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl font-extrabold text-primary">₱{finalPrice}</span>
-          {isFlashSale && basePrice > finalPrice && !isOutOfStock && (
-            <span className="text-sm text-muted-foreground line-through">₱{basePrice}</span>
+          {isFlashSale && normalPrice > finalPrice && !isOutOfStock && (
+            <span className="text-sm text-muted-foreground line-through opacity-50">₱{normalPrice}</span>
           )}
         </div>
         <h1 className="text-base font-bold leading-snug">{product.name}</h1>

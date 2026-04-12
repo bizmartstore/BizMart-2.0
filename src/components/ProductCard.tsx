@@ -21,7 +21,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const isFlashSale = product.isFlashSale === true;
 
   const discount = isFlashSale
-    ? Number((product as any).discount_percent || 0)
+    ? Number(product.discount_percent || 0)
     : 0;
 
   // Normal Price is always the 'price' column
@@ -29,7 +29,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   
   // Final Price is sale_price if in flash sale, otherwise normal price
   const finalPrice = isFlashSale
-    ? Number((product as any).sale_price || product.price)
+    ? Number(product.sale_price || product.price)
     : normalPrice;
 
   const bcoins = Number((finalPrice * 0.10).toFixed(2));
@@ -106,16 +106,19 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         ) : (
           <>
-            {/* ✅ SHOW DISCOUNT ONLY IF FLASH SALE */}
+            {/* ✅ AWESOME DISCOUNT BADGE (TOP LEFT) */}
             {isFlashSale && discount > 0 && (
-              <span className="absolute top-2 left-2 bg-red-500 text-white text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
-                -{discount}%
-              </span>
+              <div className="absolute top-0 left-0 z-10">
+                <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
+                  <span>{discount}%</span>
+                  <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
+                </div>
+              </div>
             )}
 
-            {/* ✅ FLASH SALE TAG */}
+            {/* ✅ FLASH SALE TAG (TOP RIGHT) */}
             {isFlashSale && (
-              <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[10px] font-bold px-2 py-1 rounded-full shadow-sm">
+              <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10">
                 FLASH SALE
               </span>
             )}
@@ -155,7 +158,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </span>
 
           {isFlashSale && !isOutOfStock && normalPrice > finalPrice && (
-            <span className="text-sm text-muted-foreground line-through">
+            <span className="text-sm text-muted-foreground line-through opacity-50">
               ₱{normalPrice}
             </span>
           )}
