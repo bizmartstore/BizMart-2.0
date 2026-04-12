@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { 
   Crown, Download, Shield, Store, Sparkles, ArrowRight, 
   FileText, Coins, CreditCard, Info, Star, ChevronRight, 
-  Zap, Gift, Wallet, Disc, Loader2
+  Zap, Gift, Wallet, Disc, Loader2, CheckCircle2, X
 } from "lucide-react";
 import { notifyAdminNewMember } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
@@ -40,7 +40,7 @@ export default function ClubPage() {
   const [maxSellers, setMaxSellers] = useState(5);
   const idRef = useRef<HTMLDivElement>(null);
 
-  // BCoins related state moved here for integration
+  // BCoins related state
   const [wallet, setWallet] = useState<any>(null);
   const [bcoinsSection, setBcoinsSection] = useState<string | null>(null);
 
@@ -51,6 +51,10 @@ export default function ClubPage() {
         .then(({ data }: any) => {
           setMembership(data);
           setCheckingMembership(false);
+          // If not a member and on a restricted tab, force back to membership
+          if (!data && activeTab !== "membership") {
+            setActiveTab("membership");
+          }
         });
 
       // Check seller profile
@@ -76,7 +80,19 @@ export default function ClubPage() {
       .then(({ data }: any) => {
         if (data?.value?.max) setMaxSellers(data.value.max);
       });
-  }, [user]);
+  }, [user, activeTab]);
+
+  const handleTabChange = (tab: "membership" | "bcoins" | "seller") => {
+    if (tab !== "membership" && !membership) {
+      toast({
+        title: "Membership Required",
+        description: `You must be a BizMart Club member to access the ${tab === 'bcoins' ? 'BCoins Wallet' : 'Seller'} features.`,
+        variant: "destructive"
+      });
+      return;
+    }
+    setActiveTab(tab);
+  };
 
   const handleRedeemCode = async () => {
     if (!code.trim() || !user) return;
@@ -179,44 +195,28 @@ export default function ClubPage() {
   };
 
   const downloadId = async () => {
-  if (!idRef.current) return;
-
-  try {
-    const { default: html2canvas } = await import("html2canvas");
-
-    // 🔥 Target the name element (add this class in your JSX)
-    const nameEl = idRef.current.querySelector(".card-holder-name");
-
-    // 🔥 Save original styles
-    const originalOverflow = idRef.current.style.overflow;
-
-    // 🔥 Temporarily fix clipping issues
-    if (nameEl) nameEl.classList.remove("truncate");
-    idRef.current.style.overflow = "visible";
-
-    const canvas = await html2canvas(idRef.current, {
-      scale: 3,
-      useCORS: true,
-      backgroundColor: null,
-    });
-
-    // 🔥 Restore original styles
-    if (nameEl) nameEl.classList.add("truncate");
-    idRef.current.style.overflow = originalOverflow;
-
-    const link = document.createElement("a");
-    link.download = `BizMart-Card-${membership.control_number.replace(/\s/g, '-')}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-
-  } catch {
-    toast({
-      title: "Download failed",
-      description: "Please take a screenshot instead.",
-      variant: "destructive",
-    });
-  }
-};
+    if (!idRef.current) return;
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const nameEl = idRef.current.querySelector(".card-holder-name");
+      const originalOverflow = idRef.current.style.overflow;
+      if (nameEl) nameEl.classList.remove("truncate");
+      idRef.current.style.overflow = "visible";
+      const canvas = await html2canvas(idRef.current, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: null,
+      });
+      if (nameEl) nameEl.classList.add("truncate");
+      idRef.current.style.overflow = originalOverflow;
+      const link = document.createElement("a");
+      link.download = `BizMart-Card-${membership.control_number.replace(/\s/g, '-')}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    } catch {
+      toast({ title: "Download failed", description: "Please take a screenshot instead.", variant: "destructive" });
+    }
+  };
 
   if (!user) {
     return (
@@ -239,11 +239,10 @@ export default function ClubPage() {
     <div className="min-h-screen bg-background pb-24">
       <TopBar />
       
-      {/* ═══ Top Navigation Buttons ═══ */}
       <div className="sticky top-[52px] z-30 bg-background/80 backdrop-blur-md border-b border-border px-3 py-2">
         <div className="flex gap-2 overflow-x-auto scrollbar-none px-1 touch-pan-x">
           <button 
-            onClick={() => setActiveTab("membership")}
+            onClick={() => handleTabChange("membership")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               activeTab === "membership" ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-muted text-muted-foreground"
             }`}
@@ -251,18 +250,18 @@ export default function ClubPage() {
             <CreditCard className="h-3.5 w-3.5" /> Membership
           </button>
           <button 
-            onClick={() => setActiveTab("bcoins")}
+            onClick={() => handleTabChange("bcoins")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               activeTab === "bcoins" ? "bg-warning text-warning-foreground shadow-md shadow-warning/20" : "bg-muted text-muted-foreground"
-            }`}
+            } ${!membership ? "opacity-50" : ""}`}
           >
             <Coins className="h-3.5 w-3.5" /> BCoins Wallet
           </button>
           <button 
-            onClick={() => setActiveTab("seller")}
+            onClick={() => handleTabChange("seller")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               activeTab === "seller" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "bg-muted text-muted-foreground"
-            }`}
+            } ${!membership ? "opacity-50" : ""}`}
           >
             <Store className="h-3.5 w-3.5" /> Become a Seller
           </button>
@@ -270,7 +269,6 @@ export default function ClubPage() {
       </div>
 
       <div className="px-4 mt-6">
-        {/* ═══ Membership Tab ═══ */}
         {activeTab === "membership" && (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-2">
             {!membership && !checkingMembership ? (
@@ -317,37 +315,27 @@ export default function ClubPage() {
               </div>
             ) : membership && (
               <div className="flex flex-col items-center space-y-8">
-                {/* 💳 ATM Style ID Card */}
                 <div
-                                  ref={idRef}
-                                  className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
-                                  style={{
-                                  background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
-                                  boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-                }}
+                  ref={idRef}
+                  className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
+                  style={{
+                    background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+                  }}
                 >
-                  {/* Gloss Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
-                  
-                  {/* BizMart Logo Top Right */}
                   <div className="absolute top-4 right-5 flex items-center gap-2 opacity-90">
                     <img src={bizLogo} className="h-8 w-8 object-contain" alt="" />
                     <span className="text-white font-black text-sm tracking-tighter">BIZMART</span>
                   </div>
-
-                  {/* Gold Chip */}
                   <div className="absolute top-12 left-6 w-12 h-9 rounded-md bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 border border-black/10 overflow-hidden">
                     <div className="w-full h-full opacity-30" style={{ backgroundImage: 'linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.2) 50%), linear-gradient(0deg, transparent 50%, rgba(0,0,0,0.2) 50%)', backgroundSize: '10px 10px' }} />
                   </div>
-
-                  {/* Card Number (Control Number) */}
                   <div className="absolute top-[55%] left-6 right-6">
                     <p className="text-white text-xl font-mono tracking-[0.15em] drop-shadow-md">
                       {membership.control_number}
                     </p>
                   </div>
-
-                  {/* Bottom Info Row */}
                   <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
                     <div className="flex-1 min-w-0 pr-4">
                       <p className="text-[8px] text-white/60 uppercase font-bold tracking-widest mb-0.5">Card Holder</p>
@@ -362,15 +350,11 @@ export default function ClubPage() {
                       </p>
                     </div>
                   </div>
-
-                  {/* Contactless / NFC Icon */}
                   <div className="absolute top-12 right-6 opacity-30 rotate-90">
                     <div className="flex gap-1">
                       {[1, 2, 3].map(i => <div key={i} className="w-0.5 h-4 bg-white rounded-full" />)}
                     </div>
                   </div>
-
-                  {/* Premium Badge */}
                   {isPremium && (
                     <div className="absolute top-4 left-6 px-2 py-0.5 bg-yellow-400/20 border border-yellow-400/40 rounded flex items-center gap-1">
                       <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
@@ -378,12 +362,10 @@ export default function ClubPage() {
                     </div>
                   )}
                 </div>
-
                 <div className="w-full space-y-4">
                   <Button onClick={downloadId} className="w-full h-12 rounded-xl gap-2 font-bold shadow-lg">
                     <Download className="h-4 w-4" /> Download Digital Card
                   </Button>
-                  
                   <div className="bg-muted/50 rounded-2xl p-5 border border-border">
                     <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-primary" /> Future Updates</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">
@@ -397,8 +379,7 @@ export default function ClubPage() {
           </div>
         )}
 
-        {/* ═══ BCoins Tab ═══ */}
-        {activeTab === "bcoins" && (
+        {activeTab === "bcoins" && membership && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             <div className="bg-gradient-to-br from-warning/20 to-primary/10 rounded-2xl p-6 border border-warning/20 text-center shadow-sm">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Available Balance</p>
@@ -412,9 +393,7 @@ export default function ClubPage() {
                 Go to Full Wallet <ChevronRight className="h-3 w-3 ml-1" />
               </Button>
             </div>
-
             <BCoinsFeatures activeSection={bcoinsSection} onSectionChange={setBcoinsSection} />
-            
             {bcoinsSection === 'spin' && (
               <div className="bg-card border border-border rounded-2xl p-4 text-center space-y-3">
                 <Disc className="h-10 w-10 text-purple-500 mx-auto animate-spin-slow" />
@@ -423,7 +402,6 @@ export default function ClubPage() {
                 <Button onClick={() => navigate("/bcoins")} className="w-full rounded-xl">Open Spin Page</Button>
               </div>
             )}
-
             {bcoinsSection === 'store' && (
               <div className="bg-card border border-border rounded-2xl p-4 text-center space-y-3">
                 <Gift className="h-10 w-10 text-emerald-500 mx-auto" />
@@ -435,8 +413,7 @@ export default function ClubPage() {
           </div>
         )}
 
-        {/* ═══ Seller Tab ═══ */}
-        {activeTab === "seller" && (
+        {activeTab === "seller" && membership && (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             {sellerProfile ? (
               <div className="bg-gradient-to-r from-emerald-500 to-teal-500 rounded-2xl p-6 shadow-lg text-white">
@@ -466,7 +443,6 @@ export default function ClubPage() {
                   </div>
                   <h2 className="text-xl font-black mb-2 leading-tight">Become a BizMart Seller!</h2>
                   <p className="text-white/80 text-xs mb-4">Run your own micro-business inside the campus and earn real money.</p>
-                  
                   <div className="grid grid-cols-2 gap-2 text-[10px] font-bold">
                     <div className="bg-white/20 rounded-lg p-2 flex items-center gap-2">
                       <CheckCircle2 className="h-3 w-3 text-white" /> Low Entry Fee
@@ -476,14 +452,12 @@ export default function ClubPage() {
                     </div>
                   </div>
                 </div>
-
                 {!application && !showApplication && (
                   <Button onClick={() => setShowApplication(true)} className="w-full h-14 rounded-2xl gap-2 font-black shadow-lg" variant="outline">
                     <FileText className="h-5 w-5 text-primary" />
                     FILL OUT APPLICATION FORM
                   </Button>
                 )}
-
                 {showApplication && (
                   <div className="bg-card rounded-2xl p-6 border border-border space-y-4 shadow-sm">
                     <div className="flex items-center justify-between border-b border-border pb-3 mb-2">
@@ -513,7 +487,6 @@ export default function ClubPage() {
                     </Button>
                   </div>
                 )}
-
                 {application && (
                   <div className="bg-card rounded-2xl p-5 border border-border flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -528,7 +501,6 @@ export default function ClubPage() {
                     <span className="text-[10px] font-black px-3 py-1 rounded-full bg-warning/20 text-warning uppercase">{application.status}</span>
                   </div>
                 )}
-
                 <div className="bg-muted/30 rounded-2xl p-5 border border-border border-dashed">
                   <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="h-5 w-5 text-warning" />
@@ -556,14 +528,3 @@ export default function ClubPage() {
     </div>
   );
 }
-
-// Minimal icons used locally
-const X = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-);
-const CheckCircle2 = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-);
-const Clock = ({ className }: { className?: string }) => (
-  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-);
