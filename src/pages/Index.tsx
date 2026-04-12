@@ -1,5 +1,3 @@
-import { useState } from "react"; // Fixed incorrect 'use client' import
-
 import TopBar from "@/components/TopBar";
 import BannerCarousel from "@/components/BannerCarousel";
 import ProductCard from "@/components/ProductCard";
@@ -217,3 +215,4 @@ export default function Index() {
       <BottomNav />
     </div>
   );
+}
