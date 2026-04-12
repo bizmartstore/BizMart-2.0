@@ -38,43 +38,51 @@ export default function HottestSaleSection() {
 
   // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container || discountedProducts.length <= 4) return;
+  const container = scrollRef.current;
+  if (!container || discountedProducts.length < 2) return;
 
-    // Set initial scroll position to the end (right side)
-    container.scrollLeft = container.scrollWidth;
+  let animationId: number;
+  let lastTime = 0;
 
-    let lastTime = 0;
-    const speed = 0.5; // SLOW speed like BizMart Features
+  const speed = 0.03; // smooth control (0.02–0.06 ideal)
 
-    const animate = (time: number) => {
-      if (!isPaused) {
-        const delta = lastTime ? time - lastTime : 16;
-        lastTime = time;
+  const getMaxScroll = () =>
+    container.scrollWidth - container.clientWidth;
 
-        // Move left continuously
-        scrollPosRef.current -= speed * (delta / 16);
+  // start position (right side once)
+  const maxScroll = getMaxScroll();
+  if (scrollPosRef.current === 0) {
+    scrollPosRef.current = maxScroll;
+    container.scrollLeft = maxScroll;
+  }
 
-        // Reset position when we've scrolled past the start
-        if (scrollPosRef.current <= -container.clientWidth) {
-          scrollPosRef.current = container.scrollWidth;
-        }
+  const animate = (time: number) => {
+    if (!isPaused && document.visibilityState === "visible") {
+      const delta = lastTime ? time - lastTime : 16;
+      lastTime = time;
 
-        container.scrollLeft = scrollPosRef.current;
-      } else {
-        lastTime = 0;
+      // ✅ smooth LEFT movement
+      scrollPosRef.current -= speed * delta;
+
+      const max = getMaxScroll();
+
+      // ✅ seamless loop (no jump glitch)
+      if (scrollPosRef.current <= 0) {
+        scrollPosRef.current = max;
       }
-      animationRef.current = requestAnimationFrame(animate);
-    };
 
-    animationRef.current = requestAnimationFrame(animate);
+      container.scrollLeft = scrollPosRef.current;
+    } else {
+      lastTime = 0;
+    }
 
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [discountedProducts.length, isPaused]);
+    animationId = requestAnimationFrame(animate);
+  };
+
+  animationId = requestAnimationFrame(animate);
+
+  return () => cancelAnimationFrame(animationId);
+}, [discountedProducts.length, isPaused]);
 
   // Handle interaction start/end for pause
   const handleInteractionStart = () => setIsPaused(true);
