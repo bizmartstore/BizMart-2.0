@@ -36,7 +36,7 @@ export default function HottestSaleSection() {
     if (!container || productsWithDiscount.length < 2) return;
 
     // Set initial scroll position to the end (right side)
-    container.scrollLeft = container.scrollWidth;
+    container.scrollLeft =container.scrollWidth; 
 
     let lastTime = 0;
     const speed = 0.5; // SLOW speed like BizMart Features
