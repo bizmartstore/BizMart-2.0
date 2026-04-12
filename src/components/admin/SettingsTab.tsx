@@ -24,6 +24,7 @@ export default function SettingsTab() {
     flashSaleMaxDiscount: 10,
   });
   const [isSaving, setIsSaving] = useState(false);
+  const [isRotating, setIsRotating] = useState(false);
 
   useEffect(() => {
     const maxSellersSetting = allSettings.find((s: any) => s.key === 'max_sellers');
@@ -47,8 +48,8 @@ export default function SettingsTab() {
         { key: "store_status", value: { is_open: settings.storeOpen, close_message: settings.closeMessage } },
         { key: "gcash_service_fee", value: { amount: settings.gcashFee } },
         { key: "max_sellers", value: { max: settings.maxSellers } },
-        { key: "flash_sale_min_discount", value: { percentage: Math.max(5, settings.flashSaleMinDiscount) } },
-        { key: "flash_sale_max_discount", value: { percentage: Math.min(10, settings.flashSaleMaxDiscount) } },
+        { key: "flash_sale_min_discount", value: { percentage: 5 } },
+        { key: "flash_sale_max_discount", value: { percentage: 10 } },
       ];
 
       for (const { key, value } of updates) {
@@ -68,15 +69,25 @@ export default function SettingsTab() {
   };
 
   const triggerFlashSale = async () => {
+    setIsRotating(true);
     try {
+      // We'll reset the timer in the DB first to force the edge function to rotate
+      await (supabase as any)
+        .from("app_settings")
+        .update({ value: { ends_at: new Date(0).toISOString() } })
+        .eq("key", "flash_sale_state");
+
       const { data } = await supabase.functions.invoke("rotate-flash-sale");
+      
       if (data?.rotated) {
-        toast.success(`Flash sale rotated! ${data.products?.length || 0} products selected with 5-10% discounts.`);
+        toast.success(`New Flash Sale active! ${data.products?.length || 0} products selected with 5-10% discounts.`);
       } else {
-        toast.info(data?.message || "Flash sale already active");
+        toast.info(data?.message || "Flash sale rotated");
       }
     } catch (e: any) {
-      toast.error(e.message || "Failed to trigger flash sale");
+      toast.error("Failed to trigger flash sale");
+    } finally {
+      setIsRotating(false);
     }
   };
 
@@ -129,28 +140,21 @@ export default function SettingsTab() {
           <Zap className="h-5 w-5 text-warning" />
           <h3 className="font-bold text-sm">Flash Sale Rules</h3>
         </div>
-        <p className="text-[10px] text-muted-foreground">Discounts are now strictly limited between 5% and 10% per your request. This applies to up to 4 random products every 2 hours.</p>
+        <p className="text-[10px] text-muted-foreground">Discounts are now strictly limited between 5% and 10% per your request.</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
             <Label className="text-[10px]">Min Discount (%)</Label>
-            <Input 
-              type="number" 
-              value={settings.flashSaleMinDiscount} 
-              disabled
-              className="text-xs h-8 bg-muted"
-            />
+            <Input type="number" value={5} disabled className="text-xs h-8 bg-muted" />
           </div>
           <div>
             <Label className="text-[10px]">Max Discount (%)</Label>
-            <Input 
-              type="number" 
-              value={settings.flashSaleMaxDiscount} 
-              disabled
-              className="text-xs h-8 bg-muted"
-            />
+            <Input type="number" value={10} disabled className="text-xs h-8 bg-muted" />
           </div>
         </div>
-        <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger 5-10% Flash Sale</Button>
+        <Button onClick={triggerFlashSale} disabled={isRotating} size="sm" className="gap-1">
+          {isRotating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+          Trigger New 5-10% Flash Sale
+        </Button>
       </div>
 
       <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2">
