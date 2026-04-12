@@ -10,7 +10,6 @@ import { motion } from "framer-motion";
 export default function HottestSaleSection() {
   const navigate = useNavigate();
   const { data: products = [], isLoading } = useProducts();
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
   // Calculate discount percentage for each product
@@ -28,25 +27,6 @@ export default function HottestSaleSection() {
       .filter(p => p.discountPercent > 0) // Only products with actual discount
       .sort((a, b) => b.discountPercent - a.discountPercent); // Sort by highest discount
   }, [products]);
-
-  // Auto-scroll through products
-  useEffect(() => {
-    if (productsWithDiscount.length <= 4) return;
-
-    const interval = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % (productsWithDiscount.length - 3));
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [productsWithDiscount.length]);
-
-  const visibleProducts = useMemo(() => {
-    if (productsWithDiscount.length <= 4) return productsWithDiscount;
-    return [
-      ...productsWithDiscount.slice(currentIndex, currentIndex + 4),
-      ...productsWithDiscount.slice(0, Math.max(0, 4 - (productsWithDiscount.length - currentIndex)))
-    ];
-  }, [productsWithDiscount, currentIndex]);
 
   if (isLoading) {
     return (
@@ -143,40 +123,94 @@ export default function HottestSaleSection() {
         </div>
       </motion.div>
 
-      {/* Products Grid with Discount Badges */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-        className="grid grid-cols-2 gap-2 overflow-x-auto scrollbar-hide pb-2"
-      >
-        {visibleProducts.map((product) => (
-          <motion.div
-            key={product.id}
-            whileHover={{ scale: 1.05, y: -5 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex-shrink-0 w-36"
-          >
-            <div className="relative">
-              {/* Discount Badge - BIG and RED */}
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
-                className="absolute top-0 left-0 z-20"
-              >
-                <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
-                  <span className="text-lg">{product.discountPercent}%</span>
-                  <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
-                </div>
-              </motion.div>
+      {/* HORIZONTAL SCROLLING MARQUEE - SLOW MOVEMENT */}
+      <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-white/50">
+        {/* Gradient overlay on left */}
+        <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white/80 to-transparent z-10" />
 
-              {/* Product Card */}
-              <ProductCard product={product} />
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
+        {/* Gradient overlay on right */}
+        <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white/80 to-transparent z-10" />
+
+        {/* Scrolling container */}
+        <motion.div
+          className="flex gap-4 py-4 px-2"
+          animate={{
+            x: [0, -1000, 0]
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+        >
+          {productsWithDiscount.map((product) => (
+            <motion.div
+              key={product.id}
+              whileHover={{ scale: 1.05, y: -5 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex-shrink-0 w-40"
+            >
+              <div className="relative">
+                {/* Discount Badge - BIG and RED */}
+                <motion.div
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
+                  className="absolute top-0 left-0 z-20"
+                >
+                  <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
+                    <span className="text-lg">{product.discountPercent}%</span>
+                    <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
+                  </div>
+                </motion.div>
+
+                {/* Enhanced Product Card */}
+                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                  <div className="relative aspect-square overflow-hidden">
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
+                  </div>
+
+                  <div className="p-3">
+                    <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
+                      {product.name}
+                    </h3>
+
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1">
+                        <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
+                        {product.originalPrice && product.price < product.originalPrice && (
+                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50">
+                            ₱{product.originalPrice}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 mb-2">
+                      <span className="text-[10px] text-muted-foreground">
+                        {product.sold} sold
+                      </span>
+                    </div>
+
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => navigate(`/product/${product.id}`)}
+                      className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
+                    >
+                      View Details
+                    </motion.button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </motion.div>
+      </div>
 
       {/* Floating Sparkles Animation */}
       <motion.div
