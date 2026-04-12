@@ -18,18 +18,19 @@ export default function ProductCard({ product }: ProductCardProps) {
   const { storeOpen } = useAppSettings();
 
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
-  // We use the normalized camelCase property from our hook
   const isFlashSale = product.isFlashSale === true;
 
   const discount = isFlashSale
     ? Number((product as any).discount_percent || 0)
     : 0;
 
-  // If not a flash sale, we ignore any original_price/originalPrice to ensure no "fake" discounts show
-  const basePrice = isFlashSale ? Number((product as any).original_price || product.originalPrice || product.price) : product.price;
+  // Normal Price is always the 'price' column
+  const normalPrice = Number(product.price);
+  
+  // Final Price is sale_price if in flash sale, otherwise normal price
   const finalPrice = isFlashSale
     ? Number((product as any).sale_price || product.price)
-    : product.price;
+    : normalPrice;
 
   const bcoins = Number((finalPrice * 0.10).toFixed(2));
   const stock = Number(product.stock) || 0;
@@ -49,7 +50,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       id: product.id,
       name: product.name,
       price: finalPrice,
-      originalPrice: isFlashSale ? basePrice : undefined,
+      originalPrice: isFlashSale ? normalPrice : undefined,
       image: product.image,
       category: product.category,
     });
@@ -71,7 +72,7 @@ export default function ProductCard({ product }: ProductCardProps) {
       id: product.id,
       name: product.name,
       price: finalPrice,
-      originalPrice: isFlashSale ? basePrice : undefined,
+      originalPrice: isFlashSale ? normalPrice : undefined,
       image: product.image,
       category: product.category,
     });
@@ -153,9 +154,9 @@ export default function ProductCard({ product }: ProductCardProps) {
             ₱{finalPrice}
           </span>
 
-          {isFlashSale && !isOutOfStock && basePrice > finalPrice && (
+          {isFlashSale && !isOutOfStock && normalPrice > finalPrice && (
             <span className="text-sm text-muted-foreground line-through">
-              ₱{basePrice}
+              ₱{normalPrice}
             </span>
           )}
         </div>
