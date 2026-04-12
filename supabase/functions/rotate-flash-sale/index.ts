@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-force-rotate",
 };
 
 // Flash sale lasts 2 hours
@@ -21,28 +21,29 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // 1️⃣ Check if we need to rotate (or if forced by admin)
-    const { data: setting } = await supabase
-      .from("app_settings")
-      .select("*")
-      .eq("key", "flash_sale_state")
-      .maybeSingle();
-
     const now = Date.now();
+    // ✅ Read force flag from headers
     const isForced = req.headers.get("x-force-rotate") === "true";
 
-    if (!isForced && setting?.value?.ends_at) {
-      const endsAt = new Date(setting.value.ends_at).getTime();
-      if (endsAt > now) {
-        return new Response(
-          JSON.stringify({ rotated: false, message: "Flash sale still active" }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (!isForced) {
+      const { data: setting } = await supabase
+        .from("app_settings")
+        .select("*")
+        .eq("key", "flash_sale_state")
+        .maybeSingle();
+
+      if (setting?.value?.ends_at) {
+        const endsAt = new Date(setting.value.ends_at).getTime();
+        if (endsAt > now) {
+          return new Response(
+            JSON.stringify({ rotated: false, message: "Flash sale still active" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
       }
     }
 
-    // 2️⃣ RESET ALL PRODUCTS (Crucial: Restore prices from original_price if they were modified)
-    // We fetch current flash sale products to clean them up properly
+    // 2️⃣ RESET ALL PRODUCTS (Crucial: Restore prices from original_price)
     const { data: currentFlash } = await supabase
       .from("products")
       .select("id, original_price, price")
@@ -50,19 +51,18 @@ Deno.serve(async (req) => {
 
     if (currentFlash && currentFlash.length > 0) {
       for (const p of currentFlash) {
-        // If original_price was stored, we restore the main price to it
         const basePrice = p.original_price || p.price;
         await supabase.from("products").update({
           is_flash_sale: false,
           discount_percent: 0,
           sale_price: null,
           original_price: null,
-          price: basePrice // Ensure main price is back to normal
+          price: basePrice
         }).eq("id", p.id);
       }
     }
 
-    // 3️⃣ Get eligible candidates (price >= 30 and active)
+    // 3️⃣ Get eligible candidates
     const { data: allProducts } = await supabase
       .from("products")
       .select("*")

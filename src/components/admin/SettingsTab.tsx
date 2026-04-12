@@ -71,21 +71,23 @@ export default function SettingsTab() {
   const triggerFlashSale = async () => {
     setIsRotating(true);
     try {
-      // We'll reset the timer in the DB first to force the edge function to rotate
-      await (supabase as any)
-        .from("app_settings")
-        .update({ value: { ends_at: new Date(0).toISOString() } })
-        .eq("key", "flash_sale_state");
-
-      const { data } = await supabase.functions.invoke("rotate-flash-sale");
+      // Force rotation by passing the custom header
+      const { data, error } = await supabase.functions.invoke("rotate-flash-sale", {
+        headers: {
+          "x-force-rotate": "true"
+        }
+      });
       
+      if (error) throw error;
+
       if (data?.rotated) {
-        toast.success(`New Flash Sale active! ${data.products?.length || 0} products selected with 5-10% discounts.`);
+        toast.success(`New Flash Sale active! ${data.count || 0} products selected with 5-10% discounts.`);
       } else {
         toast.info(data?.message || "Flash sale rotated");
       }
     } catch (e: any) {
-      toast.error("Failed to trigger flash sale");
+      console.error("[SettingsTab] Flash sale trigger failed:", e);
+      toast.error("Failed to trigger flash sale. Please try again.");
     } finally {
       setIsRotating(false);
     }
