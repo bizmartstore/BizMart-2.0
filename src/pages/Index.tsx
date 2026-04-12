@@ -8,26 +8,31 @@ import BizMartFeatures from "@/components/BizMartFeatures";
 import AnnouncementPopup from "@/components/AnnouncementPopup";
 import LiveShoutoutTicker from "@/components/LiveShoutoutTicker";
 import NewsCarousel from "@/components/NewsCarousel";
-import { useProducts, useCategories } from "@/hooks/useProducts";
+import { useProducts, useCategories, useFlashSaleProducts } from "@/hooks/useProducts";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useNavigate } from "react-router-dom";
 import { Zap, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-function FlashTimer({ endsAt, onExpired }: { endsAt: string; onExpired: () => void }) {
+function FlashTimer({ onExpired }: { onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
     const update = () => {
-      const diff = Math.max(0, Math.floor((new Date(endsAt).getTime() - Date.now()) / 1000));
+      const now = new Date();
+      const epoch = Math.floor(now.getTime() / 1000);
+      const windowSize = 7200; // 2 hours
+      const nextWindow = (Math.floor(epoch / windowSize) + 1) * windowSize;
+      const diff = Math.max(0, nextWindow - epoch);
+      
       setRemaining(diff);
       if (diff <= 0) onExpired();
     };
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [endsAt, onExpired]);
+  }, [onExpired]);
 
   const h = Math.floor(remaining / 3600);
   const m = Math.floor((remaining % 3600) / 60);
@@ -49,10 +54,9 @@ function FlashTimer({ endsAt, onExpired }: { endsAt: string; onExpired: () => vo
 export default function Index() {
   const navigate = useNavigate();
   const { data: products = [], isLoading: productsLoading, refetch: refetchProducts } = useProducts();
+  const { data: flashSaleProducts = [], isLoading: flashLoading, refetch: refetchFlash } = useFlashSaleProducts();
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { storeOpen, closeMessage, allSettings, loading: settingsLoading } = useAppSettings();
-  const [flashEndsAt, setFlashEndsAt] = useState<string | null>(null);
-  const [rotating, setRotating] = useState(false);
   const [forceShow, setForceShow] = useState(false);
 
   useEffect(() => {
@@ -60,44 +64,10 @@ export default function Index() {
     return () => clearTimeout(timer);
   }, []);
 
-  const flashSaleProducts = products.filter((p) => p.isFlashSale);
-
   const recommendedProducts = useMemo(() => {
     const shuffled = [...products].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, 10);
   }, [products]);
-
-  const loadFlashState = useCallback(async () => {
-    const flashSaleSetting = allSettings.find((s: any) => s.key === 'flash_sale_state');
-    if (flashSaleSetting?.value?.ends_at) {
-      const endsAt = flashSaleSetting.value.ends_at;
-      if (new Date(endsAt).getTime() > Date.now()) {
-        setFlashEndsAt(endsAt);
-      } else {
-        triggerRotation();
-      }
-    } else {
-      triggerRotation();
-    }
-  }, [allSettings]);
-
-  const triggerRotation = async () => {
-    if (rotating) return; 
-    setRotating(true);
-    try {
-      const { data: result } = await supabase.functions.invoke("rotate-flash-sale");
-      if (result?.ends_at) setFlashEndsAt(result.ends_at);
-      refetchProducts();
-    } catch (e) {
-      console.warn("Flash sale rotation failed:", e);
-    } finally {
-      setRotating(false);
-    }
-  };
-
-  useEffect(() => {
-    if (allSettings.length > 0) loadFlashState();
-  }, [allSettings, loadFlashState]);
 
   useEffect(() => {
     const channel = supabase
@@ -105,16 +75,17 @@ export default function Index() {
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         console.log("[Index] Product change detected, refetching...");
         refetchProducts();
+        refetchFlash();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [refetchProducts]);
+  }, [refetchProducts, refetchFlash]);
 
   const handleFlashExpired = useCallback(() => {
-    triggerRotation();
-  }, [rotating]);
+    refetchFlash();
+  }, [refetchFlash]);
 
-  const isActuallyLoading = (productsLoading || categoriesLoading) && !forceShow && products.length === 0;
+  const isActuallyLoading = (productsLoading || categoriesLoading || flashLoading) && !forceShow && products.length === 0;
 
   if (isActuallyLoading) {
     return (
@@ -165,7 +136,7 @@ export default function Index() {
         </div>
       </div>
 
-      {flashSaleProducts.length > 0 && flashEndsAt && (
+      {flashSaleProducts.length > 0 && (
         <div className="mt-5 px-3">
           <div className="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 rounded-2xl p-3.5 mb-3 shadow-lg relative overflow-hidden">
             <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
@@ -178,7 +149,7 @@ export default function Index() {
                   <span className="text-white/70 text-[10px] font-medium">Limited time only!</span>
                 </div>
               </div>
-              <FlashTimer endsAt={flashEndsAt} onExpired={handleFlashExpired} />
+              <FlashTimer onExpired={handleFlashExpired} />
             </div>
           </div>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">

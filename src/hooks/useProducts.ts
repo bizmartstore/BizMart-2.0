@@ -57,6 +57,49 @@ export function useProducts() {
   });
 }
 
+export function useFlashSaleProducts() {
+  return useQuery({
+    queryKey: ['flash-sale-products'],
+    queryFn: async () => {
+      console.log('[useFlashSaleProducts] Fetching flash sale products from view...');
+      try {
+        const { data, error } = await (supabase as any)
+          .from('flash_sale_products')
+          .select('*');
+        
+        if (error) {
+          console.error('[useFlashSaleProducts] Supabase error:', error.message);
+          return [];
+        }
+        
+        if (data) {
+          return data.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            price: Number(p.price),
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
+            image: p.image || '',
+            images: p.images || [],
+            category: p.category || '',
+            rating: Number(p.rating),
+            sold: p.sold || 0,
+            stock: p.stock ?? 0,
+            description: p.description || '',
+            isFlashSale: true,
+            seller_id: p.seller_id || null,
+          })) as Product[];
+        }
+        return [];
+      } catch (err: any) {
+        console.error('[useFlashSaleProducts] Unexpected error:', err);
+        return [];
+      }
+    },
+    staleTime: 60000, // 1 minute
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes to catch rotation
+  });
+}
+
 export function useCategories() {
   return useQuery({
     queryKey: ['categories'],
