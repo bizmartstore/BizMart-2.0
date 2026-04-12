@@ -51,7 +51,7 @@ export default function HottestSaleSection() {
 
         // Reset position when we've scrolled past the start
         if (scrollPosRef.current <= -container.clientWidth) {
-          scrollPosRef.current = container.scrollWidth;
+          scrollPosRef.current = const maxScroll = container.scrollWidth - container.clientWidth;
         }
 
         container.scrollLeft = scrollPosRef.current;
