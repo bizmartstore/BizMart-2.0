@@ -1,62 +1,54 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  products as fallbackProducts,
-  categories as fallbackCategories,
-  Product,
-} from "@/data/products";
+import { products as fallbackProducts, categories as fallbackCategories, Product } from "@/data/products";
 
 export function useProducts() {
   return useQuery({
-    queryKey: ["products"],
+    queryKey: ['products'],
     queryFn: async () => {
-      console.log("[useProducts] Fetching products from Supabase...");
+      console.log('[useProducts] Fetching products from Supabase...');
       try {
         const { data, error } = await (supabase as any)
-          .from("products")
-          .select("*")
-          // Include products where is_active is true OR null/missing
-          .or("is_active.eq.true,is_active.is.null")
-          .order("created_at", { ascending: false });
-
+          .from('products')
+          .select('*')
+          // Include products where is_active is true OR null/missing (backwards compatibility)
+          .or('is_active.eq.true,is_active.is.null')
+          .order('created_at', { ascending: false });
+        
         if (error) {
-          console.error("[useProducts] Supabase error:", error.message);
+          console.error('[useProducts] Supabase error:', error.message);
+          // Fallback to defaults if query fails completely
           return fallbackProducts;
         }
-
+        
         console.log(`[useProducts] Found ${data?.length || 0} products in DB`);
-
+        
         if (data && data.length > 0) {
           return data.map((p: any) => ({
             id: p.id,
             name: p.name,
             price: Number(p.price),
-            originalPrice: p.original_price
-              ? Number(p.original_price)
-              : undefined,
-            image: p.image || "",
+            originalPrice: p.original_price ? Number(p.original_price) : undefined,
+            image: p.image || '',
             images: p.images || [],
-            category: p.category || "",
+            category: p.category || '',
             rating: Number(p.rating),
             sold: p.sold || 0,
             stock: p.stock ?? 0,
-            description: p.description || "",
-
-            // ✅ IMPORTANT FIX (ONLY NORMALIZED FIELD USED IN FRONTEND)
+            description: p.description || '',
             isFlashSale: p.is_flash_sale || false,
-
             seller_id: p.seller_id || null,
           })) as Product[];
         }
-
-        console.log("[useProducts] DB empty, falling back to defaults");
+        
+        console.log('[useProducts] DB empty, falling back to defaults');
         return fallbackProducts;
       } catch (err: any) {
-        console.error("[useProducts] Unexpected error:", err);
+        console.error('[useProducts] Unexpected error:', err);
         return fallbackProducts;
       }
     },
-    staleTime: 30000,
+    staleTime: 30000, // 30 seconds
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
@@ -65,83 +57,24 @@ export function useProducts() {
   });
 }
 
-export function useFlashSaleProducts() {
-  return useQuery({
-    queryKey: ["flash-sale-products"],
-    queryFn: async () => {
-      console.log(
-        "[useFlashSaleProducts] Fetching flash sale products from view..."
-      );
-      try {
-        const { data, error } = await (supabase as any)
-          .from("flash_sale_products")
-          .select("*");
-
-        if (error) {
-          console.error("[useFlashSaleProducts] Supabase error:", error.message);
-          return [];
-        }
-
-        if (data) {
-          return data.map((p: any) => ({
-            id: p.id,
-            name: p.name,
-            price: Number(p.price),
-            originalPrice: p.original_price
-              ? Number(p.original_price)
-              : undefined,
-            image: p.image || "",
-            images: p.images || [],
-            category: p.category || "",
-            rating: Number(p.rating),
-            sold: p.sold || 0,
-            stock: p.stock ?? 0,
-            description: p.description || "",
-
-            // always true for flash sale table
-            isFlashSale: true,
-
-            seller_id: p.seller_id || null,
-          })) as Product[];
-        }
-
-        return [];
-      } catch (err: any) {
-        console.error("[useFlashSaleProducts] Unexpected error:", err);
-        return [];
-      }
-    },
-    staleTime: 60000,
-    refetchInterval: 5 * 60 * 1000,
-  });
-}
-
 export function useCategories() {
   return useQuery({
-    queryKey: ["categories"],
+    queryKey: ['categories'],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("categories")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-
+        .from('categories')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      
       if (error) {
-        console.warn(
-          "Failed to fetch categories from DB, using fallback:",
-          error
-        );
+        console.warn('Failed to fetch categories from DB, using fallback:', error);
         return fallbackCategories;
       }
-
+      
       if (data && data.length > 0) {
-        return data.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          icon: c.icon,
-        }));
+        return data.map((c: any) => ({ id: c.id, name: c.name, icon: c.icon }));
       }
-
       return fallbackCategories;
     },
     staleTime: 10 * 60 * 1000,
@@ -155,28 +88,27 @@ export function useCategories() {
 
 export function useProduct(id: string) {
   const { data: products } = useProducts();
-  return products?.find((p) => p.id === id);
+  return products?.find(p => p.id === id);
 }
 
 export function useBanners() {
   return useQuery({
-    queryKey: ["banners"],
+    queryKey: ['banners'],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from("banners")
-        .select("*")
-        .eq("is_active", true)
-        .order("sort_order");
-
+        .from('banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      
       if (error) {
-        console.warn("Failed to fetch banners from DB:", error);
+        console.warn('Failed to fetch banners from DB:', error);
         return null;
       }
-
+      
       if (data && data.length > 0) {
         return data.map((b: any) => b.image_url) as string[];
       }
-
       return null;
     },
     staleTime: 10 * 60 * 1000,

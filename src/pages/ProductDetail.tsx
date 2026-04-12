@@ -21,26 +21,24 @@ export default function ProductDetail() {
 
   if (!product) return <div className="p-8 text-center">Product not found</div>;
 
-  // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
-  const isFlashSale = product.isFlashSale === true;
-  
-  const basePrice = isFlashSale ? Number((product as any).original_price || product.originalPrice || product.price) : product.price;
-  const finalPrice = isFlashSale ? Number((product as any).sale_price || product.price) : product.price;
-
-  const discount = isFlashSale && basePrice > finalPrice
-    ? Math.round((1 - finalPrice / basePrice) * 100)
+  const discount = product.originalPrice
+    ? Math.round((1 - product.price / product.originalPrice) * 100)
     : 0;
 
   const stock = Number(product.stock) || 0;
   const isOutOfStock = product.stock !== undefined && stock <= 0;
 
+  // Combine main image with additional images for carousel
   const allImages = [product.image, ...(product.images || [])].filter(Boolean);
 
+  // Auto-rotate thumbnail carousel
   useEffect(() => {
     if (allImages.length <= 1) return;
+    
     const timer = setInterval(() => {
       setCarouselIndex(prev => (prev + 1) % allImages.length);
     }, 2000);
+    
     return () => clearInterval(timer);
   }, [allImages.length]);
 
@@ -62,8 +60,8 @@ export default function ProductDetail() {
       addItem({
         id: product.id,
         name: product.name,
-        price: finalPrice,
-        originalPrice: isFlashSale ? basePrice : undefined,
+        price: product.price,
+        originalPrice: product.originalPrice,
         image: product.image,
         category: product.category,
       });
@@ -78,6 +76,7 @@ export default function ProductDetail() {
 
   return (
     <div className="min-h-screen bg-background pb-32">
+      {/* Header */}
       <div className="sticky top-0 z-40 bg-card/80 backdrop-blur-md flex items-center justify-between px-3 py-2.5 border-b border-border">
         <button onClick={() => navigate(-1)} className="p-1.5">
           <ArrowLeft className="h-5 w-5" />
@@ -97,6 +96,7 @@ export default function ProductDetail() {
         </div>
       </div>
 
+      {/* Image with tiny carousel */}
       <div className="relative aspect-square">
         <img 
           src={product.image} 
@@ -112,6 +112,7 @@ export default function ProductDetail() {
           </div>
         )}
 
+        {/* Tiny image carousel - only show if multiple images */}
         {!isOutOfStock && allImages.length > 1 && (
           <div 
             className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm rounded-xl p-2.5 shadow-lg z-10 cursor-pointer"
@@ -128,6 +129,7 @@ export default function ProductDetail() {
                 }}
               />
             </div>
+            {/* Dots indicator */}
             <div className="flex justify-center gap-1.5 mt-2">
               {allImages.map((_, idx) => (
                 <div
@@ -139,26 +141,29 @@ export default function ProductDetail() {
           </div>
         )}
         
-        {/* ✅ SHOW DISCOUNT ONLY IF FLASH SALE */}
-        {isFlashSale && discount > 0 && !isOutOfStock && (
+        {/* Discount badge */}
+        {discount > 0 && !isOutOfStock && (
           <span className="absolute top-3 left-3 bg-gradient-to-r from-red-500 to-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md">
             -{discount}%
           </span>
         )}
         
-        {/* ✅ FLASH SALE TAG */}
-        {isFlashSale && !isOutOfStock && (
+        {/* Flash sale badge */}
+        {product.isFlashSale && !isOutOfStock && (
           <span className="absolute top-3 right-16 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full shadow-md flex items-center gap-0.5">
-            ⚡ FLASH SALE
+            ⚡ SALE
           </span>
         )}
       </div>
 
+      {/* Info */}
       <div className="px-4 py-3 bg-card">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-2xl font-extrabold text-primary">₱{finalPrice}</span>
-          {isFlashSale && basePrice > finalPrice && !isOutOfStock && (
-            <span className="text-sm text-muted-foreground line-through">₱{basePrice}</span>
+          <span className="text-2xl font-extrabold text-primary">₱{product.price}</span>
+          {product.originalPrice && !isOutOfStock && (
+            <>
+              <span className="text-sm text-muted-foreground line-through">₱{product.originalPrice}</span>
+            </>
           )}
         </div>
         <h1 className="text-base font-bold leading-snug">{product.name}</h1>
@@ -182,11 +187,13 @@ export default function ProductDetail() {
         </div>
       </div>
 
+      {/* Description */}
       <div className="mt-2 px-4 py-3 bg-card">
         <h2 className="font-bold text-sm mb-2">Product Description</h2>
         <p className="text-xs text-muted-foreground leading-relaxed">{product.description}</p>
       </div>
 
+      {/* Quantity Selector */}
       {!isOutOfStock && (
         <div className="mt-2 px-4 py-3 bg-card flex items-center justify-between">
           <span className="text-sm font-semibold">Quantity</span>
@@ -209,12 +216,14 @@ export default function ProductDetail() {
         </div>
       )}
 
+      {/* Store closed notice */}
       {!storeOpen && (
         <div className="mt-2 mx-4 bg-destructive/10 border border-destructive/30 rounded-lg p-2">
           <p className="text-[10px] text-destructive font-semibold text-center uppercase tracking-tight">Store is closed — purchases are disabled</p>
         </div>
       )}
 
+      {/* Bottom Action */}
       <div className="fixed bottom-14 left-0 right-0 z-40 bg-card border-t border-border px-3 py-2 flex gap-2 shadow-2xl">
         <button
           onClick={handleAddToCart}
@@ -237,6 +246,7 @@ export default function ProductDetail() {
         </button>
       </div>
 
+      {/* Image Carousel Modal */}
       {!isOutOfStock && (
         <ImageCarouselModal 
           images={allImages}
