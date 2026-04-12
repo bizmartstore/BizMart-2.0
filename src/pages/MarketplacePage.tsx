@@ -1,13 +1,20 @@
+"use client";
+
 import { useState, useEffect, useMemo } from "react";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
-import ProductCard from "@/components/ProductCard";
-import { useProducts } from "@/hooks/useProducts";
+import { useProducts, useCategories } from "@/hooks/useProducts";
+import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Store, MessageCircle, Search, X, ArrowUpDown } from "lucide-react";
+import { Store, MessageCircle, Search, X, ArrowUpDown, Zap, TrendingUp, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import FlashSaleSection from "@/components/FlashSaleSection";
+import FeaturedProductsSection from "@/components/FeaturedProductsSection";
+import TrendingNowSection from "@/components/TrendingNowSection";
+import AnimatedProductCard from "@/components/AnimatedProductCard";
+import ScrollingText from "@/components/ScrollingText";
 
 type SortOption =
   | "default"
@@ -19,12 +26,12 @@ type SortOption =
 
 export default function MarketplacePage() {
   const { data: products = [], refetch: refetchProducts } = useProducts();
+  const { data: categories = [], isLoading: categoriesLoading } = useCategories();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { storeOpen } = useAppSettings();
 
-  const [sellerProfiles, setSellerProfiles] = useState<Record<string, any>>(
-    {}
-  );
+  const [sellerProfiles, setSellerProfiles] = useState<Record<string, any>>({});
   const [search, setSearch] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("default");
@@ -85,7 +92,7 @@ export default function MarketplacePage() {
     navigate("/messages");
   };
 
-  const categories = useMemo(() => {
+  const categoriesList = useMemo(() => {
     const cats = new Set(products.map((p) => p.category).filter(Boolean));
     return ["all", ...Array.from(cats)];
   }, [products]);
@@ -128,18 +135,18 @@ export default function MarketplacePage() {
   }, [products, search, selectedCategory, sortBy]);
 
   // ================================
-// 🔥 FLASH SALE (IMPORTANT FIX)
-// ================================
-const flashSaleProducts = useMemo(() => {
-  return filteredProducts.filter((p) => p.isFlashSale === true);
-}, [filteredProducts]);
+  // 🔥 FLASH SALE (IMPORTANT FIX)
+  // ================================
+  const flashSaleProducts = useMemo(() => {
+    return filteredProducts.filter((p) => p.isFlashSale === true);
+  }, [filteredProducts]);
 
-// ================================
-// NORMAL PRODUCTS (NO FLASH SALE)
-// ================================
-const normalProducts = useMemo(() => {
-  return filteredProducts.filter((p) => !p.isFlashSale);
-}, [filteredProducts]);
+  // ================================
+  // NORMAL PRODUCTS (NO FLASH SALE)
+  // ================================
+  const normalProducts = useMemo(() => {
+    return filteredProducts.filter((p) => !p.isFlashSale);
+  }, [filteredProducts]);
 
   const adminProducts = normalProducts.filter((p) => !(p as any).seller_id);
 
@@ -171,6 +178,14 @@ const normalProducts = useMemo(() => {
           Browse all products from verified sellers
         </p>
 
+        {/* SCROLLING TEXT BANNER */}
+        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-2 mb-4 border border-primary/20">
+          <ScrollingText
+            text="🎉 Flash Sale Live! Limited time discounts! 🎉"
+            className="text-xs font-bold text-primary"
+          />
+        </div>
+
         {/* SEARCH */}
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -193,7 +208,7 @@ const normalProducts = useMemo(() => {
         {/* CATEGORY + SORT */}
         <div className="flex items-center gap-2 mb-3">
           <div className="flex-1 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-            {categories.map((cat) => (
+            {categoriesList.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
@@ -222,29 +237,57 @@ const normalProducts = useMemo(() => {
           </button>
         </div>
 
-        {/* FLASH SALE SECTION (FIXED) */}
-        {flashSaleProducts.length > 0 && (
-          <div className="mb-5">
-            <h2 className="font-bold text-sm mb-2 text-red-500">
-              🔥 Flash Sale
-            </h2>
-
-            <div className="grid grid-cols-2 gap-2">
-              {flashSaleProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+        {/* SORT DROPDOWN */}
+        {showSort && (
+          <div className="bg-card rounded-xl border border-border p-3 mb-4 shadow-lg animate-in slide-in-from-top-2">
+            <div className="space-y-2">
+              {sortOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    setSortBy(opt.value);
+                    setShowSort(false);
+                  }}
+                  className={`w-full text-left text-xs font-bold py-2 px-3 rounded-lg transition-all ${
+                    sortBy === opt.value
+                      ? "bg-primary text-primary-foreground"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  {opt.label}
+                </button>
               ))}
             </div>
           </div>
         )}
 
+        {/* PRIMARY FLASH SALE SECTION */}
+        <FlashSaleSection
+          title="🔥 Flash Sale"
+          subtitle="Limited time discounts just for you!"
+          showCountdown={true}
+          variant="primary"
+        />
+
+        {/* FEATURED PRODUCTS SECTION */}
+        <FeaturedProductsSection />
+
+        {/* TRENDING NOW SECTION */}
+        <TrendingNowSection />
+
         {/* ADMIN PRODUCTS */}
         {adminProducts.length > 0 && (
-          <div className="mb-5">
-            <span className="font-bold text-sm">BizMart Official</span>
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Store className="h-5 w-5 text-primary" />
+              <span className="font-extrabold text-sm uppercase tracking-wide text-primary">
+                BizMart Official
+              </span>
+            </div>
 
-            <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="grid grid-cols-2 gap-2.5">
               {adminProducts.map((product) => (
-                <ProductCard key={product.id} product={product} />
+                <AnimatedProductCard key={product.id} product={product} index={0} />
               ))}
             </div>
           </div>
@@ -255,13 +298,13 @@ const normalProducts = useMemo(() => {
           const seller = sellerProfiles[sellerId];
 
           return (
-            <div key={sellerId} className="mb-5">
-              <div className="flex justify-between mb-2">
+            <div key={sellerId} className="mt-6">
+              <div className="flex items-center justify-between mb-3">
                 <div
                   onClick={() => navigate(`/store/${sellerId}`)}
-                  className="flex gap-2"
+                  className="flex gap-2 items-center cursor-pointer"
                 >
-                  <Store className="h-4 w-4" />
+                  <Store className="h-4 w-4 text-primary" />
                   <span className="text-sm font-bold">
                     {seller?.store_name || "Store"}
                   </span>
@@ -269,15 +312,19 @@ const normalProducts = useMemo(() => {
 
                 <button
                   onClick={() => startChat(sellerId)}
-                  className="text-xs text-primary"
+                  className="text-xs text-primary font-bold bg-primary/10 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
                 >
-                  Chat
+                  Chat Seller
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                {prods.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+              <div className="grid grid-cols-2 gap-2.5">
+                {prods.map((product, index) => (
+                  <AnimatedProductCard
+                    key={product.id}
+                    product={product}
+                    index={index}
+                  />
                 ))}
               </div>
             </div>
@@ -286,9 +333,13 @@ const normalProducts = useMemo(() => {
 
         {/* EMPTY STATE */}
         {filteredProducts.length === 0 && (
-          <p className="text-center text-xs text-muted-foreground py-8">
-            No products found
-          </p>
+          <div className="text-center py-12 bg-card rounded-2xl border border-dashed border-border mt-8">
+            <Zap className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-sm font-bold text-muted-foreground">No products found</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Try adjusting your search or filter
+            </p>
+          </div>
         )}
       </div>
 
