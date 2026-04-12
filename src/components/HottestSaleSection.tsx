@@ -31,15 +31,15 @@ export default function HottestSaleSection() {
       .sort((a, b) => b.discountPercent - a.discountPercent); // Sort by highest discount
   }, [products]);
 
-  // Auto-scroll animation - VERY SLOW speed
+  // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
     const container = scrollRef.current;
     if (!container || productsWithDiscount.length <= 4) return;
 
     const singleSetWidth = container.scrollWidth / 2;
     let lastTime = 0;
-    // VERY SLOW speed for continuous movement
-    const speed = 0.15;
+    // SLOW speed like BizMart Features (0.5)
+    const speed = 0.5;
 
     const animate = (time: number) => {
       if (!isPaused) {
@@ -154,7 +154,7 @@ export default function HottestSaleSection() {
         </button>
       </div>
 
-      {/* HORIZONTAL SCROLLING CONTAINER - VERY SLOW CONTINUOUS MOVEMENT */}
+      {/* HORIZONTAL SCROLLING CONTAINER - SLOW CONTINUOUS MOVEMENT with swipe support */}
       <div
         ref={scrollRef}
         className="flex gap-4 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing"
