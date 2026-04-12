@@ -24,16 +24,11 @@ export default function ProductDetail() {
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
   const isFlashSale = product.isFlashSale === true;
   
-  // Normal Price is always the 'price' column
-  const normalPrice = Number(product.price);
-  
-  // Final Price is sale_price if in flash sale, otherwise normal price
-  const finalPrice = isFlashSale 
-    ? Number(product.sale_price || product.price) 
-    : normalPrice;
+  const basePrice = isFlashSale ? Number(product.original_price || product.price) : product.price;
+  const finalPrice = isFlashSale ? Number(product.sale_price || product.price) : product.price;
 
-  const discount = isFlashSale && normalPrice > finalPrice
-    ? Number(product.discount_percent || Math.round((1 - finalPrice / normalPrice) * 100))
+  const discount = isFlashSale && basePrice > finalPrice
+    ? Number(product.discount_percent || Math.round((1 - finalPrice / basePrice) * 100))
     : 0;
 
   const stock = Number(product.stock) || 0;
@@ -68,7 +63,7 @@ export default function ProductDetail() {
         id: product.id,
         name: product.name,
         price: finalPrice,
-        originalPrice: isFlashSale ? normalPrice : undefined,
+        originalPrice: isFlashSale ? basePrice : undefined,
         image: product.image,
         category: product.category,
       });
@@ -144,7 +139,7 @@ export default function ProductDetail() {
           </div>
         )}
         
-        {/* ✅ AWESOME DISCOUNT BADGE (TOP LEFT) */}
+        {/* ✅ RED NOTICE DISCOUNT BADGE (TOP LEFT) */}
         {isFlashSale && discount > 0 && !isOutOfStock && (
           <div className="absolute top-0 left-0 z-10">
             <div className="bg-red-600 text-white text-xs font-black px-4 py-2 rounded-br-2xl shadow-2xl flex flex-col items-center leading-none animate-in slide-in-from-top-4 slide-in-from-left-4 duration-500">
@@ -165,8 +160,8 @@ export default function ProductDetail() {
       <div className="px-4 py-3 bg-card">
         <div className="flex items-center gap-2 mb-1">
           <span className="text-2xl font-extrabold text-primary">₱{finalPrice}</span>
-          {isFlashSale && normalPrice > finalPrice && !isOutOfStock && (
-            <span className="text-sm text-muted-foreground line-through opacity-50">₱{normalPrice}</span>
+          {isFlashSale && basePrice > finalPrice && !isOutOfStock && (
+            <span className="text-sm text-muted-foreground line-through decoration-red-500/50">₱{basePrice}</span>
           )}
         </div>
         <h1 className="text-base font-bold leading-snug">{product.name}</h1>
