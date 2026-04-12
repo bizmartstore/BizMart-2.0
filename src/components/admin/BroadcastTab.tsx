@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Megaphone, Send, Clock, Sparkles, AlertCircle, History, Smartphone, Globe, Loader2, Save } from "lucide-react";
+import { Megaphone, Send, Clock, Sparkles, AlertCircle, History, Smartphone, Globe, Loader2, Save, Calendar, Trash2, Plus, X, Check, Clock as ClockIcon } from "lucide-react";
 
 export default function BroadcastTab() {
   const [form, setForm] = useState({
@@ -20,10 +20,23 @@ export default function BroadcastTab() {
   const [autoSendContent, setAutoSendContent] = useState("");
   const [isSavingSettings, setIsSavingSettings] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
+  const [scheduledBroadcasts, setScheduledBroadcasts] = useState<any[]>([]);
+  const [isLoadingScheduled, setIsLoadingScheduled] = useState(false);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [scheduleForm, setScheduleForm] = useState({
+    title: "",
+    message: "",
+    link: "/",
+    icon: "📢",
+    scheduleTime: "08:00:00"
+  });
+  const [isCreatingScheduled, setIsCreatingScheduled] = useState(false);
+  const [isDeletingScheduled, setIsDeletingScheduled] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     loadSettings();
     loadHistory();
+    loadScheduledBroadcasts();
   }, []);
 
   const loadSettings = async () => {
@@ -42,6 +55,80 @@ export default function BroadcastTab() {
       .order("created_at", { ascending: false })
       .limit(5);
     setHistory(data || []);
+  };
+
+  const loadScheduledBroadcasts = async () => {
+    setIsLoadingScheduled(true);
+    try {
+      const { data } = await (supabase as any)
+        .from("scheduled_broadcasts")
+        .select("*")
+        .order("schedule_time", { ascending: true });
+      setScheduledBroadcasts(data || []);
+    } catch (e: any) {
+      toast.error("Failed to load scheduled broadcasts: " + e.message);
+    } finally {
+      setIsLoadingScheduled(false);
+    }
+  };
+
+  const createScheduledBroadcast = async () => {
+    if (!scheduleForm.title || !scheduleForm.message) {
+      toast.error("Title and Message are required!");
+      return;
+    }
+
+    setIsCreatingScheduled(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const payload = {
+        ...scheduleForm,
+        created_by: user.id,
+        status: "pending"
+      };
+
+      const { error } = await (supabase as any)
+        .from("scheduled_broadcasts")
+        .insert(payload);
+
+      if (error) throw error;
+
+      toast.success("Scheduled broadcast created successfully!");
+      setScheduleForm({
+        title: "",
+        message: "",
+        link: "/",
+        icon: "📢",
+        scheduleTime: "08:00:00"
+      });
+      setShowScheduleForm(false);
+      loadScheduledBroadcasts();
+    } catch (e: any) {
+      toast.error("Failed to create scheduled broadcast: " + e.message);
+    } finally {
+      setIsCreatingScheduled(false);
+    }
+  };
+
+  const deleteScheduledBroadcast = async (id: string) => {
+    setIsDeletingScheduled(prev => ({ ...prev, [id]: true }));
+    try {
+      const { error } = await (supabase as any)
+        .from("scheduled_broadcasts")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast.success("Scheduled broadcast deleted!");
+      loadScheduledBroadcasts();
+    } catch (e: any) {
+      toast.error("Failed to delete scheduled broadcast: " + e.message);
+    } finally {
+      setIsDeletingScheduled(prev => ({ ...prev, [id]: false }));
+    }
   };
 
   const saveAutoSettings = async () => {
@@ -159,6 +246,141 @@ export default function BroadcastTab() {
         </div>
       </div>
 
+      {/* Scheduled Broadcasts Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <ClockIcon className="h-5 w-5 text-primary" />
+            <div>
+              <h4 className="font-bold text-sm">Scheduled Broadcasts</h4>
+              <p className="text-[10px] text-muted-foreground">Set up automated broadcasts at specific times</p>
+            </div>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowScheduleForm(!showScheduleForm)}
+            className="gap-2 rounded-lg text-xs font-bold"
+          >
+            {showScheduleForm ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+            {showScheduleForm ? "Cancel" : "Add New Scheduled Broadcast"}
+          </Button>
+        </div>
+
+        {showScheduleForm && (
+          <div className="bg-card rounded-xl border border-border p-4 space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-3">
+                <Label className="text-xs font-bold mb-1.5 block">Title</Label>
+                <Input
+                  value={scheduleForm.title}
+                  onChange={e => setScheduleForm(f => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. Morning Announcement"
+                  className="rounded-xl h-10 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold mb-1.5 block">Icon</Label>
+                <Input
+                  value={scheduleForm.icon}
+                  onChange={e => setScheduleForm(f => ({ ...f, icon: e.target.value }))}
+                  placeholder="Emoji"
+                  className="rounded-xl h-10 text-sm text-center text-lg"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold mb-1.5 block">Message</Label>
+              <Textarea
+                value={scheduleForm.message}
+                onChange={e => setScheduleForm(f => ({ ...f, message: e.target.value }))}
+                placeholder="What do you want to announce?"
+                className="bg-background text-sm rounded-xl min-h-[80px] resize-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-bold mb-1.5 block">Link (Optional)</Label>
+                <Input
+                  value={scheduleForm.link}
+                  onChange={e => setScheduleForm(f => ({ ...f, link: e.target.value }))}
+                  placeholder="/"
+                  className="rounded-xl h-10 text-sm"
+                />
+              </div>
+              <div>
+                <Label className="text-xs font-bold mb-1.5 block">Time</Label>
+                <Input
+                  type="time"
+                  value={scheduleForm.scheduleTime}
+                  onChange={e => setScheduleForm(f => ({ ...f, scheduleTime: e.target.value }))}
+                  className="rounded-xl h-10 text-sm"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={createScheduledBroadcast}
+              disabled={isCreatingScheduled}
+              className="w-full h-10 rounded-xl font-extrabold gap-2 text-sm"
+            >
+              {isCreatingScheduled ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
+              {isCreatingScheduled ? "Creating..." : "Create Scheduled Broadcast"}
+            </Button>
+          </div>
+        )}
+
+        {/* Scheduled Broadcasts List */}
+        <div className="space-y-3">
+          {isLoadingScheduled ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : scheduledBroadcasts.length === 0 ? (
+            <div className="text-center py-6 text-xs text-muted-foreground italic bg-card rounded-xl border border-border">
+              No scheduled broadcasts yet
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {scheduledBroadcasts.map((broadcast) => (
+                <div key={broadcast.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-lg">{broadcast.icon || "📢"}</span>
+                      <p className="text-xs font-bold text-foreground truncate">{broadcast.title}</p>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground line-clamp-1 mb-2">{broadcast.message}</p>
+                    <div className="flex items-center gap-3 text-[10px]">
+                      <span className="font-bold text-primary">
+                        <ClockIcon className="h-3 w-3 inline-block mr-1" />
+                        {new Date(`1970-01-01T${broadcast.schedule_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <span className="font-bold text-muted-foreground uppercase">Status: {broadcast.status}</span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => deleteScheduledBroadcast(broadcast.id)}
+                    disabled={isDeletingScheduled[broadcast.id]}
+                    className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    {isDeletingScheduled[broadcast.id] ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Auto-Trigger Section */}
       <div className="bg-muted/30 rounded-2xl border border-border p-6 border-dashed">
         <div className="flex items-center justify-between mb-4">
@@ -173,17 +395,17 @@ export default function BroadcastTab() {
         </div>
 
         <div className="space-y-3">
-          <Textarea 
+          <Textarea
             value={autoSendContent}
             onChange={e => setAutoSendContent(e.target.value)}
             placeholder="e.g. Good morning! BizMart is now OPEN for orders. Happy shopping! 🛍️"
             className="bg-background text-sm rounded-xl"
             disabled={!autoSendEnabled}
           />
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={saveAutoSettings} 
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={saveAutoSettings}
             disabled={isSavingSettings}
             className="w-full gap-2 rounded-lg text-xs font-bold"
           >
