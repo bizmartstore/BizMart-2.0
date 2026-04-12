@@ -170,7 +170,7 @@ export default function MarketplacePage() {
   }, [products, search, selectedCategory, sortBy, priceRange]);
 
   // ================================
-  // 🔥 FLASH SALE (IMPORTANT FIX)
+  // 🔥 FLASH SALE & DISCOUNTED PRODUCTS (IMPORTANT FIX)
   // ================================
   const flashSaleProducts = useMemo(() => {
     return filteredProducts.filter((p) => p.isFlashSale === true);
@@ -193,6 +193,17 @@ export default function MarketplacePage() {
       sellerProductsMap[sid].push(p);
     }
   });
+
+  // ================================
+  // DISCOUNTED PRODUCTS (for homepage-style display)
+  // ================================
+  const discountedProducts = useMemo(() => {
+    return filteredProducts.filter((p) => {
+      const basePrice = p.originalPrice ? Number(p.originalPrice) : Number(p.price);
+      const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
+      return salePrice < basePrice; // Has actual discount
+    });
+  }, [filteredProducts]);
 
   const sortOptions: { value: SortOption; label: string }[] = [
     { value: "default", label: "Default" },
@@ -324,6 +335,24 @@ export default function MarketplacePage() {
 
             <div className="grid grid-cols-2 gap-2.5">
               {adminProducts.map((product) => (
+                <AnimatedProductCard key={product.id} product={product} index={0} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* DISCOUNTED PRODUCTS - Display like homepage */}
+        {discountedProducts.length > 0 && (
+          <div className="mt-6">
+            <div className="flex items-center gap-2 mb-3">
+              <Zap className="h-5 w-5 text-orange-500" />
+              <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">
+                Discounted Products
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              {discountedProducts.map((product) => (
                 <AnimatedProductCard key={product.id} product={product} index={0} />
               ))}
             </div>
