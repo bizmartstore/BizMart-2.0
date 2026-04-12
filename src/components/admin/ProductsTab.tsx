@@ -28,7 +28,7 @@ export default function ProductsTab() {
   const [search, setSearch] = useState("");
   const [form, setForm] = useState({
     name: "", price: 0, original_price: "", image: "", images: [] as string[], category: "",
-    stock: 0, description: "", is_flash_sale: false,
+    stock: 0, description: "", isFlashSale: false,
   });
   const fileRef = useRef<HTMLInputElement>(null);
   const additionalFileRef = useRef<HTMLInputElement>(null);
