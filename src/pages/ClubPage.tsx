@@ -180,18 +180,44 @@ export default function ClubPage() {
   };
 
   const downloadId = async () => {
-    if (!idRef.current) return;
-    try {
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(idRef.current, { scale: 3, useCORS: true, backgroundColor: null });
-      const link = document.createElement("a");
-      link.download = `BizMart-Card-${membership.control_number.replace(/\s/g, '-')}.png`;
-      link.href = canvas.toDataURL();
-      link.click();
-    } catch {
-      toast({ title: "Download failed", description: "Please take a screenshot instead.", variant: "destructive" });
-    }
-  };
+  if (!idRef.current) return;
+
+  try {
+    const { default: html2canvas } = await import("html2canvas");
+
+    // 🔥 Target the name element (add this class in your JSX)
+    const nameEl = idRef.current.querySelector(".card-holder-name");
+
+    // 🔥 Save original styles
+    const originalOverflow = idRef.current.style.overflow;
+
+    // 🔥 Temporarily fix clipping issues
+    if (nameEl) nameEl.classList.remove("truncate");
+    idRef.current.style.overflow = "visible";
+
+    const canvas = await html2canvas(idRef.current, {
+      scale: 3,
+      useCORS: true,
+      backgroundColor: null,
+    });
+
+    // 🔥 Restore original styles
+    if (nameEl) nameEl.classList.add("truncate");
+    idRef.current.style.overflow = originalOverflow;
+
+    const link = document.createElement("a");
+    link.download = `BizMart-Card-${membership.control_number.replace(/\s/g, '-')}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+
+  } catch {
+    toast({
+      title: "Download failed",
+      description: "Please take a screenshot instead.",
+      variant: "destructive",
+    });
+  }
+};
 
   if (!user) {
     return (
