@@ -78,7 +78,7 @@ export default function StoreViewPage() {
     category: p.category || "",
     rating: p.rating || 4.5,
     sold: p.sold || 0,
-    isFlashSale: p.is_flash_sale || false,
+    isFlashSale: p.isFlashSale || false,
     description: p.description || "",
   }));
 
