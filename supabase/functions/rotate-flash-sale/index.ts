@@ -48,13 +48,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 2️⃣ Reset previous flash sale (DO NOT TOUCH PRICE)
+    // 2️⃣ Reset previous flash sale
+    // We clear is_flash_sale, discount_percent, sale_price, AND original_price
+    // to return products to their base state.
     await supabase
       .from("products")
       .update({
         is_flash_sale: false,
         discount_percent: 0,
         sale_price: null,
+        original_price: null,
       })
       .eq("is_flash_sale", true);
 
@@ -92,12 +95,9 @@ Deno.serve(async (req) => {
 
     if (!allProducts || allProducts.length === 0) {
       const endsAt = new Date(now + FLASH_SALE_DURATION_MS).toISOString();
-
-      const val = { ends_at: endsAt, product_ids: [] };
-
       await supabase.from("app_settings").upsert({
         key: "flash_sale_state",
-        value: val,
+        value: { ends_at: endsAt, product_ids: [] },
         updated_at: new Date().toISOString(),
       });
 
@@ -115,53 +115,35 @@ Deno.serve(async (req) => {
     const shuffled = allProducts.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, Math.min(4, shuffled.length));
 
-    // 6️⃣ Apply discount WITHOUT changing base price
+    // 6️⃣ Apply discount
     const appliedDiscounts = [];
 
     for (const product of selected) {
       const basePrice = Number(product.price);
-
-      if (basePrice < MIN_PRICE_FOR_FLASH_SALE) continue;
-
-      const discountPercent =
-        Math.floor(Math.random() * (configMax - configMin + 1)) + configMin;
-
-      const finalDiscount = Math.max(
-        MIN_DISCOUNT,
-        Math.min(MAX_DISCOUNT, discountPercent)
-      );
-
-      const salePrice = Number(
-        (basePrice * (1 - finalDiscount / 100)).toFixed(2)
-      );
+      const discountPercent = Math.floor(Math.random() * (configMax - configMin + 1)) + configMin;
+      const salePrice = Number((basePrice * (1 - discountPercent / 100)).toFixed(2));
 
       appliedDiscounts.push({
         id: product.id,
         name: product.name,
         basePrice,
-        discount: finalDiscount,
+        discount: discountPercent,
         salePrice,
       });
 
       await supabase.from("products").update({
         is_flash_sale: true,
-        discount_percent: finalDiscount,
+        discount_percent: discountPercent,
         sale_price: salePrice,
-        original_price: basePrice,
+        original_price: basePrice, // Store the base price as original during the sale
       }).eq("id", product.id);
     }
 
     // 7️⃣ Save flash sale state
     const endsAt = new Date(now + FLASH_SALE_DURATION_MS).toISOString();
-
-    const val = {
-      ends_at: endsAt,
-      product_ids: selected.map((p) => p.id),
-    };
-
     await supabase.from("app_settings").upsert({
       key: "flash_sale_state",
-      value: val,
+      value: { ends_at: endsAt, product_ids: selected.map((p) => p.id) },
       updated_at: new Date().toISOString(),
     });
 
@@ -176,10 +158,7 @@ Deno.serve(async (req) => {
   } catch (error) {
     return new Response(
       JSON.stringify({ error: (error as any).message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });

@@ -113,16 +113,15 @@ export default function ProductsTab() {
         category: form.category.trim(),
         stock: Number(form.stock),
         description: form.description.trim(),
-        is_flash_sale: !!form.isFlashSale, // ✅ FIXED: Changed from isFlashSale to is_flash_sale
+        is_flash_sale: !!form.isFlashSale,
         is_active: true,
         rating: 4.5,
         sold: 0,
         seller_id: null,
+        // Correctly handle clearing the original price
+        original_price: (form.original_price && String(form.original_price).trim() !== "") ? Number(form.original_price) : null,
       };
 
-      if (form.original_price && form.original_price.trim() !== "") {
-        payload.original_price = form.original_price.trim();
-      }
       if (form.images.length > 0) {
         payload.images = form.images;
       }
@@ -161,7 +160,7 @@ export default function ProductsTab() {
         original_price: p.original_price !== null && p.original_price !== undefined ? String(p.original_price) : "", image: p.image || "",
         images: p.images || [],
         category: p.category || "", stock: p.stock || 0,
-        description: p.description || "", isFlashSale: p.isFlashSale || false,
+        description: p.description || "", isFlashSale: p.is_flash_sale || false,
       });
       setEditId(p.id); setShowForm(true);
     };
@@ -249,8 +248,14 @@ export default function ProductsTab() {
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
-            <div><Label className="text-[10px]">Price ₱ *</Label><Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" /></div>
-            <div><Label className="text-[10px]">Orig Price</Label><Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" /></div>
+            <div>
+              <Label className="text-[10px]">Selling Price (₱) *</Label>
+              <Input type="number" value={form.price} onChange={e => setForm(f => ({ ...f, price: Number(e.target.value) }))} className="text-xs h-8" />
+            </div>
+            <div>
+              <Label className="text-[10px]">Manual Orig Price (Optional)</Label>
+              <Input type="number" value={form.original_price} onChange={e => setForm(f => ({ ...f, original_price: e.target.value }))} className="text-xs h-8" placeholder="Leave blank" />
+            </div>
             <div><Label className="text-[10px]">Stock *</Label><Input type="number" value={form.stock} onChange={e => setForm(f => ({ ...f, stock: Number(e.target.value) }))} className="text-xs h-8" /></div>
           </div>
           
