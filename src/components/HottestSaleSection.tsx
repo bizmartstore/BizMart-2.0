@@ -49,10 +49,15 @@ export default function HottestSaleSection() {
         // Move left continuously
         scrollPosRef.current -= speed * (delta / 16);
 
-        // Reset position when we've scrolled past the start
-        if (scrollPosRef.current <= -container.clientWidth) {
-          scrollPosRef.current = const maxScroll = container.scrollWidth - container.clientWidth;
-        }
+        const maxScroll = container.scrollWidth - container.clientWidth;
+
+// move left
+scrollPosRef.current -= speed * (delta / 16);
+
+// reset when reaching start
+if (scrollPosRef.current <= 0) {
+  scrollPosRef.current = maxScroll;
+}
 
         container.scrollLeft = scrollPosRef.current;
       } else {
