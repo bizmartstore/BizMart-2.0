@@ -11,13 +11,17 @@ export function useProducts() {
         const { data, error } = await (supabase as any)
           .from('products')
           .select('*')
-          .eq('is_active', true)
+          // Include products where is_active is true OR null/missing (backwards compatibility)
+          .or('is_active.eq.true,is_active.is.null')
           .order('created_at', { ascending: false });
         
         if (error) {
           console.error('[useProducts] Supabase error:', error.message);
+          // Fallback to defaults if query fails completely
           return fallbackProducts;
         }
+        
+        console.log(`[useProducts] Found ${data?.length || 0} products in DB`);
         
         if (data && data.length > 0) {
           return data.map((p: any) => ({
@@ -28,24 +32,28 @@ export function useProducts() {
             image: p.image || '',
             images: p.images || [],
             category: p.category || '',
-            rating: Number(p.rating || 4.5),
+            rating: Number(p.rating),
             sold: p.sold || 0,
             stock: p.stock ?? 0,
             description: p.description || '',
-            isFlashSale: !!p.isflashsale, // Map from isflashsale
+            isFlashSale: p.isFlashSale || false,
             seller_id: p.seller_id || null,
           })) as Product[];
         }
         
+        console.log('[useProducts] DB empty, falling back to defaults');
         return fallbackProducts;
       } catch (err: any) {
         console.error('[useProducts] Unexpected error:', err);
         return fallbackProducts;
       }
     },
-    staleTime: 30000,
+    staleTime: 30000, // 30 seconds
     gcTime: 5 * 60 * 1000,
     refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 1,
   });
 }
 
@@ -70,6 +78,11 @@ export function useCategories() {
       return fallbackCategories;
     },
     staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }
 
@@ -88,9 +101,21 @@ export function useBanners() {
         .eq('is_active', true)
         .order('sort_order');
       
-      if (error || !data || data.length === 0) return null;
-      return data.map((b: any) => b.image_url) as string[];
+      if (error) {
+        console.warn('Failed to fetch banners from DB:', error);
+        return null;
+      }
+      
+      if (data && data.length > 0) {
+        return data.map((b: any) => b.image_url) as string[];
+      }
+      return null;
     },
     staleTime: 10 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    refetchOnMount: true,
+    retry: 2,
   });
 }
