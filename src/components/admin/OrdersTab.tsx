@@ -107,11 +107,16 @@ export default function OrdersTab() {
     try {
       const isPrint = orderToUpdate.type === 'print';
       const table = isPrint ? "print_orders" : "orders";
-      
-      const { error } = await (supabase as any).from(table).update({ status: newStatus }).eq("id", orderId);
+
+      // Use correct update syntax for Supabase
+      const { error } = await (supabase as any)
+        .from(table)
+        .update({ status: newStatus })
+        .eq("id", orderId);
+
       if (error) throw error;
 
-      // Handle Product Stock and Sold Update
+      // Handle Product Stock and Sold Update - only for product orders
       if (newStatus === "completed" && !isPrint && previousStatus !== "completed") {
         if (orderToUpdate.items && Array.isArray(orderToUpdate.items)) {
           for (const item of orderToUpdate.items) {
@@ -121,7 +126,7 @@ export default function OrdersTab() {
               .select("sold, stock")
               .eq("id", item.id)
               .maybeSingle();
-            
+
             if (product) {
               const currentSold = Number(product.sold) || 0;
               const currentStock = Number(product.stock) || 0;
@@ -129,7 +134,7 @@ export default function OrdersTab() {
 
               await (supabase as any)
                 .from("products")
-                .update({ 
+                .update({
                   sold: currentSold + quantity,
                   stock: Math.max(0, currentStock - quantity)
                 })
@@ -158,7 +163,7 @@ export default function OrdersTab() {
     const cust = o.customer;
     const custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
     const matchFilter = filter === "all" || o.status === filter;
-    const matchSearch = !search || 
+    const matchSearch = !search ||
       custName.toLowerCase().includes(search.toLowerCase()) ||
       (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (cust?.section || "").toLowerCase().includes(search.toLowerCase()) ||
