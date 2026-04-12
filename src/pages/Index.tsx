@@ -14,25 +14,37 @@ import { useNavigate } from "react-router-dom";
 import { Zap, AlertTriangle, ArrowRight, Loader2 } from "lucide-react";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
-function FlashTimer({ onExpired }: { onExpired: () => void }) {
+function FlashTimer({ endsAt, onExpired }: { endsAt?: string | null; onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
     const update = () => {
-      const now = new Date();
-      const epoch = Math.floor(now.getTime() / 1000);
-      const windowSize = 7200; // 2 hours
-      const nextWindow = (Math.floor(epoch / windowSize) + 1) * windowSize;
-      const diff = Math.max(0, nextWindow - epoch);
+      const now = new Date().getTime();
+      let targetTime: number;
+
+      if (endsAt) {
+        targetTime = new Date(endsAt).getTime();
+      } else {
+        // Fallback to 2-hour window calculation if no DB time provided
+        const epoch = Math.floor(now / 1000);
+        const windowSize = 7200; // 2 hours
+        targetTime = (Math.floor(epoch / windowSize) + 1) * windowSize * 1000;
+      }
       
+      const diff = Math.max(0, Math.floor((targetTime - now) / 1000));
       setRemaining(diff);
-      if (diff <= 0) onExpired();
+      
+      if (diff <= 0) {
+        onExpired();
+      }
     };
+
     update();
     const interval = setInterval(update, 1000);
     return () => clearInterval(interval);
-  }, [onExpired]);
+  }, [endsAt, onExpired]);
 
   const h = Math.floor(remaining / 3600);
   const m = Math.floor((remaining % 3600) / 60);
@@ -53,11 +65,17 @@ function FlashTimer({ onExpired }: { onExpired: () => void }) {
 
 export default function Index() {
   const navigate = useNavigate();
-  const { data: products = [], isLoading: productsLoading, refetch: refetchProducts } = useProducts();
-  const { data: flashSaleProducts = [], isLoading: flashLoading, refetch: refetchFlash } = useFlashSaleProducts();
+  const queryClient = useQueryClient();
+  const { data: products = [], isLoading: productsLoading } = useProducts();
+  const { data: flashSaleProducts = [], isLoading: flashLoading } = useFlashSaleProducts();
   const { data: categories = [], isLoading: categoriesLoading } = useCategories();
-  const { storeOpen, closeMessage, allSettings, loading: settingsLoading } = useAppSettings();
+  const { storeOpen, closeMessage, allSettings, loading: settingsLoading, refetch: refetchSettings } = useAppSettings();
   const [forceShow, setForceShow] = useState(false);
+
+  // Extract flash sale end time from settings
+  const flashSaleState = useMemo(() => 
+    allSettings?.find((s: any) => s.key === 'flash_sale_state')?.value, 
+  [allSettings]);
 
   useEffect(() => {
     const timer = setTimeout(() => setForceShow(true), 4000);
@@ -69,21 +87,38 @@ export default function Index() {
     return shuffled.slice(0, 10);
   }, [products]);
 
+  const refreshAllData = useCallback(() => {
+    console.log("[Index] Refreshing all data...");
+    queryClient.invalidateQueries({ queryKey: ["products"] });
+    queryClient.invalidateQueries({ queryKey: ["flash-sale-products"] });
+    refetchSettings();
+  }, [queryClient, refetchSettings]);
+
   useEffect(() => {
+    // Listen for product changes AND settings changes (rotation happens in settings)
     const channel = supabase
-      .channel("products-realtime")
+      .channel("index-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        console.log("[Index] Product change detected, refetching...");
-        refetchProducts();
-        refetchFlash();
+        refreshAllData();
+      })
+      .on("postgres_changes", { 
+        event: "UPDATE", 
+        schema: "public", 
+        table: "app_settings",
+        filter: "key=eq.flash_sale_state" 
+      }, () => {
+        console.log("[Index] Flash sale rotation detected via settings update");
+        refreshAllData();
       })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
-  }, [refetchProducts, refetchFlash]);
+  }, [refreshAllData]);
 
   const handleFlashExpired = useCallback(() => {
-    refetchFlash();
-  }, [refetchFlash]);
+    // Small delay to allow the server-side rotation to complete
+    setTimeout(refreshAllData, 2000);
+  }, [refreshAllData]);
 
   const isActuallyLoading = (productsLoading || categoriesLoading || flashLoading) && !forceShow && products.length === 0;
 
@@ -128,8 +163,8 @@ export default function Index() {
               className="flex flex-col items-center gap-1.5 flex-shrink-0 active:scale-[0.95] transition-all group"
             >
               <div className="bg-gradient-to-br from-sky-500 to-blue-600 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg">
-                              <span className="text-2xl text-white">{cat.icon}</span>
-                            </div>
+                <span className="text-2xl text-white">{cat.icon}</span>
+              </div>
               <span className="text-[10px] text-foreground font-bold whitespace-nowrap leading-tight">{cat.name}</span>
             </button>
           ))}
@@ -149,7 +184,7 @@ export default function Index() {
                   <span className="text-white/70 text-[10px] font-medium">Limited time only!</span>
                 </div>
               </div>
-              <FlashTimer onExpired={handleFlashExpired} />
+              <FlashTimer endsAt={flashSaleState?.ends_at} onExpired={handleFlashExpired} />
             </div>
           </div>
           <div className="flex gap-2 overflow-x-auto scrollbar-hide">
