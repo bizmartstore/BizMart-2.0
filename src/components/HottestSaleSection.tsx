@@ -41,7 +41,7 @@ export default function HottestSaleSection() {
   if (!container || discountedProducts.length < 2) return;
 
   let lastTime = 0;
-  const speed = 0.2; // 🔥 adjust for slower/faster movement
+  const speed = 0.4; // 🔥 adjust for slower/faster movement
 
   // start from right side
   const maxScroll = container.scrollWidth - container.clientWidth;
