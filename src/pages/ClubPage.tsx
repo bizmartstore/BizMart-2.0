@@ -291,69 +291,79 @@ export default function ClubPage() {
               </div>
             ) : membership && (
               <div className="flex flex-col items-center space-y-8">
-                {/* 💳 ATM Style ID Card */}
-                <div
-                  ref={idRef}
-                  className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
-                  style={{ 
-                    background: isPremium 
-                      ? 'linear-gradient(135deg, #1e1e1e 0%, #2c2c2c 50%, #1e1e1e 100%)' 
-                      : 'linear-gradient(135deg, #e8612d 0%, #f97316 100%)',
-                    boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-                  }}
-                >
-                  {/* Gloss Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
-                  
-                  {/* BizMart Logo Top Right */}
-                  <div className="absolute top-4 right-5 flex items-center gap-2 opacity-90">
-                    <img src={bizLogo} className="h-8 w-8 object-contain brightness-0 invert" alt="" />
-                    <span className="text-white font-black text-sm tracking-tighter">BIZMART</span>
-                  </div>
-
-                  {/* Gold Chip */}
-                  <div className="absolute top-12 left-6 w-12 h-9 rounded-md bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 border border-black/10 overflow-hidden">
-                    <div className="w-full h-full opacity-30" style={{ backgroundImage: 'linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.2) 50%), linear-gradient(0deg, transparent 50%, rgba(0,0,0,0.2) 50%)', backgroundSize: '10px 10px' }} />
-                  </div>
-
-                  {/* Card Number (Control Number) */}
-                  <div className="absolute top-[55%] left-6 right-6">
-                    <p className="text-white text-xl font-mono tracking-[0.15em] drop-shadow-md">
-                      {membership.control_number}
-                    </p>
-                  </div>
-
-                  {/* Bottom Info Row */}
-                  <div className="absolute bottom-6 left-6 right-6 flex justify-between items-end">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <p className="text-[8px] text-white/60 uppercase font-bold tracking-widest mb-0.5">Card Holder</p>
-                      <p className="text-white text-sm font-bold uppercase truncate tracking-wide">
-                        {profile?.first_name} {profile?.last_name}
-                      </p>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <p className="text-[8px] text-white/60 uppercase font-bold tracking-widest mb-0.5">Valid Thru</p>
-                      <p className="text-white text-sm font-bold font-mono">
-                        {new Date(membership.expiry_date).toLocaleDateString('en-US', { month: '2-digit', year: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Contactless / NFC Icon */}
-                  <div className="absolute top-12 right-6 opacity-30 rotate-90">
-                    <div className="flex gap-1">
-                      {[1, 2, 3].map(i => <div key={i} className="w-0.5 h-4 bg-white rounded-full" />)}
-                    </div>
-                  </div>
-
-                  {/* Premium Badge */}
-                  {isPremium && (
-                    <div className="absolute top-4 left-6 px-2 py-0.5 bg-yellow-400/20 border border-yellow-400/40 rounded flex items-center gap-1">
-                      <Star className="h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
-                      <span className="text-[8px] font-black text-yellow-400 uppercase tracking-widest">PREMIUM</span>
-                    </div>
-                  )}
-                </div>
+                              {/* 💳 ATM Style ID Card */}
+                              <div
+                                ref={idRef}
+                                className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
+                                style={{
+                                  background: 'url(https://i.ibb.co/Q7L6H77G/ATM-BG.png) center/cover no-repeat',
+                                  boxShadow: '0 20px 40px rgba(0,0,0,0.25)'
+                                }}
+                              >
+                                {/* Dark overlay for better text readability */}
+                                <div className="absolute inset-0 bg-black/20" />
+                                
+                                {/* BizMart Logo - Top Left */}
+                                <div className="absolute top-4 left-5 flex items-center gap-2 z-10">
+                                  <img
+                                    src="https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png"
+                                    className="h-10 w-auto object-contain"
+                                    alt="BizMart"
+                                  />
+                                </div>
+              
+                                {/* Premium Badge */}
+                                {isPremium && (
+                                  <div className="absolute top-4 right-5 px-3 py-1 bg-yellow-400/90 border border-yellow-500 rounded-full flex items-center gap-1 shadow-lg">
+                                    <Star className="h-3 w-3 fill-yellow-900 text-yellow-900" />
+                                    <span className="text-[9px] font-black text-yellow-900 uppercase tracking-widest">PREMIUM</span>
+                                  </div>
+                                )}
+              
+                                {/* Gold Chip */}
+                                <div className="absolute top-[45%] left-6 w-14 h-10 rounded-md bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600 border border-black/10 overflow-hidden shadow-lg">
+                                  <div className="w-full h-full opacity-30" style={{ backgroundImage: 'linear-gradient(90deg, transparent 50%, rgba(0,0,0,0.2) 50%), linear-gradient(0deg, transparent 50%, rgba(0,0,0,0.2) 50%)', backgroundSize: '8px 8px' }} />
+                                </div>
+              
+                                {/* Card Number (Control Number) */}
+                                <div className="absolute top-[62%] left-6 right-6">
+                                  <p className="text-white text-[22px] font-mono font-bold tracking-[0.2em] drop-shadow-lg">
+                                    {membership.control_number}
+                                  </p>
+                                </div>
+              
+                                {/* Contactless / NFC Icon */}
+                                <div className="absolute top-[62%] right-6 opacity-60 rotate-90">
+                                  <div className="flex gap-1">
+                                    {[1, 2, 3, 4].map(i => <div key={i} className="w-0.5 h-5 bg-white rounded-full" />)}
+                                  </div>
+                                </div>
+              
+                                {/* Bottom Info Row */}
+                                <div className="absolute bottom-5 left-6 right-6 flex justify-between items-end">
+                                  <div className="flex-1 min-w-0 pr-4">
+                                    <p className="text-[7px] text-white/70 uppercase font-bold tracking-widest mb-0.5">Card Holder</p>
+                                    <p className="text-white text-[13px] font-bold uppercase truncate tracking-wide drop-shadow-md">
+                                      {profile?.first_name} {profile?.last_name}
+                                    </p>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <p className="text-[7px] text-white/70 uppercase font-bold tracking-widest mb-0.5">Valid Thru</p>
+                                    <p className="text-white text-[13px] font-bold font-mono drop-shadow-md">
+                                      {new Date(membership.expiry_date).toLocaleDateString('en-US', { month: '2-digit', year: '2-digit' })}
+                                    </p>
+                                  </div>
+                                </div>
+              
+                                {/* Membership Type Badge */}
+                                <div className="absolute bottom-5 left-6">
+                                  <div className={`px-3 py-1 rounded-full ${isPremium ? 'bg-yellow-400/90' : 'bg-white/80'} shadow-md`}>
+                                    <span className={`text-[8px] font-black uppercase tracking-wider ${isPremium ? 'text-yellow-900' : 'text-orange-600'}`}>
+                                      {isPremium ? 'VIP Member' : 'Standard Member'}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
 
                 <div className="w-full space-y-4">
                   <Button onClick={downloadId} className="w-full h-12 rounded-xl gap-2 font-bold shadow-lg">
