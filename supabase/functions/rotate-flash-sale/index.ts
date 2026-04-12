@@ -8,7 +8,7 @@ const corsHeaders = {
 // Flash sale lasts 2 hours
 const FLASH_SALE_DURATION_MS = 2 * 60 * 60 * 1000;
 
-// Hard limits for discount percentages
+// Hard limits for discount percentages (Strict 5-10% range)
 const MIN_DISCOUNT = 5;
 const MAX_DISCOUNT = 10;
 
@@ -49,8 +49,6 @@ Deno.serve(async (req) => {
     }
 
     // 2️⃣ Reset previous flash sale
-    // We clear is_flash_sale, discount_percent, sale_price, AND original_price
-    // to return products to their base state.
     await supabase
       .from("products")
       .update({
@@ -61,32 +59,7 @@ Deno.serve(async (req) => {
       })
       .eq("is_flash_sale", true);
 
-    // 3️⃣ Load discount config (safe fallback)
-    const safeParse = (data: any, fallback: number): number => {
-      if (!data?.value?.percentage) return fallback;
-      const val = Number(data.value.percentage);
-      return isNaN(val) ? fallback : val;
-    };
-
-    const { data: minDiscountData } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "flash_sale_min_discount")
-      .maybeSingle();
-
-    const { data: maxDiscountData } = await supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "flash_sale_max_discount")
-      .maybeSingle();
-
-    const rawMin = safeParse(minDiscountData, MIN_DISCOUNT);
-    const rawMax = safeParse(maxDiscountData, MAX_DISCOUNT);
-
-    const configMin = Math.max(MIN_DISCOUNT, Math.min(MAX_DISCOUNT, rawMin));
-    const configMax = Math.min(MAX_DISCOUNT, Math.max(MIN_DISCOUNT, rawMax));
-
-    // 4️⃣ Get eligible products ONLY (price >= 30)
+    // 3️⃣ Get eligible products ONLY (price >= 30)
     const { data: allProducts } = await supabase
       .from("products")
       .select("*")
@@ -111,16 +84,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // 5️⃣ Pick exactly 4 random products
+    // 4️⃣ Pick exactly 4 random products
     const shuffled = allProducts.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, Math.min(4, shuffled.length));
 
-    // 6️⃣ Apply discount
+    // 5️⃣ Apply random 5-10% discount
     const appliedDiscounts = [];
 
     for (const product of selected) {
       const basePrice = Number(product.price);
-      const discountPercent = Math.floor(Math.random() * (configMax - configMin + 1)) + configMin;
+      // Generate random integer between 5 and 10
+      const discountPercent = Math.floor(Math.random() * (MAX_DISCOUNT - MIN_DISCOUNT + 1)) + MIN_DISCOUNT;
       const salePrice = Number((basePrice * (1 - discountPercent / 100)).toFixed(2));
 
       appliedDiscounts.push({
@@ -135,11 +109,11 @@ Deno.serve(async (req) => {
         is_flash_sale: true,
         discount_percent: discountPercent,
         sale_price: salePrice,
-        original_price: basePrice, // Store the base price as original during the sale
+        original_price: basePrice,
       }).eq("id", product.id);
     }
 
-    // 7️⃣ Save flash sale state
+    // 6️⃣ Save flash sale state
     const endsAt = new Date(now + FLASH_SALE_DURATION_MS).toISOString();
     await supabase.from("app_settings").upsert({
       key: "flash_sale_state",

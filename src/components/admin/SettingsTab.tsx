@@ -21,7 +21,7 @@ export default function SettingsTab() {
     gcashFee: gcashFee,
     maxSellers: 5,
     flashSaleMinDiscount: 5,
-    flashSaleMaxDiscount: 10, // default now 10% max
+    flashSaleMaxDiscount: 10,
   });
   const [isSaving, setIsSaving] = useState(false);
 
@@ -36,7 +36,7 @@ export default function SettingsTab() {
       gcashFee,
       maxSellers: maxSellersSetting?.value?.max ?? 5,
       flashSaleMinDiscount: flashSaleMinSetting?.value?.percentage ?? 5,
-      flashSaleMaxDiscount: flashSaleMaxSetting?.value?.percentage ?? 10, // enforce 10% max
+      flashSaleMaxDiscount: Math.min(10, flashSaleMaxSetting?.value?.percentage ?? 10),
     });
   }, [allSettings, storeOpen, closeMessage, gcashFee]);
 
@@ -47,8 +47,8 @@ export default function SettingsTab() {
         { key: "store_status", value: { is_open: settings.storeOpen, close_message: settings.closeMessage } },
         { key: "gcash_service_fee", value: { amount: settings.gcashFee } },
         { key: "max_sellers", value: { max: settings.maxSellers } },
-        { key: "flash_sale_min_discount", value: { percentage: settings.flashSaleMinDiscount } },
-        { key: "flash_sale_max_discount", value: { percentage: settings.flashSaleMaxDiscount } },
+        { key: "flash_sale_min_discount", value: { percentage: Math.max(5, settings.flashSaleMinDiscount) } },
+        { key: "flash_sale_max_discount", value: { percentage: Math.min(10, settings.flashSaleMaxDiscount) } },
       ];
 
       for (const { key, value } of updates) {
@@ -71,7 +71,7 @@ export default function SettingsTab() {
     try {
       const { data } = await supabase.functions.invoke("rotate-flash-sale");
       if (data?.rotated) {
-        toast.success(`Flash sale rotated! ${data.products?.length || 0} products selected.`);
+        toast.success(`Flash sale rotated! ${data.products?.length || 0} products selected with 5-10% discounts.`);
       } else {
         toast.info(data?.message || "Flash sale already active");
       }
@@ -127,30 +127,30 @@ export default function SettingsTab() {
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Zap className="h-5 w-5 text-warning" />
-          <h3 className="font-bold text-sm">Flash Sale Discount Rate</h3>
+          <h3 className="font-bold text-sm">Flash Sale Rules</h3>
         </div>
-        <p className="text-[10px] text-muted-foreground">Manually trigger a flash sale rotation. This will randomly select up to 4 products and apply discounts between the minimum and maximum percentage for 2 hours. Applies to all products including synced defaults.</p>
+        <p className="text-[10px] text-muted-foreground">Discounts are now strictly limited between 5% and 10% per your request. This applies to up to 4 random products every 2 hours.</p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label className="text-[10px]">Minimum Discount (%)</Label>
+            <Label className="text-[10px]">Min Discount (%)</Label>
             <Input 
               type="number" 
               value={settings.flashSaleMinDiscount} 
-              onChange={(e) => setSettings(s => ({ ...s, flashSaleMinDiscount: Math.max(5, Math.min(10, Number(e.target.value))) }))} 
-              className="text-xs h-8"
+              disabled
+              className="text-xs h-8 bg-muted"
             />
           </div>
           <div>
-            <Label className="text-[10px]">Maximum Discount (%)</Label>
+            <Label className="text-[10px]">Max Discount (%)</Label>
             <Input 
               type="number" 
               value={settings.flashSaleMaxDiscount} 
-              onChange={(e) => setSettings(s => ({ ...s, flashSaleMaxDiscount: Math.max(5, Math.min(10, Number(e.target.value))) }))} 
-              className="text-xs h-8"
+              disabled
+              className="text-xs h-8 bg-muted"
             />
           </div>
         </div>
-        <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger Flash Sale</Button>
+        <Button onClick={triggerFlashSale} size="sm" className="gap-1"><Zap className="h-3 w-3" /> Trigger 5-10% Flash Sale</Button>
       </div>
 
       <Button onClick={saveSettings} disabled={isSaving} className="w-full gap-2">
