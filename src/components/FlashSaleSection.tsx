@@ -181,7 +181,74 @@ export default function FlashSaleSection({
             whileTap={{ scale: 0.95 }}
             className="flex-shrink-0 w-36"
           >
-            <ProductCard product={product} />
+            <div className="relative">
+              {/* RED DISCOUNT BADGE */}
+              {product.isFlashSale && (
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 500 }}
+                  className="absolute top-0 left-0 z-10"
+                >
+                  <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
+                    <span>{product.discount_percent || 0}%</span>
+                    <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* FLASH SALE TAG */}
+              {product.isFlashSale && (
+                <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10">
+                  FLASH SALE
+                </span>
+              )}
+
+              {/* Product Card */}
+              <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group">
+                <div className="relative aspect-square overflow-hidden">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
+
+                <div className="p-3">
+                  <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1 group-hover:text-primary transition-colors">
+                    {product.name}
+                  </h3>
+
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg font-extrabold text-primary">
+                        ₱{product.price}
+                      </span>
+                      {product.originalPrice && product.price < product.originalPrice && (
+                        <span className="text-xs text-muted-foreground line-through decoration-red-500/50">
+                          ₱{product.originalPrice}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      {product.sold} sold
+                    </span>
+                  </div>
+
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
+                  >
+                    View Details
+                  </motion.div>
+                </div>
+              </div>
+            </div>
           </motion.div>
         ))}
       </motion.div>

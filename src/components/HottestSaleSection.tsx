@@ -271,7 +271,7 @@ export default function HottestSaleSection() {
                       className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
                     >
                       View Details
-                    </motion.button>
+                    </button>
                   </div>
                 </div>
               </div>
