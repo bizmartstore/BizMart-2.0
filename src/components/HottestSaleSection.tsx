@@ -36,37 +36,45 @@ export default function HottestSaleSection() {
       });
   }, [products]);
 
-  // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container || discountedProducts.length < 2) return;
+  const container = scrollRef.current;
+  if (!container || discountedProducts.length < 2) return;
 
-    // Set initial scroll position to the end (right side)
-    container.scrollLeft = container.scrollWidth;
+  let lastTime = 0;
+  const speed = 0.2; // 🔥 adjust for slower/faster movement
 
-    let lastTime = 0;
-    const speed = 0.2; // SLOW speed like BizMart Features
+  // start from right side
+  const maxScroll = container.scrollWidth - container.clientWidth;
+  scrollPosRef.current = maxScroll;
+  container.scrollLeft = maxScroll;
 
-    const animate = (time: number) => {
-      if (!isPaused) {
-        const delta = lastTime ? time - lastTime : 16;
-        lastTime = time;
+  const animate = (time: number) => {
+    if (!isPaused && container) {
+      const delta = lastTime ? time - lastTime : 16;
+      lastTime = time;
 
-        container.scrollLeft = scrollPosRef.current;
-      } else {
-        lastTime = 0;
+      // 👉 MOVE LEFT (smooth)
+      scrollPosRef.current += speed * (delta / 16);
+
+      // 👉 LOOP RESET (infinite scroll)
+      if (scrollPosRef.current >= maxScroll) {
+        scrollPosRef.current = 0;
       }
-      animationRef.current = requestAnimationFrame(animate);
-    };
+
+      container.scrollLeft = scrollPosRef.current;
+    } else {
+      lastTime = 0;
+    }
 
     animationRef.current = requestAnimationFrame(animate);
+  };
 
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [discountedProducts.length, isPaused]);
+  animationRef.current = requestAnimationFrame(animate);
+
+  return () => {
+    cancelAnimationFrame(animationRef.current);
+  };
+}, [discountedProducts.length, isPaused]);
 
   // Handle interaction start/end for pause
   const handleInteractionStart = () => setIsPaused(true);
