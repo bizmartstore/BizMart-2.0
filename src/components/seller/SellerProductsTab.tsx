@@ -16,7 +16,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     name: "", price: 0, original_price: "", image: "", category: "",
-    stock: 0, description: "", isFlashSale: false,
+    stock: 0, description: "", is_flash_sale: false,
   });
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -29,7 +29,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
 
   const resetForm = () => setForm({
     name: "", price: 0, original_price: "", image: "", category: "",
-    stock: 0, description: "", isFlashSale: false,
+    stock: 0, description: "", is_flash_sale: false,
   });
 
   const uploadImage = async (file: File) => {
@@ -65,7 +65,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
         category: form.category.trim(),
         stock: form.stock,
         description: form.description.trim(),
-        isFlashSale: form.isFlashSale,
+        is_flash_sale: form.is_flash_sale,
         seller_id: user.id,
         is_active: true,
         rating: 4.5,
@@ -93,7 +93,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
       name: p.name, price: Number(p.price),
       original_price: p.original_price || "", image: p.image || "",
       category: p.category || "", stock: p.stock || 0,
-      description: p.description || "", isFlashSale: p.isFlashSale || false,
+      description: p.description || "", is_flash_sale: p.is_flash_sale || false,
     });
     setEditId(p.id); setShowForm(true);
   };

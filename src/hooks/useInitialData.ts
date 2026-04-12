@@ -28,7 +28,7 @@ export function useInitialData() {
           sold: p.sold || 0,
           stock: p.stock ?? 0,
           description: p.description || '',
-          isFlashSale: p.isFlashSale || false,
+          isFlashSale: p.is_flash_sale || false,
           seller_id: p.seller_id || null,
         }));
       }

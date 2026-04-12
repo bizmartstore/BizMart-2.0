@@ -119,7 +119,7 @@ export type Database = {
           sold: number;
           stock: number | null;
           description: string;
-          isFlashSale: boolean;
+          is_flash_sale: boolean;
           is_active: boolean;
           seller_id: string | null;
         };
@@ -135,7 +135,7 @@ export type Database = {
           sold?: number;
           stock?: number | null;
           description?: string;
-          isFlashSale?: boolean;
+          is_flash_sale?: boolean;
           is_active?: boolean;
           seller_id?: string | null;
         };
@@ -150,7 +150,7 @@ export type Database = {
           sold?: number;
           stock?: number | null;
           description?: string;
-          isFlashSale?: boolean;
+          is_flash_sale?: boolean;
           is_active?: boolean;
           seller_id?: string | null;
         };

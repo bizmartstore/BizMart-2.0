@@ -67,7 +67,7 @@ CREATE TABLE public.products (
   rating numeric DEFAULT 4.5,
   sold integer DEFAULT 0,
   description text DEFAULT '',
-  isFlashSale boolean DEFAULT false,
+  is_flash_sale boolean DEFAULT false,
   is_active boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );
@@ -123,7 +123,7 @@ INSERT INTO public.categories (id, name, icon, sort_order) VALUES
   ('org', 'Org Supplies', '📁', 14);
 
 -- Seed products
-INSERT INTO public.products (id, name, price, original_price, image, category, rating, sold, description, isFlashSale) VALUES
+INSERT INTO public.products (id, name, price, original_price, image, category, rating, sold, description, is_flash_sale) VALUES
 ('1', 'Premium Spiral Notebook A4', 45, 89, 'https://images.unsplash.com/photo-1531346878377-a5be20888e57?w=300', 'notebooks', 4.8, 2340, 'High-quality 200-page spiral notebook with thick paper, perfect for notes and journaling.', true),
 ('n2', 'Yellow Pad Writing Paper (3-pack)', 60, NULL, 'https://images.unsplash.com/photo-1517842645767-c639042777db?w=300', 'notebooks', 4.6, 4100, 'Classic yellow writing pad, 100 sheets each. Great for exams and essays.', false),
 ('n3', 'Composition Notebook (5-pack)', 95, 140, 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=300', 'notebooks', 4.7, 3800, 'Standard 80-leaf composition notebooks in assorted colors.', false),
