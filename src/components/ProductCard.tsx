@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Star, ShoppingCart, Coins } from "lucide-react";
 import { toast } from "sonner";
 import { useCart } from "@/context/CartContext";
@@ -25,7 +25,7 @@ export default function ProductCard({ product }: ProductCardProps) {
   const basePrice = isFlashSale && product.original_price
     ? Number(product.original_price)
     : Number(product.price);
-    
+
   const finalPrice = isFlashSale && product.sale_price && Number(product.sale_price) < basePrice
     ? Number(product.sale_price)
     : Number(product.price);
@@ -42,12 +42,16 @@ export default function ProductCard({ product }: ProductCardProps) {
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!storeOpen) {
       toast.error("Store is currently closed");
       return;
     }
     if (isOutOfStock) {
+      toast.error("This product is out of stock");
+      return;
+    }
+    if (stock < 1) {
       toast.error("This product is out of stock");
       return;
     }
@@ -76,6 +80,10 @@ export default function ProductCard({ product }: ProductCardProps) {
       toast.error("This product is out of stock");
       return;
     }
+    if (stock < 1) {
+      toast.error("This product is out of stock");
+      return;
+    }
 
     addItem({
       id: product.id,
@@ -91,18 +99,14 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div
-      className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group ${
-        isOutOfStock ? "opacity-75" : ""
-      }`}
+      className={`bg-card rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md active:scale-[0.98] transition-all cursor-pointer group ${isOutOfStock ? "opacity-75" : ""}`}
       onClick={() => navigate(`/product/${product.id}`)}
     >
       <div className="relative aspect-square overflow-hidden">
         <img
           src={product.image}
           alt={product.name}
-          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${
-            isOutOfStock ? "grayscale" : ""
-          }`}
+          className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-110 ${isOutOfStock ? "grayscale" : ""}`}
         />
 
         {isOutOfStock ? (
@@ -113,7 +117,7 @@ export default function ProductCard({ product }: ProductCardProps) {
           </div>
         ) : (
           <>
-            {/* RED DISCOUNT BADGE (TOP LEFT) */}
+            {/* RED DISCOUNT BADGE */}
             {isFlashSale && discount > 0 && (
               <div className="absolute top-0 left-0 z-10">
                 <div className="bg-red-600 text-white text-[10px] font-black px-2.5 py-1.5 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
@@ -123,7 +127,7 @@ export default function ProductCard({ product }: ProductCardProps) {
               </div>
             )}
 
-            {/* FLASH SALE TAG (TOP RIGHT) */}
+            {/* FLASH SALE TAG */}
             {isFlashSale && (
               <span className="absolute top-2 right-2 bg-yellow-400 text-black text-[8px] font-black px-2 py-0.5 rounded-full shadow-sm border border-black/10">
                 FLASH SALE
@@ -150,11 +154,11 @@ export default function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-center gap-1">
             <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
             <span className="text-xs text-muted-foreground">
-              {product.rating}
+              {product.sold}
             </span>
           </div>
           <span className="text-[10px] text-muted-foreground font-medium">
-            {product.sold} sold
+            {stock > 0 ? `${stock} left` : 'Sold Out'}
           </span>
         </div>
 

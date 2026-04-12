@@ -23,8 +23,8 @@ export default function ProductDetail() {
 
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
   const isFlashSale = product.isFlashSale === true;
-  
-  const basePrice = isFlashSale ? Number(product.original_price || product.price) : product.price;
+
+  const basePrice = isFlashSale ? Number(product.originalPrice || product.price) : product.price;
   const finalPrice = isFlashSale ? Number(product.sale_price || product.price) : product.price;
 
   // ✅ Dynamic calculation
@@ -99,12 +99,12 @@ export default function ProductDetail() {
       </div>
 
       <div className="relative aspect-square">
-        <img 
-          src={product.image} 
-          alt={product.name} 
-          className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`} 
+        <img
+          src={product.image}
+          alt={product.name}
+          className={`w-full h-full object-cover ${isOutOfStock ? 'grayscale' : ''}`}
         />
-        
+
         {isOutOfStock && (
           <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center z-20">
             <span className="bg-destructive text-white text-xs font-black px-6 py-2 rounded-full uppercase tracking-widest shadow-2xl scale-110">
@@ -114,7 +114,7 @@ export default function ProductDetail() {
         )}
 
         {!isOutOfStock && allImages.length > 1 && (
-          <div 
+          <div
             className="absolute bottom-4 right-4 bg-black/60 backdrop-blur-sm rounded-xl p-2.5 shadow-lg z-10 cursor-pointer"
             onClick={() => openCarouselAt(carouselIndex)}
           >
@@ -123,7 +123,7 @@ export default function ProductDetail() {
                 src={allImages[carouselIndex]}
                 alt={`Thumbnail ${carouselIndex + 1}`}
                 className="h-16 w-16 object-cover rounded-lg transition-all"
-                style={{ 
+                style={{
                   border: '2px solid white',
                   boxShadow: '0 4px 6px rgba(0,0,0,0.3)'
                 }}
@@ -139,7 +139,7 @@ export default function ProductDetail() {
             </div>
           </div>
         )}
-        
+
         {/* ✅ RED NOTICE DISCOUNT BADGE (TOP LEFT) */}
         {isFlashSale && discount > 0 && !isOutOfStock && (
           <div className="absolute top-0 left-0 z-10">
@@ -149,7 +149,7 @@ export default function ProductDetail() {
             </div>
           </div>
         )}
-        
+
         {/* ✅ FLASH SALE TAG */}
         {isFlashSale && !isOutOfStock && (
           <span className="absolute top-3 right-3 bg-gradient-to-r from-yellow-400 to-orange-500 text-black text-[10px] font-black px-3 py-1 rounded-full shadow-md flex items-center gap-1 border border-black/10">
@@ -169,12 +169,12 @@ export default function ProductDetail() {
         <div className="flex items-center gap-3 mt-2">
           <div className="flex items-center gap-1">
             <Star className="h-3.5 w-3.5 fill-warning text-warning" />
-            <span className="text-xs font-semibold">{product.rating}</span>
+            <span className="text-xs font-semibold">{product.sold}</span>
           </div>
           <span className="text-xs text-muted-foreground font-medium">{product.sold.toLocaleString()} sold</span>
           {isOutOfStock ? (
             <span className="text-xs font-black text-destructive bg-destructive/10 px-2 py-0.5 rounded-full">SOLD OUT</span>
-          ) : product.stock !== undefined ? (
+          ) : stock !== undefined ? (
             <span className={`text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1 ${stock <= 5 ? 'bg-warning/10 text-warning' : 'bg-success/10 text-[hsl(var(--success))]'}`}>
               <Package className="h-3 w-3" />
               {stock} left
@@ -195,15 +195,15 @@ export default function ProductDetail() {
         <div className="mt-2 px-4 py-3 bg-card flex items-center justify-between">
           <span className="text-sm font-semibold">Quantity</span>
           <div className="flex items-center gap-3">
-            <button 
-              onClick={() => setQty(Math.max(1, qty - 1))} 
+            <button
+              onClick={() => setQty(Math.max(1, qty - 1))}
               className="h-8 w-8 rounded-full border border-border flex items-center justify-center active:bg-muted"
             >
               <Minus className="h-3.5 w-3.5" />
             </button>
             <span className="text-sm font-black w-6 text-center">{qty}</span>
-            <button 
-              onClick={() => setQty(Math.min(qty + 1, stock))} 
+            <button
+              onClick={() => setQty(Math.min(qty + 1, stock))}
               className="h-8 w-8 rounded-full border border-border flex items-center justify-center active:bg-muted"
               disabled={qty >= stock}
             >
@@ -242,12 +242,12 @@ export default function ProductDetail() {
       </div>
 
       {!isOutOfStock && (
-        <ImageCarouselModal 
+        <ImageCarouselModal
           images={allImages}
-          isOpen={showCarousel} 
-          onClose={() => setShowCarousel(false)} 
+          isOpen={showCarousel}
+          onClose={() => setShowCarousel(false)}
         />
-      )}
+      )
 
       <BottomNav />
     </div>

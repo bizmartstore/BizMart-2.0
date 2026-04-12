@@ -23,6 +23,28 @@ export function useProducts() {
         }
 
         if (data && data.length > 0) {
+          // Calculate sold count from actual completed orders
+          const soldCounts: Record<string, number> = {};
+
+          // Get all completed orders that contain these products
+          const { data: completedOrders } = await (supabase as any)
+            .from("orders")
+            .select("items")
+            .eq("status", "completed");
+
+          // Count sold items from completed orders
+          if (completedOrders && completedOrders.length > 0) {
+            completedOrders.forEach((order: any) => {
+              if (order.items && Array.isArray(order.items)) {
+                order.items.forEach((item: any) => {
+                  if (item.id) {
+                    soldCounts[item.id] = (soldCounts[item.id] || 0) + (item.quantity || 1);
+                  }
+                });
+              }
+            });
+          }
+
           return data.map((p: any) => ({
             id: p.id,
             name: p.name,
@@ -32,15 +54,15 @@ export function useProducts() {
             images: p.images || [],
             category: p.category || "",
             rating: Number(p.rating),
-            sold: p.sold || 0,
+            sold: soldCounts[p.id] || p.sold || 0, // Use calculated sold count or fallback
             stock: p.stock ?? 0,
             description: p.description || "",
             isFlashSale: !!p.is_flash_sale,
-            // Pass these through for the components to use
             sale_price: p.sale_price,
             discount_percent: p.discount_percent,
             original_price: p.original_price,
             seller_id: p.seller_id || null,
+            created_at: p.created_at,
           })) as Product[];
         }
 
@@ -76,6 +98,26 @@ export function useFlashSaleProducts() {
         }
 
         if (data) {
+          // Calculate sold count from actual completed orders
+          const soldCounts: Record<string, number> = {};
+
+          const { data: completedOrders } = await (supabase as any)
+            .from("orders")
+            .select("items")
+            .eq("status", "completed");
+
+          if (completedOrders && completedOrders.length > 0) {
+            completedOrders.forEach((order: any) => {
+              if (order.items && Array.isArray(order.items)) {
+                order.items.forEach((item: any) => {
+                  if (item.id) {
+                    soldCounts[item.id] = (soldCounts[item.id] || 0) + (item.quantity || 1);
+                  }
+                });
+              }
+            });
+          }
+
           // Filter to only include products with actual discounts
           const discountedProducts = data.filter((p: any) => {
             const basePrice = p.original_price ? Number(p.original_price) : Number(p.price);
@@ -92,7 +134,7 @@ export function useFlashSaleProducts() {
             images: p.images || [],
             category: p.category || "",
             rating: Number(p.rating),
-            sold: p.sold || 0,
+            sold: soldCounts[p.id] || p.sold || 0,
             stock: p.stock ?? 0,
             description: p.description || "",
             isFlashSale: true,
