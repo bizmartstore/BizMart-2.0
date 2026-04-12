@@ -5,10 +5,10 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  Crown, Download, Shield, Store, Sparkles, ArrowRight, 
-  FileText, Coins, CreditCard, Info, Star, ChevronRight, 
-  Zap, Gift, Wallet, Disc, Loader2, CheckCircle2, X
+import {
+  Crown, Download, Shield, Store, Sparkles, ArrowRight,
+  FileText, Coins, CreditCard, Info, Star, ChevronRight,
+  Zap, Gift, Wallet, Disc, Loader2, CheckCircle2, X, Clock
 } from "lucide-react";
 import { notifyAdminNewMember } from "@/lib/notifications";
 import { useToast } from "@/hooks/use-toast";
