@@ -409,43 +409,7 @@ export default function MarketplacePage() {
         )}
       </div>
 
-      {/* DISCOUNTED PRODUCTS - Display at the top */}
-      {discountedProducts.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Zap className="h-5 w-5 text-orange-500" />
-            <span className="font-extrabold text-sm uppercase tracking-wide text-orange-500">
-              Discounted Products
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {discountedProducts.map((product) => (
-              <AnimatedProductCard key={product.id} product={product} index={0} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ADMIN PRODUCTS - ONLY DISPLAY BIZMART OFFICIAL PRODUCTS */}
-      {adminProducts.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Store className="h-5 w-5 text-primary" />
-            <span className="font-extrabold text-sm uppercase tracking-wide text-primary">
-              BizMart Official
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {adminProducts.map((product) => (
-              <AnimatedProductCard key={product.id} product={product} index={0} />
-            ))}
-          </div>
-        </div>
-      )}
+      <BottomNav />
     </div>
-
-    <BottomNav />
   );
 }
