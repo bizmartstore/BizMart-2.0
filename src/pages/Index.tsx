@@ -1,4 +1,4 @@
-import { use client } from "react";
+import { useClient } from "react";
 
 import TopBar from "@/components/TopBar";
 import BannerCarousel from "@/components/BannerCarousel";
@@ -36,6 +36,6 @@ import { supabase } from "@/integrations/supabase/client";
       <BizMartATMCard /> <!-- New component added -->
       <NewsCarousel />
 
-      {/* Rest of the content remains unchanged -->
+      {/* Rest of the content remains unchanged */}
     </div>
   );
