@@ -77,14 +77,13 @@ export default function TrendingNowSection() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2, duration: 0.5 }}
-        className="grid grid-cols-2 gap-2 overflow-x-auto scrollbar-hide pb-2"
+        className="grid grid-cols-2 gap-2.5"
       >
         {visibleProducts.map((product) => (
           <motion.div
             key={product.id}
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            className="flex-shrink-0 w-36"
           >
             <ProductCard product={product} />
           </motion.div>

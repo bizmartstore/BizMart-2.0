@@ -111,7 +111,12 @@ export default function HottestSaleSection() {
       </div>
 
       {/* HORIZONTAL SCROLLING MARQUEE - VERY SLOW AND CONTINUOUS */}
-      <div className="relative overflow-hidden rounded-xl border border-primary/20 bg-white/50">
+      <div
+        className="relative overflow-hidden rounded-xl border border-primary/20 bg-white/50 cursor-grab active:cursor-grabbing"
+        onMouseDown={() => setIsHovered(true)}
+        onMouseUp={() => setIsHovered(false)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
         {/* Gradient overlay on left */}
         <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white/80 to-transparent z-10" />
 
@@ -170,7 +175,7 @@ export default function HottestSaleSection() {
                       <div className="flex items-center gap-1">
                         <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
                         {product.originalPrice && product.price < product.originalPrice && (
-                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50">
+                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
                             ₱{product.originalPrice}
                           </span>
                         )}
@@ -238,7 +243,7 @@ export default function HottestSaleSection() {
                       <div className="flex items-center gap-1">
                         <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
                         {product.originalPrice && product.price < product.originalPrice && (
-                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50">
+                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
                             ₱{product.originalPrice}
                           </span>
                         )}
