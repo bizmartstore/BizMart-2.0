@@ -93,7 +93,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
       name: p.name, price: Number(p.price),
       original_price: p.original_price || "", image: p.image || "",
       category: p.category || "", stock: p.stock || 0,
-      description: p.description || "", is_flash_sale: p.is_flash_sale || false,
+      description: p.description || "", isFlashSale: p.isFlashSale || false,
     });
     setEditId(p.id); setShowForm(true);
   };
