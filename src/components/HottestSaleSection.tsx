@@ -41,30 +41,28 @@ export default function HottestSaleSection() {
   if (!container || discountedProducts.length < 2) return;
 
   let lastTime = 0;
-  const speed = 0.4;
+  const speed = 0.05; // 🔥 lower = slower (0.03–0.1 ideal)
 
   const maxScroll = () =>
     container.scrollWidth - container.clientWidth;
 
-  // ensure we don't re-force reset every re-render
+  // start at right side only once
   if (scrollPosRef.current === 0) {
     scrollPosRef.current = maxScroll();
     container.scrollLeft = scrollPosRef.current;
   }
 
   const animate = (time: number) => {
-    if (!isPaused && container && document.visibilityState === "visible") {
+    if (!isPaused && document.visibilityState === "visible") {
       const delta = lastTime ? time - lastTime : 16;
       lastTime = time;
 
-      // 👉 MOVE LEFT (smooth)
-      scrollPosRef.current += speed * (delta / 16);
+      // 👉 MOVE LEFT (important: subtract)
+      scrollPosRef.current -= speed * (delta / 16);
 
-      const max = maxScroll();
-
-      // 👉 safer loop (prevents snap-back glitch)
-      if (scrollPosRef.current >= max) {
-        scrollPosRef.current = max;
+      // 👉 LOOP RESET (smooth infinite)
+      if (scrollPosRef.current <= 0) {
+        scrollPosRef.current = maxScroll();
       }
 
       container.scrollLeft = scrollPosRef.current;
@@ -77,9 +75,7 @@ export default function HottestSaleSection() {
 
   animationRef.current = requestAnimationFrame(animate);
 
-  return () => {
-    cancelAnimationFrame(animationRef.current);
-  };
+  return () => cancelAnimationFrame(animationRef.current);
 }, [discountedProducts.length, isPaused]);
 
   // Handle interaction start/end for pause
