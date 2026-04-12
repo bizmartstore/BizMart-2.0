@@ -331,7 +331,7 @@ export default function ClubPage() {
                   
                   {/* BizMart Logo Top Right */}
                   <div className="absolute top-4 right-5 flex items-center gap-2 opacity-90">
-                    <img src={bizLogo} className="h-8 w-8 object-contain brightness-0 invert" alt="" />
+                    <img src={bizLogo} className="h-8 w-8 object-contain" alt="" />
                     <span className="text-white font-black text-sm tracking-tighter">BIZMART</span>
                   </div>
 
