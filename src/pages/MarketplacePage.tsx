@@ -8,13 +8,30 @@ import { useAppSettings } from "@/hooks/useAppSettings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Store, MessageCircle, Search, X, ArrowUpDown, Zap, TrendingUp, Sparkles } from "lucide-react";
+import {
+  Store,
+  MessageCircle,
+  Search,
+  X,
+  ArrowUpDown,
+  Zap,
+  TrendingUp,
+  Sparkles,
+  Tag,
+  PackagePlus,
+  Filter,
+  Tag as TagIcon
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import FlashSaleSection from "@/components/FlashSaleSection";
 import FeaturedProductsSection from "@/components/FeaturedProductsSection";
 import TrendingNowSection from "@/components/TrendingNowSection";
+import DealsOfTheDaySection from "@/components/DealsOfTheDaySection";
+import NewArrivalsSection from "@/components/NewArrivalsSection";
+import CategoryHighlightSection from "@/components/CategoryHighlightSection";
 import AnimatedProductCard from "@/components/AnimatedProductCard";
 import ScrollingText from "@/components/ScrollingText";
+import PriceRangeFilter from "@/components/PriceRangeFilter";
 
 type SortOption =
   | "default"
@@ -36,6 +53,21 @@ export default function MarketplacePage() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [sortBy, setSortBy] = useState<SortOption>("default");
   const [showSort, setShowSort] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 10000]);
+
+  // Calculate min and max prices
+  const priceBounds = useMemo(() => {
+    const prices = products.map(p => p.price);
+    return [
+      Math.min(...prices, 0),
+      Math.max(...prices, 10000)
+    ];
+  }, [products]);
+
+  useEffect(() => {
+    setPriceRange([priceBounds[0], priceBounds[1]]);
+  }, [priceBounds]);
 
   useEffect(() => {
     (supabase as any)
@@ -110,7 +142,10 @@ export default function MarketplacePage() {
       const matchCategory =
         selectedCategory === "all" || p.category === selectedCategory;
 
-      return matchSearch && matchCategory;
+      const matchPrice =
+        p.price >= priceRange[0] && p.price <= priceRange[1];
+
+      return matchSearch && matchCategory && matchPrice;
     });
 
     switch (sortBy) {
@@ -132,7 +167,7 @@ export default function MarketplacePage() {
     }
 
     return filtered;
-  }, [products, search, selectedCategory, sortBy]);
+  }, [products, search, selectedCategory, sortBy, priceRange]);
 
   // ================================
   // 🔥 FLASH SALE (IMPORTANT FIX)
@@ -205,7 +240,7 @@ export default function MarketplacePage() {
           )}
         </div>
 
-        {/* CATEGORY + SORT */}
+        {/* CATEGORY + SORT + FILTER */}
         <div className="flex items-center gap-2 mb-3">
           <div className="flex-1 flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
             {categoriesList.map((cat) => (
@@ -235,6 +270,17 @@ export default function MarketplacePage() {
           >
             <ArrowUpDown className="h-4 w-4" />
           </button>
+
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`p-2 rounded-xl ${
+              showFilters
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            <Filter className="h-4 w-4" />
+          </button>
         </div>
 
         {/* SORT DROPDOWN */}
@@ -261,6 +307,19 @@ export default function MarketplacePage() {
           </div>
         )}
 
+        {/* FILTERS DROPDOWN */}
+        {showFilters && (
+          <div className="bg-card rounded-xl border border-border p-4 mb-4 shadow-lg animate-in slide-in-from-top-2">
+            <PriceRangeFilter
+              minPrice={priceBounds[0]}
+              maxPrice={priceBounds[1]}
+              onRangeChange={(min, max) => setPriceRange([min, max])}
+              currentMin={priceRange[0]}
+              currentMax={priceRange[1]}
+            />
+          </div>
+        )}
+
         {/* PRIMARY FLASH SALE SECTION */}
         <FlashSaleSection
           title="🔥 Flash Sale"
@@ -269,11 +328,20 @@ export default function MarketplacePage() {
           variant="primary"
         />
 
+        {/* DEALS OF THE DAY SECTION */}
+        <DealsOfTheDaySection />
+
+        {/* NEW ARRIVALS SECTION */}
+        <NewArrivalsSection />
+
         {/* FEATURED PRODUCTS SECTION */}
         <FeaturedProductsSection />
 
         {/* TRENDING NOW SECTION */}
         <TrendingNowSection />
+
+        {/* CATEGORY HIGHLIGHT SECTION */}
+        <CategoryHighlightSection />
 
         {/* ADMIN PRODUCTS */}
         {adminProducts.length > 0 && (
