@@ -320,30 +320,7 @@ export default function MarketplacePage() {
           </div>
         )}
 
-        {/* PRIMARY FLASH SALE SECTION */}
-        <FlashSaleSection
-          title="🔥 Flash Sale"
-          subtitle="Limited time discounts just for you!"
-          showCountdown={true}
-          variant="primary"
-        />
-
-        {/* DEALS OF THE DAY SECTION */}
-        <DealsOfTheDaySection />
-
-        {/* NEW ARRIVALS SECTION */}
-        <NewArrivalsSection />
-
-        {/* FEATURED PRODUCTS SECTION */}
-        <FeaturedProductsSection />
-
-        {/* TRENDING NOW SECTION */}
-        <TrendingNowSection />
-
-        {/* CATEGORY HIGHLIGHT SECTION */}
-        <CategoryHighlightSection />
-
-        {/* ADMIN PRODUCTS */}
+        {/* ADMIN PRODUCTS - ONLY DISPLAY BIZMART OFFICIAL PRODUCTS */}
         {adminProducts.length > 0 && (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-3">
