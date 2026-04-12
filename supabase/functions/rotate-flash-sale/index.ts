@@ -7,9 +7,13 @@ const corsHeaders = {
 
 // Flash sale lasts 2 hours
 const FLASH_SALE_DURATION_MS = 2 * 60 * 60 * 1000;
+
 // Hard limits for discount percentages
 const MIN_DISCOUNT = 5;
-const MAX_DISCOUNT = 10; // reduced from 15 to 10
+const MAX_DISCOUNT = 10;
+
+// Minimum price for flash sale eligibility
+const MIN_PRICE_FOR_FLASH_SALE = 30.0;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -21,9 +25,7 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ---------------------------------------------------
-    // 1️⃣  Check if a flash sale is already active
-    // ---------------------------------------------------
+    // 1️⃣ Check active flash sale
     const { data: setting } = await supabase
       .from("app_settings")
       .select("*")
@@ -31,6 +33,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const now = Date.now();
+
     if (setting?.value?.ends_at) {
       const endsAt = new Date(setting.value.ends_at).getTime();
       if (endsAt > now) {
@@ -40,14 +43,22 @@ Deno.serve(async (req) => {
             message: "Flash sale still active",
             ends_at: setting.value.ends_at,
           }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
 
-    // ---------------------------------------------------
-    // 2️⃣  Load discount configuration (fallback to hard limits)
-    // ---------------------------------------------------
+    // 2️⃣ Reset previous flash sale (DO NOT TOUCH PRICE)
+    await supabase
+      .from("products")
+      .update({
+        is_flash_sale: false,
+        discount_percent: 0,
+        sale_price: null,
+      })
+      .eq("is_flash_sale", true);
+
+    // 3️⃣ Load discount config (safe fallback)
     const safeParse = (data: any, fallback: number): number => {
       if (!data?.value?.percentage) return fallback;
       const val = Number(data.value.percentage);
@@ -59,6 +70,7 @@ Deno.serve(async (req) => {
       .select("value")
       .eq("key", "flash_sale_min_discount")
       .maybeSingle();
+
     const { data: maxDiscountData } = await supabase
       .from("app_settings")
       .select("value")
@@ -68,97 +80,106 @@ Deno.serve(async (req) => {
     const rawMin = safeParse(minDiscountData, MIN_DISCOUNT);
     const rawMax = safeParse(maxDiscountData, MAX_DISCOUNT);
 
-    // Enforce hard limits (5‑10%) regardless of what the admin set
     const configMin = Math.max(MIN_DISCOUNT, Math.min(MAX_DISCOUNT, rawMin));
     const configMax = Math.min(MAX_DISCOUNT, Math.max(MIN_DISCOUNT, rawMax));
 
-    // ---------------------------------------------------
-    // 3️⃣  Pull all active products
-    // ---------------------------------------------------
+    // 4️⃣ Get eligible products ONLY (price >= 30)
     const { data: allProducts } = await supabase
       .from("products")
       .select("*")
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .gte("price", MIN_PRICE_FOR_FLASH_SALE);
 
     if (!allProducts || allProducts.length === 0) {
       const endsAt = new Date(now + FLASH_SALE_DURATION_MS).toISOString();
+
       const val = { ends_at: endsAt, product_ids: [] };
-      if (setting) {
-        await supabase
-          .from("app_settings")
-          .update({ value: val, updated_at: new Date().toISOString() })
-          .eq("key", "flash_sale_state");
-      } else {
-        await supabase.from("app_settings").insert({ key: "flash_sale_state", value: val });
-      }
+
+      await supabase.from("app_settings").upsert({
+        key: "flash_sale_state",
+        value: val,
+        updated_at: new Date().toISOString(),
+      });
+
       return new Response(
-        JSON.stringify({ rotated: false, message: "No products available", ends_at: endsAt }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({
+          rotated: false,
+          message: "No eligible products (>= 30)",
+          ends_at: endsAt,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ---------------------------------------------------
-    // 4️⃣  Randomly select up to 4 products for this round
-    // ---------------------------------------------------
+    // 5️⃣ Pick exactly 4 random products
     const shuffled = allProducts.sort(() => Math.random() - 0.5);
     const selected = shuffled.slice(0, Math.min(4, shuffled.length));
 
-    // ---------------------------------------------------
-    // 5️⃣  Apply a discount between 5%‑10% to each selected product
-    // ---------------------------------------------------
-    const appliedDiscounts: Array<{ name: string; discount: number; basePrice: number; salePrice: number }> = [];
+    // 6️⃣ Apply discount WITHOUT changing base price
+    const appliedDiscounts = [];
+
     for (const product of selected) {
-      const basePrice = product.original_price ? Number(product.original_price) : Number(product.price);
-      if (basePrice <= 0) continue;
+      const basePrice = Number(product.price);
 
-      // Random discount within the allowed range (inclusive)
-      const discountPercent = Math.floor(Math.random() * (configMax - configMin + 1)) + configMin;
-      // Final safety clamp – guarantees 5‑10%
-      const finalDiscount = Math.max(MIN_DISCOUNT, Math.min(MAX_DISCOUNT, discountPercent));
+      if (basePrice < MIN_PRICE_FOR_FLASH_SALE) continue;
 
-      const salePrice = Number((basePrice * (1 - finalDiscount / 100)).toFixed(2));
+      const discountPercent =
+        Math.floor(Math.random() * (configMax - configMin + 1)) + configMin;
+
+      const finalDiscount = Math.max(
+        MIN_DISCOUNT,
+        Math.min(MAX_DISCOUNT, discountPercent)
+      );
+
+      const salePrice = Number(
+        (basePrice * (1 - finalDiscount / 100)).toFixed(2)
+      );
 
       appliedDiscounts.push({
+        id: product.id,
         name: product.name,
-        discount: finalDiscount,
         basePrice,
+        discount: finalDiscount,
         salePrice,
       });
 
       await supabase.from("products").update({
-        price: salePrice,
         is_flash_sale: true,
+        discount_percent: finalDiscount,
+        sale_price: salePrice,
         original_price: basePrice,
       }).eq("id", product.id);
     }
 
-    // ---------------------------------------------------
-    // 6️⃣  Store the new flash‑sale state (end time + product IDs)
-    // ---------------------------------------------------
+    // 7️⃣ Save flash sale state
     const endsAt = new Date(now + FLASH_SALE_DURATION_MS).toISOString();
-    const val = { ends_at: endsAt, product_ids: selected.map((p) => p.id) };
-    if (setting) {
-      await supabase
-        .from("app_settings")
-        .update({ value: val, updated_at: new Date().toISOString() })
-        .eq("key", "flash_sale_state");
-    } else {
-      await supabase.from("app_settings").insert({ key: "flash_sale_state", value: val });
-    }
+
+    const val = {
+      ends_at: endsAt,
+      product_ids: selected.map((p) => p.id),
+    };
+
+    await supabase.from("app_settings").upsert({
+      key: "flash_sale_state",
+      value: val,
+      updated_at: new Date().toISOString(),
+    });
 
     return new Response(
       JSON.stringify({
         rotated: true,
-        products: selected.map((p) => p.name),
         ends_at: endsAt,
-        debug_discounts: appliedDiscounts,
+        products: appliedDiscounts,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    return new Response(JSON.stringify({ error: (error as any).message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: (error as any).message }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
+    );
   }
 });
