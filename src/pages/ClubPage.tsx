@@ -241,7 +241,7 @@ export default function ClubPage() {
       
       {/* ═══ Top Navigation Buttons ═══ */}
       <div className="sticky top-[52px] z-30 bg-background/80 backdrop-blur-md border-b border-border px-3 py-2">
-        <div className="flex gap-2 overflow-x-auto scrollbar-none">
+        <div className="flex gap-2 overflow-x-auto scrollbar-none px-1 touch-pan-x">
           <button 
             onClick={() => setActiveTab("membership")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
