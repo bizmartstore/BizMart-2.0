@@ -36,18 +36,26 @@ export default function HottestSaleSection() {
     const container = scrollRef.current;
     if (!container || productsWithDiscount.length <= 4) return;
 
-    const singleSetWidth = container.scrollWidth / 2;
+    // Set initial scroll position to the end (right side)
+    container.scrollLeft = container.scrollWidth;
+
     let lastTime = 0;
-    // SLOW speed like BizMart Features (0.5)
-    const speed = 0.5;
+    const speed = 0.5; // SLOW speed like BizMart Features
 
     const animate = (time: number) => {
       if (!isPaused) {
         const delta = lastTime ? time - lastTime : 16;
         lastTime = time;
-        scrollPosRef.current += speed * (delta / 16);
-        if (scrollPosRef.current >= singleSetWidth) scrollPosRef.current -= singleSetWidth;
-        if (container) container.scrollLeft = scrollPosRef.current;
+
+        // Move left continuously
+        scrollPosRef.current -= speed * (delta / 16);
+
+        // Reset position when we've scrolled past the start
+        if (scrollPosRef.current <= -container.clientWidth) {
+          scrollPosRef.current = container.scrollWidth;
+        }
+
+        container.scrollLeft = scrollPosRef.current;
       } else {
         lastTime = 0;
       }
