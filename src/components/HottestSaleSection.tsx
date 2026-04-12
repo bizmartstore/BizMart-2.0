@@ -45,7 +45,7 @@ export default function HottestSaleSection() {
     container.scrollLeft = container.scrollWidth;
 
     let lastTime = 0;
-    const speed = 0.5; // SLOW speed like BizMart Features
+    const speed = 0.2; // SLOW speed like BizMart Features
 
     const animate = (time: number) => {
       if (!isPaused) {
