@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
 
       await supabase.from("products").update({
         price: salePrice,
-        is_flash_sale: true,
+        isFlashSale: true,
         original_price: basePrice,
       }).eq("id", product.id);
     }
