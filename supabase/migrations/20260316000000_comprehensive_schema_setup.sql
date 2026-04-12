@@ -106,7 +106,7 @@ CREATE TABLE public.products (
     rating DECIMAL(3,2) DEFAULT 4.5,
     sold INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT true,
-    is_flash_sale BOOLEAN DEFAULT false,
+    isFlashSale BOOLEAN DEFAULT false,
     seller_id UUID REFERENCES auth.users(id),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
 );
