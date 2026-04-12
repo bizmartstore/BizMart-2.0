@@ -17,7 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import bizLogo from "@/assets/bizmart-logo.png";
-import atmBg from "@/assets/ATM-BG.png"; // ✅ ADD THIS LINE
 import { useNavigate } from "react-router-dom";
 import BCoinsFeatures from "@/components/BCoinsFeatures";
 
@@ -320,15 +319,12 @@ export default function ClubPage() {
               <div className="flex flex-col items-center space-y-8">
                 {/* 💳 ATM Style ID Card */}
                 <div
-                  ref={idRef}
-                  className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
-                  style={{
-  backgroundImage: `url(${atmBg})`,
-  backgroundSize: "cover",
-  backgroundPosition: "center",
-  backgroundRepeat: "no-repeat",
-  boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
-}}
+                                  ref={idRef}
+                                  className="w-full max-w-[340px] aspect-[1.586/1] rounded-[20px] relative overflow-hidden shadow-2xl transition-transform active:scale-[0.98]"
+                                  style={{
+                                  background: "linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)",
+                                  boxShadow: '0 20px 40px rgba(0,0,0,0.15)'
+                }}
                 >
                   {/* Gloss Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-tr from-white/5 to-transparent pointer-events-none" />
