@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import bizLogo from "@/assets/bizmart-logo.png";
+import atmBg from "@/assets/ATM-BG.png"; // ✅ ADD THIS LINE
 import { useNavigate } from "react-router-dom";
 import BCoinsFeatures from "@/components/BCoinsFeatures";
 
