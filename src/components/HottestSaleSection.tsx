@@ -118,10 +118,13 @@ export default function HottestSaleSection() {
   }
 
   // Calculate max discount for display
-  const maxDiscount = discountedProducts.length > 0
+  const maxDiscount =
+  discountedProducts.length > 0
     ? Math.round(
-        ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) - Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
-        (Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) * 100
+        ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) -
+          Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
+          Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) *
+          100
       )
     : 0;
 
