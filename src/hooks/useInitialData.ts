@@ -2,19 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { products as fallbackProducts, categories as fallbackCategories, Product } from "@/data/products";
 
-// Single unified query that fetches all initial data in one batch
 export function useInitialData() {
   return useQuery({
     queryKey: ['initial-data'],
     queryFn: async () => {
-      // Fetch all data in parallel but with a single connection
       const [productsRes, categoriesRes, settingsRes] = await Promise.all([
         (supabase as any).from('products').select('*').eq('is_active', true),
         (supabase as any).from('categories').select('*').eq('is_active', true).order('sort_order'),
         (supabase as any).from('app_settings').select('*'),
       ]);
 
-      // Process products
       let products: (Product & { seller_id?: string })[] = fallbackProducts;
       if (!productsRes.error && productsRes.data && productsRes.data.length > 0) {
         products = productsRes.data.map((p: any) => ({
@@ -24,22 +21,20 @@ export function useInitialData() {
           originalPrice: p.original_price ? Number(p.original_price) : undefined,
           image: p.image || '',
           category: p.category || '',
-          rating: Number(p.rating),
+          rating: Number(p.rating || 4.5),
           sold: p.sold || 0,
           stock: p.stock ?? 0,
           description: p.description || '',
-          isFlashSale: p.isFlashSale || false,
+          isFlashSale: !!p.isflashsale, // Correct mapping
           seller_id: p.seller_id || null,
         }));
       }
 
-      // Process categories
       let categories = fallbackCategories;
       if (!categoriesRes.error && categoriesRes.data && categoriesRes.data.length > 0) {
         categories = categoriesRes.data.map((c: any) => ({ id: c.id, name: c.name, icon: c.icon }));
       }
 
-      // Process settings
       const settings = settingsRes.data || [];
       const storeStatus = settings.find((s: any) => s.key === 'store_status');
       const fee = settings.find((s: any) => s.key === 'gcash_service_fee');
@@ -58,11 +53,5 @@ export function useInitialData() {
       };
     },
     staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: true,
-    refetchOnMount: true,
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
   });
 }

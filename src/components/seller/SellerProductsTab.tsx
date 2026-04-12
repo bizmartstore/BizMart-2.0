@@ -53,11 +53,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
     if (form.price <= 0) { toast.error("Price must be greater than 0"); return; }
     setSaving(true);
     try {
-      // Generate UUID for new products to satisfy NOT NULL constraint
-      const productId = editId || crypto.randomUUID();
-      
       const payload = {
-        id: productId,
         name: form.name.trim(),
         price: form.price,
         original_price: form.original_price ? Number(form.original_price) : null,
@@ -65,7 +61,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
         category: form.category.trim(),
         stock: form.stock,
         description: form.description.trim(),
-        isFlashSale: form.isFlashSale,
+        isflashsale: form.isFlashSale, // Using isflashsale
         seller_id: user.id,
         is_active: true,
         rating: 4.5,
@@ -77,9 +73,9 @@ export default function SellerProductsTab({ user }: { user: any }) {
         if (error) throw error;
         toast.success("Product updated!");
       } else {
-        const { error } = await (supabase as any).from("products").insert(payload);
+        const { error } = await (supabase as any).from("products").insert({ ...payload, id: crypto.randomUUID() });
         if (error) throw error;
-        toast.success("Product added! It will appear in Marketplace & Homepage.");
+        toast.success("Product added!");
       }
       resetForm(); setShowForm(false); setEditId(null); load();
     } catch (e: any) {
@@ -93,7 +89,8 @@ export default function SellerProductsTab({ user }: { user: any }) {
       name: p.name, price: Number(p.price),
       original_price: p.original_price || "", image: p.image || "",
       category: p.category || "", stock: p.stock || 0,
-      description: p.description || "", isFlashSale: p.isFlashSale || false,
+      description: p.description || "", 
+      isFlashSale: !!p.isflashsale, // Map from isflashsale
     });
     setEditId(p.id); setShowForm(true);
   };
@@ -127,7 +124,6 @@ export default function SellerProductsTab({ user }: { user: any }) {
           </div>
           <div><Label className="text-[10px]">Category</Label><Input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. accessories" className="text-xs h-8" /></div>
           
-          {/* Image Upload */}
           <div>
             <Label className="text-[10px]">Product Image</Label>
             <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={e => {
@@ -145,7 +141,7 @@ export default function SellerProductsTab({ user }: { user: any }) {
               <button onClick={() => fileRef.current?.click()} disabled={uploading}
                 className="w-full h-20 border-2 border-dashed border-border rounded-lg flex flex-col items-center justify-center gap-1 mt-1 hover:bg-muted/50 transition-colors">
                 {uploading ? <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /> : <Upload className="h-5 w-5 text-muted-foreground" />}
-                <span className="text-[10px] text-muted-foreground">{uploading ? "Uploading..." : "Tap to upload image"}</span>
+                <span className="text-[10px] text-muted-foreground">Tap to upload image</span>
               </button>
             )}
           </div>
@@ -165,7 +161,8 @@ export default function SellerProductsTab({ user }: { user: any }) {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold truncate">{p.name}</p>
             <p className="text-[10px] text-muted-foreground">
-              ₱{p.price} · Stock: <span className={`font-bold ${(p.stock || 0) <= 0 ? 'text-destructive' : 'text-[hsl(var(--success))]'}`}>{p.stock || 0}</span>
+              ₱{p.price} · Stock: {p.stock || 0}
+              {p.isflashsale && <span className="ml-2 text-orange-500 font-bold">⚡ FLASH</span>}
             </p>
           </div>
           <div className="flex gap-1 flex-shrink-0 items-center">
@@ -177,7 +174,6 @@ export default function SellerProductsTab({ user }: { user: any }) {
           </div>
         </div>
       ))}
-      {products.length === 0 && <p className="text-center text-xs text-muted-foreground py-6">No products yet. Add your first product!</p>}
     </div>
   );
 }
