@@ -212,15 +212,7 @@ export default function MarketplacePage() {
         <p className="text-xs text-muted-foreground mb-3">
           Browse all products from verified sellers
         </p>
-
-        {/* SCROLLING TEXT BANNER */}
-        <div className="bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl p-2 mb-4 border border-primary/20">
-          <ScrollingText
-            text="🎉 Flash Sale Live! Limited time discounts! 🎉"
-            className="text-xs font-bold text-primary"
-          />
-        </div>
-
+  
         {/* SEARCH */}
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
