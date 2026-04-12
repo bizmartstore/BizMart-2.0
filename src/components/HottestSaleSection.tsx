@@ -33,7 +33,7 @@ export default function HottestSaleSection() {
   // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container || productsWithDiscount.length <= 4) return;
+    if (!container || productsWithDiscount.length < 2) return;
 
     // Set initial scroll position to the end (right side)
     container.scrollLeft = container.scrollWidth;
