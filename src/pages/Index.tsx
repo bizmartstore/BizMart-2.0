@@ -19,6 +19,7 @@ import DealsOfTheDaySection from "@/components/DealsOfTheDaySection";
 import FlashSaleSection from "@/components/FlashSaleSection";
 import FeaturedProductsSection from "@/components/FeaturedProductsSection";
 import TrendingNowSection from "@/components/TrendingNowSection";
+import HottestSaleSection from "@/components/HottestSaleSection";
 
 function FlashTimer({ endsAt, onExpired }: { endsAt?: string | null; onExpired: () => void }) {
   const [remaining, setRemaining] = useState(0);
@@ -176,7 +177,10 @@ export default function Index() {
         </div>
       </div>
 
-      {/* DEALS OF THE DAY SECTION - NEW! */}
+      {/* HOTTEST SALE SECTION - NEW! - Positioned at the very top */}
+      <HottestSaleSection />
+
+      {/* DEALS OF THE DAY SECTION */}
       <DealsOfTheDaySection />
 
       {/* PRIMARY FLASH SALE SECTION */}
