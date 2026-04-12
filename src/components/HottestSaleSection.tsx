@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProducts } from "@/hooks/useProducts";
-import ProductCard from "@/components/ProductCard";
-import { Flame, ArrowRight, Sparkles, Percent } from "lucide-react";
+import { Flame, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function HottestSaleSection() {
@@ -172,7 +171,7 @@ export default function HottestSaleSection() {
         onMouseUp={handleInteractionEnd}
         onMouseLeave={handleInteractionEnd}
       >
-        {productsWithDiscount.map((product) => (
+        {productsWithDiscount.slice(0, 4).map((product) => (
           <motion.div
             key={product.id}
             whileHover={{ scale: 1.05, y: -5 }}
@@ -224,15 +223,6 @@ export default function HottestSaleSection() {
                       {product.sold} sold
                     </span>
                   </div>
-
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => navigate(`/product/${product.id}`)}
-                    className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
-                  >
-                    View Details
-                  </motion.button>
                 </div>
               </div>
             </div>
