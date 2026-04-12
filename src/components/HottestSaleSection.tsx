@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useProducts } from "@/hooks/useProducts";
 import ProductCard from "@/components/ProductCard";
@@ -10,7 +10,10 @@ import { motion } from "framer-motion";
 export default function HottestSaleSection() {
   const navigate = useNavigate();
   const { data: products = [], isLoading } = useProducts();
-  const [isHovered, setIsHovered] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isPaused, setIsPaused] = useState(false);
+  const animationRef = useRef<number>(0);
+  const scrollPosRef = useRef(0);
 
   // Calculate discount percentage for each product
   const productsWithDiscount = useMemo(() => {
@@ -27,6 +30,46 @@ export default function HottestSaleSection() {
       .filter(p => p.discountPercent > 0) // Only products with actual discount
       .sort((a, b) => b.discountPercent - a.discountPercent); // Sort by highest discount
   }, [products]);
+
+  // Auto-scroll animation
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container || productsWithDiscount.length <= 4) return;
+
+    const singleSetWidth = container.scrollWidth / 2;
+    let lastTime = 0;
+    const speed = 0.5;
+
+    const animate = (time: number) => {
+      if (!isPaused) {
+        const delta = lastTime ? time - lastTime : 16;
+        lastTime = time;
+        scrollPosRef.current += speed * (delta / 16);
+        if (scrollPosRef.current >= singleSetWidth) scrollPosRef.current -= singleSetWidth;
+        if (container) container.scrollLeft = scrollPosRef.current;
+      } else {
+        lastTime = 0;
+      }
+      animationRef.current = requestAnimationFrame(animate);
+    };
+
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+      }
+    };
+  }, [productsWithDiscount.length, isPaused]);
+
+  // Handle interaction start/end for pause
+  const handleInteractionStart = () => setIsPaused(true);
+  const handleInteractionEnd = () => {
+    setTimeout(() => {
+      if (scrollRef.current) scrollPosRef.current = scrollRef.current.scrollLeft;
+      setIsPaused(false);
+    }, 2000);
+  };
 
   if (isLoading) {
     return (
@@ -110,166 +153,82 @@ export default function HottestSaleSection() {
         </button>
       </div>
 
-      {/* HORIZONTAL SCROLLING MARQUEE - VERY SLOW AND CONTINUOUS */}
+      {/* HORIZONTAL SCROLLING CONTAINER - FIXED */}
       <div
-        className="relative overflow-hidden rounded-xl border border-primary/20 bg-white/50 cursor-grab active:cursor-grabbing"
-        onMouseDown={() => setIsHovered(true)}
-        onMouseUp={() => setIsHovered(false)}
-        onMouseLeave={() => setIsHovered(false)}
+        ref={scrollRef}
+        className="flex gap-4 overflow-x-auto scrollbar-hide cursor-grab active:cursor-grabbing"
+        onTouchStart={handleInteractionStart}
+        onTouchEnd={handleInteractionEnd}
+        onMouseDown={handleInteractionStart}
+        onMouseUp={handleInteractionEnd}
+        onMouseLeave={handleInteractionEnd}
       >
-        {/* Gradient overlay on left */}
-        <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-white/80 to-transparent z-10" />
+        {productsWithDiscount.map((product) => (
+          <motion.div
+            key={product.id}
+            whileHover={{ scale: 1.05, y: -5 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex-shrink-0 w-40"
+          >
+            <div className="relative">
+              {/* Discount Badge - BIG and RED */}
+              <motion.div
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
+                className="absolute top-0 left-0 z-20"
+              >
+                <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
+                  <span className="text-lg">{product.discountPercent}%</span>
+                  <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
+                </div>
+              </motion.div>
 
-        {/* Gradient overlay on right */}
-        <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-white/80 to-transparent z-10" />
+              {/* Enhanced Product Card */}
+              <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
+                <div className="relative aspect-square overflow-hidden">
+                  <img
+                    src={product.image}
+                    alt={product.name}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                  />
+                </div>
 
-        {/* Scrolling container */}
-        <motion.div
-          className="flex gap-4 py-4 px-2"
-          animate={{
-            x: [0, -1200]
-          }}
-          transition={{
-            duration: 60,  // 60 seconds for one full loop
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        >
-          {productsWithDiscount.map((product) => (
-            <motion.div
-              key={product.id}
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex-shrink-0 w-40"
-            >
-              <div className="relative">
-                {/* Discount Badge - BIG and RED */}
-                <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
-                  className="absolute top-0 left-0 z-20"
-                >
-                  <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
-                    <span className="text-lg">{product.discountPercent}%</span>
-                    <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
-                  </div>
-                </motion.div>
+                <div className="p-3">
+                  <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
+                    {product.name}
+                  </h3>
 
-                {/* Enhanced Product Card */}
-                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
-                  <div className="relative aspect-square overflow-hidden">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  </div>
-
-                  <div className="p-3">
-                    <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
-                      {product.name}
-                    </h3>
-
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1">
-                        <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
-                        {product.originalPrice && product.price < product.originalPrice && (
-                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
-                            ₱{product.originalPrice}
-                          </span>
-                        )}
-                      </div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
+                      {product.originalPrice && product.price < product.originalPrice && (
+                        <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
+                          ₱{product.originalPrice}
+                        </span>
+                      )}
                     </div>
-
-                    <div className="flex items-center gap-1 mb-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        {product.sold} sold
-                      </span>
-                    </div>
-
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => navigate(`/product/${product.id}`)}
-                      className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
-                    >
-                      View Details
-                    </motion.button>
                   </div>
+
+                  <div className="flex items-center gap-1 mb-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      {product.sold} sold
+                    </span>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
+                  >
+                    View Details
+                  </motion.button>
                 </div>
               </div>
-            </motion.div>
-          ))}
-
-          {/* Duplicate products for seamless loop */}
-          {productsWithDiscount.map((product) => (
-            <motion.div
-              key={`duplicate-${product.id}`}
-              whileHover={{ scale: 1.05, y: -5 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex-shrink-0 w-40"
-            >
-              <div className="relative">
-                {/* Discount Badge */}
-                <motion.div
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  transition={{ type: "spring", stiffness: 500, delay: 0.3 }}
-                  className="absolute top-0 left-0 z-20"
-                >
-                  <div className="bg-red-600 text-white text-[10px] font-black px-2 py-1 rounded-br-xl shadow-lg flex flex-col items-center leading-none">
-                    <span className="text-lg">{product.discountPercent}%</span>
-                    <span className="text-[6px] mt-0.5 uppercase tracking-tighter">OFF</span>
-                  </div>
-                </motion.div>
-
-                {/* Enhanced Product Card */}
-                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
-                  <div className="relative aspect-square overflow-hidden">
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                  </div>
-
-                  <div className="p-3">
-                    <h3 className="font-bold text-sm text-foreground line-clamp-2 mb-1">
-                      {product.name}
-                    </h3>
-
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-1">
-                        <span className="text-lg font-extrabold text-primary">₱{product.price}</span>
-                        {product.originalPrice && product.price < product.originalPrice && (
-                          <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
-                            ₱{product.originalPrice}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 mb-2">
-                      <span className="text-[10px] text-muted-foreground">
-                        {product.sold} sold
-                      </span>
-                    </div>
-
-                    <motion.button
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => navigate(`/product/${product.id}`)}
-                      className="w-full bg-primary text-primary-foreground text-[10px] font-bold py-2 rounded-lg hover:bg-primary/80 transition-all"
-                    >
-                      View Details
-                    </motion.button>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
+            </div>
+          </motion.div>
+        ))}
       </div>
 
     </motion.div>
