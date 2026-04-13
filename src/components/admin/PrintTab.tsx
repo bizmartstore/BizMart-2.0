@@ -214,7 +214,9 @@ export default function PrintTab() {
               <span className="text-[9px] text-muted-foreground">Cost</span>
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">Paper: {selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long (8.5x13)'}</p>
+          <p className="text-[10px] text-muted-foreground">
+            Paper: {selectedOrder.page_size === 'short' ? 'Short (8.5x11)' : selectedOrder.page_size === 'a4' ? 'A4 (8.5x11)' : 'Long (8.5x13)'}
+          </p>
 
           {selectedOrder.file_url && (
             <Button
@@ -295,7 +297,10 @@ export default function PrintTab() {
                   <span className="font-bold text-xs truncate">{o.file_name}</span>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
-                  {o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : 'Unknown'} • ₱{Number(o.cost || 0).toFixed(2)}
+                  {o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : 'Unknown'} • {o.customer?.grade_level || 'N/A'} {o.customer?.section || ''} • ₱{Number(o.cost || 0).toFixed(2)}
+                </p>
+                <p className="text-[9px] text-muted-foreground">
+                  Paper: {o.page_size === 'short' ? 'Short' : o.page_size === 'a4' ? 'A4' : 'Long'} • {o.total_pages} pages • {o.delivery_type}
                 </p>
               </div>
               <div className="flex items-center gap-2">

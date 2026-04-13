@@ -34,7 +34,7 @@ export default function PrintServicePage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [copies, setCopies] = useState(1);
-  const [pageSize, setPageSize] = useState<"short" | "long">("short");
+  const [pageSize, setPageSize] = useState<"short" | "a4" | "long">("a4");
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [pickupDate, setPickupDate] = useState<string>("");
   const [pickupTime, setPickupTime] = useState<string>("");
@@ -150,9 +150,10 @@ export default function PrintServicePage() {
     setPages(prev => prev.map(p => p.isColor === isColor ? { ...p, selected: true } : p));
   };
 
-  const getPrice = (isColor: boolean, size: "short" | "long") => {
+  const getPrice = (isColor: boolean, size: "short" | "a4" | "long") => {
     if (size === "short") return isColor ? 5 : 3;
-    return isColor ? 10 : 8;
+    if (size === "a4") return isColor ? 6 : 4;
+    return isColor ? 12 : 10;
   };
 
   const calculateCost = () => {
@@ -408,8 +409,9 @@ export default function PrintServicePage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Page Size</Label>
-              <div className="grid grid-cols-2 gap-1">
-                <button onClick={() => setPageSize("short")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "short" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>Short/A4</button>
+              <div className="grid grid-cols-3 gap-1">
+                <button onClick={() => setPageSize("short")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "short" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>Short</button>
+                <button onClick={() => setPageSize("a4")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "a4" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>A4</button>
                 <button onClick={() => setPageSize("long")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "long" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>Long</button>
               </div>
             </div>
