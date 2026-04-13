@@ -5,7 +5,6 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle, Palette, File, Download } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
-import { useAdmin } from "@/hooks/useAdmin";
 
 export default function PrintTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -15,7 +14,6 @@ export default function PrintTab() {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [dbError, setDbError] = useState<string | null>(null);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const { isAdmin } = useAdmin();
 
   const load = useCallback(async (isBackground = false) => {
     if (!isBackground) {
@@ -24,12 +22,10 @@ export default function PrintTab() {
     }
     
     try {
-      // Admins can see all orders, regular users only see their own
-      const query = isAdmin
-        ? supabase.from("print_orders").select("*").order("created_at", { ascending: false })
-        : supabase.from("print_orders").select("*").eq("user_id", (await supabase.auth.getUser()).data.user?.id || "").order("created_at", { ascending: false });
-      
-      const { data: printData, error } = await query;
+      const { data: printData, error } = await (supabase as any)
+        .from("print_orders")
+        .select("*")
+        .order("created_at", { ascending: false });
       
       if (error) throw error;
 
@@ -100,24 +96,21 @@ export default function PrintTab() {
     }
 
     try {
-      const { data: order } = await supabase.from("print_orders").select("*").eq("id", orderId).maybeSingle();
+      const { data: order } = await (supabase as any).from("print_orders").select("*").eq("id", orderId).maybeSingle();
       if (!order) {
         toast.error("Order not found");
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from("print_orders")
-        .update({ status: newStatus as string })
-        .eq("id", orderId);
-      if (updateError) throw updateError;
+      const { error } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
+      if (error) throw error;
       
       // This will now trigger both DB log and Push Notification
       await sendNotification({
         title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
-        message: `Your print request for "${(order as any).file_name}" is now ${newStatus}.`,
+        message: `Your print request for "${order.file_name}" is now ${newStatus}.`,
         type: "print_status",
-        userId: (order as any).user_id,
+        userId: order.user_id,
         link: "/orders",
         icon: "🖨️",
         sendPush: true
