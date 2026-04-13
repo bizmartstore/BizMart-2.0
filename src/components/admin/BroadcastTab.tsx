@@ -28,7 +28,7 @@ export default function BroadcastTab() {
     message: "",
     link: "/",
     icon: "📢",
-    scheduleTime: "08:00:00"
+    schedule_time: "08:00:00"
   });
   const [isCreatingScheduled, setIsCreatingScheduled] = useState(false);
   const [isDeletingScheduled, setIsDeletingScheduled] = useState<Record<string, boolean>>({});
@@ -83,7 +83,7 @@ export default function BroadcastTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      const scheduleTime = scheduleForm.scheduleTime;
+      const scheduleTime = scheduleForm.schedule_time;
       const [hours, minutes] = scheduleTime.split(':').map(Number);
       const today = new Date();
       const scheduledDate = new Date(
@@ -120,7 +120,7 @@ export default function BroadcastTab() {
         message: "",
         link: "/",
         icon: "📢",
-        scheduleTime: "08:00:00"
+        schedule_time: "08:00:00"
       });
       setShowScheduleForm(false);
       loadScheduledBroadcasts();
@@ -334,8 +334,8 @@ export default function BroadcastTab() {
                 <Label className="text-xs font-bold mb-1.5 block">Time</Label>
                 <Input
                   type="time"
-                  value={scheduleForm.scheduleTime}
-                  onChange={e => setScheduleForm(f => ({ ...f, scheduleTime: e.target.value }))}
+                  value={scheduleForm.schedule_time}
+                  onChange={e => setScheduleForm(f => ({ ...f, schedule_time: e.target.value }))}
                   className="rounded-xl h-10 text-sm"
                 />
               </div>
