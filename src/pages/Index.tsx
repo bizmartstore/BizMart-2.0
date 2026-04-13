@@ -184,36 +184,6 @@ export default function Index() {
       {/* HOTTEST SALE SECTION - NEW! - Positioned at the very top */}
       <HottestSaleSection />
 
-      {/* DEALS OF THE DAY SECTION */}
-      <DealsOfTheDaySection />
-
-      {/* PRIMARY FLASH SALE SECTION */}
-      {flashSaleProducts.length > 0 && (
-        <div className="mt-5 px-3">
-          <div className="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 rounded-2xl p-3.5 mb-3 shadow-lg relative overflow-hidden">
-            <div className="absolute -top-4 -right-4 w-20 h-20 bg-white/10 rounded-full" />
-            <div className="absolute -bottom-6 -left-6 w-16 h-16 bg-white/10 rounded-full" />
-            <div className="flex items-center justify-between relative z-10">
-              <div className="flex items-center gap-2">
-                <div className="bg-white/20 rounded-xl p-1.5"><Zap className="h-5 w-5 text-white fill-white" /></div>
-                <div>
-                  <span className="font-extrabold text-white text-sm uppercase tracking-wide block">Flash Sale</span>
-                  <span className="text-white/70 text-[10px] font-medium">Limited time only!</span>
-                </div>
-              </div>
-              <FlashTimer endsAt={flashSaleState?.ends_at} onExpired={handleFlashExpired} />
-            </div>
-          </div>
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide">
-            {flashSaleProducts.map((product) => (
-              <div key={product.id} className="flex-shrink-0 w-36">
-                <ProductCard product={product} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <FeaturedProductsSection />
 
       <TrendingNowSection />
