@@ -233,6 +233,9 @@ export default function PrintServicePage() {
           pickup_time: pickupTime,
           cost: totalCost,
           status: "pending",
+          short_pages: shortPages,
+          a4_pages: a4Pages,
+          long_pages: longPages,
         } as any)
         .select()
         .single();
