@@ -8,6 +8,3 @@ verify_jwt = false
 
 [functions.telegram-order-notify]
 verify_jwt = false
-
-[functions.refresh-hottest-sale]
-verify_jwt = false

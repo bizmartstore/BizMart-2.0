@@ -2,127 +2,87 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useProducts } from "@/hooks/useProducts";
 import { Flame, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  originalPrice?: number;
-  image: string;
-  images?: string[];
-  category: string;
-  rating: number;
-  sold: number;
-  stock?: number;
-  description: string;
-  isFlashSale?: boolean;
-  sale_price?: number;
-  discount_percent?: number;
-  original_price?: number;
-  seller_id?: string | null;
-  created_at?: string;
-}
-
-interface HottestSaleProduct {
-  id: string;
-  product_id: string;
-  created_at: string;
-  product: Product;
-}
-
-async function fetchHottestSaleProducts(): Promise<HottestSaleProduct[]> {
-  try {
-    const { data, error } = await supabase
-      .from("hottest_sale_products")
-      .select(`*, product:products(*)`)
-      .order("created_at", { ascending: false })
-      .limit(4);
-
-    if (error) {
-      console.error("[fetchHottestSaleProducts] Error fetching hottest sale products:", error.message);
-      return [];
-    }
-
-    if (data && data.length > 0) {
-      return data as HottestSaleProduct[];
-    }
-
-    return [];
-  } catch (err) {
-    console.error("[fetchHottestSaleProducts] Unexpected error:", err);
-    return [];
-  }
-}
-
 export default function HottestSaleSection() {
   const navigate = useNavigate();
+  const { data: products = [], isLoading } = useProducts();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   const animationRef = useRef<number>(0);
   const scrollPosRef = useRef(0);
 
-  // Fetch hottest sale products
-  const { data: hottestSaleProducts = [], isLoading } = useQuery({
-    queryKey: ["hottest-sale-products"],
-    queryFn: fetchHottestSaleProducts,
-    staleTime: 10000,
-    gcTime: 5 * 60 * 1000,
-    refetchOnWindowFocus: true,
-    refetchOnReconnect: true,
-    refetchInterval: 30000, // Refetch every 30 seconds to check for updates
-  });
+  // Get discounted products (products with actual price difference)
+  const discountedProducts = useMemo(() => {
+    return products
+      .filter(p => {
+        const basePrice = p.originalPrice ? Number(p.originalPrice) : Number(p.price);
+        const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
+        return salePrice < basePrice; // Has actual discount
+      })
+      .sort((a, b) => {
+        // Sort by highest discount percentage
+        const aBase = a.originalPrice ? Number(a.originalPrice) : Number(a.price);
+        const aSale = a.sale_price ? Number(a.sale_price) : aBase;
+        const aDiscount = Math.round(((aBase - aSale) / aBase) * 100);
+
+        const bBase = b.originalPrice ? Number(b.originalPrice) : Number(b.price);
+        const bSale = b.sale_price ? Number(b.sale_price) : bBase;
+        const bDiscount = Math.round(((bBase - bSale) / bBase) * 100);
+
+        return bDiscount - aDiscount;
+      });
+  }, [products]);
 
   // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
-    const container = scrollRef.current;
-    if (!container || hottestSaleProducts.length < 2) return;
+  const container = scrollRef.current;
+  if (!container || discountedProducts.length < 2) return;
 
-    let animationId: number;
-    let lastTime = 0;
+  let animationId: number;
+  let lastTime = 0;
 
-    const speed = 0.03; // smooth control (0.02–0.06 ideal)
+  const speed = 0.03; // smooth control (0.02–0.06 ideal)
 
-    const getMaxScroll = () =>
-      container.scrollWidth - container.clientWidth;
+  const getMaxScroll = () =>
+    container.scrollWidth - container.clientWidth;
 
-    // start position (right side once)
-    const maxScroll = getMaxScroll();
-    if (scrollPosRef.current === 0) {
-      scrollPosRef.current = maxScroll;
-      container.scrollLeft = maxScroll;
-    }
+  // start position (right side once)
+  const maxScroll = getMaxScroll();
+  if (scrollPosRef.current === 0) {
+    scrollPosRef.current = maxScroll;
+    container.scrollLeft = maxScroll;
+  }
 
-    const animate = (time: number) => {
-      if (!isPaused && document.visibilityState === "visible") {
-        const delta = lastTime ? time - lastTime : 16;
-        lastTime = time;
+  const animate = (time: number) => {
+    if (!isPaused && document.visibilityState === "visible") {
+      const delta = lastTime ? time - lastTime : 16;
+      lastTime = time;
 
-        // ✅ smooth LEFT movement
-        scrollPosRef.current -= speed * delta;
+      // ✅ smooth LEFT movement
+      scrollPosRef.current -= speed * delta;
 
-        const max = getMaxScroll();
+      const max = getMaxScroll();
 
-        // ✅ seamless loop (no jump glitch)
-        if (scrollPosRef.current <= 0) {
-          scrollPosRef.current = max;
-        }
-
-        container.scrollLeft = scrollPosRef.current;
-      } else {
-        lastTime = 0;
+      // ✅ seamless loop (no jump glitch)
+      if (scrollPosRef.current <= 0) {
+        scrollPosRef.current = max;
       }
 
-      animationId = requestAnimationFrame(animate);
-    };
+      container.scrollLeft = scrollPosRef.current;
+    } else {
+      lastTime = 0;
+    }
 
     animationId = requestAnimationFrame(animate);
+  };
 
-    return () => cancelAnimationFrame(animationId);
-  }, [hottestSaleProducts.length, isPaused]);
+  animationId = requestAnimationFrame(animate);
+
+  return () => cancelAnimationFrame(animationId);
+}, [discountedProducts.length, isPaused]);
 
   // Handle interaction start/end for pause
   const handleInteractionStart = () => setIsPaused(true);
@@ -161,16 +121,17 @@ export default function HottestSaleSection() {
     );
   }
 
-  if (hottestSaleProducts.length === 0) {
+  if (discountedProducts.length === 0) {
     return null;
   }
 
   // Calculate max discount for display
-  const maxDiscount = hottestSaleProducts.length > 0
+  const maxDiscount =
+  discountedProducts.length > 0
     ? Math.round(
-        ((Number(hottestSaleProducts[0].product.original_price || hottestSaleProducts[0].product.price) -
-          Number(hottestSaleProducts[0].product.sale_price || hottestSaleProducts[0].product.price)) /
-          Number(hottestSaleProducts[0].product.original_price || hottestSaleProducts[0].product.price)) *
+        ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) -
+          Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
+          Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) *
           100
       )
     : 0;
@@ -235,9 +196,9 @@ export default function HottestSaleSection() {
         onMouseUp={handleInteractionEnd}
         onMouseLeave={handleInteractionEnd}
       >
-        {hottestSaleProducts.slice(0, 4).map((hottestProduct) => {
-          const product = hottestProduct.product;
-          const basePrice = product.original_price ? Number(product.original_price) : Number(product.price);
+        {discountedProducts.slice(0, 4).map((product) => {
+          // Calculate prices correctly
+          const basePrice = product.originalPrice ? Number(product.originalPrice) : Number(product.price);
           const salePrice = product.sale_price ? Number(product.sale_price) : basePrice;
           const discountPercent = Math.round(((basePrice - salePrice) / basePrice) * 100);
 
