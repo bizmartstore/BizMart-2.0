@@ -31,10 +31,12 @@ export default function NotificationBell() {
       }
 
       const { data, error } = await query;
+
       if (error) {
         console.error("Failed to load notifications:", error);
         return;
       }
+
       const notifs = data || [];
       setNotifications(notifs);
 
@@ -77,7 +79,7 @@ export default function NotificationBell() {
             const updated = [...prev];
             const idx = updated.findIndex((n) => n.id === payload.new.id);
             if (idx > -1) {
-              updated[idx] = { ...updated[idx], is_read: true };
+              updated[idx] = { ...updated[idx], is_read: payload.new.is_read };
             }
             return updated;
           });
@@ -165,7 +167,7 @@ export default function NotificationBell() {
       >
         <Bell className="h-5 w-5" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm animate-pulse">
+          <span className="absolute -top-0.5 -right-0.5 bg-destructive text-destructive-foreground text-[9px] font-extrabold rounded-full h-4 min-w-4 flex items-center justify-center px-1 shadow-sm animate-pulse">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         )}
@@ -176,11 +178,21 @@ export default function NotificationBell() {
           <div className="px-4 py-3 border-b border-border bg-muted/30 flex justify-between items-center">
             <span className="font-bold text-xs">Notifications</span>
             <div className="flex gap-2">
-              <Button size="sm" variant="ghost" onClick={markAllAsRead}>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={markAllAsRead}
+                disabled={unreadCount === 0}
+                className="text-[10px] font-bold"
+              >
                 Mark all read
               </Button>
               {notifications.length > 0 && (
-                <Button size="sm" onClick={clearAll} className="text-[10px] text-destructive font-bold hover:underline">
+                <Button
+                  size="sm"
+                  onClick={clearAll}
+                  className="text-[10px] text-destructive font-bold hover:underline"
+                >
                   Clear all
                 </Button>
               )}
