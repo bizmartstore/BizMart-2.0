@@ -88,8 +88,9 @@ export default function BizMartFeatures() {
       container.scrollWidth - container.clientWidth;
 
     if (scrollPosRef.current === 0) {
-      scrollPosRef.current = maxScroll;
-      container.scrollLeft = maxScroll;
+      const max = getMaxScroll();
+scrollPosRef.current = max;
+container.scrollLeft = max;
     }
 
     const animate = (time: number) => {
