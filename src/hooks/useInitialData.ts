@@ -7,8 +7,8 @@ export function useInitialData() {
     queryKey: ['initial-data'],
     queryFn: async () => {
       const [productsRes, categoriesRes, settingsRes] = await Promise.all([
-        (supabase as any).from('products').select('id, name, price, original_price, image, category, rating, stock, description, is_flash_sale, sale_price, discount_percent, created_at, seller_id').eq('is_active', true),
-        (supabase as any).from('categories').select('id, name, icon').eq('is_active', true).order('sort_order'),
+        (supabase as any).from('products').select('*').eq('is_active', true),
+        (supabase as any).from('categories').select('*').eq('is_active', true).order('sort_order'),
         (supabase as any).from('app_settings').select('*'),
       ]);
 

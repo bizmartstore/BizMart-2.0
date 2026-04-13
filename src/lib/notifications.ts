@@ -53,7 +53,7 @@ export async function sendNotification({
 
     return data;
   } catch (error) {
-    console.error("[Notifications] Failed to send notification:", error instanceof Error ? error.message : String(error));
+    console.error("Failed to send notification:", error);
   }
 }
 
@@ -120,7 +120,7 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
       description: reason,
     });
   } catch (error) {
-    console.error("[Notifications] Failed to add BCoins to wallet:", error instanceof Error ? error.message : String(error));
+    console.error("Failed to add BCoins to wallet:", error);
   }
 };
 

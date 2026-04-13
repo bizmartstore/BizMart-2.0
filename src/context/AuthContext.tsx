@@ -58,33 +58,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 3. Fetch Wallet
         const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle();
 
-        // 4. Fetch Membership - get all memberships and find active ones
-        let activeMembership = null;
-        try {
-          const { data: allMemberships, error: membershipError } = await (supabase as any)
-            .from("club_memberships")
-            .select("*")
-            .eq("user_id", currentUser.id)
-            .order("expiry_date", { ascending: false });
-          
-          if (membershipError) {
-            console.warn("[AuthContext] Membership query error:", membershipError.message);
-          } else if (allMemberships && allMemberships.length > 0) {
-            // Find active membership (status = 'active' OR expiry_date in future)
-            activeMembership = allMemberships.find((m: any) =>
-              m.status === 'active' || (m.expiry_date && new Date(m.expiry_date) > new Date())
-            ) || null;
-          }
-        } catch (membershipErr) {
-          console.warn("[AuthContext] Membership fetch error:", membershipErr);
-        }
+        // 4. Fetch Membership
+        const { data: memData } = await (supabase as any).from("club_memberships").select("*").eq("user_id", currentUser.id).eq("status", "active").maybeSingle();
 
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
         const role = roleData?.role || 'customer';
         if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
 
-        setMembership(activeMembership);
+        setMembership(memData);
         setProfile({
           id: currentUser.id,
           first_name: profData?.first_name || currentUser.user_metadata?.first_name || 'Student',
@@ -156,19 +138,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [fetchProfile]);
 
-  // Real-time membership listener - watch for all changes to club_memberships for this user
+  // Real-time membership listener
   useEffect(() => {
     if (!user) return;
     const channel = supabase.channel(`membership-${user.id}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "club_memberships",
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        // Refresh profile when membership changes
-        refreshProfile();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "club_memberships", filter: `user_id=eq.${user.id}` }, () => refreshProfile())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, refreshProfile]);

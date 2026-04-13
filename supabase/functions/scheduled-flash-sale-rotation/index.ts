@@ -12,9 +12,8 @@ serve(async (req) => {
   }
 
   try {
-    // Use anon key instead of service role key
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_ANON_KEY")!;  // Use anon key instead of service role key
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log("[scheduled-flash-sale-rotation] Starting scheduled flash sale rotation...");

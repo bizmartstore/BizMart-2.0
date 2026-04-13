@@ -12,9 +12,8 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Use anon key instead of service role key
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const serviceRoleKey = Deno.env.get("SUPABASE_ANON_KEY")!;  // Use anon key instead of service role key
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
