@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Megaphone, Send, Clock, Sparkles, AlertCircle, History, Smartphone, Globe, Loader2, Save, Calendar, Trash2, Plus, X, Check, Clock as ClockIcon } from "lucide-react";
+import { Megaphone, Send, Clock, Sparkles, AlertCircle, History, Smartphone, Globe, Loader2, Save, Calendar, Trash2, Plus, X, Check, Clock as ClockIcon, PlayCircle } from "lucide-react";
 
 export default function BroadcastTab() {
   const [form, setForm] = useState({
@@ -32,6 +32,7 @@ export default function BroadcastTab() {
   });
   const [isCreatingScheduled, setIsCreatingScheduled] = useState(false);
   const [isDeletingScheduled, setIsDeletingScheduled] = useState<Record<string, boolean>>({});
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     loadSettings();
@@ -102,14 +103,14 @@ export default function BroadcastTab() {
       }
 
       const payload = {
-  title: scheduleForm.title,
-  message: scheduleForm.message,
-  link: scheduleForm.link,
-  icon: scheduleForm.icon,
-  created_by: user.id,
-  status: "pending",
-  schedule_time: scheduledDate.toISOString()
-};
+        title: scheduleForm.title,
+        message: scheduleForm.message,
+        link: scheduleForm.link,
+        icon: scheduleForm.icon,
+        created_by: user.id,
+        status: "pending",
+        schedule_time: scheduledDate.toISOString()
+      };
 
       const { error } = await (supabase as any)
         .from("scheduled_broadcasts")
@@ -163,7 +164,7 @@ export default function BroadcastTab() {
       if (existing) {
         await (supabase as any).from("app_settings").update({ value: payload }).eq("key", "daily_broadcast_config");
       } else {
-        await (supabase as any).from("app_settings").insert({ key: "daily_broadcast_config", value: payload });
+        await (supabase asany).from("app_settings").insert({ key: "daily_broadcast_config", value: payload });
       }
       toast.success("Auto-broadcast settings updated!");
     } catch (e: any) {
@@ -194,6 +195,25 @@ export default function BroadcastTab() {
       toast.error("Failed to send broadcast: " + e.message);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const processPendingBroadcasts = async () => {
+    setIsProcessing(true);
+    try {
+      // Call the edge function to process pending broadcasts
+      const { data, error } = await supabase.functions.invoke("process-scheduled-broadcasts");
+
+      if (error) throw error;
+
+      toast.success(`Processed ${data.processed} pending broadcasts!`);
+      loadScheduledBroadcasts();
+      loadHistory();
+    } catch (e: any) {
+      console.error("Failed to process broadcasts:", e);
+      toast.error("Failed to process broadcasts: " + e.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -279,15 +299,27 @@ export default function BroadcastTab() {
               <p className="text-[10px] text-muted-foreground">Set up automated broadcasts at specific times</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowScheduleForm(!showScheduleForm)}
-            className="gap-2 rounded-lg text-xs font-bold"
-          >
-            {showScheduleForm ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-            {showScheduleForm ? "Cancel" : "Add New Scheduled Broadcast"}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowScheduleForm(!showScheduleForm)}
+              className="gap-2 rounded-lg text-xs font-bold"
+            >
+              {showScheduleForm ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+              {showScheduleForm ? "Cancel" : "Add New Scheduled Broadcast"}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={processPendingBroadcasts}
+              disabled={isProcessing}
+              className="gap-2 rounded-lg text-xs font-bold"
+            >
+              {isProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <PlayCircle className="h-3 w-3" />}
+              {isProcessing ? "Processing..." : "Process Pending"}
+            </Button>
+          </div>
         </div>
 
         {showScheduleForm && (
@@ -367,38 +399,52 @@ export default function BroadcastTab() {
             </div>
           ) : (
             <div className="space-y-2">
-              {scheduledBroadcasts.map((broadcast) => (
-                <div key={broadcast.id} className="bg-card border border-border rounded-xl p-4 flex items-start gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-lg">{broadcast.icon || "📢"}</span>
-                      <p className="text-xs font-bold text-foreground truncate">{broadcast.title}</p>
+              {scheduledBroadcasts.map((broadcast) => {
+                const now = new Date();
+                const scheduleTime = new Date(broadcast.schedule_time);
+                const isPast = scheduleTime <= now;
+                const isPending = broadcast.status === 'pending';
+
+                return (
+                  <div key={broadcast.id} className={`bg-card border border-border rounded-xl p-4 flex items-start gap-3 ${isPast && isPending ? 'bg-yellow-50 border-yellow-200' : ''}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-lg">{broadcast.icon || "📢"}</span>
+                        <p className="text-xs font-bold text-foreground truncate">{broadcast.title}</p>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground line-clamp-1 mb-2">{broadcast.message}</p>
+                      <div className="flex items-center gap-3 text-[10px]">
+                        <span className="font-bold text-primary">
+                          <ClockIcon className="h-3 w-3 inline-block mr-1" />
+                          {scheduleTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-border" />
+                        <span className={`font-bold uppercase ${
+                          isPending ? 'text-warning' : isPast ? 'text-green-600' : 'text-muted-foreground'
+                        }`}>
+                          {broadcast.status}
+                        </span>
+                      </div>
+                      {isPast && isPending && (
+                        <p className="text-[10px] text-warning mt-1 font-bold">⚠️ This broadcast was scheduled for a past time and needs manual processing</p>
+                      )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground line-clamp-1 mb-2">{broadcast.message}</p>
-                    <div className="flex items-center gap-3 text-[10px]">
-                      <span className="font-bold text-primary">
-                        <ClockIcon className="h-3 w-3 inline-block mr-1" />
-                        {new Date(broadcast.schedule_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
-                      <span className="w-1 h-1 rounded-full bg-border" />
-                      <span className="font-bold text-muted-foreground uppercase">Status: {broadcast.status}</span>
-                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteScheduledBroadcast(broadcast.id)}
+                      disabled={isDeletingScheduled[broadcast.id]}
+                      className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      {isDeletingScheduled[broadcast.id] ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-3 w-3" />
+                      )}
+                    </Button>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => deleteScheduledBroadcast(broadcast.id)}
-                    disabled={isDeletingScheduled[broadcast.id]}
-                    className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
-                  >
-                    {isDeletingScheduled[broadcast.id] ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
