@@ -221,85 +221,56 @@ export default function PrintServicePage() {
 
       // Extract the actual page numbers that were selected
       // Extract the actual page numbers that were selected
-const handleSubmit = async () => {
-  try {
-    setSubmitting(true);
+const selectedPageNumbers = selectedPages.map(p => p.pageNum);
 
-    if (!user) throw new Error("User not logged in");
-    if (!file) throw new Error("No file selected");
+// ✅ Ensure proper JSON format for jsonb
+const selectedPagesJSON = JSON.parse(JSON.stringify(selectedPageNumbers));
 
-    // ✅ Upload file first (assuming you already have this logic)
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `${user.id}/${fileName}`;
+// ✅ DEBUG (check in browser console)
+console.log("Saving selected_pages:", selectedPagesJSON);
 
-    const { error: uploadError } = await supabase.storage
-      .from("print-files")
-      .upload(filePath, file);
+const { data: orderData, error } = await supabase
+  .from("print_orders")
+  .insert([{
+    user_id: user.id,
+    file_url: publicUrl,
+    file_name: file.name,
+    total_pages: selectedPages.length * copies,
+    bw_pages: bwPages,
+    colored_pages: coloredPages,
+    page_size: pageSize,
+    delivery_type: deliveryType,
+    pickup_date: pickupDate,
+    pickup_time: pickupTime,
+    cost: totalCost,
+    status: "pending",
+    short_pages: shortPages,
+    a4_pages: a4Pages,
+    long_pages: longPages,
 
-    if (uploadError) throw uploadError;
+    // 🔥 FIXED
+    selected_pages: selectedPagesJSON
+  }])
+  .select()
+  .single();
 
-    const { data: publicUrlData } = supabase.storage
-      .from("print-files")
-      .getPublicUrl(filePath);
+if (error) throw error;
 
-    const publicUrl = publicUrlData.publicUrl;
-
-    // ✅ Extract selected pages
-    const selectedPageNumbers = selectedPages.map(p => p.pageNum);
-
-    // ✅ Ensure JSON format for jsonb
-    const selectedPagesJSON = JSON.parse(JSON.stringify(selectedPageNumbers));
-
-    // ✅ DEBUG
-    console.log("Saving selected_pages:", selectedPagesJSON);
-
-    // ✅ INSERT (FIXED)
-    const { data: orderData, error } = await supabase
-      .from("print_orders")
-      .insert([{
-        user_id: user.id,
-        file_url: publicUrl,
-        file_name: file.name,
-        total_pages: selectedPages.length * copies,
-        bw_pages: bwPages,
-        colored_pages: coloredPages,
-        page_size: pageSize,
-        delivery_type: deliveryType,
-        pickup_date: pickupDate,
-        pickup_time: pickupTime,
-        cost: totalCost,
-        status: "pending",
-        short_pages: shortPages,
-        a4_pages: a4Pages,
-        long_pages: longPages,
-        selected_pages: selectedPagesJSON
-      }] as any) // 🔥 fixes TS error
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    // ✅ SUCCESS
-    if (orderData) {
-      setOrderId((orderData as any).id);
-      setOrderComplete(true);
-
-      triggerLocalPushNotification(
-        "Print Order Placed! 🖨️",
-        `Your print request for "${file.name}" has been received.`
-      );
-
-      toast.success("Print order submitted successfully!");
+if (orderData) {
+  setOrderId((orderData as any).id);
+  setOrderComplete(true);
+  triggerLocalPushNotification(
+    "Print Order Placed! 🖨️",
+    `Your print request for "${file.name}" has been received.`
+  );
+  toast.success("Print order submitted successfully!");
+}
+    } catch (error: any) {
+      toast.error("Failed to submit order: " + error.message);
+    } finally {
+      setSubmitting(false);
     }
-
-  } catch (error: any) {
-    console.error("Submit error:", error);
-    toast.error("Failed to submit order: " + error.message);
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
   if (!user) {
     return (
