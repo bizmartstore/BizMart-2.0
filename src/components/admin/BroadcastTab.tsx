@@ -102,11 +102,14 @@ export default function BroadcastTab() {
       }
 
       const payload = {
-        ...scheduleForm,
-        created_by: user.id,
-        status: "pending",
-        schedule_time: scheduledDate.toISOString()
-      };
+  title: scheduleForm.title,
+  message: scheduleForm.message,
+  link: scheduleForm.link,
+  icon: scheduleForm.icon,
+  created_by: user.id,
+  status: "pending",
+  schedule_time: scheduledDate.toISOString()
+};
 
       const { error } = await (supabase as any)
         .from("scheduled_broadcasts")
