@@ -315,9 +315,6 @@ export default function PrintServicePage() {
   }
 
   const selectedPages = pages.filter(p => p.selected);
-  const shortCount = pageSize === "short" ? selectedPages.length : 0;
-  const a4Count = pageSize === "a4" ? selectedPages.length : 0;
-  const longCount = pageSize === "long" ? selectedPages.length : 0;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -457,24 +454,10 @@ export default function PrintServicePage() {
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
-            {pageSize === "short" && shortCount > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">Short Pages ({shortCount} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "short") * shortCount * copies}</span>
-              </div>
-            )}
-            {pageSize === "a4" && a4Count > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">A4 Pages ({a4Count} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "a4") * a4Count * copies}</span>
-              </div>
-            )}
-            {pageSize === "long" && longCount > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">Long Pages ({longCount} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "long") * longCount * copies}</span>
-              </div>
-            )}
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-medium">Total Pages ({selectedPages.length} × {copies})</span>
+              <span className="text-xs font-bold">₱{calculateCost().toFixed(2)}</span>
+            </div>
             <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
               <span className="font-extrabold text-xs">TOTAL COST</span>
               <span className="font-black text-primary text-lg">₱{calculateCost().toFixed(2)}</span>
