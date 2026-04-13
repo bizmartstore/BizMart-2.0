@@ -219,6 +219,9 @@ export default function PrintServicePage() {
       const coloredPages = selectedPages.filter(p => p.isColor).length * copies;
       const totalCost = calculateCost();
 
+      // Extract the actual page numbers that were selected
+      const selectedPageNumbers = selectedPages.map(p => p.pageNum);
+
       const { data: orderData, error } = await supabase
         .from("print_orders")
         .insert({
@@ -237,6 +240,7 @@ export default function PrintServicePage() {
           short_pages: shortPages,
           a4_pages: a4Pages,
           long_pages: longPages,
+          selected_pages: selectedPageNumbers, // ✅ Save the actual page numbers selected
         } as any)
         .select()
         .single();
