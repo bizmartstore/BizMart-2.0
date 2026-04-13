@@ -8,7 +8,7 @@ import { useAuth } from "@/context/AuthContext";
  * Only evaluates after isAuthReady is true to prevent race conditions.
  */
 export default function AdminAutoRedirect() {
-  const { user, isAuthReady } = useAuth();
+  const { user, isAuthReady, role } = useAuth();
   const { isAdmin } = useAdmin();
   const navigate = useNavigate();
   const location = useLocation();
@@ -30,9 +30,9 @@ export default function AdminAutoRedirect() {
       return;
     }
 
-    console.log('[AdminAutoRedirect] Redirecting admin to /admin');
+    console.log('[AdminAutoRedirect] Redirecting admin to /admin. User role:', role);
     navigate("/admin", { replace: true });
-  }, [user, isAdmin, isAuthReady, location.pathname, navigate]);
+  }, [user, isAdmin, isAuthReady, location.pathname, navigate, role]);
 
   return null;
 }

@@ -1,8 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 
 export function useAdmin() {
-  const { profile, isAuthReady } = useAuth();
-  const role = profile?.role || null;
+  const { role, isAuthReady } = useAuth();
 
   return {
     role,
