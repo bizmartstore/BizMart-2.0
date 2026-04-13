@@ -22,7 +22,6 @@ interface PageInfo {
   pageNum: number;
   isColor: boolean;
   selected: boolean;
-  paperSize?: "short" | "a4" | "long";
 }
 
 export default function PrintServicePage() {
@@ -104,7 +103,7 @@ export default function PrintServicePage() {
             break;
           }
         }
-        analyzedPages.push({ pageNum: i, isColor, selected: true, paperSize: "a4" });
+        analyzedPages.push({ pageNum: i, isColor, selected: true });
       }
       setPages(analyzedPages);
     } catch (err) {
@@ -143,7 +142,6 @@ export default function PrintServicePage() {
     setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, selected: !p.selected } : p));
   };
 
-
   const selectAll = (select: boolean) => {
     setPages(prev => prev.map(p => ({ ...p, selected: select })));
   };
@@ -161,7 +159,7 @@ export default function PrintServicePage() {
     const selectedPages = pages.filter(p => p.selected);
     let pageCost = 0;
     for (const p of selectedPages) {
-      pageCost += getPrice(p.isColor, p.paperSize || "a4");
+      pageCost += getPrice(p.isColor, pageSize);
     }
     const deliveryCost = deliveryType === "delivery" ? 10 : 0;
     return (pageCost * copies) + deliveryCost;
@@ -366,7 +364,7 @@ export default function PrintServicePage() {
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-bold flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-primary" /> Select Pages & Paper Size
+                <CheckSquare className="h-4 w-4 text-primary" /> Select Pages
               </Label>
               {!analyzing && (
                 <div className="flex gap-2">
@@ -402,7 +400,6 @@ export default function PrintServicePage() {
                         <span className="text-[10px] font-extrabold block mb-1">#{page.pageNum}</span>
                         <div className="flex items-center justify-center">
                           {page.isColor ? <Palette className="h-4 w-4 text-orange-500" /> : <File className="h-4 w-4 text-gray-400" />}
-                          {/* Paper size indicator removed - using global setting */}
                         </div>
                         {page.selected && <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
                       </button>
