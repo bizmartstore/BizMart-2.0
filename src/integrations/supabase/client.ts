@@ -13,34 +13,33 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 export const supabase = createClient<Database>(SUPABASE_URL || '', SUPABASE_PUBLISHABLE_KEY || '', {
   auth: {
     // Use cookies instead of localStorage for security
-    storage: 'cookie',
+    storage: {
+      getItem: (key) => {
+        const value = `; ${document.cookie}`;
+        const parts = value.split(`; ${key}=`);
+        if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+        return null;
+      },
+      setItem: (key, value) => {
+        document.cookie = `${key}=${value}; Secure; HttpOnly; SameSite=Lax; Path=/`;
+      },
+      removeItem: (key) => {
+        document.cookie = `${key}=; Secure; HttpOnly; SameSite=Lax; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT`;
+      }
+    },
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
     
-    // Cookie security settings
-    cookies: {
-      session: 'secure',  // Mark as Secure (HTTPS only)
-      refresh_token: 'httpOnly',  // HTTP-only flag
-      access_token: 'sameSite=Lax'  // CSRF protection
-    },
-    
-    // General security settings
-    general: {
-      secure: true,
-      sameSite: 'Lax' as const
-    }
   },
   
   // Database security settings
   db: {
-    schema: 'public',
-    // Enable RLS by default for all queries
-    enableRLS: true
+    schema: 'public'
   },
   
   // General client security
-  general: {
+  global: {
     headers: {
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
