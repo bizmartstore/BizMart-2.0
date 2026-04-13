@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        const role = roleData?.role || (activeMembership ? 'customer' : 'customer');
+        const role = roleData?.role || 'customer';
         if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
 
         setMembership(activeMembership);
