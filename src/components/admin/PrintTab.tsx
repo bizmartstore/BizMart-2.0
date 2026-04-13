@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, FileText, Truck, MapPin, User, Search, Eye, Loader2, RefreshCw, AlertCircle, Palette, File, Download } from "lucide-react";
+import { Search, CheckCircle2, XCircle, Truck, MapPin, User, Search as SearchIcon, Eye, Loader2, RefreshCw, AlertCircle, FileText, Palette, File, Download } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
 
 export default function PrintTab() {
@@ -20,24 +20,24 @@ export default function PrintTab() {
       setLoading(true);
       setDbError(null);
     }
-    
+
     try {
       const { data: printData, error } = await (supabase as any)
         .from("print_orders")
         .select("*")
         .order("created_at", { ascending: false });
-      
+
       if (error) throw error;
 
       const userIds = (printData || []).map((o: any) => o.user_id).filter(Boolean);
       let profileMap: Record<string, any> = {};
-      
+
       if (userIds.length > 0) {
         const { data: profiles } = await (supabase as any)
           .from("profiles")
-          .select("user_id, first_name, last_name, grade_level, section")
+          .select("user_id, first_name, last_name, grade_level, section, email")
           .in("user_id", userIds);
-        
+
         if (profiles) {
           profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
         }
@@ -104,7 +104,7 @@ export default function PrintTab() {
 
       const { error } = await (supabase as any).from("print_orders").update({ status: newStatus }).eq("id", orderId);
       if (error) throw error;
-      
+
       // This will now trigger both DB log and Push Notification
       await sendNotification({
         title: `🖨️ Print Request ${newStatus.toUpperCase()}`,
@@ -127,7 +127,7 @@ export default function PrintTab() {
     const cust = o.customer;
     const custName = cust ? `${cust.first_name} ${cust.last_name}` : "";
     const matchFilter = filter === "all" || o.status === filter;
-    const matchSearch = !search || 
+    const matchSearch = !search ||
       custName.toLowerCase().includes(search.toLowerCase()) ||
       (o.file_name || "").toLowerCase().includes(search.toLowerCase()) ||
       (cust?.section || "").toLowerCase().includes(search.toLowerCase()) ||
@@ -150,6 +150,12 @@ export default function PrintTab() {
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
 
+    // Calculate detailed print breakdown
+    const allPages = selectedOrder.total_pages || 0;
+    const bwPages = selectedOrder.bw_pages || 0;
+    const coloredPages = selectedOrder.colored_pages || 0;
+    const pageSize = selectedOrder.page_size || "a4";
+
     return (
       <div className="space-y-3">
         <button onClick={() => setSelectedOrder(null)} className="text-xs text-primary font-bold">← Back to Print Orders</button>
@@ -170,6 +176,7 @@ export default function PrintTab() {
             }`}>{selectedOrder.status.toUpperCase()}</span>
           </div>
 
+          {/* Customer Information - Enhanced */}
           <div className="bg-muted/30 rounded-lg p-3 space-y-1.5">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Customer Information</p>
             <div className="flex items-center gap-2">
@@ -180,6 +187,7 @@ export default function PrintTab() {
             <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
           </div>
 
+          {/* Delivery Method */}
           <div className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
             <div className="flex items-center gap-2">
               {selectedOrder.delivery_type === 'delivery' ? (
@@ -194,27 +202,47 @@ export default function PrintTab() {
             </span>
           </div>
 
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">{selectedOrder.total_pages}</span>
-              <span className="text-[9px] text-muted-foreground">Total</span>
+          {/* Detailed Print Breakdown */}
+          <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Print Details</p>
+
+            <div className="grid grid-cols-2 gap-2 text-center">
+              <div className="bg-background rounded-lg p-2">
+                <span className="text-sm font-extrabold block">{allPages}</span>
+                <span className="text-[9px] text-muted-foreground">Total Pages</span>
+              </div>
+              <div className="bg-background rounded-lg p-2">
+                <span className="text-sm font-extrabold block">{pageSize}</span>
+                <span className="text-[9px] text-muted-foreground">Paper Size</span>
+              </div>
             </div>
-            <div className="bg-muted rounded-lg p-2 flex items-center justify-center">
-              <File className="h-3 w-3 text-gray-500" />
-              <span className="text-sm font-extrabold block">{selectedOrder.bw_pages}</span>
-              <span className="text-[9px] text-muted-foreground">B&W</span>
+
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-background rounded-lg p-2">
+                <span className="text-sm font-extrabold block">{bwPages}</span>
+                <div className="flex items-center justify-center gap-1 mt-0.5">
+                  <File className="h-3 w-3 text-gray-500" />
+                  <span className="text-[9px] text-muted-foreground">B&W</span>
+                </div>
+              </div>
+              <div className="bg-background rounded-lg p-2">
+                <span className="text-sm font-extrabold block">{coloredPages}</span>
+                <div className="flex items-center justify-center gap-1 mt-0.5">
+                  <Palette className="h-3 w-3 text-orange-500" />
+                  <span className="text-[9px] text-muted-foreground">Color</span>
+                </div>
+              </div>
+              <div className="bg-background rounded-lg p-2">
+                <span className="text-sm font-extrabold block">₱{Number(selectedOrder.cost || 0).toFixed(2)}</span>
+                <span className="text-[9px] text-muted-foreground">Cost</span>
+              </div>
             </div>
-            <div className="bg-muted rounded-lg p-2 flex items-center justify-center gap-1">
-              <Palette className="h-3 w-3 text-orange-500" />
-              <span className="text-sm font-extrabold block">{selectedOrder.colored_pages}</span>
-              <span className="text-[9px] text-muted-foreground">Color</span>
-            </div>
-            <div className="bg-muted rounded-lg p-2">
-              <span className="text-sm font-extrabold block">₱{Number(selectedOrder.cost).toFixed(2)}</span>
-              <span className="text-[9px] text-muted-foreground">Cost</span>
+
+            <div className="flex justify-between text-xs text-muted-foreground pt-1">
+              <span>Copies: {Math.ceil(allPages / (bwPages + coloredPages))}</span>
+              <span>Delivery: {selectedOrder.delivery_type === 'delivery' ? 'Yes (+₱10)' : 'No'}</span>
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground">Paper: {selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long (8.5x13)'}</p>
 
           {selectedOrder.file_url && (
             <Button
@@ -269,7 +297,7 @@ export default function PrintTab() {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search print orders..." className="pl-9 text-xs h-9" />
       </div>
 
@@ -296,6 +324,9 @@ export default function PrintTab() {
                 </div>
                 <p className="text-[10px] text-muted-foreground">
                   {o.customer ? `${o.customer.first_name} ${o.customer.last_name}` : 'Unknown'} • ₱{Number(o.cost || 0).toFixed(2)}
+                </p>
+                <p className="text-[9px] text-muted-foreground mt-0.5">
+                  {o.page_size} • {o.bw_pages || 0} B&W • {o.colored_pages || 0} Color
                 </p>
               </div>
               <div className="flex items-center gap-2">
