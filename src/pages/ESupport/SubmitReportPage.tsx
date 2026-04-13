@@ -88,7 +88,7 @@ export default function SubmitReportPage() {
 
       // Prepare report data
 const reportData = {
-  type: form.type,
+  incident_type: form.type,
   title: form.title.trim(),
   description: form.description.trim(),
   location: form.location.trim(),
