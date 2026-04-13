@@ -34,7 +34,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
+    AND user_roles.role::text IN ('main_admin', 'member_admin')
   )
 );
 
@@ -46,14 +46,14 @@ USING (
   EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
+    AND user_roles.role::text IN ('main_admin', 'member_admin')
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
+    AND user_roles.role::text IN ('main_admin', 'member_admin')
   )
 );
 
@@ -93,7 +93,7 @@ USING (
   EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
+    AND user_roles.role::text IN ('main_admin', 'member_admin')
   )
 );
 
@@ -105,13 +105,13 @@ USING (
   EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
+    AND user_roles.role::text IN ('main_admin', 'member_admin')
   )
 )
 WITH CHECK (
   EXISTS (
     SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
+    AND user_roles.role::text IN ('main_admin', 'member_admin')
   )
 );
