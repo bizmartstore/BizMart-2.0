@@ -1,8 +1,15 @@
+"use client";
+
 import { supabase } from "@/integrations/supabase/client";
 
-// Valid roles matching the database enum
+/**
+ * Valid roles matching the database enum
+ */
 const VALID_ROLES = ["main_admin", "member_admin", "customer"];
 
+/**
+ * Send a notification to the database and optionally trigger push notifications
+ */
 export async function sendNotification({
   title,
   message,
@@ -57,10 +64,6 @@ export async function sendNotification({
   }
 }
 
-export async function triggerNotification(params: any) {
-  return sendNotification(params);
-}
-
 /**
  * Notify admins about a new GCash request
  */
@@ -69,7 +72,7 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
     title: "💳 New GCash Request",
     message: `${userName} requested a ${type.replace("_", " ")} of ₱${amount}.`,
     type: "gcash_request",
-    targetRole: "main_admin", // Use explicit valid role
+    targetRole: "main_admin",
     link: "/admin",
     icon: "💳",
     sendPush: true
@@ -81,7 +84,7 @@ export const notifyAdminGCash = async (type: string, userName: string, amount: n
  */
 export const notifyCustomerBCoins = async (userId: string, amount: number, reason: string) => {
   if (!userId) return;
-  
+
   await sendNotification({
     title: "🪙 BCoins Earned!",
     message: `You just earned ${amount.toFixed(1)} BCoins from ${reason}!`,
@@ -98,10 +101,10 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
       .select("balance")
       .eq("user_id", userId)
       .maybeSingle();
-    
+
     const currentBalance = Number(wallet?.balance || 0);
     const newBalance = currentBalance + amount;
-    
+
     if (wallet) {
       await (supabase as any)
         .from("bcoins_wallets")
@@ -112,7 +115,7 @@ export const notifyCustomerBCoins = async (userId: string, amount: number, reaso
         .from("bcoins_wallets")
         .insert({ user_id: userId, balance: newBalance });
     }
-    
+
     await (supabase as any).from("bcoins_transactions").insert({
       user_id: userId,
       amount: amount,
@@ -132,7 +135,7 @@ export const notifyAdminRedemption = async (userName: string, amount: number) =>
     title: "🎁 New BCoins Redemption",
     message: `${userName} redeemed ₱${amount} GCash.`,
     type: "redemption_request",
-    targetRole: "main_admin", // Use explicit valid role
+    targetRole: "main_admin",
     link: "/admin",
     icon: "🎁",
     sendPush: true
@@ -144,7 +147,7 @@ export const notifyAdminRedemption = async (userName: string, amount: number) =>
  */
 export const notifyCustomerOrder = async (userId: string, orderId: string, status: string) => {
   if (!userId) return;
-  
+
   const statusMessages: Record<string, string> = {
     approved: "Your order has been approved and is being prepared! 📦",
     ready: "Your order is ready for pickup/delivery! 🚚",
@@ -169,7 +172,7 @@ export const notifyCustomerOrder = async (userId: string, orderId: string, statu
  */
 export const notifyNewMessage = async (recipientId: string, senderName: string, content: string) => {
   if (!recipientId) return;
-  
+
   await sendNotification({
     title: `💬 New message from ${senderName}`,
     message: content.slice(0, 50) + (content.length > 50 ? "..." : ""),
@@ -189,9 +192,24 @@ export const notifyAdminNewMember = async (memberName: string) => {
     title: "👑 New Club Member",
     message: `${memberName} just joined the BizMart Club!`,
     type: "new_member",
-    targetRole: "main_admin", // Use explicit valid role
+    targetRole: "main_admin",
     link: "/admin",
     icon: "👑",
+    sendPush: true
+  });
+};
+
+/**
+ * Notify admins about a new support report
+ */
+export const notifyAdminNewReport = async (reporterName: string, reportTitle: string, trackingId: string) => {
+  await sendNotification({
+    title: "📋 New Support Report",
+    message: `${reporterName} submitted: "${reportTitle}" (Tracking: ${trackingId})`,
+    type: "new_report",
+    targetRole: "main_admin",
+    link: "/admin",
+    icon: "📋",
     sendPush: true
   });
 };
