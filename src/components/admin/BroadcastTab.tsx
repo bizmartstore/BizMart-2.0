@@ -83,10 +83,29 @@ export default function BroadcastTab() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      const scheduleTime = scheduleForm.scheduleTime;
+      const [hours, minutes] = scheduleTime.split(':').map(Number);
+      const today = new Date();
+      const scheduledDate = new Date(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        hours,
+        minutes,
+        0,
+        0
+      );
+
+      // Ensure the scheduled time is in the future
+      if (scheduledDate <= today) {
+        scheduledDate.setDate(scheduledDate.getDate() + 1);
+      }
+
       const payload = {
         ...scheduleForm,
         created_by: user.id,
-        status: "pending"
+        status: "pending",
+        schedule_time: scheduledDate.toISOString()
       };
 
       const { error } = await (supabase as any)
@@ -106,6 +125,7 @@ export default function BroadcastTab() {
       setShowScheduleForm(false);
       loadScheduledBroadcasts();
     } catch (e: any) {
+      console.error("Failed to create scheduled broadcast:", e);
       toast.error("Failed to create scheduled broadcast: " + e.message);
     } finally {
       setIsCreatingScheduled(false);
@@ -136,7 +156,7 @@ export default function BroadcastTab() {
     try {
       const payload = { enabled: autoSendEnabled, message: autoSendContent };
       const { data: existing } = await (supabase as any).from("app_settings").select("id").eq("key", "daily_broadcast_config").maybeSingle();
-      
+
       if (existing) {
         await (supabase as any).from("app_settings").update({ value: payload }).eq("key", "daily_broadcast_config");
       } else {
@@ -197,19 +217,19 @@ export default function BroadcastTab() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="md:col-span-3">
               <Label className="text-xs font-bold mb-1.5 block">Notification Title</Label>
-              <Input 
-                value={form.title} 
+              <Input
+                value={form.title}
                 onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. 📢 Flash Sale Alert!" 
+                placeholder="e.g. 📢 Flash Sale Alert!"
                 className="rounded-xl h-11"
               />
             </div>
             <div>
               <Label className="text-xs font-bold mb-1.5 block">Icon</Label>
-              <Input 
-                value={form.icon} 
+              <Input
+                value={form.icon}
                 onChange={e => setForm(f => ({ ...f, icon: e.target.value }))}
-                placeholder="Emoji" 
+                placeholder="Emoji"
                 className="rounded-xl h-11 text-center text-lg"
               />
             </div>
@@ -217,26 +237,26 @@ export default function BroadcastTab() {
 
           <div>
             <Label className="text-xs font-bold mb-1.5 block">Announcement Message</Label>
-            <Textarea 
+            <Textarea
               value={form.message}
               onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-              placeholder="What do you want to tell your students?" 
+              placeholder="What do you want to tell your students?"
               className="rounded-xl min-h-[100px] resize-none"
             />
           </div>
 
           <div>
             <Label className="text-xs font-bold mb-1.5 block">Destination Link (Optional)</Label>
-            <Input 
+            <Input
               value={form.link}
               onChange={e => setForm(f => ({ ...f, link: e.target.value }))}
-              placeholder="/" 
+              placeholder="/"
               className="rounded-xl h-11"
             />
           </div>
 
-          <Button 
-            onClick={handleSendBroadcast} 
+          <Button
+            onClick={handleSendBroadcast}
             disabled={isSending}
             className="w-full h-12 rounded-xl font-extrabold gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
           >
@@ -355,7 +375,7 @@ export default function BroadcastTab() {
                     <div className="flex items-center gap-3 text-[10px]">
                       <span className="font-bold text-primary">
                         <ClockIcon className="h-3 w-3 inline-block mr-1" />
-                        {new Date(`1970-01-01T${broadcast.schedule_time}`).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(broadcast.schedule_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                       <span className="w-1 h-1 rounded-full bg-border" />
                       <span className="font-bold text-muted-foreground uppercase">Status: {broadcast.status}</span>
