@@ -1,175 +1,55 @@
--- Create reports table
-CREATE TABLE public.reports (
+-- Create support_reports table
+CREATE TABLE public.support_reports (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  tracking_id TEXT NOT NULL UNIQUE,
   type TEXT NOT NULL,
+  title TEXT NOT NULL,
   description TEXT NOT NULL,
-  status TEXT DEFAULT 'Pending' NOT NULL,
-  severity TEXT DEFAULT 'Low' NOT NULL,
-  is_anonymous BOOLEAN DEFAULT true NOT NULL,
   location TEXT,
-  date_time TIMESTAMPTZ,
-  people_involved TEXT,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+  date DATE,
+  time TIME WITHOUT TIME ZONE,
+  is_anonymous BOOLEAN DEFAULT false,
+  reporter_name TEXT,
+  reporter_contact TEXT,
+  status TEXT DEFAULT 'pending',
+  tracking_id TEXT UNIQUE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  admin_notes TEXT,
+  severity TEXT DEFAULT 'medium',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create report_updates table
-CREATE TABLE public.report_updates (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
-  note TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL
-);
+-- Enable RLS (REQUIRED for security)
+ALTER TABLE public.support_reports ENABLE ROW LEVEL SECURITY;
 
--- Create evidence_files table
-CREATE TABLE public.evidence_files (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  report_id UUID NOT NULL REFERENCES public.reports(id) ON DELETE CASCADE,
-  file_path TEXT NOT NULL,
-  file_type TEXT NOT NULL,
-  uploaded_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
+-- Create policies for each operation
+CREATE POLICY "Users can view their own reports" ON public.support_reports
+FOR SELECT TO authenticated USING (auth.uid() = user_id);
 
--- Create e_support_roles function for guidance role
-CREATE OR REPLACE FUNCTION public.get_user_role(_user_id uuid)
-RETURNS text
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
-AS $$
-  SELECT role FROM public.user_roles WHERE user_id = _user_id LIMIT 1;
-$$;
+CREATE POLICY "Users can insert their own reports" ON public.support_reports
+FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
--- Enable RLS on all tables
-ALTER TABLE public.reports ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.report_updates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.evidence_files ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can update their own reports" ON public.support_reports
+FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 
--- RLS Policy: Students can only view their own reports
-CREATE POLICY "students_view_own_reports" ON public.reports
-FOR SELECT
-USING (
+CREATE POLICY "Admins can view all reports" ON public.support_reports
+FOR SELECT TO authenticated USING (
   EXISTS (
-    SELECT 1 FROM public.user_roles
+    SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'customer'
-  ) AND (user_id = auth.uid() OR is_anonymous = true)
-);
-
--- RLS Policy: Guidance staff can view all reports
-CREATE POLICY "guidance_view_all_reports" ON public.reports
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'guidance'
+    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
   )
 );
 
--- RLS Policy: Students can insert reports (anonymous or identified)
-CREATE POLICY "students_insert_reports" ON public.reports
-FOR INSERT
-WITH CHECK (
+CREATE POLICY "Admins can update all reports" ON public.support_reports
+FOR UPDATE TO authenticated USING (
   EXISTS (
-    SELECT 1 FROM public.user_roles
+    SELECT 1 FROM user_roles
     WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'customer'
+    AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
   )
 );
 
--- RLS Policy: Guidance staff can update report status
-CREATE POLICY "guidance_update_reports" ON public.reports
-FOR UPDATE
-USING (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'guidance'
-  )
-);
-
--- RLS Policy: Students can view their own report updates
-CREATE POLICY "students_view_own_updates" ON public.report_updates
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'customer'
-  ) AND (
-    EXISTS (SELECT 1 FROM public.reports WHERE reports.id = report_updates.report_id AND (reports.user_id = auth.uid() OR reports.is_anonymous = true))
-  )
-);
-
--- RLS Policy: Guidance staff can view all report updates
-CREATE POLICY "guidance_view_all_updates" ON public.report_updates
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'guidance'
-  )
-);
-
--- RLS Policy: Students can view their own evidence files
-CREATE POLICY "students_view_own_evidence" ON public.evidence_files
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'customer'
-  ) AND (
-    EXISTS (SELECT 1 FROM public.reports WHERE reports.id = evidence_files.report_id AND (reports.user_id = auth.uid() OR reports.is_anonymous = true))
-  )
-);
-
--- RLS Policy: Guidance staff can view all evidence files
-CREATE POLICY "guidance_view_all_evidence" ON public.evidence_files
-FOR SELECT
-USING (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'guidance'
-  )
-);
-
--- RLS Policy: Students can insert evidence files for their reports
-CREATE POLICY "students_insert_evidence" ON public.evidence_files
-FOR INSERT
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'customer'
-  ) AND (
-    EXISTS (SELECT 1 FROM public.reports WHERE reports.id = evidence_files.report_id AND reports.user_id = auth.uid())
-  )
-);
-
--- RLS Policy: Guidance staff can insert evidence files
-CREATE POLICY "guidance_insert_evidence" ON public.evidence_files
-FOR INSERT
-WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.user_roles
-    WHERE user_roles.user_id = auth.uid()
-    AND user_roles.role = 'guidance'
-  )
-);
-
--- Create index for faster report lookups
-CREATE INDEX idx_reports_tracking_id ON public.reports(tracking_id);
-CREATE INDEX idx_reports_user_id ON public.reports(user_id);
-CREATE INDEX idx_reports_status ON public.reports(status);
-CREATE INDEX idx_reports_type ON public.reports(type);
-CREATE INDEX idx_report_updates_report_id ON public.report_updates(report_id);
-CREATE INDEX idx_evidence_files_report_id ON public.evidence_files(report_id);
+-- Create index for faster lookups
+CREATE INDEX IF NOT EXISTS idx_support_reports_tracking_id ON public.support_reports(tracking_id);
+CREATE INDEX IF NOT EXISTS idx_support_reports_user_id ON public.support_reports(user_id);
+CREATE INDEX IF NOT EXISTS idx_support_reports_status ON public.support_reports(status);
