@@ -16,19 +16,33 @@ export default function UsersTab() {
     setLoading(true);
     setDbError(null);
     try {
-      const { data: profiles, error: profilesError } = await (supabase as any).from("profiles").select("*").order("first_name");
+      // Get all profiles with their roles
+      const { data: profiles, error: profilesError } = await (supabase as any)
+        .from("profiles")
+        .select("*")
+        .order("first_name");
+
       if (profilesError) throw profilesError;
-      
-      const { data: roles, error: rolesError } = await (supabase as any).from("user_roles").select("*");
+
+      // Get all roles
+      const { data: roles, error: rolesError } = await (supabase as any)
+        .from("user_roles")
+        .select("*");
+
       if (rolesError) throw rolesError;
-      
+
+      // Create a map of user_id to role
       const roleMap: Record<string, string> = {};
-      (roles || []).forEach((r: any) => { roleMap[r.user_id] = r.role; });
-      
+      (roles || []).forEach((r: any) => {
+        roleMap[r.user_id] = r.role;
+      });
+
+      // Enrich profiles with role information
       const enriched = (profiles || []).map((p: any) => ({
         ...p,
         role: roleMap[p.user_id] || "customer",
       }));
+
       setUsers(enriched);
     } catch (e: any) {
       console.error("Failed to load users:", e);
@@ -39,9 +53,9 @@ export default function UsersTab() {
     }
   }, []);
 
-  useEffect(() => { 
+  useEffect(() => {
     load();
-    
+
     const channel = supabase
       .channel("admin-users-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, () => load())
@@ -53,19 +67,28 @@ export default function UsersTab() {
 
   const assignRole = async (userId: string, role: string) => {
     try {
-      // First, remove any existing role entry
-      await (supabase as any).from("user_roles").delete().eq("user_id", userId);
-      
+      // First, remove any existing role entry for this user
+      await (supabase as any)
+        .from("user_roles")
+        .delete()
+        .eq("user_id", userId);
+
       // If the role is not 'customer', insert the new role
       // Regular customers don't need an entry in user_roles as they are the default
       if (role !== "customer") {
-        const { error } = await (supabase as any).from("user_roles").insert({ user_id: userId, role });
+        const { error } = await (supabase as any)
+          .from("user_roles")
+          .insert({ user_id: userId, role });
+
         if (error) throw error;
       }
-      
+
       // Also update the profile role for consistency
-      await (supabase as any).from("profiles").update({ role }).eq("user_id", userId);
-      
+      await (supabase as any)
+        .from("profiles")
+        .update({ role })
+        .eq("user_id", userId);
+
       toast.success(`Role updated to ${role}`);
       load();
     } catch (e: any) {
@@ -74,8 +97,8 @@ export default function UsersTab() {
     }
   };
 
-  const filtered = users.filter(u => 
-    !search || 
+  const filtered = users.filter(u =>
+    !search ||
     `${u.first_name} ${u.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
     u.email.toLowerCase().includes(search.toLowerCase()) ||
     (u.section || "").toLowerCase().includes(search.toLowerCase())
@@ -91,7 +114,12 @@ export default function UsersTab() {
     <div className="space-y-3">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search users..." className="pl-9 text-xs h-9" />
+        <Input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Search users..."
+          className="pl-9 text-xs h-9"
+        />
       </div>
 
       {dbError && (
@@ -105,23 +133,40 @@ export default function UsersTab() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full" /></div>
+        <div className="flex justify-center py-12">
+          <div className="animate-spin h-6 w-6 border-3 border-primary border-t-transparent rounded-full" />
+        </div>
       ) : (
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
           {filtered.map(u => (
             <div key={u.user_id} className="bg-card rounded-xl border border-border p-3 flex items-center gap-3">
               <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                {u.avatar_url ? <img src={u.avatar_url} className="w-full h-full rounded-full object-cover" alt="" /> : <User className="h-5 w-5 text-muted-foreground" />}
+                {u.avatar_url ? (
+                  <img
+                    src={u.avatar_url}
+                    className="w-full h-full rounded-full object-cover"
+                    alt=""
+                  />
+                ) : (
+                  <User className="h-5 w-5 text-muted-foreground" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-xs truncate">{u.first_name} {u.last_name}</span>
+                  <span className="font-bold text-xs truncate">
+                    {u.first_name} {u.last_name}
+                  </span>
                   {roleIcon(u.role)}
                 </div>
                 <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
-                <p className="text-[9px] text-muted-foreground">{u.school} • {u.grade_level} - {u.section}</p>
+                <p className="text-[9px] text-muted-foreground">
+                  {u.school} • {u.grade_level} - {u.section}
+                </p>
               </div>
-              <Select value={u.role} onValueChange={(v) => assignRole(u.user_id, v)}>
+              <Select
+                value={u.role}
+                onValueChange={(v) => assignRole(u.user_id, v)}
+              >
                 <SelectTrigger className="w-28 h-8 text-xs">
                   <SelectValue />
                 </SelectTrigger>
