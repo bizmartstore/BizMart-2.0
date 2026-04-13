@@ -156,15 +156,20 @@ export default function PrintServicePage() {
   };
 
   const calculateCost = () => {
-    const selectedPages = pages.filter(p => p.selected);
-    let pageCost = 0;
-    for (const p of selectedPages) {
-      pageCost += getPrice(p.isColor, pageSize);
-    }
-    const deliveryCost = deliveryType === "delivery" ? 10 : 0;
-    return (pageCost * copies) + deliveryCost;
-  };
+  const selectedPages = pages.filter(p => p.selected);
 
+  if (selectedPages.length === 0) return 0;
+
+  let pageCost = 0;
+
+  for (const page of selectedPages) {
+    pageCost += getPrice(page.isColor, pageSize);
+  }
+
+  const deliveryCost = deliveryType === "delivery" ? 10 : 0;
+
+  return (pageCost * copies) + deliveryCost;
+};
   const handleSubmit = async () => {
     if (!user) { navigate("/login"); return; }
     if (!membership) { navigate("/club"); return; }
