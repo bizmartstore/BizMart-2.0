@@ -6,15 +6,15 @@ CREATE TABLE public.support_reports (
   description TEXT NOT NULL,
   location TEXT,
   date DATE,
-  time TIME WITHOUT TIME ZONE,
+  time TIME,
   is_anonymous BOOLEAN DEFAULT false,
   reporter_name TEXT,
   reporter_contact TEXT,
-  status TEXT DEFAULT 'pending',
+  status TEXT DEFAULT 'pending' NOT NULL,
   tracking_id TEXT UNIQUE NOT NULL,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  severity TEXT DEFAULT 'medium' NOT NULL,
   admin_notes TEXT,
-  severity TEXT DEFAULT 'medium',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -34,7 +34,8 @@ FOR UPDATE TO authenticated USING (auth.uid() = user_id);
 CREATE POLICY "Admins can view all reports" ON public.support_reports
 FOR SELECT TO authenticated USING (
   EXISTS (
-    SELECT 1 FROM user_roles
+    SELECT 1
+    FROM user_roles
     WHERE user_roles.user_id = auth.uid()
     AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
   )
@@ -43,13 +44,15 @@ FOR SELECT TO authenticated USING (
 CREATE POLICY "Admins can update all reports" ON public.support_reports
 FOR UPDATE TO authenticated USING (
   EXISTS (
-    SELECT 1 FROM user_roles
+    SELECT 1
+    FROM user_roles
     WHERE user_roles.user_id = auth.uid()
     AND user_roles.role = ANY (ARRAY['main_admin'::text, 'member_admin'::text])
   )
 );
 
--- Create index for faster lookups
-CREATE INDEX IF NOT EXISTS idx_support_reports_tracking_id ON public.support_reports(tracking_id);
-CREATE INDEX IF NOT EXISTS idx_support_reports_user_id ON public.support_reports(user_id);
-CREATE INDEX IF NOT EXISTS idx_support_reports_status ON public.support_reports(status);
+CREATE POLICY "Service role can insert reports" ON public.support_reports
+FOR INSERT TO authenticated USING (auth.role() = 'service_role'::text);
+
+CREATE POLICY "No deletes" ON public.support_reports
+FOR DELETE TO authenticated USING (false);
