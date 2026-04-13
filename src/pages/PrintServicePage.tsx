@@ -220,51 +220,42 @@ export default function PrintServicePage() {
       const totalCost = calculateCost();
 
       // Extract the actual page numbers that were selected
-      // Extract the actual page numbers that were selected
-const selectedPageNumbers = selectedPages.map(p => p.pageNum);
+      const selectedPageNumbers = selectedPages.map(p => p.pageNum);
 
-// ✅ Ensure proper JSON format for jsonb
-const selectedPagesJSON = JSON.parse(JSON.stringify(selectedPageNumbers));
+      const { data: orderData, error } = await supabase
+        .from("print_orders")
+        .insert({
+          user_id: user.id,
+          file_url: publicUrl,
+          file_name: file.name,
+          total_pages: selectedPages.length * copies,
+          bw_pages: bwPages,
+          colored_pages: coloredPages,
+          page_size: pageSize,
+          delivery_type: deliveryType,
+          pickup_date: pickupDate,
+          pickup_time: pickupTime,
+          cost: totalCost,
+          status: "pending",
+          short_pages: shortPages,
+          a4_pages: a4Pages,
+          long_pages: longPages,
+          selected_pages: selectedPageNumbers, // ✅ Save the actual page numbers selected
+        } as any)
+        .select()
+        .single();
 
-// ✅ DEBUG (check in browser console)
-console.log("Saving selected_pages:", selectedPagesJSON);
+      if (error) throw error;
 
-const { data: orderData, error } = await supabase
-  .from("print_orders")
-  .insert([{
-    user_id: user.id,
-    file_url: publicUrl,
-    file_name: file.name,
-    total_pages: selectedPages.length * copies,
-    bw_pages: bwPages,
-    colored_pages: coloredPages,
-    page_size: pageSize,
-    delivery_type: deliveryType,
-    pickup_date: pickupDate,
-    pickup_time: pickupTime,
-    cost: totalCost,
-    status: "pending",
-    short_pages: shortPages,
-    a4_pages: a4Pages,
-    long_pages: longPages,
-
-    // 🔥 FIXED
-    selected_pages: selectedPagesJSON
-  }])
-  .select()
-  .single();
-
-if (error) throw error;
-
-if (orderData) {
-  setOrderId((orderData as any).id);
-  setOrderComplete(true);
-  triggerLocalPushNotification(
-    "Print Order Placed! 🖨️",
-    `Your print request for "${file.name}" has been received.`
-  );
-  toast.success("Print order submitted successfully!");
-}
+      if (orderData) {
+        setOrderId((orderData as any).id);
+        setOrderComplete(true);
+        triggerLocalPushNotification(
+          "Print Order Placed! 🖨️",
+          `Your print request for "${file.name}" has been received.`
+        );
+        toast.success("Print order submitted successfully!");
+      }
     } catch (error: any) {
       toast.error("Failed to submit order: " + error.message);
     } finally {
