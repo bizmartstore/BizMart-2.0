@@ -164,7 +164,7 @@ export default function BroadcastTab() {
       if (existing) {
         await (supabase as any).from("app_settings").update({ value: payload }).eq("key", "daily_broadcast_config");
       } else {
-        await (supabase asany).from("app_settings").insert({ key: "daily_broadcast_config", value: payload });
+        await (supabase as any).from("app_settings").insert({ key: "daily_broadcast_config", value: payload });
       }
       toast.success("Auto-broadcast settings updated!");
     } catch (e: any) {
