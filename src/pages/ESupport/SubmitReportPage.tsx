@@ -87,23 +87,24 @@ export default function SubmitReportPage() {
       const trackingId = `REP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
 
       // Prepare report data
-      const reportData = {
-        type: form.type,
-        title: form.title.trim(),
-        description: form.description.trim(),
-        location: form.location.trim(),
-        date: form.date,
-        time: form.time,
-        is_anonymous: form.isAnonymous,
-        reporter_name: form.isAnonymous ? "Anonymous" : form.reporterName.trim(),
-        reporter_contact: form.isAnonymous ? "Anonymous" : form.reporterContact.trim(),
-        status: "pending",
-        tracking_id: trackingId,
-        user_id: user.id,
-        created_at: new Date().toISOString(),
-        severity: "medium" // Default severity
-      };
+const reportData = {
+  type: form.type,
+  title: form.title.trim(),
+  description: form.description.trim(),
+  location: form.location.trim(),
 
+  // ✅ FIXED: match your DB column
+  incident_date: form.date || null,
+  is_anonymous: form.isAnonymous,
+  reporter_name: form.isAnonymous ? "Anonymous" : form.reporterName.trim(),
+  reporter_contact: form.isAnonymous ? "Anonymous" : form.reporterContact.trim(),
+
+  status: "pending",
+  tracking_id: trackingId,
+  user_id: user.id,
+  created_at: new Date().toISOString(),
+  severity: "medium"
+};
       // Insert into database
       const { error } = await (supabase as any)
         .from("support_reports")
