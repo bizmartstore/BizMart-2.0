@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
@@ -93,7 +95,7 @@ export default function ESupportPage() {
                       <span className="text-primary">•</span>
                       <span>Misconduct by students or staff</span>
                     </li>
-                    <li className="flex items-start gap-2">
+                    <li className="flex items-start<li className="flex items-start gap-2">
                       <span className="text-primary">•</span>
                       <span>Safety threats or concerns</span>
                     </li>
