@@ -537,27 +537,26 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        {/* Cost Summary - Shows only selected paper size */}
+        {/* Cost Summary - FIXED: Now shows correct prices based on color type */}
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
-            {pageSize === "short" && selectedPages.length > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">Short Pages ({selectedPages.length} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "short") * selectedPages.length * copies}</span>
-              </div>
-            )}
-            {pageSize === "a4" && selectedPages.length > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">A4 Pages ({selectedPages.length} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "a4") * selectedPages.length * copies}</span>
-              </div>
-            )}
-            {pageSize === "long" && selectedPages.length > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">Long Pages ({selectedPages.length} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "long") * selectedPages.length * copies}</span>
-              </div>
+            {/* Show breakdown by color type */}
+            {pages.filter(p => p.selected).length > 0 && (
+              <>
+                {pages.filter(p => p.selected && !p.isColor).length > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium">Black & White Pages ({pages.filter(p => p.selected && !p.isColor).length} × {copies})</span>
+                    <span className="text-xs font-bold">₱{getPrice(false, pageSize) * pages.filter(p => p.selected && !p.isColor).length * copies}</span>
+                  </div>
+                )}
+                {pages.filter(p => p.selected && p.isColor).length > 0 && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium">Colored Pages ({pages.filter(p => p.selected && p.isColor).length} × {copies})</span>
+                    <span className="text-xs font-bold">₱{getPrice(true, pageSize) * pages.filter(p => p.selected && p.isColor).length * copies}</span>
+                  </div>
+                )}
+              </>
             )}
             <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
               <span className="font-extrabold text-xs">TOTAL COST</span>
