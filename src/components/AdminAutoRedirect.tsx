@@ -30,9 +30,8 @@ export default function AdminAutoRedirect() {
       return;
     }
 
-    console.log('[AdminAutoRedirect] Redirecting admin to /admin. User role:', role);
     navigate("/admin", { replace: true });
-  }, [user, isAdmin, isAuthReady, location.pathname, navigate, role]);
+  }, [user, isAdmin, isAuthReady, location.pathname, navigate]);
 
   return null;
 }
