@@ -36,6 +36,7 @@ import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
 import ESupportPage from "@/pages/ESupportPage";
 import TrackReportPage from "@/pages/ESupport/TrackReportPage";
+import SubmitReportPage from "@/pages/ESupport/SubmitReportPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -96,6 +97,7 @@ function AppContent() {
             <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/e-support" element={<ESupportPage />} />
+            <Route path="/e-support/submit" element={<SubmitReportPage />} />
             <Route path="/e-support/track" element={<TrackReportPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
