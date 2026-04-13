@@ -152,18 +152,8 @@ export default function PrintTab() {
     // Get the selected paper size
     const selectedPaperSize = selectedOrder.page_size || "a4";
 
-    // Calculate pages by size
-    const pagesBySize: Record<string, number> = { short: 0, a4: 0, long: 0 };
-    const pagesByColor: Record<string, number> = { bw: 0, color: 0 };
-
-    if (selectedOrder.file_url) {
-      // Use the counts from the database
-      pagesBySize.short = selectedOrder.short_pages || 0;
-      pagesBySize.a4 = selectedOrder.a4_pages || 0;
-      pagesBySize.long = selectedOrder.long_pages || 0;
-      pagesByColor.bw = selectedOrder.bw_pages || 0;
-      pagesByColor.color = selectedOrder.colored_pages || 0;
-    }
+    // Get the actual page numbers selected by the customer
+    const selectedPages = selectedOrder.selected_pages || [];
 
     return (
       <div className="space-y-3">
@@ -231,37 +221,37 @@ export default function PrintTab() {
               </div>
             </div>
 
-            {/* Paper Size Breakdown */}
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="bg-background rounded-lg p-2">
-                <span className="text-sm font-extrabold block">{pagesBySize.short}</span>
-                <span className="text-[9px] text-muted-foreground">Short</span>
+            {/* Selected Pages - Show actual page numbers */}
+            {selectedPages.length > 0 ? (
+              <div className="bg-background rounded-lg p-3 border border-border">
+                <p className="text-xs font-bold text-primary mb-2">Pages to Print</p>
+                <div className="flex flex-wrap gap-1">
+                  {selectedPages.map((pageNum: number, index: number) => (
+                    <span key={index} className="text-xs font-bold bg-primary/10 text-primary px-2 py-1 rounded-md">
+                      Page {pageNum}
+                    </span>
+                  ))}
+                </div>
               </div>
-              <div className="bg-background rounded-lg p-2">
-                <span className="text-sm font-extrabold block">{pagesBySize.a4}</span>
-                <span className="text-[9px] text-muted-foreground">A4</span>
-              </div>
-              <div className="bg-background rounded-lg p-2">
-                <span className="text-sm font-extrabold block">{pagesBySize.long}</span>
-                <span className="text-[9px] text-muted-foreground">Long</span>
-              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">No pages selected</p>
+            )}
+
+            {/* Total Pages */}
+            <div className="flex justify-between text-xs text-muted-foreground pt-1">
+              <span>Total Pages: {selectedOrder.total_pages}</span>
             </div>
 
             {/* Color Breakdown */}
             <div className="grid grid-cols-2 gap-2 text-center">
               <div className="bg-background rounded-lg p-2">
-                <span className="text-sm font-extrabold block">{pagesByColor.bw}</span>
+                <span className="text-sm font-extrabold block">{selectedOrder.bw_pages || 0}</span>
                 <span className="text-[9px] text-muted-foreground">Black & White</span>
               </div>
               <div className="bg-background rounded-lg p-2">
-                <span className="text-sm font-extrabold block">{pagesByColor.color}</span>
+                <span className="text-sm font-extrabold block">{selectedOrder.colored_pages || 0}</span>
                 <span className="text-[9px] text-muted-foreground">Color</span>
               </div>
-            </div>
-
-            {/* Total Pages */}
-            <div className="flex justify-between text-xs text-muted-foreground pt-1">
-              <span>Total Pages: {selectedOrder.total_pages}</span>
             </div>
 
             {/* Cost */}
