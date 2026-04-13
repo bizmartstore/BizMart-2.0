@@ -104,8 +104,12 @@ export default function Index() {
     // Listen for product changes AND settings changes (rotation happens in settings)
     const channel = supabase
       .channel("index-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
-        refreshAllData();
+      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, (payload: any) => {
+        // Only refresh if flash sale status changed
+        if (payload.new && payload.new.is_flash_sale !== payload.old?.is_flash_sale) {
+          console.log("[Index] Flash sale status changed, refreshing data");
+          refreshAllData();
+        }
       })
       .on("postgres_changes", {
         event: "UPDATE",

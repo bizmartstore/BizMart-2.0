@@ -86,18 +86,21 @@ export function useFlashSaleProducts() {
     queryKey: ["flash-sale-products"],
     queryFn: async () => {
       try {
+        // Fetch flash sale products from the products table
         const { data, error } = await (supabase as any)
-          .from("flash_sale_products")
+          .from("products")
           .select("*")
-          .eq("is_active", true)
-          .gt("stock", 0);
+          .eq("is_flash_sale", true)
+          .not("sale_price", "is", null)
+          .gt("stock", 0)
+          .order("created_at", { ascending: false });
 
         if (error) {
           console.error("[useFlashSaleProducts] Supabase error:", error.message);
           return [];
         }
 
-        if (data) {
+        if (data && data.length > 0) {
           // Calculate sold count from actual completed orders
           const soldCounts: Record<string, number> = {};
 
@@ -118,14 +121,7 @@ export function useFlashSaleProducts() {
             });
           }
 
-          // Filter to only include products with actual discounts
-          const discountedProducts = data.filter((p: any) => {
-            const basePrice = p.original_price ? Number(p.original_price) : Number(p.price);
-            const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
-            return salePrice < basePrice;
-          });
-
-          return discountedProducts.map((p: any) => ({
+          return data.map((p: any) => ({
             id: p.id,
             name: p.name,
             price: Number(p.price),
@@ -151,8 +147,10 @@ export function useFlashSaleProducts() {
         return [];
       }
     },
-    staleTime: 30000,
-    refetchInterval: 30000,
+    staleTime: 10000,
+    refetchInterval: 15000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 }
 

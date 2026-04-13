@@ -2,39 +2,28 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { useProducts } from "@/hooks/useProducts";
+import { useFlashSaleProducts } from "@/hooks/useProducts";
 import { Flame, ArrowRight } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function HottestSaleSection() {
   const navigate = useNavigate();
-  const { data: products = [], isLoading } = useProducts();
+  const { data: flashSaleProducts = [], isLoading } = useFlashSaleProducts();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isPaused, setIsPaused] = useState(false);
   const animationRef = useRef<number>(0);
   const scrollPosRef = useRef(0);
 
-  // Get discounted products (products with actual price difference)
+  // Use flash sale products directly - they already have discounts applied
   const discountedProducts = useMemo(() => {
-    return products
-      .filter(p => {
-        const basePrice = p.originalPrice ? Number(p.originalPrice) : Number(p.price);
-        const salePrice = p.sale_price ? Number(p.sale_price) : basePrice;
-        return salePrice < basePrice; // Has actual discount
-      })
+    return [...flashSaleProducts]
       .sort((a, b) => {
         // Sort by highest discount percentage
-        const aBase = a.originalPrice ? Number(a.originalPrice) : Number(a.price);
-        const aSale = a.sale_price ? Number(a.sale_price) : aBase;
-        const aDiscount = Math.round(((aBase - aSale) / aBase) * 100);
-
-        const bBase = b.originalPrice ? Number(b.originalPrice) : Number(b.price);
-        const bSale = b.sale_price ? Number(b.sale_price) : bBase;
-        const bDiscount = Math.round(((bBase - bSale) / bBase) * 100);
-
+        const aDiscount = a.discount_percent || 0;
+        const bDiscount = b.discount_percent || 0;
         return bDiscount - aDiscount;
       });
-  }, [products]);
+  }, [flashSaleProducts]);
 
   // Auto-scroll animation - SLOW speed like BizMart Features
   useEffect(() => {
@@ -103,8 +92,8 @@ export default function HottestSaleSection() {
               <Flame className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h3 className="font-extrabold text-white text-lg uppercase tracking-wide">Hottest Sale!</h3>
-              <p className="text-white/70 text-[11px] font-medium">Limited time discounts - up to 50% OFF!</p>
+              <h3 className="font-extrabold text-white text-lg uppercase tracking-wide">Hottest Flash Sale!</h3>
+              <p className="text-white/70 text-[11px] font-medium">Limited time discounts just for you!</p>
             </div>
           </div>
         </div>
@@ -126,15 +115,10 @@ export default function HottestSaleSection() {
   }
 
   // Calculate max discount for display
-  const maxDiscount =
-  discountedProducts.length > 0
-    ? Math.round(
-        ((Number(discountedProducts[0].originalPrice || discountedProducts[0].price) -
-          Number(discountedProducts[0].sale_price || discountedProducts[0].price)) /
-          Number(discountedProducts[0].originalPrice || discountedProducts[0].price)) *
-          100
-      )
-    : 0;
+  const maxDiscount = discountedProducts.reduce((max, product) => {
+    const discount = product.discount_percent || 0;
+    return discount > max ? discount : max;
+  }, 0);
 
   return (
     <motion.div
@@ -143,7 +127,7 @@ export default function HottestSaleSection() {
       transition={{ duration: 0.5 }}
       className="px-3 mt-4"
     >
-      {/* Hottest Sale Header with Fire Animation */}
+      {/* Hottest Flash Sale Header with Fire Animation */}
       <div className="flex items-center justify-between mb-4">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -170,7 +154,7 @@ export default function HottestSaleSection() {
           </motion.div>
           <div>
             <h3 className="font-extrabold text-red-600 text-lg uppercase tracking-wide">
-              Hottest Sale!
+              Hottest Flash Sale!
             </h3>
             <p className="text-red-600/80 text-[11px] font-medium">
               Limited time discounts - up to {maxDiscount}% OFF!
@@ -197,10 +181,9 @@ export default function HottestSaleSection() {
         onMouseLeave={handleInteractionEnd}
       >
         {discountedProducts.slice(0, 4).map((product) => {
-          // Calculate prices correctly
-          const basePrice = product.originalPrice ? Number(product.originalPrice) : Number(product.price);
-          const salePrice = product.sale_price ? Number(product.sale_price) : basePrice;
-          const discountPercent = Math.round(((basePrice - salePrice) / basePrice) * 100);
+          // Use the product's sale_price and discount_percent directly
+          const salePrice = product.sale_price ? Number(product.sale_price) : Number(product.price);
+          const discountPercent = product.discount_percent || 0;
 
           return (
             <motion.div
@@ -244,9 +227,9 @@ export default function HottestSaleSection() {
                         {/* Show the sale price (discounted price) */}
                         <span className="text-lg font-extrabold text-primary">₱{salePrice}</span>
                         {/* Show original price crossed out if it's different from sale price */}
-                        {basePrice > salePrice && (
+                        {product.originalPrice && Number(product.originalPrice) > salePrice && (
                           <span className="text-xs text-muted-foreground line-through decoration-red-500/50 ml-1">
-                            ₱{basePrice}
+                            ₱{Number(product.originalPrice)}
                           </span>
                         )}
                       </div>
