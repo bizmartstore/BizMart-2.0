@@ -13,12 +13,12 @@ export function useProducts() {
       try {
         const { data, error } = await (supabase as any)
           .from("products")
-          .select("*")
+          .select("id, name, price, original_price, image, images, category, rating, stock, description, is_flash_sale, sale_price, discount_percent, created_at, seller_id")
           .or("is_active.eq.true,is_active.is.null")
           .order("created_at", { ascending: false });
 
         if (error) {
-          console.error("[useProducts] Supabase error:", error.message);
+          console.warn("[useProducts] Supabase error - using fallback data:", error.message);
           return fallbackProducts;
         }
 
@@ -68,7 +68,7 @@ export function useProducts() {
 
         return fallbackProducts;
       } catch (err: any) {
-        console.error("[useProducts] Unexpected error:", err);
+        console.warn("[useProducts] Unexpected error - using fallback data:", err.message);
         return fallbackProducts;
       }
     },
@@ -165,7 +165,7 @@ export function useCategories() {
         .order("sort_order");
 
       if (error) {
-        console.warn("Failed to fetch categories from DB, using fallback:", error);
+        console.warn("[useCategories] Failed to fetch categories from DB, using fallback:", error.message);
         return fallbackCategories;
       }
 

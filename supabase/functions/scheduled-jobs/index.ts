@@ -10,7 +10,12 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
 
   try {
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+    // Use anon key instead of service role key for scheduled jobs
+    // This limits database access to only what's needed
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!  // Use anon key instead of service role key
+    )
 
     // Get all pending scheduled jobs
     const { data: jobs, error: jobsError } = await supabase
@@ -19,6 +24,7 @@ serve(async (req) => {
       .eq('status', 'pending')
       .lte('next_run_at', new Date().toISOString())
       .order('next_run_at', { ascending: true })
+      .limit(50)  // Limit to prevent excessive processing
 
     if (jobsError) throw jobsError
 
@@ -80,6 +86,7 @@ serve(async (req) => {
       completed: jobs.filter(j => j.job_type === 'broadcast').length
     }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   } catch (error) {
+    console.error(`[scheduled-jobs] Error:`, error)
     return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
   }
 })
