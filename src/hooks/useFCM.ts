@@ -24,6 +24,7 @@ export function useFCM() {
     if (!messaging || !user) return;
 
     try {
+      // Check if permission is already granted
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
         if (!registrationRef.current) {
@@ -31,16 +32,18 @@ export function useFCM() {
             scope: '/firebase-cloud-messaging-push-scope'
           });
         }
-        
-        const token = await getToken(messaging, { 
+
+        const token = await getToken(messaging, {
           vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registrationRef.current 
+          serviceWorkerRegistration: registrationRef.current
         });
-        
+
         if (token) {
           await saveTokenToDb(token);
           console.log("[FCM] Token generated and saved");
         }
+      } else if (permission === "denied") {
+        console.warn("[FCM] Notification permission denied by user");
       }
     } catch (error) {
       console.error("[FCM] Permission/Token error:", error);
@@ -53,22 +56,18 @@ export function useFCM() {
     requestPermission();
 
     // Handle foreground messages via FCM only
-    // We removed the Supabase Realtime listener here because it was causing duplicates
     const unsubscribeFCM = onMessage(messaging, (payload) => {
       const title = payload.notification?.title || "New Notification";
       const body = payload.notification?.body || "";
-      
+
       // Show in-app toast for foreground users
-      toast(title, { 
+      toast(title, {
         description: body,
         action: payload.data?.link ? {
           label: "View",
           onClick: () => window.location.href = payload.data?.link
         } : undefined
       });
-      
-      // We do NOT call triggerLocalPushNotification here because it creates 
-      // a system notification on top of the toast, which feels like a duplicate.
     });
 
     return () => {

@@ -12,7 +12,7 @@ export default defineConfig(() => ({
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt", // Changed from autoUpdate to prevent restart loops
+      registerType: "prompt",
       injectRegister: "auto",
       strategies: "generateSW",
       workbox: {

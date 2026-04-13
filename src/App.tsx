@@ -50,7 +50,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  
+
   // Initialize FCM
   useFCM();
 
@@ -71,7 +71,12 @@ function AppContent() {
       <Toaster />
       <Sonner />
       <TooltipProvider>
-        <BrowserRouter>
+        <BrowserRouter
+          future={{
+            v7_startTransition: true,
+            v7_relativeSplatPath: true,
+          }}
+        >
           <AdminAutoRedirect />
           <Routes>
             <Route path="/" element={<Index />} />
