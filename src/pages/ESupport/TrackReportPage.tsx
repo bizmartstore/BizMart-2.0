@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
@@ -17,6 +17,7 @@ export default function TrackReportPage() {
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [searchAttempted, setSearchAttempted] = useState(false);
 
   const handleSearch = async () => {
     if (!trackingId.trim()) {
@@ -26,6 +27,7 @@ export default function TrackReportPage() {
 
     setLoading(true);
     setError(null);
+    setSearchAttempted(true);
 
     try {
       // Search for the report in the database
@@ -144,6 +146,31 @@ export default function TrackReportPage() {
         </Card>
 
         {/* Report Status */}
+        {searchAttempted && !loading && !report && !error && (
+          <Card className="border border-border shadow-lg">
+            <CardContent className="py-12 text-center">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+              <h3 className="text-lg font-bold mb-2">No Report Found</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Please check your tracking ID and try again.
+              </p>
+              <Button
+                onClick={() => {
+                  setTrackingId("");
+                  setReport(null);
+                  setError(null);
+                  setSearchAttempted(false);
+                }}
+                variant="outline"
+                className="gap-2"
+              >
+                <Search className="h-4 w-4" />
+                Try Again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
         {report && (
           <Card className="border border-border shadow-lg">
             <CardHeader>
@@ -165,7 +192,7 @@ export default function TrackReportPage() {
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Report Type</p>
                 <p className="text-sm font-bold capitalize">
-                  {report.type.replace("_", " ")}
+                  {report.incident_type?.replace("_", " ")}
                 </p>
               </div>
 
@@ -190,12 +217,12 @@ export default function TrackReportPage() {
               )}
 
               {/* Date and Time */}
-              {(report.date || report.time) && (
+              {(report.incident_date || report.time) && (
                 <div className="grid grid-cols-2 gap-3">
-                  {report.date && (
+                  {report.incident_date && (
                     <div className="space-y-1">
                       <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Date</p>
-                      <p className="text-sm">{report.date}</p>
+                      <p className="text-sm">{report.incident_date}</p>
                     </div>
                   )}
                   {report.time && (
@@ -211,7 +238,7 @@ export default function TrackReportPage() {
               <div className="space-y-1">
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Severity</p>
                 <span className={`text-xs font-bold px-3 py-1 rounded-full ${getSeverityColor(report.severity)}`}>
-                  {report.severity.toUpperCase()}
+                  {report.severity?.toUpperCase()}
                 </span>
               </div>
 
@@ -254,6 +281,7 @@ export default function TrackReportPage() {
                   setTrackingId("");
                   setReport(null);
                   setError(null);
+                  setSearchAttempted(false);
                 }}
                 variant="outline"
                 className="gap-2"
@@ -266,7 +294,7 @@ export default function TrackReportPage() {
         )}
 
         {/* No Report Searched */}
-        {!trackingId && !report && !error && (
+        {!searchAttempted && !report && !error && (
           <Card className="border border-border shadow-lg">
             <CardContent className="py-12 text-center">
               <Eye className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
