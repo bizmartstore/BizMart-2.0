@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShoppingBag, Store, Crown, Smartphone, Printer, Lock } from "lucide-react";
+import { ShoppingBag, Store, Crown, Smartphone, Printer, Lock, Headset } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -55,6 +55,16 @@ const features = [
     path: "/print-service",
     restricted: true,
   },
+  {
+    id: "e-support",
+    label: "E-Support",
+    desc: "Report Concerns",
+    icon: Headset,
+    bg: "bg-gradient-to-br from-blue-500 to-blue-600",
+    emoji: "🎧",
+    path: "/e-support",
+    restricted: false,
+  },
 ];
 
 const duplicatedFeatures = [...features, ...features];
@@ -72,18 +82,39 @@ export default function BizMartFeatures() {
     if (!container) return;
     const singleSetWidth = container.scrollWidth / 2;
     let lastTime = 0;
-    const speed = 0.5;
+    const speed = 0.03;
+
+    const getMaxScroll = () =>
+      container.scrollWidth - container.clientWidth;
+
+    if (scrollPosRef.current === 0) {
+      scrollPosRef.current = maxScroll;
+      container.scrollLeft = maxScroll;
+    }
+
     const animate = (time: number) => {
-      if (!isPaused) {
+      if (!isPaused && document.visibilityState === "visible") {
         const delta = lastTime ? time - lastTime : 16;
         lastTime = time;
-        scrollPosRef.current += speed * (delta / 16);
-        if (scrollPosRef.current >= singleSetWidth) scrollPosRef.current -= singleSetWidth;
+
+        scrollPosRef.current -= speed * delta;
+
+        const max = getMaxScroll();
+
+        if (scrollPosRef.current <= 0) {
+          scrollPosRef.current = max;
+        }
+
         container.scrollLeft = scrollPosRef.current;
-      } else lastTime = 0;
+      } else {
+        lastTime = 0;
+      }
+
       animationRef.current = requestAnimationFrame(animate);
     };
+
     animationRef.current = requestAnimationFrame(animate);
+
     return () => cancelAnimationFrame(animationRef.current);
   }, [isPaused]);
 
