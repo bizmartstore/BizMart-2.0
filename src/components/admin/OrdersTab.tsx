@@ -44,7 +44,7 @@ export default function OrdersTab() {
           .from("profiles")
           .select("user_id, first_name, last_name, section, grade_level")
           .in("user_id", Array.from(userIds));
-        
+
         if (profiles) {
           profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
         }
@@ -116,43 +116,15 @@ export default function OrdersTab() {
 
       if (error) throw error;
 
-      // Handle Product Stock and Sold Update - only for product orders
-      if (newStatus === "completed" && !isPrint && previousStatus !== "completed") {
-        if (orderToUpdate.items && Array.isArray(orderToUpdate.items)) {
-          for (const item of orderToUpdate.items) {
-            // Get current product data
-            const { data: product } = await (supabase as any)
-              .from("products")
-              .select("sold, stock")
-              .eq("id", item.id)
-              .maybeSingle();
-
-            if (product) {
-              const currentSold = Number(product.sold) || 0;
-              const currentStock = Number(product.stock) || 0;
-              const quantity = Number(item.quantity) || 1;
-
-              await (supabase as any)
-                .from("products")
-                .update({
-                  sold: currentSold + quantity,
-                  stock: Math.max(0, currentStock - quantity)
-                })
-                .eq("id", item.id);
-            }
-          }
-        }
-      }
-
-      // Trigger Push Notification to Customer
+      // Send Push Notification to Customer
       await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
 
-      // Award BCoins if completed
-      if (newStatus === "completed" && !isPrint) {
+      // Award BCoins if completed (only for product orders)
+      if (newStatus === "completed" && !isPrint && orderToUpdate.bcoins_earned) {
         await notifyCustomerBCoins(orderToUpdate.user_id, orderToUpdate.bcoins_earned, "order completion");
       }
 
-      toast.success(`Order ${newStatus}! Product stats updated.`);
+      toast.success(`Order ${newStatus}!`);
     } catch (e: any) {
       toast.error(e.message || "Failed to update order");
       loadOrders();
@@ -261,7 +233,7 @@ export default function OrdersTab() {
                   <span className="text-[9px] text-muted-foreground">Total Pages</span>
                 </div>
                 <div className="bg-background rounded-lg p-2">
-                  <span className="text-sm font-extrabold block">{selectedOrder.page_size === 'short' ? 'Short/A4' : 'Long'}</span>
+                  <span className="text-sm font-extrabold block">{selectedOrder.page_size === 'short' ? 'Short/A4' : selectedOrder.page_size === 'long' ? 'Long' : 'A4'}</span>
                   <span className="text-[9px] text-muted-foreground">Paper Size</span>
                 </div>
               </div>
