@@ -143,9 +143,6 @@ export default function PrintServicePage() {
     setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, selected: !p.selected } : p));
   };
 
-  const togglePaperSize = (pageNum: number, size: "short" | "a4" | "long") => {
-    setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, paperSize: size } : p));
-  };
 
   const selectAll = (select: boolean) => {
     setPages(prev => prev.map(p => ({ ...p, selected: select })));
@@ -216,9 +213,9 @@ export default function PrintServicePage() {
         .getPublicUrl(fileName);
 
       // Calculate pages by size
-      const shortPages = selectedPages.filter(p => p.paperSize === "short").length * copies;
-      const a4Pages = selectedPages.filter(p => p.paperSize === "a4").length * copies;
-      const longPages = selectedPages.filter(p => p.paperSize === "long").length * copies;
+      const shortPages = pageSize === "short" ? selectedPages.length * copies : 0;
+      const a4Pages = pageSize === "a4" ? selectedPages.length * copies : 0;
+      const longPages = pageSize === "long" ? selectedPages.length * copies : 0;
 
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
       const coloredPages = selectedPages.filter(p => p.isColor).length * copies;
@@ -320,9 +317,9 @@ export default function PrintServicePage() {
   }
 
   const selectedPages = pages.filter(p => p.selected);
-  const shortCount = selectedPages.filter(p => p.paperSize === "short").length;
-  const a4Count = selectedPages.filter(p => p.paperSize === "a4").length;
-  const longCount = selectedPages.filter(p => p.paperSize === "long").length;
+  const shortCount = pageSize === "short" ? selectedPages.length : 0;
+  const a4Count = pageSize === "a4" ? selectedPages.length : 0;
+  const longCount = pageSize === "long" ? selectedPages.length : 0;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -405,16 +402,10 @@ export default function PrintServicePage() {
                         <span className="text-[10px] font-extrabold block mb-1">#{page.pageNum}</span>
                         <div className="flex items-center justify-center">
                           {page.isColor ? <Palette className="h-4 w-4 text-orange-500" /> : <File className="h-4 w-4 text-gray-400" />}
+                          {/* Paper size indicator removed - using global setting */}
                         </div>
                         {page.selected && <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
                       </button>
-                      {page.selected && (
-                        <div className="flex gap-1">
-                          <button onClick={() => togglePaperSize(page.pageNum, "short")} className={`flex-1 text-[8px] font-bold py-1 rounded-lg ${page.paperSize === "short" ? "bg-blue-500 text-white" : "bg-muted text-muted-foreground"}`}>Short</button>
-                          <button onClick={() => togglePaperSize(page.pageNum, "a4")} className={`flex-1 text-[8px] font-bold py-1 rounded-lg ${page.paperSize === "a4" ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"}`}>A4</button>
-                          <button onClick={() => togglePaperSize(page.pageNum, "long")} className={`flex-1 text-[8px] font-bold py-1 rounded-lg ${page.paperSize === "long" ? "bg-red-500 text-white" : "bg-muted text-muted-foreground"}`}>Long</button>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -469,19 +460,19 @@ export default function PrintServicePage() {
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
-            {shortCount > 0 && (
+            {pageSize === "short" && shortCount > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-xs font-medium">Short Pages ({shortCount} × {copies})</span>
                 <span className="text-xs font-bold">₱{getPrice(false, "short") * shortCount * copies}</span>
               </div>
             )}
-            {a4Count > 0 && (
+            {pageSize === "a4" && a4Count > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-xs font-medium">A4 Pages ({a4Count} × {copies})</span>
                 <span className="text-xs font-bold">₱{getPrice(false, "a4") * a4Count * copies}</span>
               </div>
             )}
-            {longCount > 0 && (
+            {pageSize === "long" && longCount > 0 && (
               <div className="flex justify-between items-center">
                 <span className="text-xs font-medium">Long Pages ({longCount} × {copies})</span>
                 <span className="text-xs font-bold">₱{getPrice(false, "long") * longCount * copies}</span>
