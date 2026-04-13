@@ -222,7 +222,7 @@ export default function PrintTab() {
             </div>
 
             {/* Selected Pages - Show actual page numbers */}
-            {selectedPages.length > 0 ? (
+            {selectedPages && selectedPages.length > 0 ? (
               <div className="bg-background rounded-lg p-3 border border-border">
                 <p className="text-xs font-bold text-primary mb-2">Pages to Print</p>
                 <div className="flex flex-wrap gap-1">
