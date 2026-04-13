@@ -148,12 +148,16 @@ export default function PrintTab() {
     const custEmail = cust?.email || "N/A";
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
+    const isPrint = selectedOrder.type === 'print';
 
     // Get the selected paper size
     const selectedPaperSize = selectedOrder.page_size || "a4";
 
     // Get the actual page numbers selected by the customer
     const selectedPages = selectedOrder.selected_pages || [];
+
+    // Get the number of copies
+    const copies = selectedOrder.copies || 1;
 
     return (
       <div className="space-y-3">
@@ -199,6 +203,15 @@ export default function PrintTab() {
             <span className="text-[10px] text-muted-foreground">
               {selectedOrder.pickup_date || "N/A"} at {selectedOrder.pickup_time || "N/A"}
             </span>
+          </div>
+
+          {/* Copies Information - NEW */}
+          <div className="bg-muted/30 rounded-lg p-3">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Number of Copies</p>
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-bold text-primary">{copies}</span>
+              <span className="text-[10px] text-muted-foreground">copies selected</span>
+            </div>
           </div>
 
           {/* Print Details - Enhanced */}
