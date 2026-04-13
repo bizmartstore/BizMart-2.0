@@ -35,7 +35,7 @@ export default function PrintTab() {
         const { data: profiles } = await (supabase as any)
           .from("profiles")
           .select("user_id, first_name, last_name, grade_level, section, email")
-          .in("user_ids", userIds);
+          .in("user_id", userIds);
 
         if (profiles) {
           profiles.forEach((p: any) => { profileMap[p.user_id] = p; });
@@ -183,7 +183,7 @@ export default function PrintTab() {
               <span className="text-xs font-bold text-foreground">{custName}</span>
             </div>
             <p className="text-[10px] text-muted-foreground">{custEmail}</p>
-            <p className="text-[9px] text-muted-foreground">{custGrade} • {custSection}</p>
+            <p className="text-[10px] text-muted-foreground">{custGrade} • {custSection}</p>
           </div>
 
           {/* Delivery Information */}
@@ -204,15 +204,6 @@ export default function PrintTab() {
           {/* Print Details - Enhanced */}
           <div className="bg-muted/30 rounded-lg p-3 space-y-2">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Print Details</p>
-
-            {/* Copies Requested - NEW */}
-            <div className="bg-background rounded-lg p-3 border border-border">
-              <p className="text-xs font-bold text-primary mb-2">Copies Requested</p>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold text-primary">{selectedOrder.total_pages || 0}</span>
-                <span className="text-xs text-muted-foreground">copies</span>
-              </div>
-            </div>
 
             {/* Paper Size Selection - Now prominently displayed */}
             <div className="bg-background rounded-lg p-3 border border-border">
