@@ -1,7 +1,5 @@
 "use client";
 
-import ESupportPage from "@/pages/ESupport/ESupportPage";
-import TrackReportPage from "@/pages/ESupport/TrackReportPage";
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -36,6 +34,8 @@ import SellerStorePage from "@/pages/SellerStorePage";
 import PrintServicePage from "@/pages/PrintServicePage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import NotFound from "@/pages/NotFound";
+import ESupportPage from "@/pages/ESupportPage";
+import TrackReportPage from "@/pages/ESupport/TrackReportPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -52,7 +52,7 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
-  
+
   // Initialize FCM
   useFCM();
 
@@ -95,6 +95,8 @@ function AppContent() {
             <Route path="/seller-store" element={<SellerStorePage />} />
             <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/e-support" element={<ESupportPage />} />
+            <Route path="/e-support/track" element={<TrackReportPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
