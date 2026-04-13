@@ -37,24 +37,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [membership, setMembership] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
-  const [role, setRole] = useState<string | null>(null);
-
+  
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
+  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
     if (fetchProfileRef.current) return fetchProfileRef.current;
     const currentRequestId = ++requestIdRef.current;
-
+    
     const fetchPromise = (async () => {
       try {
         // 1. Fetch Profile
         const { data: profData } = await (supabase as any).from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
-
+        
         // 2. Fetch Role
         const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle();
-
+        
         // 3. Fetch Wallet
         const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle();
 
@@ -63,8 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        const userRole = roleData?.role || 'customer';
-        setRole(userRole);
+        const role = roleData?.role || 'customer';
         if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
 
         setMembership(memData);
@@ -78,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           email: profData?.email || currentUser.email || '',
           avatar_url: profData?.avatar_url || currentUser.user_metadata?.avatar_url || null,
           bcoins: Number(wallet?.balance || profData?.bcoins || 0),
-          role: userRole,
+          role,
         });
       } catch (err) {
         console.warn("[AuthContext] Fetch issue:", err);
@@ -106,18 +105,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mountedRef.current) return;
         setSession(s);
         setUser(s?.user ?? null);
-        setLoading(false);
-        setIsAuthReady(true);
-
-        if (s?.user) {
-          await fetchProfile(s.user);
-        }
+        initTimeoutRef.current = setTimeout(() => {
+          if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
+        }, 5000);
+        if (s?.user) fetchProfile(s.user);
+        else { setLoading(false); setIsAuthReady(true); }
       } catch (err) {
-        console.error("[AuthContext] Initialization error:", err);
-        if (mountedRef.current) {
-          setLoading(false);
-          setIsAuthReady(true);
-        }
+        if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
       }
     };
     init();
@@ -126,27 +120,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mountedRef.current) return;
       setSession(s);
       setUser(s?.user ?? null);
-
       if (event === 'SIGNED_IN' && s?.user) {
-        setLoading(false);
-        setIsAuthReady(true);
-        await fetchProfile(s.user);
+        setLoading(false); setIsAuthReady(true);
+        fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        setMembership(null);
-        setRole(null);
-        setLoading(false);
-        setIsAuthReady(true);
-        requestIdRef.current++;
-        fetchProfileRef.current = null;
+        setProfile(null); setMembership(null); setLoading(false); setIsAuthReady(true);
+        requestIdRef.current++; fetchProfileRef.current = null;
       } else {
-        setLoading(false);
-        setIsAuthReady(prev => prev || true);
+        setLoading(false); setIsAuthReady(prev => prev || true);
       }
     });
 
     return () => {
       mountedRef.current = false;
+      if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
       subscription?.unsubscribe();
     };
   }, [fetchProfile]);
@@ -160,32 +147,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { supabase.removeChannel(channel); };
   }, [user, refreshProfile]);
 
-  // Real-time profile listener
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase.channel(`profile-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "profiles", filter: `id=eq.${user.id}` }, () => refreshProfile())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, refreshProfile]);
-
-  // Real-time role listener
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase.channel(`role-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "user_roles", filter: `user_id=eq.${user.id}` }, () => refreshProfile())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user, refreshProfile]);
-
   const signOut = async () => {
     await supabase.auth.signOut();
-    setUser(null);
-    setSession(null);
-    setProfile(null);
-    setMembership(null);
-    setRole(null);
-    setIsAuthReady(true);
+    setUser(null); setSession(null); setProfile(null); setMembership(null); setIsAuthReady(true);
     if (user) localStorage.removeItem(`user_role_${user.id}`);
   };
 
