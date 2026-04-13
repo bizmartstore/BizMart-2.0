@@ -85,7 +85,6 @@ export default function PrintServicePage() {
         canvas.height = viewport.height;
         const ctx = canvas.getContext("2d", { willReadFrequently: true });
         if (!ctx) continue;
-
         await page.render({
           canvasContext: ctx,
           canvas: canvas,
@@ -150,26 +149,40 @@ export default function PrintServicePage() {
     setPages(prev => prev.map(p => p.isColor === isColor ? { ...p, selected: true } : p));
   };
 
+  // FIXED: Correct price calculation based on page size and color
   const getPrice = (isColor: boolean, size: "short" | "a4" | "long") => {
-    if (size === "short" || size === "a4") return isColor ? 5 : 3;
-    return isColor ? 10 : 8;
+    // Prices per page
+    const priceMap: Record<string, Record<string, number>> = {
+      short: { bw: 3.00, color: 8.00 },
+      a4: { bw: 3.00, color: 8.00 },
+      long: { bw: 5.00, color: 10.00 }
+    };
+
+    return priceMap[size][isColor ? 'color' : 'bw'];
   };
 
   const calculateCost = () => {
-  const selectedPages = pages.filter(p => p.selected);
+    const selectedPages = pages.filter(p => p.selected);
 
-  if (selectedPages.length === 0) return 0;
+    if (selectedPages.length === 0) return 0;
 
-  let pageCost = 0;
+    let totalCost = 0;
 
-  for (const page of selectedPages) {
-    pageCost += getPrice(page.isColor, pageSize);
-  }
+    // Calculate cost based on actual selected pages
+    for (const page of selectedPages) {
+      const pagePrice = getPrice(page.isColor, pageSize);
+      totalCost += pagePrice;
+    }
 
-  const deliveryCost = deliveryType === "delivery" ? 10 : 0;
+    // Multiply by number of copies
+    totalCost *= copies;
 
-  return (pageCost * copies) + deliveryCost;
-};
+    // Add delivery fee if applicable
+    const deliveryCost = deliveryType === "delivery" ? 10 : 0;
+
+    return totalCost + deliveryCost;
+  };
+
   const handleSubmit = async () => {
     if (!user) { navigate("/login"); return; }
     if (!membership) { navigate("/club"); return; }
@@ -216,16 +229,14 @@ export default function PrintServicePage() {
         .getPublicUrl(fileName);
 
       // Calculate page counts by size and color
-      const shortPages = pageSize === "short" ? selectedPages.length * copies : 0;
-      const a4Pages = pageSize === "a4" ? selectedPages.length * copies : 0;
-      const longPages = pageSize === "long" ? selectedPages.length * copies : 0;
+      const selectedPageNumbers = selectedPages.map(p => p.pageNum);
 
+      // Calculate total pages by size and color
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
       const coloredPages = selectedPages.filter(p => p.isColor).length * copies;
-      const totalCost = calculateCost();
+      const totalPages = selectedPages.length * copies;
 
-      // Extract the actual page numbers that were selected
-      const selectedPageNumbers = selectedPages.map(p => p.pageNum);
+      const totalCost = calculateCost();
 
       const { data: orderData, error } = await supabase
         .from("print_orders")
@@ -233,7 +244,7 @@ export default function PrintServicePage() {
           user_id: user.id,
           file_url: publicUrl,
           file_name: file.name,
-          total_pages: selectedPages.length * copies,
+          total_pages: totalPages,
           bw_pages: bwPages,
           colored_pages: coloredPages,
           page_size: pageSize,
@@ -242,10 +253,10 @@ export default function PrintServicePage() {
           pickup_time: pickupTime,
           cost: totalCost,
           status: "pending",
-          short_pages: shortPages,
-          a4_pages: a4Pages,
-          long_pages: longPages,
-          selected_pages: selectedPageNumbers, // ✅ Save the actual page numbers selected
+          short_pages: pageSize === "short" ? totalPages : 0,
+          a4_pages: pageSize === "a4" ? totalPages : 0,
+          long_pages: pageSize === "long" ? totalPages : 0,
+          selected_pages: selectedPageNumbers,
         } as any)
         .select()
         .single();
@@ -327,9 +338,6 @@ export default function PrintServicePage() {
   }
 
   const selectedPages = pages.filter(p => p.selected);
-  const shortCount = pageSize === "short" ? selectedPages.length : 0;
-  const a4Count = pageSize === "a4" ? selectedPages.length : 0;
-  const longCount = pageSize === "long" ? selectedPages.length : 0;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -533,22 +541,22 @@ export default function PrintServicePage() {
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
-            {pageSize === "short" && shortCount > 0 && (
+            {pageSize === "short" && selectedPages.length > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">Short Pages ({shortCount} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "short") * shortCount * copies}</span>
+                <span className="text-xs font-medium">Short Pages ({selectedPages.length} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "short") * selectedPages.length * copies}</span>
               </div>
             )}
-            {pageSize === "a4" && a4Count > 0 && (
+            {pageSize === "a4" && selectedPages.length > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">A4 Pages ({a4Count} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "a4") * a4Count * copies}</span>
+                <span className="text-xs font-medium">A4 Pages ({selectedPages.length} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "a4") * selectedPages.length * copies}</span>
               </div>
             )}
-            {pageSize === "long" && longCount > 0 && (
+            {pageSize === "long" && selectedPages.length > 0 && (
               <div className="flex justify-between items-center">
-                <span className="text-xs font-medium">Long Pages ({longCount} × {copies})</span>
-                <span className="text-xs font-bold">₱{getPrice(false, "long") * longCount * copies}</span>
+                <span className="text-xs font-medium">Long Pages ({selectedPages.length} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "long") * selectedPages.length * copies}</span>
               </div>
             )}
             <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
