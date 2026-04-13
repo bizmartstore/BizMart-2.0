@@ -22,19 +22,20 @@ interface PageInfo {
   pageNum: number;
   isColor: boolean;
   selected: boolean;
+  paperSize?: "short" | "a4" | "long";
 }
 
 export default function PrintServicePage() {
   const navigate = useNavigate();
   const { user, membership } = useAuth();
   const { storeOpen } = useAppSettings();
-  
+
   const [file, setFile] = useState<File | null>(null);
   const [pages, setPages] = useState<PageInfo[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [copies, setCopies] = useState(1);
-  const [pageSize, setPageSize] = useState<"short" | "long">("short");
+  const [pageSize, setPageSize] = useState<"short" | "a4" | "long">("a4");
   const [deliveryType, setDeliveryType] = useState<"pickup" | "delivery">("pickup");
   const [pickupDate, setPickupDate] = useState<string>("");
   const [pickupTime, setPickupTime] = useState<string>("");
@@ -91,7 +92,7 @@ export default function PrintServicePage() {
           canvas: canvas,
           viewport,
         } as any).promise;
-        
+
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         let isColor = false;
         for (let j = 0; j < imageData.data.length; j += 32) {
@@ -103,7 +104,7 @@ export default function PrintServicePage() {
             break;
           }
         }
-        analyzedPages.push({ pageNum: i, isColor, selected: true });
+        analyzedPages.push({ pageNum: i, isColor, selected: true, paperSize: "a4" });
       }
       setPages(analyzedPages);
     } catch (err) {
@@ -142,6 +143,10 @@ export default function PrintServicePage() {
     setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, selected: !p.selected } : p));
   };
 
+  const togglePaperSize = (pageNum: number, size: "short" | "a4" | "long") => {
+    setPages(prev => prev.map(p => p.pageNum === pageNum ? { ...p, paperSize: size } : p));
+  };
+
   const selectAll = (select: boolean) => {
     setPages(prev => prev.map(p => ({ ...p, selected: select })));
   };
@@ -150,8 +155,8 @@ export default function PrintServicePage() {
     setPages(prev => prev.map(p => p.isColor === isColor ? { ...p, selected: true } : p));
   };
 
-  const getPrice = (isColor: boolean, size: "short" | "long") => {
-    if (size === "short") return isColor ? 5 : 3;
+  const getPrice = (isColor: boolean, size: "short" | "a4" | "long") => {
+    if (size === "short" || size === "a4") return isColor ? 5 : 3;
     return isColor ? 10 : 8;
   };
 
@@ -159,7 +164,7 @@ export default function PrintServicePage() {
     const selectedPages = pages.filter(p => p.selected);
     let pageCost = 0;
     for (const p of selectedPages) {
-      pageCost += getPrice(p.isColor, pageSize);
+      pageCost += getPrice(p.isColor, p.paperSize || "a4");
     }
     const deliveryCost = deliveryType === "delivery" ? 10 : 0;
     return (pageCost * copies) + deliveryCost;
@@ -171,7 +176,7 @@ export default function PrintServicePage() {
     if (!storeOpen) { toast.error("Store is currently closed."); return; }
     if (!file) { toast.error("Please upload a PDF file"); return; }
     if (pages.length === 0) { toast.error("PDF analysis incomplete"); return; }
-    
+
     const selectedPages = pages.filter(p => p.selected);
     if (selectedPages.length === 0) {
       toast.error("Please select at least one page to print");
@@ -199,7 +204,7 @@ export default function PrintServicePage() {
     try {
       const fileExt = file.name.split(".").pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from("print-files")
         .upload(fileName, file);
@@ -209,6 +214,11 @@ export default function PrintServicePage() {
       const { data: { publicUrl } } = supabase.storage
         .from("print-files")
         .getPublicUrl(fileName);
+
+      // Calculate pages by size
+      const shortPages = selectedPages.filter(p => p.paperSize === "short").length * copies;
+      const a4Pages = selectedPages.filter(p => p.paperSize === "a4").length * copies;
+      const longPages = selectedPages.filter(p => p.paperSize === "long").length * copies;
 
       const bwPages = selectedPages.filter(p => !p.isColor).length * copies;
       const coloredPages = selectedPages.filter(p => p.isColor).length * copies;
@@ -234,7 +244,7 @@ export default function PrintServicePage() {
         .single();
 
       if (error) throw error;
-      
+
       if (orderData) {
         setOrderId((orderData as any).id);
         setOrderComplete(true);
@@ -310,8 +320,9 @@ export default function PrintServicePage() {
   }
 
   const selectedPages = pages.filter(p => p.selected);
-  const bwCount = selectedPages.filter(p => !p.isColor).length;
-  const colorCount = selectedPages.filter(p => p.isColor).length;
+  const shortCount = selectedPages.filter(p => p.paperSize === "short").length;
+  const a4Count = selectedPages.filter(p => p.paperSize === "a4").length;
+  const longCount = selectedPages.filter(p => p.paperSize === "long").length;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -358,7 +369,7 @@ export default function PrintServicePage() {
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
               <Label className="text-sm font-bold flex items-center gap-2">
-                <CheckSquare className="h-4 w-4 text-primary" /> Select Pages
+                <CheckSquare className="h-4 w-4 text-primary" /> Select Pages & Paper Size
               </Label>
               {!analyzing && (
                 <div className="flex gap-2">
@@ -389,13 +400,22 @@ export default function PrintServicePage() {
                 </div>
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
                   {pages.map((page) => (
-                    <button key={page.pageNum} onClick={() => togglePage(page.pageNum)} className={`relative p-2.5 rounded-xl border-2 text-center transition-all ${ page.selected ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-muted/30 opacity-60" }`}>
-                      <span className="text-[10px] font-extrabold block mb-1">#{page.pageNum}</span>
-                      <div className="flex items-center justify-center">
-                        {page.isColor ? <Palette className="h-4 w-4 text-orange-500" /> : <File className="h-4 w-4 text-gray-400" />}
-                      </div>
-                      {page.selected && <div className="absolute -top-1.5 -right-1.5 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
-                    </button>
+                    <div key={page.pageNum} className="space-y-1">
+                      <button onClick={() => togglePage(page.pageNum)} className={`relative p-2 rounded-xl border-2 text-center transition-all w-full ${page.selected ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-muted/30 opacity-60"}`}>
+                        <span className="text-[10px] font-extrabold block mb-1">#{page.pageNum}</span>
+                        <div className="flex items-center justify-center">
+                          {page.isColor ? <Palette className="h-4 w-4 text-orange-500" /> : <File className="h-4 w-4 text-gray-400" />}
+                        </div>
+                        {page.selected && <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
+                      </button>
+                      {page.selected && (
+                        <div className="flex gap-1">
+                          <button onClick={() => togglePaperSize(page.pageNum, "short")} className={`flex-1 text-[8px] font-bold py-1 rounded-lg ${page.paperSize === "short" ? "bg-blue-500 text-white" : "bg-muted text-muted-foreground"}`}>Short</button>
+                          <button onClick={() => togglePaperSize(page.pageNum, "a4")} className={`flex-1 text-[8px] font-bold py-1 rounded-lg ${page.paperSize === "a4" ? "bg-green-500 text-white" : "bg-muted text-muted-foreground"}`}>A4</button>
+                          <button onClick={() => togglePaperSize(page.pageNum, "long")} className={`flex-1 text-[8px] font-bold py-1 rounded-lg ${page.paperSize === "long" ? "bg-red-500 text-white" : "bg-muted text-muted-foreground"}`}>Long</button>
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </>
@@ -408,9 +428,10 @@ export default function PrintServicePage() {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Page Size</Label>
-              <div className="grid grid-cols-2 gap-1">
-                <button onClick={() => setPageSize("short")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "short" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>Short/A4</button>
-                <button onClick={() => setPageSize("long")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "long" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}>Long</button>
+              <div className="grid grid-cols-3 gap-1">
+                <button onClick={() => setPageSize("short")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "short" ? "bg-blue-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}>Short</button>
+                <button onClick={() => setPageSize("a4")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "a4" ? "bg-green-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}>A4</button>
+                <button onClick={() => setPageSize("long")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "long" ? "bg-red-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}>Long</button>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -448,6 +469,24 @@ export default function PrintServicePage() {
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
+            {shortCount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">Short Pages ({shortCount} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "short") * shortCount * copies}</span>
+              </div>
+            )}
+            {a4Count > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">A4 Pages ({a4Count} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "a4") * a4Count * copies}</span>
+              </div>
+            )}
+            {longCount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">Long Pages ({longCount} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "long") * longCount * copies}</span>
+              </div>
+            )}
             <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
               <span className="font-extrabold text-xs">TOTAL COST</span>
               <span className="font-black text-primary text-lg">₱{calculateCost().toFixed(2)}</span>
