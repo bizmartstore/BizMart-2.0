@@ -210,7 +210,6 @@ export default function PrintServicePage() {
         .from("print-files")
         .getPublicUrl(fileName);
 
-      // Calculate pages by size
       const shortPages = pageSize === "short" ? selectedPages.length * copies : 0;
       const a4Pages = pageSize === "a4" ? selectedPages.length * copies : 0;
       const longPages = pageSize === "long" ? selectedPages.length * copies : 0;
@@ -315,6 +314,9 @@ export default function PrintServicePage() {
   }
 
   const selectedPages = pages.filter(p => p.selected);
+  const shortCount = pageSize === "short" ? selectedPages.length : 0;
+  const a4Count = pageSize === "a4" ? selectedPages.length : 0;
+  const longCount = pageSize === "long" ? selectedPages.length : 0;
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -328,6 +330,7 @@ export default function PrintServicePage() {
       </div>
 
       <div className="px-4 py-4 space-y-4">
+        {/* File Upload */}
         <div className="bg-card rounded-xl border border-border p-4">
           <Label className="text-sm font-bold flex items-center gap-2 mb-3">
             <FileText className="h-4 w-4 text-primary" /> Upload Document
@@ -357,6 +360,7 @@ export default function PrintServicePage() {
           <input ref={fileInputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFileChange} />
         </div>
 
+        {/* Page Selection */}
         {(analyzing || pages.length > 0) && (
           <div className="bg-card rounded-xl border border-border p-4 space-y-3">
             <div className="flex items-center justify-between">
@@ -382,6 +386,7 @@ export default function PrintServicePage() {
               </div>
             ) : (
               <>
+                {/* Select by Color Type */}
                 <div className="flex gap-2 mb-2">
                   <button onClick={() => selectByType(false)} className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-border text-[10px] font-bold hover:bg-muted transition-colors">
                     <File className="h-3 w-3 text-gray-500" /> Select All B&W
@@ -390,15 +395,24 @@ export default function PrintServicePage() {
                     <Palette className="h-3 w-3 text-orange-500" /> Select All Color
                   </button>
                 </div>
+
+                {/* Page Grid */}
                 <div className="grid grid-cols-4 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
                   {pages.map((page) => (
                     <div key={page.pageNum} className="space-y-1">
-                      <button onClick={() => togglePage(page.pageNum)} className={`relative p-2 rounded-xl border-2 text-center transition-all w-full ${page.selected ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-muted/30 opacity-60"}`}>
+                      <button
+                        onClick={() => togglePage(page.pageNum)}
+                        className={`relative p-2 rounded-xl border-2 text-center transition-all w-full ${page.selected ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-muted/30 opacity-60"}`}
+                      >
                         <span className="text-[10px] font-extrabold block mb-1">#{page.pageNum}</span>
                         <div className="flex items-center justify-center">
                           {page.isColor ? <Palette className="h-4 w-4 text-orange-500" /> : <File className="h-4 w-4 text-gray-400" />}
                         </div>
-                        {page.selected && <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm"><CheckCircle2 className="h-2.5 w-2.5 text-white" /></div>}
+                        {page.selected && (
+                          <div className="absolute -top-1 -right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center shadow-sm">
+                            <CheckCircle2 className="h-2.5 w-2.5 text-white" />
+                          </div>
+                        )}
                       </button>
                     </div>
                   ))}
@@ -408,56 +422,122 @@ export default function PrintServicePage() {
           </div>
         )}
 
+        {/* Print Settings - Global Paper Size */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-4">
           <Label className="text-sm font-bold flex items-center gap-2"><Printer className="h-4 w-4 text-primary" /> Print Settings</Label>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Page Size</Label>
+              <Label className="text-[10px] font-bold uppercase text-muted-foreground">Paper Size</Label>
               <div className="grid grid-cols-3 gap-1">
-                <button onClick={() => setPageSize("short")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "short" ? "bg-blue-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}>Short</button>
-                <button onClick={() => setPageSize("a4")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "a4" ? "bg-green-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}>A4</button>
-                <button onClick={() => setPageSize("long")} className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "long" ? "bg-red-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}>Long</button>
+                <button
+                  onClick={() => setPageSize("short")}
+                  className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "short" ? "bg-blue-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  Short
+                </button>
+                <button
+                  onClick={() => setPageSize("a4")}
+                  className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "a4" ? "bg-green-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  A4
+                </button>
+                <button
+                  onClick={() => setPageSize("long")}
+                  className={`py-2 rounded-lg text-[10px] font-bold transition-all ${pageSize === "long" ? "bg-red-500 text-white shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  Long
+                </button>
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Copies</Label>
               <div className="flex items-center justify-between bg-muted/50 rounded-lg p-1">
-                <button onClick={() => setCopies(Math.max(1, copies - 1))} className="h-7 w-7 rounded-md bg-card flex items-center justify-center shadow-sm active:scale-90 transition-transform">-</button>
+                <button
+                  onClick={() => setCopies(Math.max(1, copies - 1))}
+                  className="h-7 w-7 rounded-md bg-card flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                >
+                  -
+                </button>
                 <span className="text-xs font-extrabold w-6 text-center">{copies}</span>
-                <button onClick={() => setCopies(copies + 1)} className="h-7 w-7 rounded-md bg-card flex items-center justify-center shadow-sm active:scale-90 transition-transform">+</button>
+                <button
+                  onClick={() => setCopies(copies + 1)}
+                  className="h-7 w-7 rounded-md bg-card flex items-center justify-center shadow-sm active:scale-90 transition-transform"
+                >
+                  +
+                </button>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Delivery & Schedule */}
         <div className="bg-card rounded-xl border border-border p-4 space-y-4">
           <Label className="text-sm font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" /> Delivery & Schedule</Label>
           <div className="space-y-1.5">
             <Label className="text-[10px] font-bold uppercase text-muted-foreground">Method</Label>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => setDeliveryType("pickup")} className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "pickup" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}><MapPin className="h-3.5 w-3.5" /> Pickup</button>
-              <button onClick={() => setDeliveryType("delivery")} className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "delivery" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}><Truck className="h-3.5 w-3.5" /> Delivery (+₱10)</button>
+              <button
+                onClick={() => setDeliveryType("pickup")}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "pickup" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}
+              >
+                <MapPin className="h-3.5 w-3.5" /> Pickup
+              </button>
+              <button
+                onClick={() => setDeliveryType("delivery")}
+                className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "delivery" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}
+              >
+                <Truck className="h-3.5 w-3.5" /> Delivery (+₱10)
+              </button>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Date</Label>
-              <Input type="date" value={pickupDate} min={todayManila} max={todayManila} disabled className="text-xs h-9 opacity-80 font-bold" />
+              <Input
+                type="date"
+                value={pickupDate}
+                min={todayManila}
+                max={todayManila}
+                disabled
+                className="text-xs h-9 opacity-80 font-bold"
+              />
             </div>
             <div className="space-y-1.5">
               <Label className="text-[10px] font-bold uppercase text-muted-foreground">Time</Label>
-              <Input type="time" value={pickupTime} onChange={(e) => setPickupTime(e.target.value)} min={noTimesToday ? undefined : minTimeString} disabled={noTimesToday} className="text-xs h-9 font-bold" />
+              <Input
+                type="time"
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                min={noTimesToday ? undefined : minTimeString}
+                disabled={noTimesToday}
+                className="text-xs h-9 font-bold"
+              />
             </div>
           </div>
         </div>
 
+        {/* Cost Summary - Shows only selected paper size */}
         <div className="bg-primary/5 rounded-xl border border-primary/10 p-4">
           <h3 className="text-xs font-bold uppercase tracking-widest text-primary mb-3">Cost Summary</h3>
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <span className="text-xs font-medium">Total Pages ({selectedPages.length} × {copies})</span>
-              <span className="text-xs font-bold">₱{calculateCost().toFixed(2)}</span>
-            </div>
+            {pageSize === "short" && shortCount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">Short Pages ({shortCount} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "short") * shortCount * copies}</span>
+              </div>
+            )}
+            {pageSize === "a4" && a4Count > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">A4 Pages ({a4Count} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "a4") * a4Count * copies}</span>
+              </div>
+            )}
+            {pageSize === "long" && longCount > 0 && (
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-medium">Long Pages ({longCount} × {copies})</span>
+                <span className="text-xs font-bold">₱{getPrice(false, "long") * longCount * copies}</span>
+              </div>
+            )}
             <div className="border-t border-primary/10 pt-2 flex justify-between items-center">
               <span className="font-extrabold text-xs">TOTAL COST</span>
               <span className="font-black text-primary text-lg">₱{calculateCost().toFixed(2)}</span>
@@ -465,7 +545,12 @@ export default function PrintServicePage() {
           </div>
         </div>
 
-        <Button onClick={handleSubmit} disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday} className="w-full h-14 font-black text-base rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">
+        {/* Submit Button */}
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting || !file || pages.length === 0 || selectedPages.length === 0 || !pickupDate || !pickupTime || noTimesToday}
+          className="w-full h-14 font-black text-base rounded-2xl shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
+        >
           {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <Printer className="h-5 w-5 mr-2" />}
           {submitting ? "SUBMITTING..." : "SUBMIT PRINT ORDER"}
         </Button>
