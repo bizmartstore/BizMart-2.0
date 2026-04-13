@@ -210,6 +210,7 @@ export default function PrintServicePage() {
         .from("print-files")
         .getPublicUrl(fileName);
 
+      // Calculate page counts by size and color
       const shortPages = pageSize === "short" ? selectedPages.length * copies : 0;
       const a4Pages = pageSize === "a4" ? selectedPages.length * copies : 0;
       const longPages = pageSize === "long" ? selectedPages.length * copies : 0;

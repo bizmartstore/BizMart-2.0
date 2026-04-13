@@ -149,13 +149,15 @@ export default function PrintTab() {
     const custGrade = cust?.grade_level || "N/A";
     const custSection = cust?.section || "N/A";
 
+    // Get the selected paper size
+    const selectedPaperSize = selectedOrder.page_size || "a4";
+
     // Calculate pages by size
     const pagesBySize: Record<string, number> = { short: 0, a4: 0, long: 0 };
     const pagesByColor: Record<string, number> = { bw: 0, color: 0 };
 
     if (selectedOrder.file_url) {
-      // In a real app, you would parse the PDF to get actual page details
-      // For now, we'll use the counts from the database
+      // Use the counts from the database
       pagesBySize.short = selectedOrder.short_pages || 0;
       pagesBySize.a4 = selectedOrder.a4_pages || 0;
       pagesBySize.long = selectedOrder.long_pages || 0;
@@ -212,6 +214,22 @@ export default function PrintTab() {
           {/* Print Details - Enhanced */}
           <div className="bg-muted/30 rounded-lg p-3 space-y-2">
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Print Details</p>
+
+            {/* Paper Size Selection - Now prominently displayed */}
+            <div className="bg-background rounded-lg p-3 border border-border">
+              <p className="text-xs font-bold text-primary mb-2">Selected Paper Size</p>
+              <div className="flex items-center gap-2">
+                {selectedPaperSize === "short" && (
+                  <span className="text-sm font-bold text-blue-600">📄 Short</span>
+                )}
+                {selectedPaperSize === "a4" && (
+                  <span className="text-sm font-bold text-green-600">📄 A4</span>
+                )}
+                {selectedPaperSize === "long" && (
+                  <span className="text-sm font-bold text-red-600">📄 Long</span>
+                )}
+              </div>
+            </div>
 
             {/* Paper Size Breakdown */}
             <div className="grid grid-cols-3 gap-2 text-center">
