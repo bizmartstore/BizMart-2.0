@@ -108,7 +108,7 @@ export default function PrintTab() {
 
       const { error: updateError } = await supabase
         .from("print_orders")
-        .update({ status: newStatus })
+        .update({ status: newStatus as any })
         .eq("id", orderId);
       if (updateError) throw updateError;
       
