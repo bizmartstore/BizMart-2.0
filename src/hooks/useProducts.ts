@@ -195,6 +195,59 @@ export function useProduct(id: string) {
   return products?.find((p) => p.id === id);
 }
 
+// Separate hook for hottest sale products to avoid overlapping functionality
+export function useHottestSaleProducts() {
+  return useQuery({
+    queryKey: ["hottest-sale-products"],
+    queryFn: async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("hottest_sale_products")
+          .select(`*, product:products(*)`)
+          .order("created_at", { ascending: false })
+          .limit(4);
+
+        if (error) {
+          console.error("[useHottestSaleProducts] Supabase error:", error.message);
+          return [];
+        }
+
+        if (data && data.length > 0) {
+          return data.map((item: any) => ({
+            id: item.product.id,
+            name: item.product.name,
+            price: Number(item.product.price),
+            originalPrice: item.product.original_price ? Number(item.product.original_price) : undefined,
+            image: item.product.image || "",
+            images: item.product.images || [],
+            category: item.product.category || "",
+            rating: Number(item.product.rating),
+            sold: item.product.sold || 0,
+            stock: item.product.stock ?? 0,
+            description: item.product.description || "",
+            isFlashSale: !!item.product.is_flash_sale,
+            sale_price: item.product.sale_price,
+            discount_percent: item.product.discount_percent,
+            original_price: item.product.original_price,
+            seller_id: item.product.seller_id || null,
+            created_at: item.product.created_at,
+          })) as Product[];
+        }
+
+        return [];
+      } catch (err: any) {
+        console.error("[useHottestSaleProducts] Unexpected error:", err);
+        return [];
+      }
+    },
+    staleTime: 10000,
+    gcTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: 30000,
+  });
+}
+
 export function useBanners() {
   return useQuery({
     queryKey: ["banners"],
