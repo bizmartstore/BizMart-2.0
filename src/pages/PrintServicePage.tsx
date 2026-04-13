@@ -228,10 +228,8 @@ const handleSubmit = async () => {
     if (!user) throw new Error("User not logged in");
     if (!file) throw new Error("No file selected");
 
-    // ==============================
-    // ✅ UPLOAD FILE
-    // ==============================
-    const fileExt = file.name.split(".").pop();
+    // ✅ Upload file first (assuming you already have this logic)
+    const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
     const filePath = `${user.id}/${fileName}`;
 
@@ -247,52 +245,44 @@ const handleSubmit = async () => {
 
     const publicUrl = publicUrlData.publicUrl;
 
-    // ==============================
-    // ✅ SELECTED PAGES
-    // ==============================
-    const selectedPageNumbers = selectedPages.map((p: any) => p.pageNum);
+    // ✅ Extract selected pages
+    const selectedPageNumbers = selectedPages.map(p => p.pageNum);
 
-    const selectedPagesJSON = JSON.parse(
-      JSON.stringify(selectedPageNumbers)
-    );
+    // ✅ Ensure JSON format for jsonb
+    const selectedPagesJSON = JSON.parse(JSON.stringify(selectedPageNumbers));
 
+    // ✅ DEBUG
     console.log("Saving selected_pages:", selectedPagesJSON);
 
-    // ==============================
-    // ✅ INSERT ORDER
-    // ==============================
+    // ✅ INSERT (FIXED)
     const { data: orderData, error } = await supabase
       .from("print_orders")
-      .insert([
-        {
-          user_id: user.id,
-          file_url: publicUrl,
-          file_name: file.name,
-          total_pages: selectedPages.length * copies,
-          bw_pages: bwPages,
-          colored_pages: coloredPages,
-          page_size: pageSize,
-          delivery_type: deliveryType,
-          pickup_date: pickupDate,
-          pickup_time: pickupTime,
-          cost: totalCost,
-          status: "pending",
-          short_pages: shortPages,
-          a4_pages: a4Pages,
-          long_pages: longPages,
-          selected_pages: selectedPagesJSON,
-        },
-      ] as any)
+      .insert([{
+        user_id: user.id,
+        file_url: publicUrl,
+        file_name: file.name,
+        total_pages: selectedPages.length * copies,
+        bw_pages: bwPages,
+        colored_pages: coloredPages,
+        page_size: pageSize,
+        delivery_type: deliveryType,
+        pickup_date: pickupDate,
+        pickup_time: pickupTime,
+        cost: totalCost,
+        status: "pending",
+        short_pages: shortPages,
+        a4_pages: a4Pages,
+        long_pages: longPages,
+        selected_pages: selectedPagesJSON
+      }] as any) // 🔥 fixes TS error
       .select()
       .single();
 
     if (error) throw error;
 
-    // ==============================
     // ✅ SUCCESS
-    // ==============================
     if (orderData) {
-      setOrderId(orderData.id);
+      setOrderId((orderData as any).id);
       setOrderComplete(true);
 
       triggerLocalPushNotification(
@@ -302,6 +292,7 @@ const handleSubmit = async () => {
 
       toast.success("Print order submitted successfully!");
     }
+
   } catch (error: any) {
     console.error("Submit error:", error);
     toast.error("Failed to submit order: " + error.message);
