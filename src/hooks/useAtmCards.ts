@@ -4,9 +4,18 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
 
+interface AtmCard {
+  id: string;
+  user_id: string;
+  card_number: string;
+  card_holder_name: string;
+  bcoins_wallet_id: string;
+  is_active: boolean;
+}
+
 export const useAtmCards = () => {
   const { user } = useAuth();
-  const [cards, setCards] = useState<any[]>([]);
+  const [cards, setCards] = useState<AtmCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +29,7 @@ export const useAtmCards = () => {
       const { data: tableCheck, error: tableError } = await supabase
         .from("user_atm_cards")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", "nonexistent") // This will fail if table doesn't exist
+        .eq("user_id", "nonexistent")
         .limit(1);
 
       if (tableError && tableError.code === '42P01') {
@@ -37,7 +46,7 @@ export const useAtmCards = () => {
 
       // Table exists, proceed with normal query
       const { data, error: fetchError } = await supabase
-        .from("user_atm_cards")
+        .from<AtmCard>("user_atm_cards")
         .select("*")
         .eq("user_id", user.id)
         .eq("is_active", true);
@@ -71,18 +80,22 @@ export const useAtmCards = () => {
       // Format card number with spaces
       const maskedCard = cardNumber.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
 
-      const { error } = await supabase
-        .from("user_atm_cards")
+      const { data: insertedCard, error } = await supabase
+        .from<AtmCard>("user_atm_cards")
         .insert({
           user_id: user.id,
           card_number: maskedCard,
           card_holder_name: cardHolderName,
           bcoins_wallet_id: wallet.id,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
-      await loadCards();
+      if (insertedCard) {
+        setCards(prev => [...prev, insertedCard]);
+      }
       return true;
     } catch (err: any) {
       console.error("Failed to link ATM card:", err);
@@ -98,7 +111,7 @@ export const useAtmCards = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from("user_atm_cards")
+        .from<AtmCard>("user_atm_cards")
         .update({ is_active: false })
         .eq("id", cardId)
         .eq("user_id", user.id);
