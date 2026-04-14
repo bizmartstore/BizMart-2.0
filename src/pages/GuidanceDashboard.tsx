@@ -146,11 +146,15 @@ const GuidanceDashboard = () => {
         </div>
 
         <Tabs defaultValue="reports" value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="reports">
               <AlertTriangle className="h-4 w-4 mr-2" />
               Reports
               {pendingReports > 0 && <Badge variant="destructive" className="ml-2 text-xs">{pendingReports}</Badge>}
+            </TabsTrigger>
+            <TabsTrigger value="report_messages">
+              <MessageCircle className="h-4 w-4 mr-2" />
+              Report Messages
             </TabsTrigger>
             <TabsTrigger value="messages">
               <MessageCircle className="h-4 w-4 mr-2" />

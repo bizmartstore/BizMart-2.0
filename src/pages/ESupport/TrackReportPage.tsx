@@ -8,7 +8,7 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Eye, Search, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle, Check } from "lucide-react";
+import { AlertCircle, Eye, Search, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle, Check, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAdmin } from "@/hooks/useAdmin";
 
@@ -316,52 +316,104 @@ handleSearchById(idParam);
                 </div>
               </div>
 
-              {/* Admin Notes (if available) */}
-              {report.admin_notes && (
-                <div className="bg-muted/30 rounded-lg p-3 mt-4">
-                  <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Admin Notes</p>
-                  <p className="text-sm">{report.admin_notes}</p>
-                </div>
-              )}
+              {/* Message Section - Only for guidance admins */}
+              {isGuidance && (
+                <div className="mt-6 space-y-4">
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Message Reporter</p>
+                    <textarea
+                      placeholder="Type your message to the reporter..."
+                      className="w-full p-3 border border-border rounded-lg min-h-[100px] bg-background text-sm"
+                      id="guidanceMessage"
+                    />
+                    <Button
+                      onClick={async () => {
+                        const message = (document.getElementById('guidanceMessage') as HTMLTextAreaElement)?.value;
+                        if (!message?.trim()) {
+                          toast.error("Please enter a message");
+                          return;
+                        }
 
-              {/* Update Status Button (only for guidance admins) */}
-              {isGuidance && report && report.status?.toLowerCase() !== "processed" && (
-                <Button
-                  onClick={async () => {
-                    try {
-                      const { error } = await (supabase as any)
+                        try {
+                          // Insert message into support_messages
+                          const { error } = await (supabase as any)
+                            .from("support_messages")
+                            .insert({
+                              session_id: report.id,
+                              sender_id: report.user_id,
+                              message: message,
+                            });
+
+                          if (error) throw error;
+
+                          // Insert notification for reporter
+                          const { error: notifError } = await (supabase as any)
+                            .from("notification_logs")
+                            .insert({
+                              user_id: report.user_id,
+                              title: "New Message from Guidance",
+                              message: `You have a new message regarding your report "${report.title || "Untitled"}"`,
+                              type: "message",
+                              icon: "💬",
+                              link: `/messages`,
+                            });
+
+                          if (notifError) throw notifError;
+
+                          toast.success("Message sent to reporter!");
+                          (document.getElementById('guidanceMessage') as HTMLTextAreaElement).value = '';
+                        } catch (err) {
+                          console.error("Failed to send message:", err);
+                          toast.error("Failed to send message");
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <MessageCircle className="h-4 w-4" />
+                      Send Message to Reporter
+                    </Button>
+                  </div>
+
+                  {/* Update Status Button */}
+                  {report && report.status?.toLowerCase() !== "processed" && (
+                    <Button
+                      onClick={async () => {
+                        try {
+                          const { error } = await (supabase as any)
                             .from("support_reports")
                             .update({ status: "processed" })
                             .eq("id", report.id);
 
-                      if (error) throw error;
+                          if (error) throw error;
 
-                      // Notify reporter
-                      const { error: notifError } = await (supabase as any)
-                        .from("notification_logs")
-                        .insert({
-                          user_id: report.user_id,
-                          title: "Incident Report Processed",
-                          message: `Your incident report "${report.title || "Untitled"}" has been processed.`,
-                          type: "report",
-                          icon: "✅",
-                          link: `/e-support/track?id=${report.tracking_id}`,
-                        });
+                          // Notify reporter
+                          const { error: notifError } = await (supabase as any)
+                            .from("notification_logs")
+                            .insert({
+                              user_id: report.user_id,
+                              title: "Incident Report Processed",
+                              message: `Your incident report "${report.title || "Untitled"}" has been processed.`,
+                              type: "report",
+                              icon: "✅",
+                              link: `/e-support/track?id=${report.tracking_id}`,
+                            });
 
-                      if (notifError) throw notifError;
+                          if (notifError) throw notifError;
 
-                      toast.success("Report status updated and reporter notified!");
-                      setReport({ ...report, status: "processed" });
-                    } catch (err) {
-                      console.error("Failed to update report:", err);
-                      toast.error("Failed to update report");
-                    }
-                  }}
-                  className="w-full mt-4 gap-2"
-                >
-                  <Check className="h-4 w-4" />
-                  Mark as Processed & Notify Reporter
-                </Button>
+                          toast.success("Report status updated and reporter notified!");
+                          setReport({ ...report, status: "processed" });
+                        } catch (err) {
+                          console.error("Failed to update report:", err);
+                          toast.error("Failed to update report");
+                        }
+                      }}
+                      className="w-full mt-2 gap-2"
+                    >
+                      <Check className="h-4 w-4" />
+                      Mark as Processed & Notify Reporter
+                    </Button>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
