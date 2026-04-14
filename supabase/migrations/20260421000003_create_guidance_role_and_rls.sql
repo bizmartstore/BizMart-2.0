@@ -10,17 +10,6 @@ BEGIN
   END IF;
 END $$;
 
--- Grant necessary permissions to guidance role
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'guidance') THEN
-    EXECUTE 'GRANT USAGE ON SCHEMA public TO guidance';
-    EXECUTE 'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE support_chat_sessions TO guidance';
-    EXECUTE 'GRANT USAGE ON SEQUENCE support_chat_sessions_id_seq TO guidance';
-    RAISE NOTICE 'Granted permissions to guidance role';
-  END IF;
-END $$;
-
 -- Drop any existing policies first
 DO $$
 BEGIN
