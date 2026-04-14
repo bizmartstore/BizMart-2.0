@@ -8,18 +8,29 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Toaster } from "@/components/ui/toaster";
+import { useToast } from "@/hooks/use-toast";
+import { useAdmin } from "@/hooks/useAdmin";
+import { useAuth } from "@/context/AuthContext";
 import { AlertCircle, Eye, Search, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle, Check, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
-import { useAdmin } from "@/hooks/useAdmin";
+import { getOrCreateChatSession, sendSupportMessage } from "@/lib/supportChat";
 
 export default function TrackReportPage() {
   const navigate = useNavigate();
+  const { toast: sonnerToast } = useToast();
+  const { user, profile } = useAuth();
+  const { isGuidance } = useAdmin();
   const [trackingId, setTrackingId] = useState("");
   const [report, setReport] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchAttempted, setSearchAttempted] = useState(false);
-  const { isGuidance } = useAdmin();
+  const [message, setMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
   // Check for tracking ID in URL query params on initial load
   useEffect(() => {
@@ -27,23 +38,17 @@ export default function TrackReportPage() {
     const idParam = urlParams.get("id");
     if (idParam && !trackingId) {
       setTrackingId(idParam);
-handleSearchById(idParam);
+      handleSearchById(idParam);
     }
   }, []);
 
-  // Check for tracking ID in URL query params
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const idParam = urlParams.get("id");
-    if (idParam && !trackingId) {
-      setTrackingId(idParam);
-      handleSearchById(idParam);
-    }
-  }, [trackingId]);
-
   const handleSearchById = async (id: string) => {
     if (!id.trim()) {
-      toast.error("Please enter a tracking ID");
+      sonnerToast({
+        title: "Error",
+        description: "Please enter a tracking ID",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -65,52 +70,28 @@ handleSearchById(idParam);
         setReport(data);
       } else {
         setError("Report not found. Please check your tracking ID and try again.");
-        toast.error("Report not found");
+        sonnerToast({
+          title: "Report not found",
+          description: "Please check your tracking ID and try again.",
+          variant: "destructive",
+        });
       }
 
     } catch (err: any) {
       console.error("Failed to fetch report:", err);
       setError("Failed to fetch report. Please try again later.");
-      toast.error("Failed to fetch report");
+      sonnerToast({
+        title: "Error",
+        description: "Failed to fetch report. Please try again later.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
   };
 
   const handleSearch = async () => {
-    if (!trackingId.trim()) {
-      toast.error("Please enter a tracking ID");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setSearchAttempted(true);
-
-    try {
-      // Search for the report in the database
-      const { data, error } = await (supabase as any)
-        .from("support_reports")
-        .select("*")
-        .eq("tracking_id", trackingId.trim().toUpperCase())
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setReport(data);
-      } else {
-        setError("Report not found. Please check your tracking ID and try again.");
-        toast.error("Report not found");
-      }
-
-    } catch (err: any) {
-      console.error("Failed to fetch report:", err);
-      setError("Failed to fetch report. Please try again later.");
-      toast.error("Failed to fetch report");
-    } finally {
-      setLoading(false);
-    }
+    await handleSearchById(trackingId);
   };
 
   const getStatusIcon = (status: string) => {
@@ -151,6 +132,49 @@ handleSearchById(idParam);
     }
   };
 
+  const handleSendMessage = async () => {
+    if (!report || !user || !message.trim()) {
+      sonnerToast({
+        title: "Error",
+        description: "Please enter a message to send",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSendingMessage(true);
+    setSessionError(null);
+
+    try {
+      // Create or get chat session
+      const sessionId = await getOrCreateChatSession(report.id);
+
+      // Send the message
+      const newMessage = await sendSupportMessage(sessionId, user.id, message);
+
+      // Clear the message and show success
+      setMessage("");
+      sonnerToast({
+        title: "Message Sent!",
+        description: "Your message has been sent to the reporter.",
+      });
+
+      // Refresh the report to show any status changes
+      await handleSearchById(report.tracking_id);
+
+    } catch (err: any) {
+      console.error("Failed to send message:", err);
+      setSessionError(err.message || "Failed to send message. Please try again.");
+      sonnerToast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
       <TopBar />
@@ -162,7 +186,7 @@ handleSearchById(idParam);
           </button>
           <div>
             <h1 className="text-xl font-bold">Track Report</h1>
-            <p className="text-xs text-muted-foreground">Check the status of your submitted report</p>
+            <p className="text-xs text-muted-foreground">Check the status of your confidential report</p>
           </div>
         </div>
 
@@ -321,98 +345,41 @@ handleSearchById(idParam);
                 <div className="mt-6 space-y-4">
                   <div className="space-y-2">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Message Reporter</p>
+
+                    {/* Error Alert */}
+                    {sessionError && (
+                      <Alert variant="destructive" className="mb-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Error</AlertTitle>
+                        <AlertDescription>{sessionError}</AlertDescription>
+                      </Alert>
+                    )}
+
                     <textarea
                       placeholder="Type your message to the reporter..."
+                      value={message}
+                      onChange={(e) => setMessage(e.target.value)}
                       className="w-full p-3 border border-border rounded-lg min-h-[100px] bg-background text-sm"
                       id="guidanceMessage"
                     />
                     <Button
-                      onClick={async () => {
-                        const message = (document.getElementById('guidanceMessage') as HTMLTextAreaElement)?.value;
-                        if (!message?.trim()) {
-                          toast.error("Please enter a message");
-                          return;
-                        }
-
-                        try {
-                          // Insert message into support_messages
-                          const { error } = await (supabase as any)
-                            .from("support_messages")
-                            .insert({
-                              session_id: report.id,
-                              sender_id: report.user_id,
-                              message: message,
-                            });
-
-                          if (error) throw error;
-
-                          // Insert notification for reporter
-                          const { error: notifError } = await (supabase as any)
-                            .from("notification_logs")
-                            .insert({
-                              user_id: report.user_id,
-                              title: "New Message from Guidance",
-                              message: `You have a new message regarding your report "${report.title || "Untitled"}"`,
-                              type: "message",
-                              icon: "💬",
-                              link: `/messages`,
-                            });
-
-                          if (notifError) throw notifError;
-
-                          toast.success("Message sent to reporter!");
-                          (document.getElementById('guidanceMessage') as HTMLTextAreaElement).value = '';
-                        } catch (err) {
-                          console.error("Failed to send message:", err);
-                          toast.error("Failed to send message");
-                        }
-                      }}
+                      onClick={handleSendMessage}
+                      disabled={sendingMessage || !message.trim()}
                       className="gap-2"
                     >
-                      <MessageCircle className="h-4 w-4" />
-                      Send Message to Reporter
+                      {sendingMessage ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Sending...
+                        </>
+                      ) : (
+                        <>
+                          <MessageCircle className="h-4 w-4" />
+                          Send Message to Reporter
+                        </>
+                      )}
                     </Button>
                   </div>
-
-                  {/* Update Status Button */}
-                  {report && report.status?.toLowerCase() !== "processed" && (
-                    <Button
-                      onClick={async () => {
-                        try {
-                          const { error } = await (supabase as any)
-                            .from("support_reports")
-                            .update({ status: "processed" })
-                            .eq("id", report.id);
-
-                          if (error) throw error;
-
-                          // Notify reporter
-                          const { error: notifError } = await (supabase as any)
-                            .from("notification_logs")
-                            .insert({
-                              user_id: report.user_id,
-                              title: "Incident Report Processed",
-                              message: `Your incident report "${report.title || "Untitled"}" has been processed.`,
-                              type: "report",
-                              icon: "✅",
-                              link: `/e-support/track?id=${report.tracking_id}`,
-                            });
-
-                          if (notifError) throw notifError;
-
-                          toast.success("Report status updated and reporter notified!");
-                          setReport({ ...report, status: "processed" });
-                        } catch (err) {
-                          console.error("Failed to update report:", err);
-                          toast.error("Failed to update report");
-                        }
-                      }}
-                      className="w-full mt-2 gap-2"
-                    >
-                      <Check className="h-4 w-4" />
-                      Mark as Processed & Notify Reporter
-                    </Button>
-                  )}
                 </div>
               )}
             </CardContent>
@@ -460,6 +427,7 @@ handleSearchById(idParam);
         )}
       </div>
 
+      <Toaster />
       <BottomNav />
     </div>
   );
