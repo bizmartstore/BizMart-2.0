@@ -21,6 +21,16 @@ export default function TrackReportPage() {
   const [searchAttempted, setSearchAttempted] = useState(false);
   const { isGuidance } = useAdmin();
 
+  // Check for tracking ID in URL query params on initial load
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParam = urlParams.get("id");
+    if (idParam && !trackingId) {
+      setTrackingId(idParam);
+      handleSearch();
+    }
+  }, []);
+
   // Check for tracking ID in URL query params
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
