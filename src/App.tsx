@@ -33,6 +33,7 @@ import StoreViewPage from "@/pages/StoreViewPage";
 import SellerStorePage from "@/pages/SellerStorePage";
 import PrintServicePage from "@/pages/PrintServicePage";
 import AdminDashboard from "@/pages/AdminDashboard";
+import GuidanceDashboard from "@/pages/GuidanceDashboard";
 import NotFound from "@/pages/NotFound";
 import ESupportPage from "@/pages/ESupportPage";
 import TrackReportPage from "@/pages/ESupport/TrackReportPage";
@@ -96,6 +97,7 @@ function AppContent() {
             <Route path="/seller-store" element={<SellerStorePage />} />
             <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/guidance" element={<GuidanceDashboard />} />
             <Route path="/e-support" element={<ESupportPage />} />
             <Route path="/e-support/submit" element={<SubmitReportPage />} />
             <Route path="/e-support/track" element={<TrackReportPage />} />

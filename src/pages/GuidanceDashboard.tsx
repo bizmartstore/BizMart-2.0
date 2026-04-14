@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, MessageCircle, Settings, BarChart3, HelpCircle } from "lucide-react";
+import { Users, MessageCircle, Settings, BarChart3, HelpCircle, Shield } from "lucide-react";
 
 const GuidanceDashboard = () => {
   const { profile, isAuthReady } = useAuth();
@@ -60,7 +60,7 @@ const GuidanceDashboard = () => {
           <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => navigate("/admin")}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium">Admin Panel</CardTitle>
-              <Settings className="h-4 w-4 text-purple-500" />
+              <Shield className="h-4 w-4 text-purple-500" />
             </CardHeader>
             <CardContent>
               <p className="text-xs text-muted-foreground">Access admin features</p>

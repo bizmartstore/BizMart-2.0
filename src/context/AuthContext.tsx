@@ -52,8 +52,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // 1. Fetch Profile
         const { data: profData } = await (supabase as any).from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
         
-        // 2. Fetch Role
+        // 2. Fetch Role (prioritize user_roles, fall back to profiles.role for legacy users)
         const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle();
+        const role = roleData?.role || 'customer';
         
         // 3. Fetch Wallet
         const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle();
@@ -63,8 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        const role = roleData?.role || 'customer';
-        if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, roleData.role);
+        if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, role);
 
         setMembership(memData);
         setProfile({

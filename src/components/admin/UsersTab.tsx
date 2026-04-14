@@ -68,6 +68,10 @@ export default function UsersTab() {
       
       toast.success(`Role updated to ${role}`);
       load();
+      
+      // Force a refresh of the user's session to reflect the new role
+      const { error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) console.error("Failed to refresh session:", refreshError);
     } catch (e: any) {
       console.error("Role assignment error:", e);
       toast.error(e.message || "Failed to update role");
@@ -84,6 +88,7 @@ export default function UsersTab() {
   const roleIcon = (role: string) => {
     if (role === "main_admin") return <Crown className="h-3 w-3 text-destructive" />;
     if (role === "member_admin") return <Shield className="h-3 w-3 text-primary" />;
+    if (role === "guidance") return <Shield className="h-3 w-3 text-green-500" />;
     return <User className="h-3 w-3 text-muted-foreground" />;
   };
 
