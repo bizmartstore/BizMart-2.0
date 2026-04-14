@@ -17,6 +17,22 @@ import AtmCardLinkForm from "@/components/AtmCardLinkForm";
 import AtmCardList from "@/components/AtmCardList";
 import { supabase } from "@/integrations/supabase/client";
 
+interface BCoinsRedemption {
+  user_id: string;
+  bcoins_amount: number;
+  gcash_amount: number;
+  gcash_number: string;
+  status: string;
+  atm_card_id: string;
+}
+
+interface BCoinsTransaction {
+  user_id: string;
+  amount: number;
+  type: string;
+  description: string;
+}
+
 const REDEEM_OPTIONS = [
   { gcash: 50, bcoins: 500 },
   { gcash: 100, bcoins: 1000 },
@@ -73,8 +89,8 @@ export default function BCoinsRedeemPage() {
 
       // Create redemption request
       const { error } = await supabase
-        .from("bcoins_redemptions")
-        .insert({
+        .from<BCoinsRedemption>("bcoins_redemptions")
+        .insert<BCoinsRedemption>({
           user_id: user.id,
           bcoins_amount: option.bcoins,
           gcash_amount: option.gcash,
@@ -96,8 +112,8 @@ export default function BCoinsRedeemPage() {
 
       // Add transaction record
       await supabase
-        .from("bcoins_transactions")
-        .insert({
+        .from<BCoinsTransaction>("bcoins_transactions")
+        .insert<BCoinsTransaction>({
           user_id: user.id,
           amount: -option.bcoins,
           type: "redeem_gcash",

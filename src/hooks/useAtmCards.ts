@@ -13,6 +13,10 @@ interface AtmCard {
   is_active: boolean;
 }
 
+interface Wallet {
+  id: string;
+}
+
 export const useAtmCards = () => {
   const { user } = useAuth();
   const [cards, setCards] = useState<AtmCard[]>([]);
@@ -29,7 +33,7 @@ export const useAtmCards = () => {
       const { data: tableCheck, error: tableError } = await supabase
         .from("user_atm_cards")
         .select("id", { count: "exact", head: true })
-        .eq("user_id", "nonexistent") // This will fail if table doesn't exist
+        .eq("user_id", "nonexistent")
         .limit(1);
 
       if (tableError && tableError.code === '42P01') {
@@ -82,8 +86,8 @@ export const useAtmCards = () => {
 
       // Insert new ATM card
       const { error: insertError } = await supabase
-        .from("user_atm_cards")
-        .insert({
+        .from<AtmCard>("user_atm_cards")
+        .insert<AtmCard>({
           user_id: user.id,
           card_number: maskedCard,
           card_holder_name: cardHolderName,
@@ -110,8 +114,8 @@ export const useAtmCards = () => {
     try {
       // Update card to set is_active to false
       const { error } = await supabase
-        .from("user_atm_cards")
-        .update({
+        .from<AtmCard>("user_atm_cards")
+        .update<Partial<AtmCard>>({
           is_active: false,
         })
         .eq("id", cardId)
