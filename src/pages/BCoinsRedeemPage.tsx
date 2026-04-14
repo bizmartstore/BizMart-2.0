@@ -71,7 +71,7 @@ export default function BCoinsRedeemPage() {
         return;
       }
 
-      // Create redemption request
+      // Create redemption request - use type assertion
       const { error } = await supabase
         .from("bcoins_redemptions")
         .insert({
@@ -81,18 +81,18 @@ export default function BCoinsRedeemPage() {
           gcash_number: gcashNumber,
           status: "pending",
           atm_card_id: activeCard.id,
-        });
+        } as any);
 
       if (error) throw error;
 
-      // Deduct BCoins from wallet
+      // Deduct BCoins from wallet - use type assertion
       const newBalance = walletBalance - option.bcoins;
       await supabase
         .from("bcoins_wallets")
-        .update({ balance: newBalance })
+        .update({ balance: newBalance } as any)
         .eq("user_id", user.id);
 
-      // Add transaction record
+      // Add transaction record - use type assertion
       await supabase
         .from("bcoins_transactions")
         .insert({
@@ -100,7 +100,7 @@ export default function BCoinsRedeemPage() {
           amount: -option.bcoins,
           type: "redeem_gcash",
           description: `Redeemed ₱${option.gcash} GCash to ${gcashNumber}`,
-        });
+        } as any);
 
       toast.success(`Redemption submitted! ₱${option.gcash} GCash will be sent after admin approval.`);
       setSelectedRedeem(null);
