@@ -27,55 +27,9 @@ export default function TrackReportPage() {
     const idParam = urlParams.get("id");
     if (idParam && !trackingId) {
       setTrackingId(idParam);
-handleSearchById(idParam);
+      handleSearch();
     }
   }, []);
-
-  // Check for tracking ID in URL query params
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const idParam = urlParams.get("id");
-    if (idParam && !trackingId) {
-      setTrackingId(idParam);
-      handleSearchById(idParam);
-    }
-  }, [trackingId]);
-
-  const handleSearchById = async (id: string) => {
-    if (!id.trim()) {
-      toast.error("Please enter a tracking ID");
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setSearchAttempted(true);
-
-    try {
-      // Search for the report in the database
-      const { data, error } = await (supabase as any)
-        .from("support_reports")
-        .select("*")
-        .eq("tracking_id", id.trim().toUpperCase())
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (data) {
-        setReport(data);
-      } else {
-        setError("Report not found. Please check your tracking ID and try again.");
-        toast.error("Report not found");
-      }
-
-    } catch (err: any) {
-      console.error("Failed to fetch report:", err);
-      setError("Failed to fetch report. Please try again later.");
-      toast.error("Failed to fetch report");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSearch = async () => {
     if (!trackingId.trim()) {
@@ -125,6 +79,8 @@ handleSearchById(idParam);
         return <AlertTriangle className="h-5 w-5 text-orange-500" />;
       case "rejected":
         return <XCircle className="h-5 w-5 text-destructive" />;
+      case "processed":
+        return <CheckCircle2 className="h-5 w-5 text-green-500" />;
       default:
         return <AlertCircle className="h-5 w-5 text-muted-foreground" />;
     }
@@ -137,6 +93,7 @@ handleSearchById(idParam);
       case "resolved": return "Resolved";
       case "escalated": return "Escalated to Admin";
       case "rejected": return "Rejected";
+      case "processed": return "Processed";
       default: return status;
     }
   };
