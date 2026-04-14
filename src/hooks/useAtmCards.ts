@@ -81,7 +81,7 @@ export const useAtmCards = () => {
       const maskedCard = cardNumber.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
 
       const { error } = await supabase
-        .from<AtmCard>("user_atm_cards")
+        .from("user_atm_cards")
         .insert({
           user_id: user.id,
           card_number: maskedCard,
@@ -107,7 +107,7 @@ export const useAtmCards = () => {
     setLoading(true);
     try {
       const { error } = await supabase
-        .from<AtmCard>("user_atm_cards")
+        .from("user_atm_cards")
         .update({ is_active: false })
         .eq("id", cardId)
         .eq("user_id", user.id);
