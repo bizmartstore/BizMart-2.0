@@ -129,6 +129,7 @@ export default function UsersTab() {
                   <SelectItem value="customer">Customer</SelectItem>
                   <SelectItem value="member_admin">Member Admin</SelectItem>
                   <SelectItem value="main_admin">Main Admin</SelectItem>
+                  <SelectItem value="guidance">Guidance</SelectItem>
                 </SelectContent>
               </Select>
             </div>

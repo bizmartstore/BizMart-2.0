@@ -6,9 +6,10 @@ export function useAdmin() {
 
   return {
     role,
-    isAdmin: isAuthReady && (role === 'main_admin' || role === 'member_admin'),
+    isAdmin: isAuthReady && (role === 'main_admin' || role === 'member_admin' || role === 'guidance'),
     isMainAdmin: isAuthReady && role === 'main_admin',
     isMemberAdmin: isAuthReady && role === 'member_admin',
+    isGuidance: isAuthReady && role === 'guidance',
     loading: !isAuthReady,
   };
 }
