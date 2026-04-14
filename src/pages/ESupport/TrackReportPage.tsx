@@ -330,9 +330,9 @@ handleSearchById(idParam);
                   onClick={async () => {
                     try {
                       const { error } = await (supabase as any)
-                        .from("support_reports")
-                        .update({ status: "processed", admin_notes: report.admin_notes || "Report processed by guidance admin" })
-                        .eq("id", report.id);
+                            .from("support_reports")
+                            .update({ status: "processed" })
+                            .eq("id", report.id);
 
                       if (error) throw error;
 
