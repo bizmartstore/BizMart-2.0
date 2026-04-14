@@ -19,6 +19,8 @@ import { Label } from "@/components/ui/label";
 import bizLogo from "@/assets/bizmart-logo.png";
 import { useNavigate } from "react-router-dom";
 import BCoinsFeatures from "@/components/BCoinsFeatures";
+import AtmCardLinkForm from "@/components/AtmCardLinkForm";
+import AtmCardList from "@/components/AtmCardList";
 
 export default function ClubPage() {
   const { user, profile } = useAuth();
@@ -38,6 +40,7 @@ export default function ClubPage() {
   const [activatingSeller, setActivatingSeller] = useState(false);
   const [sellerCount, setSellerCount] = useState(0);
   const [maxSellers, setMaxSellers] = useState(5);
+  const [showLinkForm, setShowLinkForm] = useState(false);
   const idRef = useRef<HTMLDivElement>(null);
 
   // BCoins related state
@@ -64,7 +67,7 @@ export default function ClubPage() {
       // Check existing application
       (supabase as any).from("seller_applications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle()
         .then(({ data }: any) => setApplication(data));
-      
+
       // Load BCoins wallet
       (supabase as any).from("bcoins_wallets").select("*").eq("user_id", user.id).maybeSingle()
         .then(({ data }: any) => setWallet(data));
@@ -182,7 +185,7 @@ export default function ClubPage() {
         })
         .select()
         .single();
-      
+
       if (error) throw error;
       setApplication(data);
       setShowApplication(false);
@@ -238,10 +241,10 @@ export default function ClubPage() {
   return (
     <div className="min-h-screen bg-background pb-24">
       <TopBar />
-      
+
       <div className="sticky top-[52px] z-30 bg-background/80 backdrop-blur-md border-b border-border px-3 py-2">
         <div className="flex gap-2 overflow-x-auto scrollbar-none px-1 touch-pan-x">
-          <button 
+          <button
             onClick={() => handleTabChange("membership")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               activeTab === "membership" ? "bg-primary text-white shadow-md shadow-primary/20" : "bg-muted text-muted-foreground"
@@ -249,7 +252,7 @@ export default function ClubPage() {
           >
             <CreditCard className="h-3.5 w-3.5" /> Membership
           </button>
-          <button 
+          <button
             onClick={() => handleTabChange("bcoins")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               activeTab === "bcoins" ? "bg-warning text-warning-foreground shadow-md shadow-warning/20" : "bg-muted text-muted-foreground"
@@ -257,7 +260,7 @@ export default function ClubPage() {
           >
             <Coins className="h-3.5 w-3.5" /> BCoins Wallet
           </button>
-          <button 
+          <button
             onClick={() => handleTabChange("seller")}
             className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-[11px] font-bold whitespace-nowrap transition-all ${
               activeTab === "seller" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/20" : "bg-muted text-muted-foreground"
@@ -369,7 +372,7 @@ export default function ClubPage() {
                   <div className="bg-muted/50 rounded-2xl p-5 border border-border">
                     <h3 className="text-sm font-bold mb-3 flex items-center gap-2"><Info className="h-4 w-4 text-primary" /> Future Updates</h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                      Your digital card will soon be your <strong className="text-foreground">Discount Card</strong>. 
+                      Your digital card will soon be your <strong className="text-foreground">Discount Card</strong>.
                       Simply show your card at school to get special discounts on products and printing using your BCoins! 🚀
                     </p>
                   </div>
@@ -384,15 +387,40 @@ export default function ClubPage() {
             <div className="bg-gradient-to-br from-warning/20 to-primary/10 rounded-2xl p-6 border border-warning/20 text-center shadow-sm">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Available Balance</p>
               <p className="text-4xl font-black text-warning">{(Number(wallet?.balance || profile?.bcoins || 0)).toFixed(1)} 🪙</p>
-              <Button 
-                onClick={() => navigate("/bcoins")} 
-                variant="ghost" 
-                size="sm" 
+              <Button
+                onClick={() => navigate("/bcoins")}
+                variant="ghost"
+                size="sm"
                 className="mt-2 text-[10px] font-bold text-primary hover:bg-primary/5"
               >
                 Go to Full Wallet <ChevronRight className="h-3 w-3 ml-1" />
               </Button>
             </div>
+
+            {/* ATM Cards Section */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="h-5 w-5 text-primary" />
+                  <span className="font-bold text-sm">ATM Cards</span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowLinkForm(!showLinkForm)}
+                  className="gap-2 rounded-lg text-xs font-bold"
+                >
+                  {showLinkForm ? "Cancel" : "Link ATM Card"}
+                </Button>
+              </div>
+
+              {showLinkForm ? (
+                <AtmCardLinkForm onSuccess={() => setShowLinkForm(false)} />
+              ) : (
+                <AtmCardList onCardUnlinked={() => {}} />
+              )}
+            </div>
+
             <BCoinsFeatures activeSection={bcoinsSection} onSectionChange={setBcoinsSection} />
             {bcoinsSection === 'spin' && (
               <div className="bg-card border border-border rounded-2xl p-4 text-center space-y-3">
