@@ -80,15 +80,17 @@ export const useAtmCards = () => {
       // Format card number with spaces
       const maskedCard = cardNumber.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
 
-      // Use type assertion to bypass TypeScript errors
+      // Use type assertion for the wallet id
+      const walletId = (wallet as { id: string }).id;
+
       const { error } = await supabase
         .from("user_atm_cards")
         .insert({
           user_id: user.id,
           card_number: maskedCard,
           card_holder_name: cardHolderName,
-          bcoins_wallet_id: wallet.id,
-        } as any);
+          bcoins_wallet_id: walletId,
+        });
 
       if (error) throw error;
 
@@ -107,10 +109,9 @@ export const useAtmCards = () => {
     if (!user) throw new Error("User not logged in");
     setLoading(true);
     try {
-      // Use type assertion to bypass TypeScript errors
       const { error } = await supabase
         .from("user_atm_cards")
-        .update({ is_active: false } as any)
+        .update({ is_active: false })
         .eq("id", cardId)
         .eq("user_id", user.id);
 
