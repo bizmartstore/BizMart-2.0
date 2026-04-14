@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { toast } from "sonner";
 
 const GuidanceDashboard = () => {
   const { profile, isAuthReady } = useAuth();
@@ -63,15 +64,67 @@ const GuidanceDashboard = () => {
 
   const markAsRead = async (reportId: string) => {
     try {
+      const { data: report, error: fetchError } = await (supabase as any)
+        .from("support_reports")
+        .select("*")
+        .eq("id", reportId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
       const { error } = await (supabase as any)
         .from("support_reports")
         .update({ status: "read" })
         .eq("id", reportId);
 
       if (error) throw error;
+
+      // Notify reporter if status is "processed"
+      if (report?.status?.toLowerCase() === "processed") {
+        await notifyReporter(report);
+      }
+
       fetchReports();
     } catch (err) {
       console.error("Failed to mark as read:", err);
+    }
+  };
+
+  const notifyReporter = async (report: any) => {
+    try {
+      if (!report.user_id) return;
+
+      // Insert notification into notification_logs
+      const { error: notifError } = await (supabase as any)
+        .from("notification_logs")
+        .insert({
+          user_id: report.user_id,
+          title: "Incident Report Processed",
+          message: `Your incident report "${report.title || "Untitled"}" has been processed.`,
+          type: "report",
+          icon: "✅",
+          link: `/e-support/track?id=${report.tracking_id}`,
+        });
+
+      if (notifError) throw notifError;
+
+      // Send push notification if FCM token exists
+      const { data: fcmToken } = await (supabase as any)
+        .from("fcm_tokens")
+        .select("fcm_token")
+        .eq("user_id", report.user_id)
+        .eq("role", "customer")
+        .maybeSingle();
+
+      if (fcmToken?.fcm_token) {
+        // In a real app, you would call an edge function here to send the push notification
+        console.log("Push notification would be sent to:", fcmToken.fcm_token);
+      }
+
+      toast.success("Reporter notified successfully!");
+    } catch (err) {
+      console.error("Failed to notify reporter:", err);
+      toast.error("Failed to notify reporter");
     }
   };
 
@@ -129,8 +182,7 @@ const GuidanceDashboard = () => {
               <div className="space-y-3 max-h-[500px] overflow-y-auto">
                 {reports.map((report) => (
                   <Card key={report.id} className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => {
-                    markAsRead(report.id);
-                    navigate(`/e-support/track?id=${report.id}`);
+                    navigate(`/e-support/track?id=${report.tracking_id}`);
                   }}>
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
                       <CardTitle className="text-sm font-medium truncate">{report.title || "Untitled Report"}</CardTitle>

@@ -8,8 +8,9 @@ import BottomNav from "@/components/BottomNav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertCircle, Eye, Search, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
+import { AlertCircle, Eye, Search, Loader2, CheckCircle2, Clock, XCircle, AlertTriangle, Check } from "lucide-react";
 import { toast } from "sonner";
+import { useAdmin } from "@/hooks/useAdmin";
 
 export default function TrackReportPage() {
   const navigate = useNavigate();
@@ -18,6 +19,7 @@ export default function TrackReportPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchAttempted, setSearchAttempted] = useState(false);
+  const { isGuidance } = useAdmin();
 
   const handleSearch = async () => {
     if (!trackingId.trim()) {
@@ -264,6 +266,46 @@ export default function TrackReportPage() {
                   <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Admin Notes</p>
                   <p className="text-sm">{report.admin_notes}</p>
                 </div>
+              )}
+
+              {/* Update Status Button (only for guidance admins) */}
+              {isGuidance && report && report.status?.toLowerCase() !== "processed" && (
+                <Button
+                  onClick={async () => {
+                    try {
+                      const { error } = await (supabase as any)
+                        .from("support_reports")
+                        .update({ status: "processed", admin_notes: report.admin_notes || "Report processed by guidance admin" })
+                        .eq("id", report.id);
+
+                      if (error) throw error;
+
+                      // Notify reporter
+                      const { error: notifError } = await (supabase as any)
+                        .from("notification_logs")
+                        .insert({
+                          user_id: report.user_id,
+                          title: "Incident Report Processed",
+                          message: `Your incident report "${report.title || "Untitled"}" has been processed.`,
+                          type: "report",
+                          icon: "✅",
+                          link: `/e-support/track?id=${report.tracking_id}`,
+                        });
+
+                      if (notifError) throw notifError;
+
+                      toast.success("Report status updated and reporter notified!");
+                      setReport({ ...report, status: "processed" });
+                    } catch (err) {
+                      console.error("Failed to update report:", err);
+                      toast.error("Failed to update report");
+                    }
+                  }}
+                  className="w-full mt-4 gap-2"
+                >
+                  <Check className="h-4 w-4" />
+                  Mark as Processed & Notify Reporter
+                </Button>
               )}
             </CardContent>
           </Card>
