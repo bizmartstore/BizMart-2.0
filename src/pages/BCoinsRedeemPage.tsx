@@ -17,6 +17,22 @@ import AtmCardLinkForm from "@/components/AtmCardLinkForm";
 import AtmCardList from "@/components/AtmCardList";
 import { supabase } from "@/integrations/supabase/client";
 
+interface BCoinsRedemption {
+  user_id: string;
+  bcoins_amount: number;
+  gcash_amount: number;
+  gcash_number: string;
+  status: string;
+  atm_card_id: string;
+}
+
+interface BCoinsTransaction {
+  user_id: string;
+  amount: number;
+  type: string;
+  description: string;
+}
+
 const REDEEM_OPTIONS = [
   { gcash: 50, bcoins: 500 },
   { gcash: 100, bcoins: 1000 },
@@ -71,7 +87,7 @@ export default function BCoinsRedeemPage() {
         return;
       }
 
-      // Create redemption request - use type assertion
+      // Create redemption request
       const { error } = await supabase
         .from("bcoins_redemptions")
         .insert({
@@ -81,18 +97,20 @@ export default function BCoinsRedeemPage() {
           gcash_number: gcashNumber,
           status: "pending",
           atm_card_id: activeCard.id,
-        } as any);
+        });
 
       if (error) throw error;
 
-      // Deduct BCoins from wallet - use type assertion
+      // Deduct BCoins from wallet - use proper type
       const newBalance = walletBalance - option.bcoins;
       await supabase
         .from("bcoins_wallets")
-        .update({ balance: newBalance } as any)
+        .update({
+          balance: newBalance,
+        })
         .eq("user_id", user.id);
 
-      // Add transaction record - use type assertion
+      // Add transaction record
       await supabase
         .from("bcoins_transactions")
         .insert({
@@ -100,7 +118,7 @@ export default function BCoinsRedeemPage() {
           amount: -option.bcoins,
           type: "redeem_gcash",
           description: `Redeemed ₱${option.gcash} GCash to ${gcashNumber}`,
-        } as any);
+        });
 
       toast.success(`Redemption submitted! ₱${option.gcash} GCash will be sent after admin approval.`);
       setSelectedRedeem(null);
