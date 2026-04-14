@@ -13,17 +13,41 @@ export const useAtmCards = () => {
   const loadCards = async () => {
     if (!user) return;
     setLoading(true);
+    setError(null);
+
     try {
-      const { data, error } = await supabase
+      // First check if the table exists
+      const { data: tableCheck, error: tableError } = await supabase
+        .from("user_atm_cards")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", "nonexistent") // This will fail if table doesn't exist
+        .limit(1);
+
+      if (tableError && tableError.code === '42P01') {
+        // Table doesn't exist
+        setCards([]);
+        setLoading(false);
+        return;
+      }
+
+      if (tableError) {
+        console.error("Table check error:", tableError);
+        throw tableError;
+      }
+
+      // Table exists, proceed with normal query
+      const { data, error: fetchError } = await supabase
         .from("user_atm_cards")
         .select("*")
         .eq("user_id", user.id)
         .eq("is_active", true);
-      if (error) throw error;
+
+      if (fetchError) throw fetchError;
       setCards(data || []);
     } catch (err: any) {
       console.error("Failed to load ATM cards:", err);
-      setError(err.message);
+      setError(err.message || "Failed to load ATM cards. Please try again later.");
+      setCards([]);
     } finally {
       setLoading(false);
     }
