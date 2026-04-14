@@ -232,65 +232,7 @@ export default function ESupportPage() {
           </Card>
         </motion.div>
       </div>
-
-      {/* Quick Actions Section */}
-      <div className="px-4 mt-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.3, duration: 0.5 }}
-        >
-          <Card className="border-0 shadow-xl rounded-2xl overflow-hidden bg-white dark:bg-blue-950/20 border border-blue-200/50">
-            <CardHeader className="bg-gradient-to-r from-blue-600 to-blue-800 text-white">
-              <CardTitle className="text-lg font-extrabold flex items-center gap-2">
-                <Headset className="h-5 w-5" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 border border-blue-200/50 cursor-pointer hover:shadow-md transition-all"
-                  onClick={() => navigate("/e-support/submit")}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white">
-                      <MessageSquare className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-blue-800 dark:text-blue-200">Submit a Report</p>
-                      <p className="text-xs text-blue-600 dark:text-blue-300">Create a new confidential report</p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 ml-auto text-blue-600" />
-                  </div>
-                </motion.div>
-
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="bg-blue-50 dark:bg-blue-900/30 rounded-xl p-4 border border-blue-200/50 cursor-pointer hover:shadow-md transition-all"
-                  onClick={() => navigate("/e-support/track")}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-xl bg-blue-600 flex items-center justify-center text-white">
-                      <Eye className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-blue-800 dark:text-blue-200">Track Report</p>
-                      <p className="text-xs text-blue-600 dark:text-blue-300">Check your report status</p>
-                    </div>
-                    <ChevronRight className="h-5 w-5 ml-auto text-blue-600" />
-                  </div>
-                </motion.div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
+      
       {/* Important Notice with Enhanced Design */}
       <div className="px-4 mt-6 pb-20">
         <motion.div
