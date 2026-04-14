@@ -15,7 +15,6 @@ import { Coins, CreditCard, AlertCircle, CheckCircle2, Loader2, ArrowLeft, Copy 
 import { toast } from "sonner";
 import AtmCardLinkForm from "@/components/AtmCardLinkForm";
 import AtmCardList from "@/components/AtmCardList";
-import { supabase } from "@/integrations/supabase/client";
 
 const REDEEM_OPTIONS = [
   { gcash: 50, bcoins: 500 },
@@ -72,7 +71,7 @@ export default function BCoinsRedeemPage() {
       }
 
       // Create redemption request
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("bcoins_redemptions")
         .insert({
           user_id: user.id,
@@ -87,13 +86,13 @@ export default function BCoinsRedeemPage() {
 
       // Deduct BCoins from wallet
       const newBalance = walletBalance - option.bcoins;
-      await supabase
+      await (supabase as any)
         .from("bcoins_wallets")
         .update({ balance: newBalance })
         .eq("user_id", user.id);
 
       // Add transaction record
-      await supabase
+      await (supabase as any)
         .from("bcoins_transactions")
         .insert({
           user_id: user.id,
