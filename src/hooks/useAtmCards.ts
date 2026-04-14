@@ -47,7 +47,7 @@ export const useAtmCards = () => {
       // Table exists, proceed with normal query
       const { data, error: fetchError } = await supabase
         .from<AtmCard>("user_atm_cards")
-        .select("*")
+        .select<AtmCard[]>("*")
         .eq("user_id", user.id)
         .eq("is_active", true);
 
@@ -69,7 +69,7 @@ export const useAtmCards = () => {
       // Get user's bCoins wallet
       const { data: wallet } = await supabase
         .from("bcoins_wallets")
-        .select("id")
+        .select<{ id: string }>("id")
         .eq("user_id", user.id)
         .maybeSingle();
 
@@ -82,14 +82,14 @@ export const useAtmCards = () => {
 
       const { data: insertedCard, error } = await supabase
         .from<AtmCard>("user_atm_cards")
-        .insert({
+        .insert<AtmCard>({
           user_id: user.id,
           card_number: maskedCard,
           card_holder_name: cardHolderName,
           bcoins_wallet_id: wallet.id,
+          is_active: true,
         })
-        .select()
-        .single();
+        .select();
 
       if (error) throw error;
 
@@ -112,7 +112,7 @@ export const useAtmCards = () => {
     try {
       const { error } = await supabase
         .from<AtmCard>("user_atm_cards")
-        .update({ is_active: false })
+        .update<AtmCard>({ is_active: false })
         .eq("id", cardId)
         .eq("user_id", user.id);
 
