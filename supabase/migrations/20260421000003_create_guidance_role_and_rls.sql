@@ -71,7 +71,7 @@ CREATE POLICY "Allow customers to create chat sessions for their reports"
     EXISTS (
       SELECT 1 FROM support_reports sr
       WHERE sr.user_id = auth.uid()
-      AND sr.id = new.report_id
+      AND sr.id = (SELECT report_id FROM support_chat_sessions WHERE id = DEFAULT)
     )
   );
 
