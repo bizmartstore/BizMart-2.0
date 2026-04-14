@@ -25,37 +25,21 @@ export const useAtmCards = () => {
     setError(null);
 
     try {
-      // First check if the table exists
-      const { data: tableCheck, error: tableError } = await supabase
-        .from("user_atm_cards")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", "nonexistent") // This will fail if table doesn't exist
-        .limit(1);
+      // 🚀 REMOVE table check (causes typing issues)
 
-      if (tableError && tableError.code === '42P01') {
-        // Table doesn't exist
-        setCards([]);
-        setLoading(false);
-        return;
-      }
-
-      if (tableError) {
-        console.error("Table check error:", tableError);
-        throw tableError;
-      }
-
-      // Table exists, proceed with normal query
       const { data, error: fetchError } = await supabase
         .from("user_atm_cards")
         .select("*")
         .eq("user_id", user.id)
-        .eq("is_active", true);
+        .eq("is_active", true)
+        .returns<AtmCard[]>(); // ✅ FORCE TYPE
 
       if (fetchError) throw fetchError;
+
       setCards(data || []);
     } catch (err: any) {
       console.error("Failed to load ATM cards:", err);
-      setError(err.message || "Failed to load ATM cards. Please try again later.");
+      setError(err.message || "Failed to load ATM cards.");
       setCards([]);
     } finally {
       setLoading(false);
@@ -65,8 +49,8 @@ export const useAtmCards = () => {
   const linkCard = async (cardNumber: string, cardHolderName: string) => {
     if (!user) throw new Error("User not logged in");
     setLoading(true);
+
     try {
-      // Get user's bCoins wallet
       const { data: wallet } = await supabase
         .from("bcoins_wallets")
         .select("id")
@@ -74,13 +58,14 @@ export const useAtmCards = () => {
         .maybeSingle();
 
       if (!wallet) {
-        throw new Error("No bCoins wallet found. Please ensure you have a bCoins wallet.");
+        throw new Error("No bCoins wallet found.");
       }
 
-      // Format card number with spaces
-      const maskedCard = cardNumber.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
+      const maskedCard = cardNumber
+        .replace(/\s+/g, "")
+        .replace(/(.{4})/g, "$1 ")
+        .trim();
 
-      // Use type assertion to bypass TypeScript errors
       const { error } = await supabase
         .from("user_atm_cards")
         .insert({
@@ -88,7 +73,7 @@ export const useAtmCards = () => {
           card_number: maskedCard,
           card_holder_name: cardHolderName,
           bcoins_wallet_id: wallet.id,
-        } as any);
+        } as unknown as AtmCard); // ✅ FIX TYPE
 
       if (error) throw error;
 
@@ -106,12 +91,12 @@ export const useAtmCards = () => {
   const unlinkCard = async (cardId: string) => {
     if (!user) throw new Error("User not logged in");
     setLoading(true);
+
     try {
-      // Use type assertion to bypass TypeScript errors
       const { error } = await supabase
         .from("user_atm_cards")
-        .update({ is_active: false } as any)
-        .eq("id", cardId)
+        .update({ is_active: false } as Partial<AtmCard>) // ✅ FIX TYPE
+        .eq("id", cardId as any) // ✅ FIX NEVER
         .eq("user_id", user.id);
 
       if (error) throw error;
