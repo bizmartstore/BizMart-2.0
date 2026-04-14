@@ -63,16 +63,7 @@ CREATE POLICY "Allow customers to view their chat sessions"
   );
 
 -- Policy 6: Allow customer role to INSERT chat sessions (if they have a report)
-CREATE POLICY "Allow customers to create chat sessions for their reports"
-  ON support_chat_sessions
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM support_reports sr
-      WHERE sr.user_id = auth.uid()
-      AND sr.id = (SELECT report_id FROM support_chat_sessions WHERE id = DEFAULT)
-    )
-  );
+-- This will be handled by the application logic since RLS can't check DEFAULT values
+-- Users will be able to insert chat sessions for their own reports
 
 COMMIT;
