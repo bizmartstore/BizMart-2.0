@@ -27,7 +27,7 @@ export default function TrackReportPage() {
     const idParam = urlParams.get("id");
     if (idParam && !trackingId) {
       setTrackingId(idParam);
-      handleSearch();
+handleSearchById(idParam);
     }
   }, []);
 
