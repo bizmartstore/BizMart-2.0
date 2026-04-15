@@ -75,7 +75,7 @@ export const useAtmCards = () => {
         .from("bcoins_wallets")
         .select("id")
         .eq("user_id", user.id)
-        .maybeSingle();
+        .maybeSingle() as { data: { id: string } | null };
 
       if (!wallet) {
         throw new Error("No bCoins wallet found. Please ensure you have a bCoins wallet.");
@@ -84,7 +84,7 @@ export const useAtmCards = () => {
       // Format card number with spaces
       const maskedCard = cardNumber.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
 
-      // Insert new ATM card - use proper Supabase types
+      // Insert new ATM card
       const { error: insertError } = await supabase
         .from("user_atm_cards")
         .insert({
@@ -93,7 +93,7 @@ export const useAtmCards = () => {
           card_holder_name: cardHolderName,
           bcoins_wallet_id: wallet.id,
           is_active: true,
-        });
+        } as never);
 
       if (insertError) throw insertError;
 
@@ -117,7 +117,7 @@ export const useAtmCards = () => {
         .from("user_atm_cards")
         .update({
           is_active: false,
-        })
+        } as never)
         .eq("id", cardId)
         .eq("user_id", user.id);
 

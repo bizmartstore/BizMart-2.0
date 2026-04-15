@@ -155,6 +155,86 @@ export type Database = {
           seller_id?: string | null;
         };
       };
+      user_atm_cards: {
+        Row: {
+          id: string;
+          user_id: string;
+          card_number: string;
+          card_holder_name: string;
+          bcoins_wallet_id: string;
+          is_active: boolean;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          card_number: string;
+          card_holder_name: string;
+          bcoins_wallet_id: string;
+          is_active?: boolean;
+        };
+        Update: {
+          is_active?: boolean;
+        };
+      };
+      bcoins_redemptions: {
+        Row: {
+          id: string;
+          user_id: string;
+          bcoins_amount: number;
+          gcash_amount: number;
+          gcash_number: string;
+          status: string;
+          atm_card_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          bcoins_amount: number;
+          gcash_amount: number;
+          gcash_number: string;
+          status?: string;
+          atm_card_id: string;
+        };
+        Update: {
+          status?: string;
+        };
+      };
+      bcoins_wallets: {
+        Row: {
+          id: string;
+          user_id: string;
+          balance: number;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          balance?: number;
+        };
+        Update: {
+          balance?: number;
+        };
+      };
+      bcoins_transactions: {
+        Row: {
+          id: string;
+          user_id: string;
+          amount: number;
+          type: string;
+          description: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          amount: number;
+          type: string;
+          description: string;
+        };
+        Update: {
+          amount?: number;
+          type?: string;
+          description?: string;
+        };
+      };
     };
     Functions: {
       get_user_role: {
