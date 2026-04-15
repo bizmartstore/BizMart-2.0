@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -157,24 +157,18 @@ export default function OrganizationDashboard() {
         .single();
 
       if (orgError) throw orgError;
-      setOrganization(orgData);
-
-      // Fetch member count
-      const { count } = await supabase
-        .from("organization_members")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", id);
-
-      setOrganization({ ...orgData, member_count: count || 0 });
+      
+      const orgWithCount = { ...orgData, member_count: orgData.member_count || 0 };
+      setOrganization(orgWithCount);
 
       // Fetch wallet balance
-      const walletResponse = await supabase
+      const { data: walletData, error: walletError } = await supabase
         .from("organization_wallets")
         .select("balance")
         .eq("organization_id", id)
         .single();
 
-      if (walletResponse.error) {
+      if (walletError) {
         // Create wallet if it doesn't exist
         await supabase.from("organization_wallets").insert({
           organization_id: id,
@@ -182,11 +176,11 @@ export default function OrganizationDashboard() {
         });
         setWalletBalance(0);
       } else {
-        setWalletBalance(walletResponse.data?.balance || 0);
+        setWalletBalance(walletData?.balance || 0);
       }
 
       // Fetch members
-      const { data: membersData } = await supabase
+      const { data: membersData, error: membersError } = await supabase
         .from("organization_members")
         .select(`*, profile:profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url)`)
         .eq("organization_id", id)
@@ -194,33 +188,37 @@ export default function OrganizationDashboard() {
         .order("role", { ascending: false })
         .order("joined_at", { ascending: false });
 
+      if (membersError) console.error("Error fetching members:", membersError);
       setMembers(membersData || []);
 
       // Fetch events
-      const { data: eventsData } = await supabase
+      const { data: eventsData, error: eventsError } = await supabase
         .from("organization_events")
         .select("*")
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
+      if (eventsError) console.error("Error fetching events:", eventsError);
       setEvents(eventsData || []);
 
       // Fetch transactions
-      const { data: transactionsData } = await supabase
+      const { data: transactionsData, error: transactionsError } = await supabase
         .from("organization_transactions")
         .select(`*, profile:profiles!organization_transactions_user_id_fkey(first_name, last_name, avatar_url)`)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
+      if (transactionsError) console.error("Error fetching transactions:", transactionsError);
       setTransactions(transactionsData || []);
 
       // Fetch announcements
-      const { data: announcementsData } = await supabase
+      const { data: announcementsData, error: announcementsError } = await supabase
         .from("organization_announcements")
         .select(`*, profile:profiles!organization_announcements_created_by_fkey(first_name, last_name, avatar_url)`)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
+      if (announcementsError) console.error("Error fetching announcements:", announcementsError);
       setAnnouncements(announcementsData || []);
 
       // Check if user is a member and get their role
@@ -233,7 +231,7 @@ export default function OrganizationDashboard() {
           .eq("status", "active")
           .single();
 
-        if (!memberError && memberData) {
+        if (memberData) {
           setIsMember(true);
           setUserRole(memberData.role as 'creator' | 'officer' | 'member');
         }
@@ -258,7 +256,7 @@ export default function OrganizationDashboard() {
       .eq("status", "active")
       .single();
 
-    if (!error && data) {
+    if (data) {
       setIsMember(true);
       setUserRole(data.role as 'creator' | 'officer' | 'member');
     }
@@ -289,7 +287,7 @@ export default function OrganizationDashboard() {
     if (!organization || !user) return;
 
     try {
-      const { error } = await supabase.from("organization_events").insert([{
+      const { error } = await supabase.from("organization_events").insert({
         organization_id: organization.id,
         name: newEventForm.name,
         description: newEventForm.description,
@@ -298,7 +296,7 @@ export default function OrganizationDashboard() {
         fee: newEventForm.fee,
         status: "upcoming",
         created_by: user.id,
-      }]);
+      });
 
       if (error) throw error;
 
@@ -327,7 +325,7 @@ export default function OrganizationDashboard() {
     }
 
     try {
-      const { error } = await supabase.from("organization_transactions").insert([{
+      const { error } = await supabase.from("organization_transactions").insert({
         organization_id: organization.id,
         user_id: user.id,
         type: "deposit",
@@ -336,7 +334,7 @@ export default function OrganizationDashboard() {
         purpose: depositForm.purpose,
         reference: depositForm.reference,
         gcash_fee: 0,
-      }]);
+      });
 
       if (error) throw error;
 
@@ -363,7 +361,7 @@ export default function OrganizationDashboard() {
     }
 
     try {
-      const { error } = await supabase.from("organization_transactions").insert([{
+      const { error } = await supabase.from("organization_transactions").insert({
         organization_id: organization.id,
         user_id: user.id,
         type: "withdrawal",
@@ -372,7 +370,7 @@ export default function OrganizationDashboard() {
         purpose: withdrawalForm.purpose,
         reference: withdrawalForm.recipient,
         gcash_fee: 0,
-      }]);
+      });
 
       if (error) throw error;
 
@@ -393,12 +391,12 @@ export default function OrganizationDashboard() {
     if (!organization || !user) return;
 
     try {
-      const { error } = await supabase.from("organization_announcements").insert([{
+      const { error } = await supabase.from("organization_announcements").insert({
         organization_id: organization.id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
-      }]);
+      });
 
       if (error) throw error;
 
@@ -420,8 +418,8 @@ export default function OrganizationDashboard() {
     try {
       await supabase
         .from("organization_members")
-        .update({ status: "left" })
-        .eq("id", memberToRemove!);
+        .update({ status: "left" } as { status: string })
+        .eq("id", memberToRemove);
 
       toast.success("Member removed successfully!");
       fetchOrganizationData();
@@ -486,25 +484,9 @@ export default function OrganizationDashboard() {
               </p>
             </div>
             {!isMember ? (
-              <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
-                <Button onClick={() => setIsJoinDialogOpen(true)} className="gap-2">
-                  <UserPlus className="h-4 w-4" /> Join Organization
-                </Button>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Join {organization.name}</DialogTitle>
-                    <DialogDescription>
-                      Are you sure you want to join this organization?
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p className="text-sm">{organization.description}</p>
-                    <Button onClick={handleJoinOrganization} className="w-full">
-                      Confirm Join
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+              <Button onClick={() => setIsJoinDialogOpen(true)} className="gap-2">
+                <UserPlus className="h-4 w-4" /> Join Organization
+              </Button>
             ) : (
               <Badge variant={userRole === "creator" ? "default" : userRole === "officer" ? "secondary" : "outline"}>
                 {userRole === "creator" ? "Creator" : userRole === "officer" ? "Officer" : "Member"}
@@ -845,7 +827,7 @@ export default function OrganizationDashboard() {
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button className="w-full gap-2" variant="outline" disabled={!canManageWallet}>  {/* Disabled for now, will enable after admin approval flow */}
+                      <Button className="w-full gap-2" variant="outline">
                         <CreditCard className="h-4 w-4" /> Request Withdrawal
                       </Button>
                     </DialogTrigger>
@@ -911,7 +893,7 @@ export default function OrganizationDashboard() {
                         </div>
                         <div className="text-right">
                           <p className={`font-bold text-sm ${transaction.type === "deposit" ? "text-green-600" : "text-red-600"}`}>
-                            {transaction.type === "deposit" ? "+₱" : "-₱"}{transaction.amount.toFixed(2)}
+                            {transaction.type === "deposit" ? "+" : "-"}₱{transaction.amount.toFixed(2)}
                           </p>
                           <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"} className="mt-1">
                             {transaction.status}
