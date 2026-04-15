@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone } from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -32,6 +32,7 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
     { id: "broadcast", label: "Broadcast", icon: <Megaphone className="h-4 w-4" />, badge: null },
     { id: "categories", label: "Categories", icon: <FolderOpen className="h-4 w-4" />, badge: null },
+    { id: "organizations", label: "Organizations", icon: <UsersIcon className="h-4 w-4" />, badge: null },
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
     { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4" />, badge: null },
     { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },

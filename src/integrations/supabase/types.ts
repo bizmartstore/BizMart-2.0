@@ -236,6 +236,170 @@ export type Database = {
         };
       };
     };
+    Tables: {
+      organizations: {
+        Row: {
+          id: string;
+          name: string;
+          description: string;
+          adviser_name: string | null;
+          club_type: string;
+          status: string;
+          creator_id: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          name: string;
+          description: string;
+          adviser_name?: string | null;
+          club_type: string;
+          status?: string;
+          creator_id: string;
+        };
+        Update: {
+          name?: string;
+          description?: string;
+          adviser_name?: string | null;
+          club_type?: string;
+          status?: string;
+        };
+      };
+      organization_members: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          role: string;
+          joined_at: string;
+          status: string;
+        };
+        Insert: {
+          organization_id: string;
+          user_id: string;
+          role?: string;
+          status?: string;
+        };
+        Update: {
+          role?: string;
+          status?: string;
+        };
+      };
+      organization_events: {
+        Row: {
+          id: string;
+          organization_id: string;
+          name: string;
+          description: string;
+          deadline: string | null;
+          capacity: number;
+          fee: number;
+          status: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          organization_id: string;
+          name: string;
+          description: string;
+          deadline?: string | null;
+          capacity?: number;
+          fee?: number;
+          status?: string;
+          created_by: string;
+        };
+        Update: {
+          name?: string;
+          description?: string;
+          deadline?: string | null;
+          capacity?: number;
+          fee?: number;
+          status?: string;
+        };
+      };
+      organization_transactions: {
+        Row: {
+          id: string;
+          organization_id: string;
+          user_id: string;
+          type: string;
+          amount: number;
+          status: string;
+          purpose: string;
+          reference: string | null;
+          gcash_fee: number;
+          created_at: string;
+        };
+        Insert: {
+          organization_id: string;
+          user_id: string;
+          type: string;
+          amount: number;
+          status?: string;
+          purpose: string;
+          reference?: string | null;
+          gcash_fee?: number;
+        };
+        Update: {
+          type?: string;
+          amount?: number;
+          status?: string;
+          purpose?: string;
+          reference?: string | null;
+          gcash_fee?: number;
+        };
+      };
+      organization_announcements: {
+        Row: {
+          id: string;
+          organization_id: string;
+          title: string;
+          content: string;
+          created_by: string;
+          created_at: string;
+        };
+        Insert: {
+          organization_id: string;
+          title: string;
+          content: string;
+          created_by: string;
+        };
+        Update: {
+          title?: string;
+          content?: string;
+        };
+      };
+      organization_wallets: {
+        Row: {
+          id: string;
+          organization_id: string;
+          balance: number;
+          created_at: string;
+        };
+        Insert: {
+          organization_id: string;
+          balance?: number;
+        };
+        Update: {
+          balance?: number;
+        };
+      };
+      registration_codes: {
+        Row: {
+          id: string;
+          code: string;
+          used: boolean;
+          created_at: string;
+        };
+        Insert: {
+          code: string;
+          used?: boolean;
+        };
+        Update: {
+          used?: boolean;
+        };
+      };
+    };
     Functions: {
       get_user_role: {
         Args: { _user_id: string };

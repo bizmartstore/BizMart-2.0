@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ShoppingBag, Store, Crown, Smartphone, Printer, Lock, Headset } from "lucide-react";
+import { ShoppingBag, Store, Crown, Smartphone, Printer, Lock, Headset, Users } from "lucide-react";
 import { useRef, useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { toast } from "sonner";
@@ -33,6 +33,16 @@ const features = [
     bg: "bg-gradient-to-br from-yellow-500 to-orange-500",
     emoji: "👑",
     path: "/club",
+    restricted: false,
+  },
+  {
+    id: "organizations",
+    label: "Organizations",
+    desc: "Join Clubs",
+    icon: Users,
+    bg: "bg-gradient-to-br from-green-500 to-emerald-500",
+    emoji: "🏫",
+    path: "/organizations",
     restricted: false,
   },
   {
