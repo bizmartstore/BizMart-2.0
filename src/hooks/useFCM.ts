@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useRef } from "react";
-import { messaging, getToken, VAPID_KEY } from "@/lib/firebase";
+import { messaging, getToken, onMessage, VAPID_KEY } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -24,59 +24,51 @@ export function useFCM() {
     if (!messaging || !user) return;
 
     try {
-      // Check if service worker is already registered
-      if ('serviceWorker' in navigator) {
-        try {
-          registrationRef.current = await navigator.serviceWorker.getRegistration('/firebase-cloud-messaging-push-scope');
-          if (!registrationRef.current) {
-            registrationRef.current = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-              scope: '/firebase-cloud-messaging-push-scope'
-            });
-          }
-        } catch (swError) {
-          console.error("[FCM] Service Worker registration failed:", swError);
-          // Fallback to default scope
-          registrationRef.current = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        }
-      }
-
       const permission = await Notification.requestPermission();
       if (permission === "granted") {
-        const token = await getToken(messaging, {
+        if (!registrationRef.current) {
+          registrationRef.current = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/firebase-cloud-messaging-push-scope'
+          });
+        }
+        
+        const token = await getToken(messaging, { 
           vapidKey: VAPID_KEY,
-          serviceWorkerRegistration: registrationRef.current
+          serviceWorkerRegistration: registrationRef.current 
         });
-
+        
         if (token) {
           await saveTokenToDb(token);
           console.log("[FCM] Token generated and saved");
-          toast.success("Push notifications enabled!");
         }
       }
     } catch (error) {
       console.error("[FCM] Permission/Token error:", error);
-      toast.error("Failed to enable push notifications. Please try again.");
     }
   }, [user, saveTokenToDb]);
 
   useEffect(() => {
     if (!user || !messaging) return;
 
-    // Request permission on component mount
     requestPermission();
 
-    // Handle foreground messages
+    // Handle foreground messages via FCM only
+    // We removed the Supabase Realtime listener here because it was causing duplicates
     const unsubscribeFCM = onMessage(messaging, (payload) => {
       const title = payload.notification?.title || "New Notification";
       const body = payload.notification?.body || "";
-
-      toast(title, {
+      
+      // Show in-app toast for foreground users
+      toast(title, { 
         description: body,
         action: payload.data?.link ? {
           label: "View",
           onClick: () => window.location.href = payload.data?.link
         } : undefined
       });
+      
+      // We do NOT call triggerLocalPushNotification here because it creates 
+      // a system notification on top of the toast, which feels like a duplicate.
     });
 
     return () => {
