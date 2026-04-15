@@ -18,48 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-interface Organization {
-  id: string;
-  name: string;
-  description: string;
-  adviser_name: string | null;
-  club_type: string;
-  status: 'pending' | 'approved' | 'rejected' | 'archived';
-  creator_id: string;
-  created_at: string;
-  member_count?: number;
-  creator?: {
-    first_name: string;
-    last_name: string;
-    email: string;
-  } | null;
-}
-
-interface Transaction {
-  id: string;
-  organization_id: string;
-  user_id: string;
-  type: 'deposit' | 'withdrawal';
-  amount: number;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  purpose: string;
-  reference: string | null;
-  gcash_fee: number;
-  created_at: string;
-  profile?: {
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-  } | null;
-}
-
-interface RegistrationCode {
-  id: string;
-  code: string;
-  used: boolean;
-  created_at: string;
-}
-
 export default function AdminOrganizationsTab() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -96,7 +54,7 @@ export default function AdminOrganizationsTab() {
 
       // Get member counts
       const orgsWithCounts = await Promise.all(
-        data?.map(async (org) => {
+        data?.map(async (org: Organization) => {
           const { count, error: countError } = await supabase
             .from("organization_members")
             .select("id", { count: "exact", head: true })
@@ -129,7 +87,7 @@ export default function AdminOrganizationsTab() {
 
       // Get member counts
       const orgsWithCounts = await Promise.all(
-        data?.map(async (org) => {
+        data?.map(async (org: Organization) => {
           const { count, error: countError } = await supabase
             .from("organization_members")
             .select("id", { count: "exact", head: true })
@@ -200,8 +158,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organizations")
-        .update({ status: "approved" } as { status: string })
-        .eq("id", orgToAction);
+        .update({ status: "approved" } as Database["public"]["Tables"]["organizations"]["Update"])
+        .eq("id", orgToAction as string);
 
       if (error) throw error;
 
@@ -222,8 +180,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organizations")
-        .update({ status: "rejected" } as { status: string })
-        .eq("id", orgToAction);
+        .update({ status: "rejected" } as Database["public"]["Tables"]["organizations"]["Update"])
+        .eq("id", orgToAction as string);
 
       if (error) throw error;
 
@@ -242,8 +200,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organizations")
-        .update({ status: "archived" } as { status: string })
-        .eq("id", orgId);
+        .update({ status: "archived" } as Database["public"]["Tables"]["organizations"]["Update"])
+        .eq("id", orgId as string);
 
       if (error) throw error;
 
@@ -259,8 +217,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organization_transactions")
-        .update({ status: "approved" } as { status: string })
-        .eq("id", transactionId);
+        .update({ status: "approved" } as Database["public"]["Tables"]["organization_transactions"]["Update"])
+        .eq("id", transactionId as string);
 
       if (error) throw error;
 
@@ -275,19 +233,19 @@ export default function AdminOrganizationsTab() {
         const { data: wallet } = await supabase
           .from("organization_wallets")
           .select("balance")
-          .eq("organization_id", transaction.organization_id)
+          .eq("organization_id", transaction.organization_id as string)
           .single();
 
         const newBalance = transaction.type === "deposit"
-          ? (wallet?.balance || 0) + transaction.amount
-          : (wallet?.balance || 0) - transaction.amount;
+          ? (wallet?.balance || 0) + (transaction.amount as number)
+          : (wallet?.balance || 0) - (transaction.amount as number);
 
         await supabase
           .from("organization_wallets")
           .upsert({
-            organization_id: transaction.organization_id,
+            organization_id: transaction.organization_id as string,
             balance: newBalance,
-          } as { organization_id: string; balance: number });
+          } as Database["public"]["Tables"]["organization_wallets"]["Insert"]);
       }
 
       toast.success("Transaction approved successfully!");
@@ -302,8 +260,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organization_transactions")
-        .update({ status: "rejected" } as { status: string })
-        .eq("id", transactionId);
+        .update({ status: "rejected" } as Database["public"]["Tables"]["organization_transactions"]["Update"])
+        .eq("id", transactionId as string);
 
       if (error) throw error;
 
@@ -322,7 +280,7 @@ export default function AdminOrganizationsTab() {
         used: false,
       }));
 
-      const { error } = await supabase.from("registration_codes").insert(codesToCreate);
+      const { error } = await supabase.from("registration_codes").insert(codesToCreate as Database["public"]["Tables"]["registration_codes"]["Insert"][]);
 
       if (error) throw error;
 
@@ -342,8 +300,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("registration_codes")
-        .update({ used: true } as { used: boolean })
-        .eq("id", codeToRevoke);
+        .update({ used: true } as Database["public"]["Tables"]["registration_codes"]["Update"])
+        .eq("id", codeToRevoke as string);
 
       if (error) throw error;
 

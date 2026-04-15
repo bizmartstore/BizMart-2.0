@@ -16,18 +16,6 @@ import { Badge } from "@/components/ui/badge";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 
-interface Organization {
-  id: string;
-  name: string;
-  description: string;
-  adviser_name: string | null;
-  club_type: string;
-  status: 'pending' | 'approved' | 'rejected' | 'archived';
-  creator_id: string;
-  created_at: string;
-  member_count?: number;
-}
-
 export default function OrganizationsPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -65,7 +53,7 @@ export default function OrganizationsPage() {
 
       // Get member counts for each organization
       const orgsWithCounts = await Promise.all(
-        data?.map(async (org) => {
+        data?.map(async (org: Organization) => {
           const { count, error: countError } = await supabase
             .from("organization_members")
             .select("id", { count: "exact", head: true })
@@ -127,7 +115,7 @@ export default function OrganizationsPage() {
           creator_id: user.id,
         })
         .select()
-        .single();
+        .single() as { data: any; error: any };
 
       if (orgError) {
         console.error("Organization creation error:", orgError);

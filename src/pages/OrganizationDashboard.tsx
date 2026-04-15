@@ -20,79 +20,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 
-interface Organization {
-  id: string;
-  name: string;
-  description: string;
-  adviser_name: string | null;
-  club_type: string;
-  status: 'pending' | 'approved' | 'rejected' | 'archived';
-  creator_id: string;
-  created_at: string;
-  member_count?: number;
-}
-
-interface Member {
-  id: string;
-  user_id: string;
-  organization_id: string;
-  role: 'creator' | 'officer' | 'member';
-  joined_at: string;
-  status: 'active' | 'left';
-  profile: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    avatar_url: string | null;
-  } | null;
-}
-
-interface Event {
-  id: string;
-  organization_id: string;
-  name: string;
-  description: string;
-  deadline: string | null;
-  capacity: number;
-  fee: number;
-  status: 'upcoming' | 'ongoing' | 'completed';
-  created_by: string;
-  created_at: string;
-}
-
-interface Transaction {
-  id: string;
-  organization_id: string;
-  user_id: string;
-  type: 'deposit' | 'withdrawal';
-  amount: number;
-  status: 'pending' | 'approved' | 'rejected' | 'completed';
-  purpose: string;
-  reference: string | null;
-  gcash_fee: number;
-  created_at: string;
-  profile: {
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-  } | null;
-}
-
-interface Announcement {
-  id: string;
-  organization_id: string;
-  title: string;
-  content: string;
-  created_by: string;
-  created_at: string;
-  profile: {
-    first_name: string;
-    last_name: string;
-    avatar_url: string | null;
-  } | null;
-}
-
 export default function OrganizationDashboard() {
   const { id } = useParams<{ id: string }>();
   const { user, profile } = useAuth();
@@ -167,7 +94,7 @@ export default function OrganizationDashboard() {
         .select("id", { count: "exact", head: true })
         .eq("organization_id", id);
 
-      setOrganization({ ...orgData, member_count: count || 0 });
+      setOrganization({ ...orgData, member_count: count || 0 } as Organization);
 
       // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
@@ -179,9 +106,9 @@ export default function OrganizationDashboard() {
       if (walletError) {
         // Create wallet if it doesn't exist
         await supabase.from("organization_wallets").insert({
-          organization_id: id,
-          balance: 0,
-        });
+            organization_id: id,
+            balance: 0,
+          });
         setWalletBalance(0);
       } else {
         setWalletBalance(walletData?.balance || 0);
@@ -271,7 +198,7 @@ export default function OrganizationDashboard() {
 
     try {
       await supabase.from("organization_members").insert({
-        organization_id: organization.id,
+        organization_id: (organization as any).id,
         user_id: user.id,
         role: "member",
       });
@@ -292,7 +219,7 @@ export default function OrganizationDashboard() {
 
     try {
       const { error } = await supabase.from("organization_events").insert({
-        organization_id: organization.id,
+        organization_id: (organization as any).id,
         name: newEventForm.name,
         description: newEventForm.description,
         deadline: newEventForm.deadline,
@@ -330,7 +257,7 @@ export default function OrganizationDashboard() {
 
     try {
       const { error } = await supabase.from("organization_transactions").insert({
-        organization_id: organization.id,
+        organization_id: (organization as any).id,
         user_id: user.id,
         type: "deposit",
         amount,
@@ -366,7 +293,7 @@ export default function OrganizationDashboard() {
 
     try {
       const { error } = await supabase.from("organization_transactions").insert({
-        organization_id: organization.id,
+        organization_id: (organization as any).id,
         user_id: user.id,
         type: "withdrawal",
         amount,
@@ -396,7 +323,7 @@ export default function OrganizationDashboard() {
 
     try {
       const { error } = await supabase.from("organization_announcements").insert({
-        organization_id: organization.id,
+        organization_id: (organization as any).id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
@@ -422,8 +349,8 @@ export default function OrganizationDashboard() {
     try {
       await supabase
         .from("organization_members")
-        .update({ status: "left" } as { status: string })
-        .eq("id", memberToRemove);
+        .update({ status: "left" } as Database["public"]["Tables"]["organization_members"]["Update"])
+        .eq("id", memberToRemove as string);
 
       toast.success("Member removed successfully!");
       fetchOrganizationData();

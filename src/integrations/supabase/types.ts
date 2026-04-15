@@ -242,7 +242,7 @@ export type Database = {
           description: string;
           adviser_name: string | null;
           club_type: string;
-          status: string;
+          status: 'pending' | 'approved' | 'rejected' | 'archived';
           creator_id: string;
           created_at: string;
           updated_at: string;
@@ -252,7 +252,7 @@ export type Database = {
           description: string;
           adviser_name?: string | null;
           club_type: string;
-          status?: string;
+          status?: 'pending' | 'approved' | 'rejected' | 'archived';
           creator_id: string;
         };
         Update: {
@@ -260,7 +260,7 @@ export type Database = {
           description?: string;
           adviser_name?: string | null;
           club_type?: string;
-          status?: string;
+          status?: 'pending' | 'approved' | 'rejected' | 'archived';
         };
       };
       organization_members: {
@@ -268,19 +268,19 @@ export type Database = {
           id: string;
           organization_id: string;
           user_id: string;
-          role: string;
+          role: 'creator' | 'officer' | 'member';
           joined_at: string;
-          status: string;
+          status: 'active' | 'left';
         };
         Insert: {
           organization_id: string;
           user_id: string;
-          role?: string;
-          status?: string;
+          role?: 'creator' | 'officer' | 'member';
+          status?: 'active' | 'left';
         };
         Update: {
-          role?: string;
-          status?: string;
+          role?: 'creator' | 'officer' | 'member';
+          status?: 'active' | 'left';
         };
       };
       organization_events: {
@@ -292,7 +292,7 @@ export type Database = {
           deadline: string | null;
           capacity: number;
           fee: number;
-          status: string;
+          status: 'upcoming' | 'ongoing' | 'completed';
           created_by: string;
           created_at: string;
         };
@@ -303,7 +303,7 @@ export type Database = {
           deadline?: string | null;
           capacity?: number;
           fee?: number;
-          status?: string;
+          status?: 'upcoming' | 'ongoing' | 'completed';
           created_by: string;
         };
         Update: {
@@ -312,7 +312,7 @@ export type Database = {
           deadline?: string | null;
           capacity?: number;
           fee?: number;
-          status?: string;
+          status?: 'upcoming' | 'ongoing' | 'completed';
         };
       };
       organization_transactions: {
@@ -320,9 +320,9 @@ export type Database = {
           id: string;
           organization_id: string;
           user_id: string;
-          type: string;
+          type: 'deposit' | 'withdrawal';
           amount: number;
-          status: string;
+          status: 'pending' | 'approved' | 'rejected' | 'completed';
           purpose: string;
           reference: string | null;
           gcash_fee: number;
@@ -331,17 +331,17 @@ export type Database = {
         Insert: {
           organization_id: string;
           user_id: string;
-          type: string;
+          type: 'deposit' | 'withdrawal';
           amount: number;
-          status?: string;
+          status?: 'pending' | 'approved' | 'rejected' | 'completed';
           purpose: string;
           reference?: string | null;
           gcash_fee?: number;
         };
         Update: {
-          type?: string;
+          type?: 'deposit' | 'withdrawal';
           amount?: number;
-          status?: string;
+          status?: 'pending' | 'approved' | 'rejected' | 'completed';
           purpose?: string;
           reference?: string | null;
           gcash_fee?: number;
@@ -379,6 +379,7 @@ export type Database = {
           balance?: number;
         };
         Update: {
+          organization_id?: string;
           balance?: number;
         };
       };
