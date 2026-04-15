@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, CheckCircle, XCircle, Eye, Archive, Plus, Search, Ticket, DollarSign, Calendar, User, Settings } from "lucide-react";
+import { Users, CheckCircle, XCircle, Eye, Archive, Plus, Search, Ticket, DollarSign, Calendar, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,8 +61,8 @@ interface RegistrationCode {
 }
 
 export default function AdminOrganizationsTab() {
-  const { user } = useAuth();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("pending");
   const [pendingOrgs, setPendingOrgs] = useState<Organization[]>([]);
   const [allOrgs, setAllOrgs] = useState<Organization[]>([]);
@@ -96,13 +96,15 @@ export default function AdminOrganizationsTab() {
 
       // Get member counts
       const orgsWithCounts = await Promise.all(
-        data.map(async (org) => {
-          const { count } = await supabase
+        data?.map(async (org) => {
+          const { count, error: countError } = await supabase
             .from("organization_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
+
+          if (countError) console.error("Error counting members:", countError);
           return { ...org, member_count: count || 0 };
-        })
+        }) || []
       );
 
       setPendingOrgs(orgsWithCounts);
@@ -127,13 +129,15 @@ export default function AdminOrganizationsTab() {
 
       // Get member counts
       const orgsWithCounts = await Promise.all(
-        data.map(async (org) => {
-          const { count } = await supabase
+        data?.map(async (org) => {
+          const { count, error: countError } = await supabase
             .from("organization_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
+
+          if (countError) console.error("Error counting members:", countError);
           return { ...org, member_count: count || 0 };
-        })
+        }) || []
       );
 
       setAllOrgs(orgsWithCounts);
@@ -196,8 +200,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organizations")
-        .update({ status: "approved" })
-        .eq("id", orgToAction!);
+        .update({ status: "approved" } as { status: string })
+        .eq("id", orgToAction);
 
       if (error) throw error;
 
@@ -218,8 +222,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organizations")
-        .update({ status: "rejected" })
-        .eq("id", orgToAction!);
+        .update({ status: "rejected" } as { status: string })
+        .eq("id", orgToAction);
 
       if (error) throw error;
 
@@ -238,7 +242,7 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organizations")
-        .update({ status: "archived" })
+        .update({ status: "archived" } as { status: string })
         .eq("id", orgId);
 
       if (error) throw error;
@@ -255,7 +259,7 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organization_transactions")
-        .update({ status: "approved" })
+        .update({ status: "approved" } as { status: string })
         .eq("id", transactionId);
 
       if (error) throw error;
@@ -283,7 +287,7 @@ export default function AdminOrganizationsTab() {
           .upsert({
             organization_id: transaction.organization_id,
             balance: newBalance,
-          });
+          } as { organization_id: string; balance: number });
       }
 
       toast.success("Transaction approved successfully!");
@@ -298,7 +302,7 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("organization_transactions")
-        .update({ status: "rejected" })
+        .update({ status: "rejected" } as { status: string })
         .eq("id", transactionId);
 
       if (error) throw error;
@@ -338,8 +342,8 @@ export default function AdminOrganizationsTab() {
     try {
       const { error } = await supabase
         .from("registration_codes")
-        .update({ used: true })
-        .eq("id", codeToRevoke!);
+        .update({ used: true } as { used: boolean })
+        .eq("id", codeToRevoke);
 
       if (error) throw error;
 
@@ -550,8 +554,12 @@ export default function AdminOrganizationsTab() {
         <TabsContent value="all">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">All Organizations ({allOrgs.length})</CardTitle>
-              <CardDescription>Manage all approved organizations</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">All Organizations ({allOrgs.length})</CardTitle>
+                  <CardDescription>Manage all approved organizations</CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {isLoading.all ? (
@@ -748,7 +756,7 @@ export default function AdminOrganizationsTab() {
                 </div>
                 <Dialog open={newCodeDialogOpen} onOpenChange={setNewCodeDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="gap-2" onClick={() => setNewCodeDialogOpen(true)}>
+                    <Button size="sm" className="gap-2">
                       <Plus className="h-4 w-4" /> Generate Codes
                     </Button>
                   </DialogTrigger>

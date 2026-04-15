@@ -157,9 +157,19 @@ export default function OrganizationDashboard() {
         .single();
 
       if (orgError) throw orgError;
+      if (!orgData) throw new Error("Organization not found");
       
-      const orgWithCount = { ...orgData, member_count: orgData.member_count || 0 };
+      const orgWithCount = { ...orgData, member_count: 0 };
       setOrganization(orgWithCount);
+
+      // Fetch member count
+      const { count, error: countError } = await supabase
+        .from("organization_members")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", id);
+
+      if (countError) console.error("Error counting members:", countError);
+      else setOrganization({ ...orgData, member_count: count || 0 });
 
       // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
@@ -189,7 +199,7 @@ export default function OrganizationDashboard() {
         .order("joined_at", { ascending: false });
 
       if (membersError) console.error("Error fetching members:", membersError);
-      setMembers(membersData || []);
+      else setMembers(membersData || []);
 
       // Fetch events
       const { data: eventsData, error: eventsError } = await supabase
@@ -199,7 +209,7 @@ export default function OrganizationDashboard() {
         .order("created_at", { ascending: false });
 
       if (eventsError) console.error("Error fetching events:", eventsError);
-      setEvents(eventsData || []);
+      else setEvents(eventsData || []);
 
       // Fetch transactions
       const { data: transactionsData, error: transactionsError } = await supabase
@@ -209,7 +219,7 @@ export default function OrganizationDashboard() {
         .order("created_at", { ascending: false });
 
       if (transactionsError) console.error("Error fetching transactions:", transactionsError);
-      setTransactions(transactionsData || []);
+      else setTransactions(transactionsData || []);
 
       // Fetch announcements
       const { data: announcementsData, error: announcementsError } = await supabase
@@ -219,7 +229,7 @@ export default function OrganizationDashboard() {
         .order("created_at", { ascending: false });
 
       if (announcementsError) console.error("Error fetching announcements:", announcementsError);
-      setAnnouncements(announcementsData || []);
+      else setAnnouncements(announcementsData || []);
 
       // Check if user is a member and get their role
       if (user) {
@@ -231,7 +241,11 @@ export default function OrganizationDashboard() {
           .eq("status", "active")
           .single();
 
-        if (memberData) {
+        if (memberError) {
+          if (memberError.code !== "PGRST116") {
+            console.error("Error checking membership:", memberError);
+          }
+        } else if (memberData) {
           setIsMember(true);
           setUserRole(memberData.role as 'creator' | 'officer' | 'member');
         }
@@ -256,7 +270,11 @@ export default function OrganizationDashboard() {
       .eq("status", "active")
       .single();
 
-    if (data) {
+    if (error) {
+      if (error.code !== "PGRST116") {
+        console.error("Error checking membership:", error);
+      }
+    } else if (data) {
       setIsMember(true);
       setUserRole(data.role as 'creator' | 'officer' | 'member');
     }
@@ -673,6 +691,7 @@ export default function OrganizationDashboard() {
                           value={newEventForm.description}
                           onChange={(e) => setNewEventForm({ ...newEventForm, description: e.target.value })}
                           placeholder="Brief description of the event"
+                          rows={4}
                         />
                       </div>
                       <div className="space-y-2">
@@ -893,7 +912,7 @@ export default function OrganizationDashboard() {
                         </div>
                         <div className="text-right">
                           <p className={`font-bold text-sm ${transaction.type === "deposit" ? "text-green-600" : "text-red-600"}`}>
-                            {transaction.type === "deposit" ? "+" : "-"}₱{transaction.amount.toFixed(2)}
+                            {transaction.type === "deposit" ? "+₱" : "-₱"}{transaction.amount.toFixed(2)}
                           </p>
                           <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"} className="mt-1">
                             {transaction.status}
@@ -1003,7 +1022,7 @@ export default function OrganizationDashboard() {
               Are you sure you want to delete this event? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+n          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90">
               Delete Event
@@ -1011,6 +1030,24 @@ export default function OrganizationDashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Join Organization Dialog */}
+      <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Join {organization.name}</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to join this organization?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm">{organization.description}</p>
+            <Button onClick={handleJoinOrganization} className="w-full">
+              Confirm Join
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
