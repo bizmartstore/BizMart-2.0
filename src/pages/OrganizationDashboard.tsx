@@ -145,7 +145,7 @@ export default function OrganizationDashboard() {
     }
   }, [user, id]);
 
-  const fetchOrganizationData = async () => {
+  const fetchOrganizationData = useCallback(async () => {
     try {
       setIsLoading(true);
 
@@ -158,20 +158,16 @@ export default function OrganizationDashboard() {
 
       if (orgError) throw orgError;
       if (!orgData) throw new Error("Organization not found");
-      
-      const orgWithCount = { ...orgData, member_count: 0 };
-      setOrganization(orgWithCount);
+
+      setOrganization(orgData);
 
       // Fetch member count
-      const { count, error: countError } = await supabase
+      const { count } = await supabase
         .from("organization_members")
         .select("id", { count: "exact", head: true })
         .eq("organization_id", id);
 
-      if (countError) console.error("Error counting members:", countError);
-      if (orgData) {
-        setOrganization({ ...orgData, member_count: count || 0 });
-      }
+      setOrganization({ ...orgData, member_count: count || 0 });
 
       // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
@@ -192,7 +188,7 @@ export default function OrganizationDashboard() {
       }
 
       // Fetch members
-      const { data: membersData, error: membersError } = await supabase
+      const { data: membersData } = await supabase
         .from("organization_members")
         .select(`*, profile:profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url)`)
         .eq("organization_id", id)
@@ -200,42 +196,38 @@ export default function OrganizationDashboard() {
         .order("role", { ascending: false })
         .order("joined_at", { ascending: false });
 
-      if (membersError) console.error("Error fetching members:", membersError);
       setMembers(membersData || []);
 
       // Fetch events
-      const { data: eventsData, error: eventsError } = await supabase
+      const { data: eventsData } = await supabase
         .from("organization_events")
         .select("*")
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
-      if (eventsError) console.error("Error fetching events:", eventsError);
       setEvents(eventsData || []);
 
       // Fetch transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
+      const { data: transactionsData } = await supabase
         .from("organization_transactions")
         .select(`*, profile:profiles!organization_transactions_user_id_fkey(first_name, last_name, avatar_url)`)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
-      if (transactionsError) console.error("Error fetching transactions:", transactionsError);
       setTransactions(transactionsData || []);
 
       // Fetch announcements
-      const { data: announcementsData, error: announcementsError } = await supabase
+      const { data: announcementsData } = await supabase
         .from("organization_announcements")
         .select(`*, profile:profiles!organization_announcements_created_by_fkey(first_name, last_name, avatar_url)`)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
-      if (announcementsError) console.error("Error fetching announcements:", announcementsError);
       setAnnouncements(announcementsData || []);
 
       // Check if user is a member and get their role
       if (user) {
-        const { data: memberData, error: memberError } = await supabase
+        const { data: memberData } = await supabase
           .from("organization_members")
           .select("role")
           .eq("organization_id", id)
@@ -243,9 +235,6 @@ export default function OrganizationDashboard() {
           .eq("status", "active")
           .single();
 
-        if (memberError) {
-          console.error("Error checking membership:", memberError);
-        }
         if (memberData) {
           setIsMember(true);
           setUserRole(memberData.role as 'creator' | 'officer' | 'member');
@@ -258,7 +247,7 @@ export default function OrganizationDashboard() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, navigate, user]);
 
   const checkMembership = async () => {
     if (!user || !id) return;
@@ -271,9 +260,6 @@ export default function OrganizationDashboard() {
       .eq("status", "active")
       .single();
 
-    if (error) {
-      console.error("Error checking membership:", error);
-    }
     if (data) {
       setIsMember(true);
       setUserRole(data.role as 'creator' | 'officer' | 'member');
@@ -691,7 +677,6 @@ export default function OrganizationDashboard() {
                           value={newEventForm.description}
                           onChange={(e) => setNewEventForm({ ...newEventForm, description: e.target.value })}
                           placeholder="Brief description of the event"
-                          rows={4}
                         />
                       </div>
                       <div className="space-y-2">
@@ -999,7 +984,7 @@ export default function OrganizationDashboard() {
       <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member</AlertTitle>
+            <AlertDialogTitle>Remove Member</AlertDialogTitle>
             <AlertDialogDescription>
               Are you sure you want to remove this member from the organization?
             </AlertDialogDescription>
@@ -1041,7 +1026,9 @@ export default function OrganizationDashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm">{organization.description}</p>
+            <p className="text-sm"><strong>Type:</strong> {organization.club_type}</p>
+            <p className="text-sm"><strong>Description:</strong> {organization.description}</p>
+            <p className="text-sm"><strong>Adviser:</strong> {organization.adviser_name || "N/A"}</p>
             <Button onClick={handleJoinOrganization} className="w-full">
               Confirm Join
             </Button>
