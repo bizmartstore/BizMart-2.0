@@ -58,7 +58,10 @@ export default function OrganizationsPage() {
         .eq("status", "approved")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Supabase error:", error);
+        throw error;
+      }
 
       // Get member counts for each organization
       const orgsWithCounts = await Promise.all(
@@ -77,7 +80,7 @@ export default function OrganizationsPage() {
       setOrganizations(orgsWithCounts);
     } catch (error) {
       console.error("Error fetching organizations:", error);
-      toast.error("Failed to load organizations");
+      toast.error("Failed to load organizations. Please try again later.");
     } finally {
       setIsLoading(false);
     }
@@ -103,7 +106,10 @@ export default function OrganizationsPage() {
         .eq("used", false)
         .maybeSingle();
 
-      if (codeError) throw codeError;
+      if (codeError) {
+        console.error("Code verification error:", codeError);
+        throw codeError;
+      }
       if (!codeData) {
         toast.error("Invalid or already used registration code");
         return;
@@ -123,7 +129,10 @@ export default function OrganizationsPage() {
         .select()
         .single();
 
-      if (orgError) throw orgError;
+      if (orgError) {
+        console.error("Organization creation error:", orgError);
+        throw orgError;
+      }
 
       // Mark code as used
       await supabase
@@ -146,7 +155,7 @@ export default function OrganizationsPage() {
       resetForm();
     } catch (error) {
       console.error("Error registering organization:", error);
-      toast.error("Failed to register organization");
+      toast.error("Failed to register organization. Please check your registration code.");
     }
   };
 
@@ -165,10 +174,6 @@ export default function OrganizationsPage() {
     org.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
     org.club_type.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const generateRandomCode = () => {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  };
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -194,14 +199,18 @@ export default function OrganizationsPage() {
             />
           </div>
           <Dialog open={isRegisterModalOpen} onOpenChange={setIsRegisterModalOpen}>
-            <Button onClick={() => setIsRegisterModalOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> Register Organization
-            </Button>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" /> Register Organization
+              </Button>
+            </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Register New Organization</DialogTitle>
                 <DialogDescription>
                   Fill out the form below to register your organization. It will be reviewed by an admin.
+                  <br />
+                  <strong>Note:</strong> You need a registration code from an admin to register.
                 </DialogDescription>
               </DialogHeader>
 
@@ -213,6 +222,7 @@ export default function OrganizationsPage() {
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="e.g., Computer Science Club"
+                    required
                   />
                 </div>
 
@@ -223,6 +233,7 @@ export default function OrganizationsPage() {
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Brief description of your organization"
+                    required
                   />
                 </div>
 
@@ -253,24 +264,15 @@ export default function OrganizationsPage() {
 
                 <div className="space-y-2">
                   <Label htmlFor="registration-code">Registration Code *</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="registration-code"
-                      value={registrationCode}
-                      onChange={(e) => setRegistrationCode(e.target.value)}
-                      placeholder="Enter registration code"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setRegistrationCode(generateRandomCode())}
-                    >
-                      Generate Code
-                    </Button>
-                  </div>
+                  <Input
+                    id="registration-code"
+                    value={registrationCode}
+                    onChange={(e) => setRegistrationCode(e.target.value)}
+                    placeholder="Enter registration code from admin"
+                    required
+                  />
                   <p className="text-xs text-muted-foreground">
-                    Ask an admin for a registration code to register your organization.
+                    Ask your organization's adviser or an admin for a registration code.
                   </p>
                 </div>
 
@@ -288,7 +290,11 @@ export default function OrganizationsPage() {
           </div>
         ) : filteredOrganizations.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-muted-foreground">No organizations found</p>
+            <p className="text-muted-foreground">
+              {organizations.length === 0
+                ? "No organizations have been approved yet. Check back later!"
+                : "No organizations match your search."}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -300,7 +306,7 @@ export default function OrganizationsPage() {
                       <CardTitle className="text-lg">{org.name}</CardTitle>
                       <CardDescription className="text-xs mt-1">{org.club_type}</CardDescription>
                     </div>
-                    <Badge variant={org.club_type === "Academic" ? "default" : org.club_type === "Sports" ? "default" : org.club_type === "Arts" ? "default" : "secondary"}>
+                    <Badge variant="default">
                       {org.club_type}
                     </Badge>
                   </div>
