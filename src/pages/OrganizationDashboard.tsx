@@ -169,7 +169,9 @@ export default function OrganizationDashboard() {
         .eq("organization_id", id);
 
       if (countError) console.error("Error counting members:", countError);
-      else setOrganization({ ...orgData, member_count: count || 0 });
+      if (orgData) {
+        setOrganization({ ...orgData, member_count: count || 0 });
+      }
 
       // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
@@ -199,7 +201,7 @@ export default function OrganizationDashboard() {
         .order("joined_at", { ascending: false });
 
       if (membersError) console.error("Error fetching members:", membersError);
-      else setMembers(membersData || []);
+      setMembers(membersData || []);
 
       // Fetch events
       const { data: eventsData, error: eventsError } = await supabase
@@ -209,7 +211,7 @@ export default function OrganizationDashboard() {
         .order("created_at", { ascending: false });
 
       if (eventsError) console.error("Error fetching events:", eventsError);
-      else setEvents(eventsData || []);
+      setEvents(eventsData || []);
 
       // Fetch transactions
       const { data: transactionsData, error: transactionsError } = await supabase
@@ -219,7 +221,7 @@ export default function OrganizationDashboard() {
         .order("created_at", { ascending: false });
 
       if (transactionsError) console.error("Error fetching transactions:", transactionsError);
-      else setTransactions(transactionsData || []);
+      setTransactions(transactionsData || []);
 
       // Fetch announcements
       const { data: announcementsData, error: announcementsError } = await supabase
@@ -229,7 +231,7 @@ export default function OrganizationDashboard() {
         .order("created_at", { ascending: false });
 
       if (announcementsError) console.error("Error fetching announcements:", announcementsError);
-      else setAnnouncements(announcementsData || []);
+      setAnnouncements(announcementsData || []);
 
       // Check if user is a member and get their role
       if (user) {
@@ -242,10 +244,9 @@ export default function OrganizationDashboard() {
           .single();
 
         if (memberError) {
-          if (memberError.code !== "PGRST116") {
-            console.error("Error checking membership:", memberError);
-          }
-        } else if (memberData) {
+          console.error("Error checking membership:", memberError);
+        }
+        if (memberData) {
           setIsMember(true);
           setUserRole(memberData.role as 'creator' | 'officer' | 'member');
         }
@@ -271,10 +272,9 @@ export default function OrganizationDashboard() {
       .single();
 
     if (error) {
-      if (error.code !== "PGRST116") {
-        console.error("Error checking membership:", error);
-      }
-    } else if (data) {
+      console.error("Error checking membership:", error);
+    }
+    if (data) {
       setIsMember(true);
       setUserRole(data.role as 'creator' | 'officer' | 'member');
     }
@@ -999,7 +999,7 @@ export default function OrganizationDashboard() {
       <AlertDialog open={!!memberToRemove} onOpenChange={() => setMemberToRemove(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove Member</AlertDialogTitle>
+            <AlertDialogTitle>Remove Member</AlertTitle>
             <AlertDialogDescription>
               Are you sure you want to remove this member from the organization?
             </AlertDialogDescription>
@@ -1022,7 +1022,7 @@ export default function OrganizationDashboard() {
               Are you sure you want to delete this event? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-n          <AlertDialogFooter>
+          <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteEvent} className="bg-destructive hover:bg-destructive/90">
               Delete Event
