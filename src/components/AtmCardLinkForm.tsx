@@ -69,7 +69,7 @@ export default function AtmCardLinkForm({ onSuccess }: AtmCardLinkFormProps) {
             <Input
               id="cardNumber"
               type="text"
-              placeholder="1234 5678 9012 3456"
+              placeholder="BZM-2026-XXXX"
               value={cardNumber}
               onChange={(e) => {
                 // Auto-format card number with spaces
@@ -83,7 +83,7 @@ export default function AtmCardLinkForm({ onSuccess }: AtmCardLinkFormProps) {
               required
             />
             <p className="text-[10px] text-muted-foreground">
-              Enter your 16-digit ATM card number
+              Enter your BZM-2026-XXXX digital card number (last 4 digits)
             </p>
           </div>
 

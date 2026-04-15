@@ -29,26 +29,7 @@ export const useAtmCards = () => {
     setError(null);
 
     try {
-      // First check if the table exists
-      const { data: tableCheck, error: tableError } = await supabase
-        .from("user_atm_cards")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", "nonexistent")
-        .limit(1);
-
-      if (tableError && tableError.code === '42P01') {
-        // Table doesn't exist
-        setCards([]);
-        setLoading(false);
-        return;
-      }
-
-      if (tableError) {
-        console.error("Table check error:", tableError);
-        throw tableError;
-      }
-
-      // Table exists, proceed with normal query
+      // Directly query for active cards
       const { data, error: fetchError } = await supabase
         .from("user_atm_cards")
         .select("*")
@@ -81,15 +62,18 @@ export const useAtmCards = () => {
         throw new Error("No bCoins wallet found. Please ensure you have a bCoins wallet.");
       }
 
-      // Format card number with spaces
-      const maskedCard = cardNumber.replace(/\s+/g, "").replace(/(.{4})/g, "$1 ").trim();
+      // Generate BZM-2026-XXXX format card number
+      // Extract last 4 digits from the input card number
+      const cleanedCard = cardNumber.replace(/\s+/g, "");
+      const lastFourDigits = cleanedCard.slice(-4);
+      const bzmCardNumber = `BZM-2026-${lastFourDigits}`;
 
       // Insert new ATM card
       const { error: insertError } = await supabase
         .from("user_atm_cards")
         .insert({
           user_id: user.id,
-          card_number: maskedCard,
+          card_number: bzmCardNumber,
           card_holder_name: cardHolderName,
           bcoins_wallet_id: wallet.id,
           is_active: true,
