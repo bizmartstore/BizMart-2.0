@@ -19,6 +19,19 @@ let messaging: Messaging | null = null;
 // Only initialize messaging in the browser
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   try {
+    // Register service worker first
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/',
+        type: 'module'
+      }).then((registration) => {
+        console.log('[Firebase] Service Worker registered with scope:', registration.scope);
+      }).catch((error) => {
+        console.error('[Firebase] Service Worker registration failed:', error);
+      });
+    }
+
+    // Then initialize messaging
     messaging = getMessaging(app);
   } catch (error) {
     console.error("Firebase Messaging failed to initialize:", error);
