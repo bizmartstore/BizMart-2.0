@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import { Organization } from "@/types";
 
 export default function OrganizationsPage() {
   const { user, profile } = useAuth();

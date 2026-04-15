@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import { Organization, Member, Event, Transaction, Announcement } from "@/types";
 
 export default function OrganizationDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -94,7 +95,7 @@ export default function OrganizationDashboard() {
         .select("id", { count: "exact", head: true })
         .eq("organization_id", id);
 
-      setOrganization({ ...orgData, member_count: count || 0 } as Organization);
+      setOrganization({ ...(orgData as Organization), member_count: count || 0 });
 
       // Fetch wallet balance
       const { data: walletData, error: walletError } = await supabase
@@ -110,8 +111,8 @@ export default function OrganizationDashboard() {
             balance: 0,
           });
         setWalletBalance(0);
-      } else {
-        setWalletBalance(walletData?.balance || 0);
+      } else if (walletData) {
+        setWalletBalance((walletData as { balance: number }).balance);
       }
 
       // Fetch members
@@ -160,11 +161,11 @@ export default function OrganizationDashboard() {
           .eq("organization_id", id)
           .eq("user_id", user.id)
           .eq("status", "active")
-          .single();
+          .single() as { data: { role: 'creator' | 'officer' | 'member' } | null };
 
         if (memberData) {
           setIsMember(true);
-          setUserRole(memberData.role as 'creator' | 'officer' | 'member');
+          setUserRole(memberData.role);
         }
       }
     } catch (error) {
@@ -179,17 +180,17 @@ export default function OrganizationDashboard() {
   const checkMembership = async () => {
     if (!user || !id) return;
 
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("organization_members")
       .select("role")
       .eq("organization_id", id)
       .eq("user_id", user.id)
       .eq("status", "active")
-      .single();
+      .single() as { data: { role: 'creator' | 'officer' | 'member' } | null };
 
     if (data) {
       setIsMember(true);
-      setUserRole(data.role as 'creator' | 'officer' | 'member');
+      setUserRole(data.role);
     }
   };
 
@@ -377,6 +378,7 @@ export default function OrganizationDashboard() {
   };
 
   const canManageMembers = userRole === "creator" || userRole === "officer";
+  const isNotMember = userRole !== "member";
   const canManageEvents = userRole === "creator" || userRole === "officer";
   const canManageWallet = userRole === "creator" || userRole === "officer";
   const canCreateAnnouncements = userRole === "creator" || userRole === "officer";
@@ -555,7 +557,7 @@ export default function OrganizationDashboard() {
                             </Badge>
                           </div>
                         </div>
-                        {canManageMembers && userRole !== "member" && member.role !== "creator" && (
+                        {canManageMembers && isNotMember && member.role !== "creator" && (
                           <Button
                             variant="ghost"
                             size="sm"
