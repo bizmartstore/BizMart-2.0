@@ -156,9 +156,9 @@ export default function AdminOrganizationsTab() {
     if (!orgToAction) return;
 
     try {
-      const { error } = await supabase
-        .from("organizations")
-        .update({ status: "approved" } as Database["public"]["Tables"]["organizations"]["Update"])
+      const { error } = await (supabase
+        .from("organizations") as any)
+        .update({ status: "approved" })
         .eq("id", orgToAction as string);
 
       if (error) throw error;
@@ -178,9 +178,9 @@ export default function AdminOrganizationsTab() {
     if (!orgToAction) return;
 
     try {
-      const { error } = await supabase
-        .from("organizations")
-        .update({ status: "rejected" } as Database["public"]["Tables"]["organizations"]["Update"])
+      const { error } = await (supabase
+        .from("organizations") as any)
+        .update({ status: "rejected" })
         .eq("id", orgToAction as string);
 
       if (error) throw error;
@@ -198,9 +198,9 @@ export default function AdminOrganizationsTab() {
 
   const handleArchiveOrganization = async (orgId: string) => {
     try {
-      const { error } = await supabase
-        .from("organizations")
-        .update({ status: "archived" } as Database["public"]["Tables"]["organizations"]["Update"])
+      const { error } = await (supabase
+        .from("organizations") as any)
+        .update({ status: "archived" })
         .eq("id", orgId as string);
 
       if (error) throw error;
@@ -215,9 +215,9 @@ export default function AdminOrganizationsTab() {
 
   const handleApproveTransaction = async (transactionId: string) => {
     try {
-      const { error } = await supabase
-        .from("organization_transactions")
-        .update({ status: "approved" } as Database["public"]["Tables"]["organization_transactions"]["Update"])
+      const { error } = await (supabase
+        .from("organization_transactions") as any)
+        .update({ status: "approved" })
         .eq("id", transactionId as string);
 
       if (error) throw error;
@@ -230,22 +230,22 @@ export default function AdminOrganizationsTab() {
         .single();
 
       if (transaction) {
-        const { data: wallet } = await supabase
-          .from("organization_wallets")
+        const { data: wallet } = await (supabase
+          .from("organization_wallets") as any)
           .select("balance")
-          .eq("organization_id", transaction.organization_id as string)
+          .eq("organization_id", (transaction as any).organization_id as string)
           .single();
 
-        const newBalance = transaction.type === "deposit"
-          ? (wallet?.balance || 0) + (transaction.amount as number)
-          : (wallet?.balance || 0) - (transaction.amount as number);
+        const newBalance = (transaction as any).type === "deposit"
+          ? (wallet?.balance || 0) + ((transaction as any).amount as number)
+          : (wallet?.balance || 0) - ((transaction as any).amount as number);
 
-        await supabase
-          .from("organization_wallets")
+        await (supabase
+          .from("organization_wallets") as any)
           .upsert({
-            organization_id: transaction.organization_id as string,
+            organization_id: (transaction as any).organization_id as string,
             balance: newBalance,
-          } as Database["public"]["Tables"]["organization_wallets"]["Insert"]);
+          });
       }
 
       toast.success("Transaction approved successfully!");
@@ -258,9 +258,9 @@ export default function AdminOrganizationsTab() {
 
   const handleRejectTransaction = async (transactionId: string) => {
     try {
-      const { error } = await supabase
-        .from("organization_transactions")
-        .update({ status: "rejected" } as Database["public"]["Tables"]["organization_transactions"]["Update"])
+      const { error } = await (supabase
+        .from("organization_transactions") as any)
+        .update({ status: "rejected" })
         .eq("id", transactionId as string);
 
       if (error) throw error;
@@ -280,7 +280,7 @@ export default function AdminOrganizationsTab() {
         used: false,
       }));
 
-      const { error } = await supabase.from("registration_codes").insert(codesToCreate as Database["public"]["Tables"]["registration_codes"]["Insert"][]);
+      const { error } = await (supabase.from("registration_codes") as any).insert(codesToCreate);
 
       if (error) throw error;
 
@@ -298,9 +298,9 @@ export default function AdminOrganizationsTab() {
     if (!codeToRevoke) return;
 
     try {
-      const { error } = await supabase
-        .from("registration_codes")
-        .update({ used: true } as Database["public"]["Tables"]["registration_codes"]["Update"])
+      const { error } = await (supabase
+        .from("registration_codes") as any)
+        .update({ used: true })
         .eq("id", codeToRevoke as string);
 
       if (error) throw error;

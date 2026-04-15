@@ -113,7 +113,7 @@ export default function OrganizationsPage() {
           club_type: formData.club_type,
           status: "pending",
           creator_id: user.id,
-        })
+        } as any)
         .select()
         .single() as { data: any; error: any };
 
@@ -123,16 +123,16 @@ export default function OrganizationsPage() {
       }
 
       // Mark code as used
-      await supabase
-        .from("registration_codes")
+      await (supabase
+        .from("registration_codes") as any)
         .update({ used: true })
-        .eq("id", codeData.id);
+        .eq("id", (codeData as any).id);
 
       // Add creator as member with creator role
-      await supabase
-        .from("organization_members")
+      await (supabase
+        .from("organization_members") as any)
         .insert({
-          organization_id: orgData.id,
+          organization_id: (orgData as any).id,
           user_id: user.id,
           role: "creator",
         });

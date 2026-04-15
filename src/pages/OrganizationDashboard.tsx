@@ -105,7 +105,7 @@ export default function OrganizationDashboard() {
 
       if (walletError) {
         // Create wallet if it doesn't exist
-        await supabase.from("organization_wallets").insert({
+        await (supabase.from("organization_wallets") as any).insert({
             organization_id: id,
             balance: 0,
           });
@@ -197,7 +197,7 @@ export default function OrganizationDashboard() {
     if (!user || !organization) return;
 
     try {
-      await supabase.from("organization_members").insert({
+      await (supabase.from("organization_members") as any).insert({
         organization_id: (organization as any).id,
         user_id: user.id,
         role: "member",
@@ -218,7 +218,7 @@ export default function OrganizationDashboard() {
     if (!organization || !user) return;
 
     try {
-      const { error } = await supabase.from("organization_events").insert({
+      const { error } = await (supabase.from("organization_events") as any).insert({
         organization_id: (organization as any).id,
         name: newEventForm.name,
         description: newEventForm.description,
@@ -256,7 +256,7 @@ export default function OrganizationDashboard() {
     }
 
     try {
-      const { error } = await supabase.from("organization_transactions").insert({
+      const { error } = await (supabase.from("organization_transactions") as any).insert({
         organization_id: (organization as any).id,
         user_id: user.id,
         type: "deposit",
@@ -292,7 +292,7 @@ export default function OrganizationDashboard() {
     }
 
     try {
-      const { error } = await supabase.from("organization_transactions").insert({
+      const { error } = await (supabase.from("organization_transactions") as any).insert({
         organization_id: (organization as any).id,
         user_id: user.id,
         type: "withdrawal",
@@ -322,7 +322,7 @@ export default function OrganizationDashboard() {
     if (!organization || !user) return;
 
     try {
-      const { error } = await supabase.from("organization_announcements").insert({
+      const { error } = await (supabase.from("organization_announcements") as any).insert({
         organization_id: (organization as any).id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
@@ -347,9 +347,9 @@ export default function OrganizationDashboard() {
     if (!memberToRemove || !organization) return;
 
     try {
-      await supabase
-        .from("organization_members")
-        .update({ status: "left" } as Database["public"]["Tables"]["organization_members"]["Update"])
+      await (supabase
+        .from("organization_members") as any)
+        .update({ status: "left" })
         .eq("id", memberToRemove as string);
 
       toast.success("Member removed successfully!");
