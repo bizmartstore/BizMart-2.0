@@ -23,10 +23,10 @@ export default function AtmCardLinkForm({ onSuccess }: AtmCardLinkFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate card number (16 digits)
+    // Validate card number (accept last 4 digits for BZM-2026-XXXX format)
     const cleanedCard = cardNumber.replace(/\s+/g, "");
-    if (cleanedCard.length !== 16) {
-      toast.error("Please enter a valid 16-digit card number");
+    if (cleanedCard.length !== 4) {
+      toast.error("Please enter the last 4 digits of your digital card ID");
       return;
     }
 
@@ -72,12 +72,9 @@ export default function AtmCardLinkForm({ onSuccess }: AtmCardLinkFormProps) {
               placeholder="BZM-2026-XXXX"
               value={cardNumber}
               onChange={(e) => {
-                // Auto-format card number with spaces
-                const value = e.target.value.replace(/\s+/g, "");
-                if (value.length <= 16) {
-                  const formatted = value.replace(/(.{4})/g, "$1 ").trim();
-                  setCardNumber(formatted);
-                }
+                // Only allow digits and limit to 4 characters
+                const value = e.target.value.replace(/[^0-9]/g, "").slice(0, 4);
+                setCardNumber(value);
               }}
               className="h-10 rounded-xl font-mono text-sm"
               required
