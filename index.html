@@ -6,12 +6,35 @@
     <meta name="theme-color" content="#e8612d" />
     <link rel="apple-touch-icon" href="/pwa-192x192.png" />
     <title>BizMart - Campus Store</title>
-    
-    <!-- 1. Load OneSignal SDK with defer to prevent blocking -->
-    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
+    <!-- Firebase SDK - Load from CDN with fallback -->
     <script>
-      // 2. Initialize the deferred array to queue commands safely
-      window.OneSignalDeferred = window.OneSignalDeferred || [];
+      // Firebase SDK fallback
+      window.firebaseConfig = {
+        apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
+        authDomain: "bizmart-aaf1b.firebaseapp.com",
+        databaseURL: "https://bizmart-aaf1b-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "bizmart-aaf1b",
+        storageBucket: "bizmart-aaf1b.firebasestorage.app",
+        messagingSenderId: "310239525651",
+        appId: "1:310239525651:web:d65ab855cdef15919ab8e6",
+        measurementId: "G-FP54T49NG5"
+      };
+    </script>
+
+    <!-- Load Firebase SDK with fallback -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js" defer></script>
+    <script>
+      // Initialize Firebase
+      try {
+        if (window.firebase && window.firebaseConfig) {
+          firebase.initializeApp(window.firebaseConfig);
+          console.log('Firebase initialized successfully');
+        }
+      } catch (error) {
+        console.error('Firebase initialization error:', error);
+      }
     </script>
 
     <meta name="author" content="Lovable" />

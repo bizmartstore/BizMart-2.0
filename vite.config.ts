@@ -8,11 +8,15 @@ export default defineConfig(() => ({
     host: "::",
     port: 8080,
     hmr: { overlay: false },
+    // Add service worker configuration
+    serviceWorker: {
+      globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+    },
   },
   plugins: [
     react(),
     VitePWA({
-      registerType: "prompt", // Changed from autoUpdate to prevent restart loops
+      registerType: "prompt",
       injectRegister: "auto",
       strategies: "generateSW",
       workbox: {
@@ -21,6 +25,20 @@ export default defineConfig(() => ({
         cleanupOutdatedCaches: true,
         navigateFallback: null,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Add Firebase service worker to precache
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/www\.gstatic\.com\/firebasejs\/.+\.js$/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'firebase-scripts',
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 60 * 60 * 24 * 30, // 30 days
+              },
+            },
+          },
+        ],
       },
       manifest: {
         name: "BizMart Store",
@@ -48,6 +66,19 @@ export default defineConfig(() => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+    },
+  },
+  // Add build configuration for service worker
+  build: {
+    target: "es2020",
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes('firebase')) return 'firebase';
+          if (id.includes('node_modules')) return 'vendor';
+          return 'app';
+        },
+      },
     },
   },
 }));

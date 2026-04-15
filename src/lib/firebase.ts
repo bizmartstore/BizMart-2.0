@@ -19,11 +19,25 @@ let messaging: Messaging | null = null;
 // Only initialize messaging in the browser
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   try {
+    // Register service worker first
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/firebase-messaging-sw.js')
+        .then((registration) => {
+          console.log('[Firebase] Service Worker registered with scope:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('[Firebase] Service Worker registration failed:', error);
+        });
+    }
+
+    // Initialize messaging
     messaging = getMessaging(app);
+    console.log('[Firebase] Messaging initialized successfully');
   } catch (error) {
     console.error("Firebase Messaging failed to initialize:", error);
   }
 }
 
 export { app, messaging, getToken, onMessage };
+
 export const VAPID_KEY = "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE";
