@@ -45,6 +45,7 @@ export default function ClubPage() {
 
   // BCoins related state
   const [wallet, setWallet] = useState<any>(null);
+  const [walletLoading, setWalletLoading] = useState(true);
   const [bcoinsSection, setBcoinsSection] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,8 +70,16 @@ export default function ClubPage() {
         .then(({ data }: any) => setApplication(data));
 
       // Load BCoins wallet
-      (supabase as any).from("bcoins_wallets").select("*").eq("user_id", user.id).maybeSingle()
-        .then(({ data }: any) => setWallet(data));
+      supabase
+        .from("bcoins_wallets")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (error) console.error("Error loading wallet:", error);
+          setWallet(data);
+          setWalletLoading(false);
+        });
     } else {
       setCheckingMembership(false);
     }
@@ -364,6 +373,14 @@ export default function ClubPage() {
                       <span className="text-[8px] font-black text-yellow-400 uppercase tracking-widest">PREMIUM</span>
                     </div>
                   )}
+                  {membership && (wallet?.balance !== undefined || profile?.bcoins !== undefined) && (
+                    <div className="absolute bottom-20 left-6 right-6 flex items-center justify-center gap-2 bg-black/20 backdrop-blur-sm rounded-lg py-1 px-3">
+                      <Coins className="h-3 w-3 text-warning" />
+                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">
+                        BCOINS LINKED: {(Number(wallet?.balance || profile?.bcoins || 0)).toFixed(1)} 🪙
+                      </span>
+                    </div>
+                  )}
                 </div>
                 <div className="w-full space-y-4">
                   <Button onClick={downloadId} className="w-full h-12 rounded-xl gap-2 font-bold shadow-lg">
@@ -386,7 +403,14 @@ export default function ClubPage() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
             <div className="bg-gradient-to-br from-warning/20 to-primary/10 rounded-2xl p-6 border border-warning/20 text-center shadow-sm">
               <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Total Available Balance</p>
-              <p className="text-4xl font-black text-warning">{(Number(wallet?.balance || profile?.bcoins || 0)).toFixed(1)} 🪙</p>
+              {walletLoading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-warning" />
+                  <p className="text-lg font-bold text-warning">Loading...</p>
+                </div>
+              ) : (
+                <p className="text-4xl font-black text-warning">{(Number(wallet?.balance || profile?.bcoins || 0)).toFixed(1)} 🪙</p>
+              )}
               <Button
                 onClick={() => navigate("/bcoins")}
                 variant="ghost"
@@ -404,6 +428,12 @@ export default function ClubPage() {
                   <CreditCard className="h-5 w-5 text-primary" />
                   <span className="font-bold text-sm">ATM Cards</span>
                 </div>
+                {wallet && (
+                  <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100/50 px-2 py-1 rounded-full">
+                    <CheckCircle2 className="h-3 w-3" />
+                    BCoins Wallet Active
+                  </div>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
