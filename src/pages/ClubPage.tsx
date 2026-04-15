@@ -374,11 +374,9 @@ export default function ClubPage() {
                     </div>
                   )}
                   {membership && (wallet?.balance !== undefined || profile?.bcoins !== undefined) && (
-                    <div className="absolute bottom-20 left-6 right-6 flex items-center justify-center gap-2 bg-black/20 backdrop-blur-sm rounded-lg py-1 px-3">
-                      <Coins className="h-3 w-3 text-warning" />
-                      <span className="text-[10px] font-bold text-white uppercase tracking-wider">
-                        BCOINS LINKED: {(Number(wallet?.balance || profile?.bcoins || 0)).toFixed(1)} 🪙
-                      </span>
+                    <div className="absolute top-4 left-6 px-2 py-0.5 bg-blue-500/20 border border-blue-500/40 rounded flex items-center gap-1">
+                      <Coins className="h-2.5 w-2.5 text-blue-400" />
+                      <span className="text-[8px] font-bold text-blue-300 uppercase tracking-wider">BCOINS LINKED</span>
                     </div>
                   )}
                 </div>
@@ -429,9 +427,9 @@ export default function ClubPage() {
                   <span className="font-bold text-sm">ATM Cards</span>
                 </div>
                 {wallet && (
-                  <div className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-100/50 px-2 py-1 rounded-full">
-                    <CheckCircle2 className="h-3 w-3" />
-                    BCoins Wallet Active
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-100/50 px-2 py-0.5 rounded-full">
+                    <Coins className="h-3 w-3" />
+                    BCoins Active
                   </div>
                 )}
                 <Button
