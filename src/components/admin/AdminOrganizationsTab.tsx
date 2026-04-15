@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ interface RegistrationCode {
 
 export default function AdminOrganizationsTab() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("pending");
   const [pendingOrgs, setPendingOrgs] = useState<Organization[]>([]);
   const [allOrgs, setAllOrgs] = useState<Organization[]>([]);
@@ -195,7 +197,7 @@ export default function AdminOrganizationsTab() {
       const { error } = await supabase
         .from("organizations")
         .update({ status: "approved" })
-        .eq("id", orgToAction);
+        .eq("id", orgToAction!);
 
       if (error) throw error;
 
@@ -217,7 +219,7 @@ export default function AdminOrganizationsTab() {
       const { error } = await supabase
         .from("organizations")
         .update({ status: "rejected" })
-        .eq("id", orgToAction);
+        .eq("id", orgToAction!);
 
       if (error) throw error;
 
@@ -337,7 +339,7 @@ export default function AdminOrganizationsTab() {
       const { error } = await supabase
         .from("registration_codes")
         .update({ used: true })
-        .eq("id", codeToRevoke);
+        .eq("id", codeToRevoke!);
 
       if (error) throw error;
 

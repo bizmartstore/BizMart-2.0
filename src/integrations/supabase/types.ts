@@ -235,8 +235,6 @@ export type Database = {
           description?: string;
         };
       };
-    };
-    Tables: {
       organizations: {
         Row: {
           id: string;

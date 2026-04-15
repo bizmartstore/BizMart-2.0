@@ -168,13 +168,13 @@ export default function OrganizationDashboard() {
       setOrganization({ ...orgData, member_count: count || 0 });
 
       // Fetch wallet balance
-      const { data: walletData, error: walletError } = await supabase
+      const walletResponse = await supabase
         .from("organization_wallets")
         .select("balance")
         .eq("organization_id", id)
         .single();
 
-      if (walletError) {
+      if (walletResponse.error) {
         // Create wallet if it doesn't exist
         await supabase.from("organization_wallets").insert({
           organization_id: id,
@@ -182,7 +182,7 @@ export default function OrganizationDashboard() {
         });
         setWalletBalance(0);
       } else {
-        setWalletBalance(walletData.balance || 0);
+        setWalletBalance(walletResponse.data?.balance || 0);
       }
 
       // Fetch members
@@ -225,7 +225,7 @@ export default function OrganizationDashboard() {
 
       // Check if user is a member and get their role
       if (user) {
-        const { data: memberData } = await supabase
+        const { data: memberData, error: memberError } = await supabase
           .from("organization_members")
           .select("role")
           .eq("organization_id", id)
@@ -233,7 +233,7 @@ export default function OrganizationDashboard() {
           .eq("status", "active")
           .single();
 
-        if (memberData) {
+        if (!memberError && memberData) {
           setIsMember(true);
           setUserRole(memberData.role as 'creator' | 'officer' | 'member');
         }
@@ -258,7 +258,7 @@ export default function OrganizationDashboard() {
       .eq("status", "active")
       .single();
 
-    if (data) {
+    if (!error && data) {
       setIsMember(true);
       setUserRole(data.role as 'creator' | 'officer' | 'member');
     }
@@ -289,7 +289,7 @@ export default function OrganizationDashboard() {
     if (!organization || !user) return;
 
     try {
-      const { error } = await supabase.from("organization_events").insert({
+      const { error } = await supabase.from("organization_events").insert([{
         organization_id: organization.id,
         name: newEventForm.name,
         description: newEventForm.description,
@@ -298,7 +298,7 @@ export default function OrganizationDashboard() {
         fee: newEventForm.fee,
         status: "upcoming",
         created_by: user.id,
-      });
+      }]);
 
       if (error) throw error;
 
@@ -327,7 +327,7 @@ export default function OrganizationDashboard() {
     }
 
     try {
-      const { error } = await supabase.from("organization_transactions").insert({
+      const { error } = await supabase.from("organization_transactions").insert([{
         organization_id: organization.id,
         user_id: user.id,
         type: "deposit",
@@ -336,7 +336,7 @@ export default function OrganizationDashboard() {
         purpose: depositForm.purpose,
         reference: depositForm.reference,
         gcash_fee: 0,
-      });
+      }]);
 
       if (error) throw error;
 
@@ -363,7 +363,7 @@ export default function OrganizationDashboard() {
     }
 
     try {
-      const { error } = await supabase.from("organization_transactions").insert({
+      const { error } = await supabase.from("organization_transactions").insert([{
         organization_id: organization.id,
         user_id: user.id,
         type: "withdrawal",
@@ -372,7 +372,7 @@ export default function OrganizationDashboard() {
         purpose: withdrawalForm.purpose,
         reference: withdrawalForm.recipient,
         gcash_fee: 0,
-      });
+      }]);
 
       if (error) throw error;
 
@@ -393,12 +393,12 @@ export default function OrganizationDashboard() {
     if (!organization || !user) return;
 
     try {
-      const { error } = await supabase.from("organization_announcements").insert({
+      const { error } = await supabase.from("organization_announcements").insert([{
         organization_id: organization.id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
-      });
+      }]);
 
       if (error) throw error;
 
@@ -421,7 +421,7 @@ export default function OrganizationDashboard() {
       await supabase
         .from("organization_members")
         .update({ status: "left" })
-        .eq("id", memberToRemove);
+        .eq("id", memberToRemove!);
 
       toast.success("Member removed successfully!");
       fetchOrganizationData();
