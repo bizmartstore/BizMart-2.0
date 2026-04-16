@@ -1,6 +1,6 @@
-// Use local Firebase SDK instead of CDN
-importScripts('/firebase-app-compat.js');
-importScripts('/firebase-messaging-compat.js');
+// Firebase service worker - MUST use classic script format (not ES modules)
+// This file cannot use importScripts() with ES modules
+// It must be a simple classic script
 
 // Initialize Firebase app
 const firebaseConfig = {
@@ -14,6 +14,11 @@ const firebaseConfig = {
   measurementId: "G-FP54T49NG5"
 };
 
+// Load Firebase SDKs using classic importScripts
+importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
+
+// Initialize Firebase
 firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
@@ -21,18 +26,14 @@ const messaging = firebase.messaging();
 // Background message handler
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-
-  // Note: If the payload contains a 'notification' property,
-  // Firebase will automatically show the notification for you.
-  // We only need to manually show it if we are sending 'data-only' messages.
 });
 
+// Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-
-  // Extract link from data payload
+  
   const urlToOpen = event.notification.data?.link || event.notification.data?.url || '/';
-
+  
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
@@ -46,4 +47,21 @@ self.addEventListener('notificationclick', (event) => {
       }
     })
   );
+});
+
+// Handle push events
+self.addEventListener('push', (event) => {
+  if (event.data) {
+    const data = event.data.json();
+    const title = data.notification?.title || 'New Notification';
+    const options = {
+      body: data.notification?.body || '',
+      icon: data.notification?.icon || '/icons/icon-192x192.png',
+      data: data.data || {}
+    };
+    
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    );
+  }
 });

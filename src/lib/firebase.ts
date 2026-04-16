@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getMessaging, getToken, onMessage, Messaging } from "firebase/messaging";
+import { getMessaging } from "firebase/messaging/sw";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
@@ -14,16 +14,16 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-let messaging: Messaging | null = null;
+let messaging: any = null;
 
 // Only initialize messaging in the browser
-if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+if (typeof window !== "undefined") {
   try {
-    // Register service worker first
+    // Register service worker as classic (not module)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js', {
         scope: '/',
-        type: 'module'
+        type: 'classic'  // MUST be 'classic' not 'module'
       }).then((registration) => {
         console.log('[Firebase] Service Worker registered with scope:', registration.scope);
       }).catch((error) => {
@@ -31,12 +31,12 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
       });
     }
 
-    // Then initialize messaging
+    // Initialize messaging
     messaging = getMessaging(app);
   } catch (error) {
     console.error("Firebase Messaging failed to initialize:", error);
   }
 }
 
-export { app, messaging, getToken, onMessage };
+export { app, messaging };
 export const VAPID_KEY = "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE";
