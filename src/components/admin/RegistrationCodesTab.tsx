@@ -117,16 +117,19 @@ export default function RegistrationCodesTab() {
         };
       });
 
-      const { error } = await (supabase as any)
-        .from("registration_codes")
-        .insert(newCodes)
-        .catch((err: any) => {
-          if (err.code === 'PGRST205') {
-            console.warn("registration_codes table doesn't exist yet");
-            return { error: null };
-          }
-          throw err;
-        });
+      let error = null;
+      try {
+        const { error: insertError } = await (supabase as any)
+          .from("registration_codes")
+          .insert(newCodes);
+        error = insertError;
+      } catch (err: any) {
+        if (err.code === 'PGRST205') {
+          console.warn("registration_codes table doesn't exist yet");
+        } else {
+          error = err;
+        }
+      }
 
       if (error) throw error;
 
@@ -143,35 +146,38 @@ export default function RegistrationCodesTab() {
   // Approve organization
   const approveOrganization = async (orgId: string) => {
     try {
-      const { error: walletError } = await (supabase as any)
-        .from("organization_wallets")
-        .insert({
-          organization_id: orgId,
-          balance: 0
-        })
-        .catch((err: any) => {
-          if (err.code === 'PGRST205') {
-            console.warn("organization_wallets table doesn't exist yet");
-            return { error: null };
-          }
-          throw err;
-        });
+      let walletError = null;
+      try {
+        const { error: insertError } = await (supabase as any)
+          .from("organization_wallets")
+          .insert({
+            organization_id: orgId,
+            balance: 0
+          });
+        walletError = insertError;
+      } catch (err: any) {
+        if (err.code !== 'PGRST205') {
+          walletError = err;
+        }
+      }
 
       if (walletError) throw walletError;
 
-      const { error: orgError } = await (supabase as any)
-        .from("organizations")
-        .update({
-          status: "approved",
-          updated_at: new Date().toISOString()
-        })
-        .catch((err: any) => {
-          if (err.code === 'PGRST205') {
-            console.warn("organizations table doesn't exist yet");
-            return { error: null };
-          }
-          throw err;
-        });
+      let orgError = null;
+      try {
+        const { error: updateError } = await (supabase as any)
+          .from("organizations")
+          .update({
+            status: "approved",
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", orgId);
+        orgError = updateError;
+      } catch (err: any) {
+        if (err.code !== 'PGRST205') {
+          orgError = err;
+        }
+      }
 
       if (orgError) throw orgError;
 
@@ -186,16 +192,18 @@ export default function RegistrationCodesTab() {
   // Reject organization
   const rejectOrganization = async (orgId: string) => {
     try {
-      const { error } = await (supabase as any)
-        .from("organizations")
-        .delete()
-        .catch((err: any) => {
-          if (err.code === 'PGRST205') {
-            console.warn("organizations table doesn't exist yet");
-            return { error: null };
-          }
-          throw err;
-        });
+      let error = null;
+      try {
+        const { error: deleteError } = await (supabase as any)
+          .from("organizations")
+          .delete()
+          .eq("id", orgId);
+        error = deleteError;
+      } catch (err: any) {
+        if (err.code !== 'PGRST205') {
+          error = err;
+        }
+      }
 
       if (error) throw error;
 
