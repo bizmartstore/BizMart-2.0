@@ -15,6 +15,7 @@ import UsersTab from "@/components/admin/UsersTab";
 import PrintTab from "@/components/admin/PrintTab";
 import MessagesTab from "@/components/admin/AdminMessagesTab";
 import CodesTab from "@/components/admin/CodesTab";
+import RegistrationCodesTab from "@/components/admin/RegistrationCodesTab";
 import NewsTab from "@/components/admin/NewsTab";
 import ClubTab from "@/components/admin/ClubTab";
 import BCoinsTab from "@/components/admin/BCoinsTab";
@@ -38,6 +39,7 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
     { id: "messages", label: "Messages", icon: <MessageCircle className="h-4 w-4" />, badge: null },
     { id: "codes", label: "Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
+    { id: "registration-codes", label: "Registration Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
     { id: "news", label: "News", icon: <Bell className="h-4 w-4" />, badge: null },
     { id: "banners", label: "Banners", icon: <Award className="h-4 w-4" />, badge: null },
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
@@ -171,6 +173,7 @@ export default function AdminDashboard() {
           <TabsContent value="print"><PrintTab /></TabsContent>
           <TabsContent value="messages"><MessagesTab /></TabsContent>
           <TabsContent value="codes"><CodesTab /></TabsContent>
+          <TabsContent value="registration-codes"><RegistrationCodesTab /></TabsContent>
           <TabsContent value="news"><NewsTab /></TabsContent>
           <TabsContent value="banners"><BannerTab /></TabsContent>
           <TabsContent value="club"><ClubTab /></TabsContent>
