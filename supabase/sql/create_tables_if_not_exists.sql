@@ -19,8 +19,8 @@ BEGIN
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     
-    CREATE INDEX idx_registration_codes_used ON registration_codes(used);
-    CREATE INDEX idx_registration_codes_created_at ON registration_codes(created_at);
+    CREATE INDEX IF NOT EXISTS idx_registration_codes_used ON registration_codes(used);
+    CREATE INDEX IF NOT EXISTS idx_registration_codes_created_at ON registration_codes(created_at);
   END IF;
 END;
 $$;
@@ -48,9 +48,9 @@ BEGIN
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     
-    CREATE INDEX idx_organizations_creator_id ON organizations(creator_id);
-    CREATE INDEX idx_organizations_status ON organizations(status);
-    CREATE INDEX idx_organizations_club_type ON organizations(club_type);
+    CREATE INDEX IF NOT EXISTS idx_organizations_creator_id ON organizations(creator_id);
+    CREATE INDEX IF NOT EXISTS idx_organizations_status ON organizations(status);
+    CREATE INDEX IF NOT EXISTS idx_organizations_club_type ON organizations(club_type);
   END IF;
 END;
 $$;
@@ -76,8 +76,8 @@ BEGIN
       PRIMARY KEY (organization_id, user_id)
     );
     
-    CREATE INDEX idx_organization_members_org_id ON organization_members(organization_id);
-    CREATE INDEX idx_organization_members_user_id ON organization_members(user_id);
+    CREATE INDEX IF NOT EXISTS idx_organization_members_org_id ON organization_members(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_organization_members_user_id ON organization_members(user_id);
   END IF;
 END;
 $$;
@@ -101,7 +101,7 @@ BEGIN
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     
-    CREATE INDEX idx_organization_wallets_org_id ON organization_wallets(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_organization_wallets_org_id ON organization_wallets(organization_id);
   END IF;
 END;
 $$;
