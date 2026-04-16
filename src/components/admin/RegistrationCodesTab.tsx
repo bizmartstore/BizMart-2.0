@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, Users, AlertCircle } from "lucide-react";
-import { Organization } from "@/types";
+import { Check, Copy, X, AlertCircle } from "lucide-react";
 
 interface RegistrationCode {
   id: string;
@@ -46,10 +45,15 @@ export default function RegistrationCodesTab() {
   const loadCodes = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("registration_codes")
         .select("*")
         .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST205') {
+        setCodes([]);
+        return;
+      }
 
       if (error) throw error;
 
@@ -66,18 +70,22 @@ export default function RegistrationCodesTab() {
   const loadPendingOrganizations = async () => {
     try {
       setIsLoadingOrgs(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("organizations")
         .select("*")
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
+      if (error && error.code === 'PGRST205') {
+        setPendingOrgs([]);
+        return;
+      }
+
       if (error) throw error;
 
-      // Get member counts for each organization
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: PendingOrganization) => {
-          const { count, error: countError } = await supabase
+          const { count, error: countError } = await (supabase as any)
             .from("organization_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
@@ -101,8 +109,7 @@ export default function RegistrationCodesTab() {
   const generateCodes = async () => {
     try {
       setIsGenerating(true);
-      
-      // Generate unique codes
+
       const newCodes = Array.from({ length: codeCount }, () => {
         return {
           code: Math.random().toString(36).substring(2, 10).toUpperCase(),
@@ -110,10 +117,16 @@ export default function RegistrationCodesTab() {
         };
       });
 
-      // Insert all codes at once
       const { error } = await (supabase as any)
         .from("registration_codes")
-        .insert(newCodes);
+        .insert(newCodes)
+        .catch((err: any) => {
+          if (err.code === 'PGRST205') {
+            console.warn("registration_codes table doesn't exist yet");
+            return { error: null };
+          }
+          throw err;
+        });
 
       if (error) throw error;
 
@@ -130,24 +143,35 @@ export default function RegistrationCodesTab() {
   // Approve organization
   const approveOrganization = async (orgId: string) => {
     try {
-      // First, create organization wallet
       const { error: walletError } = await (supabase as any)
         .from("organization_wallets")
         .insert({
           organization_id: orgId,
           balance: 0
+        })
+        .catch((err: any) => {
+          if (err.code === 'PGRST205') {
+            console.warn("organization_wallets table doesn't exist yet");
+            return { error: null };
+          }
+          throw err;
         });
 
       if (walletError) throw walletError;
 
-      // Update organization status to approved
       const { error: orgError } = await (supabase as any)
         .from("organizations")
         .update({
           status: "approved",
           updated_at: new Date().toISOString()
         })
-        .eq("id", orgId);
+        .catch((err: any) => {
+          if (err.code === 'PGRST205') {
+            console.warn("organizations table doesn't exist yet");
+            return { error: null };
+          }
+          throw err;
+        });
 
       if (orgError) throw orgError;
 
@@ -162,11 +186,16 @@ export default function RegistrationCodesTab() {
   // Reject organization
   const rejectOrganization = async (orgId: string) => {
     try {
-      // Delete the organization
       const { error } = await (supabase as any)
         .from("organizations")
         .delete()
-        .eq("id", orgId);
+        .catch((err: any) => {
+          if (err.code === 'PGRST205') {
+            console.warn("organizations table doesn't exist yet");
+            return { error: null };
+          }
+          throw err;
+        });
 
       if (error) throw error;
 

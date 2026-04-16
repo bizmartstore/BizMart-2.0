@@ -19,7 +19,7 @@ let messaging: any = null;
 // Only initialize messaging in the browser
 if (typeof window !== "undefined") {
   try {
-    // Register service worker with error handling
+    // Register service worker - use classic type and handle errors gracefully
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js', {
         scope: '/',
@@ -27,16 +27,17 @@ if (typeof window !== "undefined") {
       }).then((registration) => {
         console.log('[Firebase] Service Worker registered with scope:', registration.scope);
       }).catch((error) => {
-        console.warn('[Firebase] Service Worker registration failed (this is OK if notifications are not needed):', error.message);
+        console.warn('[Firebase] Service Worker registration failed (non-critical):', error);
+        // This is not critical - FCM can still work without service worker registration
       });
     }
 
     // Initialize messaging
     messaging = getMessaging(app);
   } catch (error) {
-    console.warn("Firebase Messaging not available:", error instanceof Error ? error.message : String(error));
+    console.warn("Firebase Messaging not available:", error);
+    // Firebase messaging is optional - app can still work without it
   }
 }
 
 export { app, messaging };
-export const VAPID_KEY = "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE";
