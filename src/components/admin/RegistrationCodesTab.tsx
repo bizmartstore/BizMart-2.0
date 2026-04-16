@@ -238,8 +238,10 @@ export default function RegistrationCodesTab() {
   };
 
   useEffect(() => {
-    loadCodes();
-    loadPendingOrganizations();
+    ensureTablesExist().then(() => {
+      loadCodes();
+      loadPendingOrganizations();
+    });
   }, []);
 
   // Also reload when component comes back into view
