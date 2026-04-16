@@ -19,22 +19,22 @@ let messaging: any = null;
 // Only initialize messaging in the browser
 if (typeof window !== "undefined") {
   try {
-    // Register service worker as classic (not module)
+    // Register service worker with error handling
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js', {
         scope: '/',
-        type: 'classic'  // MUST be 'classic' not 'module'
+        type: 'classic'
       }).then((registration) => {
         console.log('[Firebase] Service Worker registered with scope:', registration.scope);
       }).catch((error) => {
-        console.error('[Firebase] Service Worker registration failed:', error);
+        console.warn('[Firebase] Service Worker registration failed (this is OK if notifications are not needed):', error.message);
       });
     }
 
     // Initialize messaging
     messaging = getMessaging(app);
   } catch (error) {
-    console.error("Firebase Messaging failed to initialize:", error);
+    console.warn("Firebase Messaging not available:", error instanceof Error ? error.message : String(error));
   }
 }
 

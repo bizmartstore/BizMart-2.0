@@ -12,21 +12,18 @@ export function useFCM() {
     hasAttemptedRegistration.current = true;
 
     try {
-      // Request notification permission first
       const permission = await Notification.requestPermission();
       
       if (permission === "granted") {
         console.log("[FCM] Notification permission granted");
-        // Token will be handled by the service worker
       }
     } catch (error) {
-      console.error("[FCM] Permission error:", error);
+      console.warn("[FCM] Permission error (OK if not supported):", error instanceof Error ? error.message : String(error));
     }
   }, [user]);
 
   useEffect(() => {
     if (!user || !messaging) return;
-
     requestPermission();
   }, [user, requestPermission]);
 
