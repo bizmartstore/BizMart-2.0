@@ -41,10 +41,26 @@ export default function RegistrationCodesTab() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
 
+  // Ensure tables exist
+  const ensureTablesExist = async () => {
+    try {
+      // Try to create registration_codes table if it doesn't exist
+      await (supabase as any)
+        .rpc('create_registration_codes_table_if_not_exists');
+      
+      // Try to create organizations table if it doesn't exist
+      await (supabase as any)
+        .rpc('create_organizations_table_if_not_exists');
+    } catch (error) {
+      console.warn("Could not ensure tables exist:", error);
+    }
+  };
+
   // Load registration codes
   const loadCodes = async () => {
     try {
       setIsLoading(true);
+      
       const { data, error } = await (supabase as any)
         .from("registration_codes")
         .select("*")
@@ -224,6 +240,16 @@ export default function RegistrationCodesTab() {
   useEffect(() => {
     loadCodes();
     loadPendingOrganizations();
+  }, []);
+
+  // Also reload when component comes back into view
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadCodes();
+      loadPendingOrganizations();
+    }, 30000); // Reload every 30 seconds
+    
+    return () => clearInterval(interval);
   }, []);
 
   return (
