@@ -35,40 +35,61 @@ export default function OrganizationsPage() {
   useEffect(() => {
     if (user) {
       fetchOrganizations();
+    } else {
+      setIsLoading(false);
     }
   }, [user]);
 
   const fetchOrganizations = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      // First check if the organizations table exists
+      const { data: orgData, error: orgError } = await supabase
         .from("organizations")
         .select("*")
         .eq("status", "approved")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1); // Just check if table exists with a small query
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
+      if (orgError && orgError.code === 'PGRST205') {
+        // Table doesn't exist, set empty organizations and return
+        setOrganizations([]);
+        return;
       }
 
-      // Get member counts for each organization
+      if (orgError) {
+        console.error("Supabase error:", orgError);
+        throw orgError;
+      }
+
+      // Get member counts for each organization with timeout
       const orgsWithCounts = await Promise.all(
-        data?.map(async (org: Organization) => {
-          const { count, error: countError } = await supabase
-            .from("organization_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id);
+        (orgData || []).map(async (org: Organization) => {
+          try {
+            const { count, error: countError } = await supabase
+              .from("organization_members")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id)
+              .limit(1); // Limit to 1 for faster count
 
-          if (countError) console.error("Error counting members:", countError);
+            if (countError) {
+              console.error("Error counting members:", countError);
+              return { ...org, member_count: 0 };
+            }
 
-          return { ...org, member_count: count || 0 };
-        }) || []
+            return { ...org, member_count: count || 0 };
+          } catch (countError) {
+            console.error("Error in member count query:", countError);
+            return { ...org, member_count: 0 };
+          }
+        })
       );
 
-      setOrganizations(orgsWithCounts);
+      setOrganizations(orgsWithCounts || []);
     } catch (error) {
       console.error("Error fetching organizations:", error);
+      setOrganizations([]); // Set to empty array on error
       toast.error("Failed to load organizations. Please try again later.");
     } finally {
       setIsLoading(false);
