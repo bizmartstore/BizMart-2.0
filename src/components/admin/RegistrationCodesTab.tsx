@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Copy, X, AlertCircle } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
 
 interface RegistrationCode {
   id: string;
@@ -45,12 +46,16 @@ export default function RegistrationCodesTab() {
   const ensureTablesExist = async () => {
     try {
       // Try to create registration_codes table if it doesn't exist
-      await (supabase as any)
+      const { error: codesError } = await supabase
         .rpc('create_registration_codes_table_if_not_exists');
       
+      if (codesError) console.warn("Could not ensure registration_codes table exists:", codesError);
+      
       // Try to create organizations table if it doesn't exist
-      await (supabase as any)
+      const { error: orgsError } = await supabase
         .rpc('create_organizations_table_if_not_exists');
+      
+      if (orgsError) console.warn("Could not ensure organizations table exists:", orgsError);
     } catch (error) {
       console.warn("Could not ensure tables exist:", error);
     }
@@ -61,7 +66,7 @@ export default function RegistrationCodesTab() {
     try {
       setIsLoading(true);
       
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("registration_codes")
         .select("*")
         .order("created_at", { ascending: false });
@@ -86,7 +91,7 @@ export default function RegistrationCodesTab() {
   const loadPendingOrganizations = async () => {
     try {
       setIsLoadingOrgs(true);
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("organizations")
         .select("*")
         .eq("status", "pending")
@@ -101,7 +106,7 @@ export default function RegistrationCodesTab() {
 
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: PendingOrganization) => {
-          const { count, error: countError } = await (supabase as any)
+          const { count, error: countError } = await supabase
             .from("organization_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
@@ -133,9 +138,9 @@ export default function RegistrationCodesTab() {
         };
       });
 
-      let error = null;
+      let error: any = null;
       try {
-        const { error: insertError } = await (supabase as any)
+        const { error: insertError } = await supabase
           .from("registration_codes")
           .insert(newCodes);
         error = insertError;
@@ -162,9 +167,9 @@ export default function RegistrationCodesTab() {
   // Approve organization
   const approveOrganization = async (orgId: string) => {
     try {
-      let walletError = null;
+      let walletError: Error | null = null;
       try {
-        const { error: insertError } = await (supabase as any)
+        const { error: insertError } = await supabase
           .from("organization_wallets")
           .insert({
             organization_id: orgId,
@@ -179,14 +184,14 @@ export default function RegistrationCodesTab() {
 
       if (walletError) throw walletError;
 
-      let orgError = null;
+      let orgError: Error | null = null;
       try {
-        const { error: updateError } = await (supabase as any)
+        const { error: updateError } = await supabase
           .from("organizations")
           .update({
             status: "approved",
             updated_at: new Date().toISOString()
-          })
+          } as Database["public"]["Tables"]["organizations"]["Update"])
           .eq("id", orgId);
         orgError = updateError;
       } catch (err: any) {
@@ -208,9 +213,9 @@ export default function RegistrationCodesTab() {
   // Reject organization
   const rejectOrganization = async (orgId: string) => {
     try {
-      let error = null;
+      let error: Error | null = null;
       try {
-        const { error: deleteError } = await (supabase as any)
+        const { error: deleteError } = await supabase
           .from("organizations")
           .delete()
           .eq("id", orgId);
