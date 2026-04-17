@@ -32,6 +32,28 @@ interface JoinRequest {
   };
 }
 
+// Define the type for organization members
+type OrganizationMember = {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  reference_number?: string | null;
+  created_at: string;
+  profile?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    avatar_url?: string;
+  };
+  organization?: {
+    id: string;
+    name: string;
+  };
+};
+
 export default function JoinRequestsTab() {
   const { user } = useAuth();
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
@@ -86,14 +108,14 @@ export default function JoinRequestsTab() {
           role: "member",
           status: "active",
           reference_number: requestData.reference_number || null,
-        });
+        } as OrganizationMember);
 
       if (insertError) throw insertError;
 
       // Update the original join request status to "approved"
       const { error: updateError } = await supabase
         .from("organization_members")
-        .update({ status: "approved" })
+        .update({ status: "approved" } as Partial<OrganizationMember>)
         .eq("id", requestId);
 
       if (updateError) throw updateError;
@@ -110,7 +132,7 @@ export default function JoinRequestsTab() {
     try {
       const { error } = await supabase
         .from("organization_members")
-        .update({ status: "rejected" })
+        .update({ status: "rejected" } as Partial<OrganizationMember>)
         .eq("id", requestId);
 
       if (error) throw error;
