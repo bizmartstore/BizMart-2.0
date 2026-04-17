@@ -882,4 +882,29 @@ export default function AdminOrganizationsTab() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+        {/* Join Requests Tab */}
+        <TabsContent value="join-requests">
+          <JoinRequestsTab />
+        </TabsContent>
+      </Tabs>
+
+      {/* Revoke Code Confirmation Dialog */}
+      <AlertDialog open={!!codeToRevoke} onOpenChange={() => setCodeToRevoke(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke Registration Code</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to revoke this registration code? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRevokeCode} className="bg-destructive hover:bg-destructive/90">
+              Revoke Code
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+}
