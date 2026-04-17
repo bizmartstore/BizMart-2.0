@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -8,25 +6,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Users,
-  Package,
-  ShoppingCart,
-  Printer,
-  MessageCircle,
-  Crown,
-  Coins,
-  Settings,
-  BarChart3,
-  Bell,
-  Ticket,
-  Award,
-  Store,
-  FolderOpen,
-  Megaphone,
-  Users as UsersIcon,
-  UsersRound
-} from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -45,7 +25,7 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
 import BroadcastTab from "@/components/admin/BroadcastTab";
-import JoinRequestsTab from "@/components/admin/JoinRequestsTab";
+import AdminOrganizationsTab from "@/components/admin/AdminOrganizationsTab";
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
@@ -54,13 +34,13 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
     { id: "broadcast", label: "Broadcast", icon: <Megaphone className="h-4 w-4" />, badge: null },
     { id: "categories", label: "Categories", icon: <FolderOpen className="h-4 w-4" />, badge: null },
+    { id: "organizations", label: "Organizations", icon: <UsersIcon className="h-4 w-4" />, badge: null },
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
     { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4" />, badge: null },
     { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
     { id: "messages", label: "Messages", icon: <MessageCircle className="h-4 w-4" />, badge: null },
     { id: "codes", label: "Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
     { id: "registration-codes", label: "Registration Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
-    { id: "join-requests", label: "Join Requests", icon: <UsersRound className="h-4 w-4" />, badge: null },
     { id: "news", label: "News", icon: <Bell className="h-4 w-4" />, badge: null },
     { id: "banners", label: "Banners", icon: <Award className="h-4 w-4" />, badge: null },
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
@@ -92,12 +72,12 @@ export default function AdminDashboard() {
   const loadPendingCounts = useCallback(async () => {
     try {
       const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
-        supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        supabase.from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
-
+      
       setPendingCounts({
         orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
         print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
@@ -118,7 +98,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!isAuthReady || !isAdmin) return;
-
+    
     const channel = supabase
       .channel("admin-pending-counts-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadPendingCounts())
@@ -126,11 +106,11 @@ export default function AdminDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
       .subscribe();
-
+      
     pendingPollRef.current = setInterval(() => {
       loadPendingCounts();
     }, 5000);
-
+      
     return () => {
       supabase.removeChannel(channel);
       if (pendingPollRef.current) clearInterval(pendingPollRef.current);
@@ -184,59 +164,27 @@ export default function AdminDashboard() {
             ))}
           </TabsList>
 
-          <TabsContent value="overview">
-            <OverviewTab />
-          </TabsContent>
-          <TabsContent value="orders">
-            <OrdersTab />
-          </TabsContent>
-          <TabsContent value="products">
-            <ProductsTab />
-          </TabsContent>
-          <TabsContent value="broadcast">
-            <BroadcastTab />
-          </TabsContent>
-          <TabsContent value="categories">
-            <CategoriesTab />
-          </TabsContent>
-          <TabsContent value="users">
-            <UsersTab />
-          </TabsContent>
-          <TabsContent value="sellers">
-            <SellersTab />
-          </TabsContent>
-          <TabsContent value="print">
-            <PrintTab />
-          </TabsContent>
-          <TabsContent value="messages">
-            <MessagesTab />
-          </TabsContent>
-          <TabsContent value="codes">
-            <CodesTab />
-          </TabsContent>
-          <TabsContent value="registration-codes">
-            <RegistrationCodesTab />
-          </TabsContent>
-          <TabsContent value="join-requests">
-            <JoinRequestsTab />
-          </TabsContent>
-          <TabsContent value="news">
-            <NewsTab />
-          </TabsContent>
-          <TabsContent value="banners">
-            <BannerTab />
-          </TabsContent>
-          <TabsContent value="club">
-            <ClubTab />
-          </TabsContent>
+          <TabsContent value="overview"><OverviewTab /></TabsContent>
+          <TabsContent value="orders"><OrdersTab /></TabsContent>
+          <TabsContent value="products"><ProductsTab /></TabsContent>
+          <TabsContent value="broadcast"><BroadcastTab /></TabsContent>
+          <TabsContent value="categories"><CategoriesTab /></TabsContent>
+          <TabsContent value="users"><UsersTab /></TabsContent>
+          <TabsContent value="sellers"><SellersTab /></TabsContent>
+          <TabsContent value="print"><PrintTab /></TabsContent>
+          <TabsContent value="messages"><MessagesTab /></TabsContent>
+          <TabsContent value="codes"><CodesTab /></TabsContent>
+          <TabsContent value="registration-codes"><RegistrationCodesTab /></TabsContent>
+          <TabsContent value="news"><NewsTab /></TabsContent>
+          <TabsContent value="banners"><BannerTab /></TabsContent>
+          <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="organizations"><AdminOrganizationsTab /></TabsContent>
+          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
+          <TabsContent value="gcash"><GCashTab /></TabsContent>
           {isMainAdmin ? (
-            <TabsContent value="settings">
-              <SettingsTab />
-            </TabsContent>
+            <TabsContent value="settings"><SettingsTab /></TabsContent>
           ) : (
-            <TabsContent value="settings">
-              <MemberAdminSettingsTab />
-            </TabsContent>
+            <TabsContent value="settings"><MemberAdminSettingsTab /></TabsContent>
           )}
         </Tabs>
       </div>

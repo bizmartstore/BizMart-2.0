@@ -11,8 +11,6 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Copy, X, AlertCircle } from "lucide-react";
-import { UsersRound } from "lucide-react";
-import JoinRequestsTab from "@/components/admin/JoinRequestsTab";
 
 interface RegistrationCode {
   id: string;
@@ -46,9 +44,10 @@ export default function RegistrationCodesTab() {
   // Ensure tables exist
   const ensureTablesExist = async () => {
     try {
+      // Try to create all organization-related tables at once
       const { error } = await (supabase as any)
         .rpc('create_all_organization_tables_if_not_exists');
-
+      
       if (error) {
         console.warn("Could not ensure tables exist:", error);
       }
@@ -61,7 +60,7 @@ export default function RegistrationCodesTab() {
   const loadCodes = async () => {
     try {
       setIsLoading(true);
-
+      
       const { data, error } = await (supabase as any)
         .from("registration_codes")
         .select("*")
@@ -108,6 +107,7 @@ export default function RegistrationCodesTab() {
             .eq("organization_id", org.id);
 
           if (countError) console.error("Error counting members:", countError);
+
           return { ...org, member_count: count || 0 };
         }) || []
       );
@@ -250,7 +250,7 @@ export default function RegistrationCodesTab() {
       loadCodes();
       loadPendingOrganizations();
     }, 30000); // Reload every 30 seconds
-
+    
     return () => clearInterval(interval);
   }, []);
 
@@ -353,7 +353,6 @@ export default function RegistrationCodesTab() {
         </CardContent>
       </Card>
 
-      {/* Pending Organizations Section */}
       <Card>
         <CardHeader>
           <CardTitle>Pending Organizations</CardTitle>
@@ -420,22 +419,6 @@ export default function RegistrationCodesTab() {
               </TableBody>
             </Table>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Join Requests Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UsersRound className="h-5 w-5" />
-            Join Requests
-          </CardTitle>
-          <CardDescription>
-            Review and approve join requests for organizations
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <JoinRequestsTab />
         </CardContent>
       </Card>
     </div>
