@@ -5,7 +5,22 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, CheckCircle, XCircle, Eye, Archive, Plus, Search, Ticket, DollarSign, Calendar, User, UsersRound } from "lucide-react";
+import {
+  Users,
+  CheckCircle,
+  XCircle,
+  Eye,
+  Archive,
+  Plus,
+  Search,
+  Ticket,
+  DollarSign,
+  Calendar,
+  User,
+  UsersRound,
+  Settings,
+  UserPlus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,187 +58,192 @@ export default function AdminOrganizationsTab() {
   const [newCodeDialogOpen, setNewCodeDialogOpen] = useState(false);
   const [newCodeCount, setNewCodeCount] = useState(1);
 
-  const fetchPendingOrganizations = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, pending: true });
-    const { data, error } = await supabase
-      .from("organizations")
-      .select(`
-        id,
-        name,
-        description,
-        club_type,
-        adviser_name,
-        status,
-        created_at,
-        creator_id,
-        creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
-      `)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    // Get member counts with error handling and timeout
-    const orgsWithCounts = await Promise.all(
-      data?.map(async (org: Organization) => {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
-
-          const { count, error: countError } = await supabase
-            .from("organization_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id)
-            .limit(1)
-            .abortSignal(controller.signal);
-
-          clearTimeout(timeoutId);
-
-          if (countError) console.error("Error counting members:", countError);
-          return { ...org, member_count: count || 0 };
-        } catch (countError) {
-          console.error("Error in member count query:", countError);
-          return { ...org, member_count: 0 };
-        }
-      }) || []
-    );
-
-    setPendingOrgs(orgsWithCounts);
-  } catch (error) {
-    console.error("Error fetching pending organizations:", error);
-    toast.error("Failed to load pending organizations");
-  } finally {
-    setIsLoading({ ...isLoading, pending: false });
-  }
-}, [isLoading]);
-
+  // Fetch all organizations (pending, approved, rejected, archived)
   const fetchAllOrganizations = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, all: true });
-    const { data, error } = await supabase
-      .from("organizations")
-      .select(`
-        id,
-        name,
-        description,
-        club_type,
-        adviser_name,
-        status,
-        created_at,
-        creator_id,
-        creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
-      `)
-      .in("status", ["approved", "rejected", "archived"])
-      .order("created_at", { ascending: false })
-      .limit(50);
+    try {
+      setIsLoading({ ...isLoading, all: true });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`
+          id,
+          name,
+          description,
+          club_type,
+          adviser_name,
+          status,
+          created_at,
+          creator_id,
+          creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // Get member counts with error handling and timeout
-    const orgsWithCounts = await Promise.all(
-      data?.map(async (org: Organization) => {
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+      // Get member counts for each organization
+      const orgsWithCounts = await Promise.all(
+        data?.map(async (org: Organization) => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-          const { count, error: countError } = await supabase
-            .from("organization_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id)
-            .limit(1)
-            .abortSignal(controller.signal);
+            const { count, error: countError } = await supabase
+              .from("organization_members")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id)
+              .limit(1)
+              .abortSignal(controller.signal);
 
-          clearTimeout(timeoutId);
+            clearTimeout(timeoutId);
 
-          if (countError) console.error("Error counting members:", countError);
-          return { ...org, member_count: count || 0 };
-        } catch (countError) {
-          console.error("Error in member count query:", countError);
-          return { ...org, member_count: 0 };
-        }
-      }) || []
-    );
+            if (countError) console.error("Error counting members:", countError);
+            return { ...org, member_count: count || 0 };
+          } catch (countError) {
+            console.error("Error in member count query:", countError);
+            return { ...org, member_count: 0 };
+          }
+        }) || []
+      );
 
-    setAllOrgs(orgsWithCounts);
-  } catch (error) {
-    console.error("Error fetching all organizations:", error);
-    toast.error("Failed to load organizations");
-  } finally {
-    setIsLoading({ ...isLoading, all: false });
-  }
-}, [isLoading]);
+      setAllOrgs(orgsWithCounts);
+    } catch (error) {
+      console.error("Error fetching all organizations:", error);
+      toast.error("Failed to load organizations");
+    } finally {
+      setIsLoading({ ...isLoading, all: false });
+    }
+  }, [isLoading]);
 
+  // Fetch pending organizations
+  const fetchPendingOrganizations = useCallback(async () => {
+    try {
+      setIsLoading({ ...isLoading, pending: true });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`
+          id,
+          name,
+          description,
+          club_type,
+          adviser_name,
+          status,
+          created_at,
+          creator_id,
+          creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
+        `)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) throw error;
+
+      // Get member counts for each organization
+      const orgsWithCounts = await Promise.all(
+        data?.map(async (org: Organization) => {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            const { count, error: countError } = await supabase
+              .from("organization_members")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id)
+              .limit(1)
+              .abortSignal(controller.signal);
+
+            clearTimeout(timeoutId);
+
+            if (countError) console.error("Error counting members:", countError);
+            return { ...org, member_count: count || 0 };
+          } catch (countError) {
+            console.error("Error in member count query:", countError);
+            return { ...org, member_count: 0 };
+          }
+        }) || []
+      );
+
+      setPendingOrgs(orgsWithCounts);
+    } catch (error) {
+      console.error("Error fetching pending organizations:", error);
+      toast.error("Failed to load pending organizations");
+    } finally {
+      setIsLoading({ ...isLoading, pending: false });
+    }
+  }, [isLoading]);
+
+  // Fetch transactions
   const fetchTransactions = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, transactions: true });
-    const { data, error } = await supabase
-      .from("organization_transactions")
-      .select(`
-        id,
-        amount,
-        type,
-        purpose,
-        status,
-        created_at,
-        user_id,
-        profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(50); // Limit the number of transactions fetched
+    try {
+      setIsLoading({ ...isLoading, transactions: true });
+      const { data, error } = await supabase
+        .from("organization_transactions")
+        .select(`
+          id,
+          amount,
+          type,
+          purpose,
+          status,
+          created_at,
+          user_id,
+          profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(50);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    setTransactions(data || []);
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    toast.error("Failed to load transactions");
-  } finally {
-    setIsLoading({ ...isLoading, transactions: false });
-  }
-}, [isLoading]);
+      setTransactions(data || []);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      toast.error("Failed to load transactions");
+    } finally {
+      setIsLoading({ ...isLoading, transactions: false });
+    }
+  }, [isLoading]);
 
+  // Fetch registration codes
   const fetchCodes = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, codes: true });
-    const { data, error } = await supabase
-      .from("registration_codes")
-      .select(`
-        id,
-        code,
-        used,
-        created_at
-      `)
-      .order("created_at", { ascending: false })
-      .limit(100); // Limit the number of codes fetched
+    try {
+      setIsLoading({ ...isLoading, codes: true });
+      const { data, error } = await supabase
+        .from("registration_codes")
+        .select(`
+          id,
+          code,
+          used,
+          created_at
+        `)
+        .order("created_at", { ascending: false })
+        .limit(100);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    setCodes(data || []);
-  } catch (error) {
-    console.error("Error fetching codes:", error);
-    toast.error("Failed to load registration codes");
-  } finally {
-    setIsLoading({ ...isLoading, codes: false });
-  }
-}, [isLoading]);
+      setCodes(data || []);
+    } catch (error) {
+      console.error("Error fetching codes:", error);
+      toast.error("Failed to load registration codes");
+    } finally {
+      setIsLoading({ ...isLoading, codes: false });
+    }
+  }, [isLoading]);
 
+  // Initialize all fetches
   useEffect(() => {
-  fetchPendingOrganizations();
-  fetchAllOrganizations();
-  fetchTransactions();
-  fetchCodes();
-}, [fetchPendingOrganizations, fetchAllOrganizations, fetchTransactions, fetchCodes]); // Ensure all fetch functions are included
+    fetchAllOrganizations();
+    fetchPendingOrganizations();
+    fetchTransactions();
+    fetchCodes();
+  }, [fetchAllOrganizations, fetchPendingOrganizations, fetchTransactions, fetchCodes]);
 
+  // Approve organization
   const handleApproveOrganization = async () => {
     if (!orgToAction) return;
 
     try {
-      const { error } = await (supabase
-        .from("organizations") as any)
+      const { error } = await supabase
+        .from("organizations")
         .update({ status: "approved" })
-        .eq("id", orgToAction as string);
+        .eq("id", orgToAction);
 
       if (error) throw error;
 
@@ -238,14 +258,15 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Reject organization
   const handleRejectOrganization = async () => {
     if (!orgToAction) return;
 
     try {
-      const { error } = await (supabase
-        .from("organizations") as any)
+      const { error } = await supabase
+        .from("organizations")
         .update({ status: "rejected" })
-        .eq("id", orgToAction as string);
+        .eq("id", orgToAction);
 
       if (error) throw error;
 
@@ -260,12 +281,13 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Archive organization
   const handleArchiveOrganization = async (orgId: string) => {
     try {
-      const { error } = await (supabase
-        .from("organizations") as any)
+      const { error } = await supabase
+        .from("organizations")
         .update({ status: "archived" })
-        .eq("id", orgId as string);
+        .eq("id", orgId);
 
       if (error) throw error;
 
@@ -277,12 +299,13 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Approve transaction
   const handleApproveTransaction = async (transactionId: string) => {
     try {
-      const { error } = await (supabase
-        .from("organization_transactions") as any)
+      const { error } = await supabase
+        .from("organization_transactions")
         .update({ status: "approved" })
-        .eq("id", transactionId as string);
+        .eq("id", transactionId);
 
       if (error) throw error;
 
@@ -294,20 +317,20 @@ export default function AdminOrganizationsTab() {
         .single();
 
       if (transaction) {
-        const { data: wallet } = await (supabase
-          .from("organization_wallets") as any)
+        const { data: wallet } = await supabase
+          .from("organization_wallets")
           .select("balance")
-          .eq("organization_id", (transaction as any).organization_id as string)
+          .eq("organization_id", transaction.organization_id)
           .single();
 
-        const newBalance = (transaction as any).type === "deposit"
-          ? (wallet?.balance || 0) + ((transaction as any).amount as number)
-          : (wallet?.balance || 0) - ((transaction as any).amount as number);
+        const newBalance = transaction.type === "deposit"
+          ? (wallet?.balance || 0) + transaction.amount
+          : (wallet?.balance || 0) - transaction.amount;
 
-        await (supabase
-          .from("organization_wallets") as any)
+        await supabase
+          .from("organization_wallets")
           .upsert({
-            organization_id: (transaction as any).organization_id as string,
+            organization_id: transaction.organization_id,
             balance: newBalance,
           });
       }
@@ -320,12 +343,13 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Reject transaction
   const handleRejectTransaction = async (transactionId: string) => {
     try {
-      const { error } = await (supabase
-        .from("organization_transactions") as any)
+      const { error } = await supabase
+        .from("organization_transactions")
         .update({ status: "rejected" })
-        .eq("id", transactionId as string);
+        .eq("id", transactionId);
 
       if (error) throw error;
 
@@ -337,6 +361,7 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Generate registration codes
   const handleGenerateCodes = async () => {
     try {
       const codesToCreate = Array.from({ length: newCodeCount }, () => ({
@@ -344,7 +369,9 @@ export default function AdminOrganizationsTab() {
         used: false,
       }));
 
-      const { error } = await (supabase.from("registration_codes") as any).insert(codesToCreate);
+      const { error } = await supabase
+        .from("registration_codes")
+        .insert(codesToCreate);
 
       if (error) throw error;
 
@@ -358,14 +385,15 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Revoke registration code
   const handleRevokeCode = async () => {
     if (!codeToRevoke) return;
 
     try {
-      const { error } = await (supabase
-        .from("registration_codes") as any)
+      const { error } = await supabase
+        .from("registration_codes")
         .update({ used: true })
-        .eq("id", codeToRevoke as string);
+        .eq("id", codeToRevoke);
 
       if (error) throw error;
 
@@ -378,6 +406,7 @@ export default function AdminOrganizationsTab() {
     }
   };
 
+  // Filtered lists
   const filteredPendingOrgs = pendingOrgs.filter((org) =>
     org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     org.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -408,7 +437,7 @@ export default function AdminOrganizationsTab() {
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-4 w-full h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+        <TabsList className="grid grid-cols-5 w-full h-auto mb-6 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="pending" className="flex flex-col items-center gap-1 text-[10px] font-medium">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Pending</span>
@@ -583,7 +612,7 @@ export default function AdminOrganizationsTab() {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">All Organizations ({allOrgs.length})</CardTitle>
-                  <CardDescription>Manage all approved organizations</CardDescription>
+                  <CardDescription>Manage all organizations</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -668,226 +697,3 @@ export default function AdminOrganizationsTab() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* Transactions Tab */}
-        <TabsContent value="transactions">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Organization Transactions</CardTitle>
-              <CardDescription>Review and approve all organization transactions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isLoading.transactions ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-                </div>
-              ) : filteredTransactions.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No transactions found</p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search transactions..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Organization</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Amount</TableHead>
-                          <TableHead>Purpose</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredTransactions.map((transaction) => (
-                          <TableRow key={transaction.id}>
-                            <TableCell>
-                              <div className="flex items-center gap-2">
-                                <Avatar className="h-8 w-8">
-                                  <AvatarFallback>
-                                    {transaction.profile?.first_name?.charAt(0) || "O"}
-                                    {transaction.profile?.last_name?.charAt(0) || ""}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium">
-                                  {transaction.profile?.first_name} {transaction.profile?.last_name}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant={transaction.type === "deposit" ? "default" : "destructive"}>
-                                {transaction.type}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="font-bold">
-                              ₱{transaction.amount.toFixed(2)}
-                            </TableCell>
-                            <TableCell className="text-sm">{transaction.purpose}</TableCell>
-                            <TableCell>
-                              <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"}>
-                                {transaction.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {new Date(transaction.created_at).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              {transaction.status === "pending" && (
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleApproveTransaction(transaction.id)}
-                                  >
-                                    <CheckCircle className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleRejectTransaction(transaction.id)}
-                                  >
-                                    <XCircle className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Codes Tab */}
-        <TabsContent value="codes">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Registration Codes</CardTitle>
-                  <CardDescription>Manage organization registration codes</CardDescription>
-                </div>
-                <Dialog open={newCodeDialogOpen} onOpenChange={setNewCodeDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button size="sm" className="gap-2">
-                      <Plus className="h-4 w-4" /> Generate Codes
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Generate Registration Codes</DialogTitle>
-                      <DialogDescription>
-                        Create new registration codes for organizations to use when registering.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="code-count">Number of Codes to Generate</Label>
-                        <Input
-                          id="code-count"
-                          type="number"
-                          value={newCodeCount}
-                          onChange={(e) => setNewCodeCount(Math.max(1, parseInt(e.target.value) || 1))}
-                          min="1"
-                        />
-                      </div>
-                      <Button onClick={handleGenerateCodes} className="w-full">
-                        <Plus className="h-4 w-4 mr-2" /> Generate {newCodeCount} Code(s)
-                      </Button>
-                    </div>
-                  </DialogContent>
-                </Dialog>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading.codes ? (
-                <div className="flex justify-center items-center py-8">
-                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-                </div>
-              ) : filteredCodes.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">No registration codes found</p>
-              ) : (
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search codes..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredCodes.map((code) => (
-                      <Card key={code.id} className="hover:shadow-md transition-shadow">
-                        <CardHeader>
-                          <CardTitle className="text-lg break-all">{code.code}</CardTitle>
-                          <CardDescription className="text-xs">
-                            Created: {new Date(code.created_at).toLocaleDateString()}
-                          </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <Badge variant={code.used ? "destructive" : "default"}>
-                            {code.used ? "Used" : "Available"}
-                          </Badge>
-                          {!code.used && (
-                            <Button
-                              size="sm"
-                              variant="destructive"
-                              className="mt-3 w-full gap-2"
-                              onClick={() => {
-                                setCodeToRevoke(code.id);
-                              }}
-                            >
-                              <XCircle className="h-4 w-4" /> Revoke Code
-                            </Button>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Join Requests Tab */}
-        <TabsContent value="join-requests">
-          <JoinRequestsTab />
-        </TabsContent>
-      </Tabs>
-
-      {/* Revoke Code Confirmation */}
-      <AlertDialog open={!!codeToRevoke} onOpenChange={() => setCodeToRevoke(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Revoke Registration Code</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to revoke this registration code? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleRevokeCode} className="bg-destructive hover:bg-destructive/90">
-              Revoke Code
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
-  );
-}
