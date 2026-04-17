@@ -163,7 +163,7 @@ export default function OrganizationDashboard() {
           .eq("organization_id", id)
           .eq("user_id", user.id)
           .eq("status", "active")
-          .single() as { data: { role: 'creator' | 'officer' | 'member' } | null };
+          .single();
 
         if (memberError) console.error("Error fetching member data:", memberError);
         if (memberData) {
@@ -189,7 +189,7 @@ export default function OrganizationDashboard() {
       .eq("organization_id", id)
       .eq("user_id", user.id)
       .eq("status", "active")
-      .single() as { data: { role: 'creator' | 'officer' | 'member' } | null };
+      .single();
 
     if (error) console.error("Error checking membership:", error);
     if (data) {
@@ -546,16 +546,16 @@ export default function OrganizationDashboard() {
                       <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={member.profiles?.avatar_url || undefined} />
+                            <AvatarImage src={member.profile?.avatar_url || undefined} />
                             <AvatarFallback>
-                              {member.profiles?.first_name?.charAt(0) || "U"}{member.profiles?.last_name?.charAt(0) || ""}
+                              {member.profile?.first_name?.charAt(0) || "U"}{member.profile?.last_name?.charAt(0) || ""}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium text-sm">
-                              {member.profiles?.first_name} {member.profiles?.last_name}
+                              {member.profile?.first_name} {member.profile?.last_name}
                             </p>
-                            <p className="text-xs text-muted-foreground">{member.profiles?.email}</p>
+                            <p className="text-xs text-muted-foreground">{member.profile?.email}</p>
                             <Badge variant={member.role === "creator" ? "default" : member.role === "officer" ? "secondary" : "outline"} className="mt-1">
                               {member.role}
                             </Badge>
