@@ -169,7 +169,7 @@ if (user) {
     console.error("Error fetching member data:", memberError);
   }
 
-  if (memberData?.role) {
+  if (memberData) {
     setIsMember(true);
     setUserRole(memberData.role);
   }
