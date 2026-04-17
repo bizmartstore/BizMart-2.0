@@ -188,11 +188,11 @@ export default function AdminOrganizationsTab() {
 }, [isLoading]);
 
   useEffect(() => {
-    fetchPendingOrganizations();
-    fetchAllOrganizations();
-    fetchTransactions();
-    fetchCodes();
-  }, [fetchPendingOrganizations, fetchAllOrganizations, fetchTransactions, fetchCodes]);
+  fetchPendingOrganizations();
+  fetchAllOrganizations();
+  fetchTransactions();
+  fetchCodes();
+}, [fetchPendingOrganizations, fetchAllOrganizations, fetchTransactions, fetchCodes]); // Ensure all fetch functions are included
 
   const handleApproveOrganization = async () => {
     if (!orgToAction) return;
