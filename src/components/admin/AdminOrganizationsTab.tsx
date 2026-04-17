@@ -48,7 +48,7 @@ export default function AdminOrganizationsTab() {
       setIsLoading({ ...isLoading, pending: true });
       const { data, error } = await supabase
         .from("organizations")
-        .select(`*, creator:profiles!fk_organizations_creator_id_fkey(first_name, last_name, email)`)
+        .select(`*, creator:profiles!fk_organizations_creator_id(first_name, last_name, email)`)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
