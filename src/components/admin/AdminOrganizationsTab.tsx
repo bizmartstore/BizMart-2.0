@@ -791,3 +791,95 @@ export default function AdminOrganizationsTab() {
     </TableRow>
   ))}
 </TableBody>
+{/* Codes Tab */}
+        <TabsContent value="codes">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Registration Codes</CardTitle>
+                  <CardDescription>Manage organization registration codes</CardDescription>
+                </div>
+                <Dialog open={newCodeDialogOpen} onOpenChange={setNewCodeDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button size="sm" className="gap-2">
+                      <Plus className="h-4 w-4" /> Generate Codes
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Generate Registration Codes</DialogTitle>
+                      <DialogDescription>
+                        Create new registration codes for organizations to use when registering.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="code-count">Number of Codes to Generate</Label>
+                        <Input
+                          id="code-count"
+                          type="number"
+                          value={newCodeCount}
+                          onChange={(e) => setNewCodeCount(Math.max(1, parseInt(e.target.value) || 1))}
+                          min="1"
+                        />
+                      </div>
+                      <Button onClick={handleGenerateCodes} className="w-full">
+                        <Plus className="h-4 w-4 mr-2" /> Generate {newCodeCount} Code(s)
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {isLoading.codes ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : filteredCodes.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No registration codes found</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search codes..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredCodes.map((code) => (
+                      <Card key={code.id} className="hover:shadow-md transition-shadow">
+                        <CardHeader>
+                          <CardTitle className="text-lg break-all">{code.code}</CardTitle>
+                          <CardDescription className="text-xs">
+                            Created: {new Date(code.created_at).toLocaleDateString()}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <Badge variant={code.used ? "destructive" : "default"}>
+                            {code.used ? "Used" : "Available"}
+                          </Badge>
+                          {!code.used && (
+                            <Button
+                              size="sm"
+                              variant="destructive"
+                              className="mt-3 w-full gap-2"
+                              onClick={() => setCodeToRevoke(code.id)}
+                            >
+                              <XCircle className="h-4 w-4" /> Revoke Code
+                            </Button>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
