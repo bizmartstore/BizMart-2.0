@@ -171,7 +171,7 @@ if (user) {
 
   if (memberData) {
     setIsMember(true);
-    setUserRole(memberData.role);
+    setUserRole(memberData.role as 'creator' | 'officer' | 'member');
   }
 }
     } catch (error) {
@@ -197,7 +197,7 @@ if (user) {
     if (error) console.error("Error checking membership:", error);
     if (data) {
       setIsMember(true);
-      setUserRole(data.role);
+      setUserRole(data.role as 'creator' | 'officer' | 'member');
     }
   };
 
