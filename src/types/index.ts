@@ -16,15 +16,15 @@ export interface Organization {
   };
 }
 
-// Member types
+// Member types - UPDATED
 export interface Member {
   id: string;
   organization_id: string;
   user_id: string;
   role: 'creator' | 'officer' | 'member';
-  status: 'active' | 'left' | 'banned' | 'pending';
+  status: 'active' | 'left' | 'banned' | 'pending' | 'approved' | 'rejected';
   joined_at: string;
-  reference_number?: string;
+  reference_number?: string | null;
   profile?: {
     first_name: string | null;
     last_name: string | null;
@@ -87,4 +87,35 @@ export interface RegistrationCode {
   code: string;
   used: boolean;
   created_at: string;
+}
+
+// Organization Member type for Supabase operations
+export type OrganizationMemberInsert = Omit<Member, 'id' | 'joined_at' | 'profile'> & {
+  profile?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    avatar_url?: string | null;
+  };
+};
+
+// Join Request type
+export interface JoinRequest {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reference_number?: string | null;
+  created_at: string;
+  profile?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    avatar_url?: string | null;
+  };
+  organization?: {
+    id: string;
+    name: string;
+  };
 }
