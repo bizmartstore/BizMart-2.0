@@ -80,13 +80,13 @@ export default function JoinRequestsTab() {
       // Insert the user as a member with status "active"
       const { error: insertError } = await supabase
         .from("organization_members")
-        .insert([{
+        .insert({
           organization_id: requestData.organization_id,
           user_id: requestData.user_id,
           role: "member",
           status: "active",
           reference_number: requestData.reference_number || null,
-        }]);
+        });
 
       if (insertError) throw insertError;
 
