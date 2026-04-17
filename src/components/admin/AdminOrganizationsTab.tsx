@@ -163,23 +163,29 @@ export default function AdminOrganizationsTab() {
 }, [isLoading]);
 
   const fetchCodes = useCallback(async () => {
-    try {
-      setIsLoading({ ...isLoading, codes: true });
-      const { data, error } = await supabase
-        .from("registration_codes")
-        .select("*")
-        .order("created_at", { ascending: false });
+  try {
+    setIsLoading({ ...isLoading, codes: true });
+    const { data, error } = await supabase
+      .from("registration_codes")
+      .select(`
+        id,
+        code,
+        used,
+        created_at
+      `)
+      .order("created_at", { ascending: false })
+      .limit(100); // Limit the number of codes fetched
 
-      if (error) throw error;
+    if (error) throw error;
 
-      setCodes(data || []);
-    } catch (error) {
-      console.error("Error fetching codes:", error);
-      toast.error("Failed to load registration codes");
-    } finally {
-      setIsLoading({ ...isLoading, codes: false });
-    }
-  }, [isLoading]);
+    setCodes(data || []);
+  } catch (error) {
+    console.error("Error fetching codes:", error);
+    toast.error("Failed to load registration codes");
+  } finally {
+    setIsLoading({ ...isLoading, codes: false });
+  }
+}, [isLoading]);
 
   useEffect(() => {
     fetchPendingOrganizations();
