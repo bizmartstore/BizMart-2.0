@@ -167,9 +167,9 @@ export default function OrganizationDashboard() {
 
         if (memberError) console.error("Error fetching member data:", memberError);
         if (memberData) {
-          setIsMember(true);
-          setUserRole(memberData.role);
-        }
+            setIsMember(true);
+            setUserRole(memberData.role as 'creator' | 'officer' | 'member');
+          }
       }
     } catch (error) {
       console.error("Error fetching organization data:", error);
@@ -194,7 +194,7 @@ export default function OrganizationDashboard() {
     if (error) console.error("Error checking membership:", error);
     if (data) {
       setIsMember(true);
-      setUserRole(data.role);
+      setUserRole(data.role as 'creator' | 'officer' | 'member');
     }
   };
 
