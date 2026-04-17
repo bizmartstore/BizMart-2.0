@@ -67,11 +67,10 @@ export default function OrganizationDashboard() {
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user && id) {
-      fetchOrganizationData();
-      checkMembership();
-    }
-  }, [user, id]);
+  if (user && id) {
+    fetchOrganizationData();
+  }
+}, [user, id]);
 
   const fetchOrganizationData = useCallback(async () => {
     try {
