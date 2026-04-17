@@ -155,11 +155,10 @@ export default function OrganizationDashboard() {
       if (announcementsError) console.error("Error fetching announcements:", announcementsError);
       setAnnouncements(announcementsData || []);
 
-      // Check if user is a member and get their role
-if (user) {
+      if (user && id) {
   type MemberRole = "creator" | "officer" | "member";
 
-  const { data, error } = await supabase
+  const { data: memberData, error } = await supabase
     .from("organization_members")
     .select("role")
     .eq("organization_id", id)
@@ -169,13 +168,15 @@ if (user) {
 
   if (error) {
     console.error("Error fetching member data:", error);
+    return;
   }
-
-  const memberData = data;
 
   if (memberData?.role) {
     setIsMember(true);
     setUserRole(memberData.role);
+  } else {
+    setIsMember(false);
+    setUserRole(null);
   }
 }
     } catch (error) {
