@@ -156,21 +156,24 @@ export default function OrganizationDashboard() {
       setAnnouncements(announcementsData || []);
 
       // Check if user is a member and get their role
-      if (user) {
-        const { data: memberData, error: memberError } = await supabase
-          .from("organization_members")
-          .select("role")
-          .eq("organization_id", id)
-          .eq("user_id", user.id)
-          .eq("status", "active")
-          .single();
+if (user) {
+  const { data: memberData, error: memberError } = await supabase
+    .from("organization_members")
+    .select("role")
+    .eq("organization_id", id)
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle<{ role: 'creator' | 'officer' | 'member' }>();
 
-        if (memberError) console.error("Error fetching member data:", memberError);
-        if (memberData) {
-            setIsMember(true);
-            setUserRole(memberData.role as 'creator' | 'officer' | 'member');
-          }
-      }
+  if (memberError) {
+    console.error("Error fetching member data:", memberError);
+  }
+
+  if (memberData?.role) {
+    setIsMember(true);
+    setUserRole(memberData.role);
+  }
+}
     } catch (error) {
       console.error("Error fetching organization data:", error);
       toast.error("Failed to load organization data");
