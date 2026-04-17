@@ -170,9 +170,9 @@ if (user) {
   }
 
   if (memberData) {
-    setIsMember(true);
-    setUserRole(memberData.role as 'creator' | 'officer' | 'member');
-  }
+      setIsMember(true);
+      setUserRole(memberData.role as 'creator' | 'officer' | 'member');
+    }
 }
     } catch (error) {
       console.error("Error fetching organization data:", error);
