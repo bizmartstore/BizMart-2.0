@@ -193,7 +193,7 @@ if (user) {
       .eq("organization_id", id)
       .eq("user_id", user.id)
       .eq("status", "active")
-      .single<{ role: OrganizationMemberRole }>();
+      .single();
 
     if (error) {
       console.error("Error checking membership:", error);
