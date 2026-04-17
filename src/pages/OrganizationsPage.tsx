@@ -44,66 +44,60 @@ export default function OrganizationsPage() {
   }, [user]);
 
   const fetchOrganizations = async () => {
-  try {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
+      
+      // First check if the organizations table exists
+      const { data: orgData, error: orgError } = await supabase
+        .from("organizations")
+        .select("*")
+        .eq("status", "approved")
+        .order("created_at", { ascending: false })
+        .limit(1); // Just check if table exists with a small query
 
-    // First check if the organizations table exists
-    const { data: orgData, error: orgError } = await supabase
-      .from("organizations")
-      .select("*")
-      .eq("status", "approved")
-      .order("created_at", { ascending: false })
-      .limit(1); // Just check if table exists with a small query
+      if (orgError && orgError.code === 'PGRST205') {
+        // Table doesn't exist, set empty organizations and return
+        setOrganizations([]);
+        return;
+      }
 
-    if (orgError && orgError.code === 'PGRST205') {
-      setOrganizations([]);
-      return;
-    }
+      if (orgError) {
+        console.error("Supabase error:", orgError);
+        throw orgError;
+      }
 
-    if (orgError) {
-      console.error("Supabase error:", orgError);
-      throw orgError;
-    }
+      // Get member counts for each organization with timeout
+      const orgsWithCounts = await Promise.all(
+        (orgData || []).map(async (org: Organization) => {
+          try {
+            const { count, error: countError } = await supabase
+              .from("organization_members")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id)
+              .limit(1); // Limit to 1 for faster count
 
-    // Get member counts for each organization with error handling and timeout
-    const orgsWithCounts = await Promise.all(
-      (orgData || []).map(async (org: Organization) => {
-        try {
-          // Add a timeout to prevent hanging
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+            if (countError) {
+              console.error("Error counting members:", countError);
+              return { ...org, member_count: 0 };
+            }
 
-          const { count, error: countError } = await supabase
-            .from("organization_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id)
-            .limit(1) // Limit to 1 for faster count
-            .abortSignal(controller.signal);
-
-          clearTimeout(timeoutId);
-
-          if (countError) {
-            console.error("Error counting members:", countError);
+            return { ...org, member_count: count || 0 };
+          } catch (countError) {
+            console.error("Error in member count query:", countError);
             return { ...org, member_count: 0 };
           }
+        })
+      );
 
-          return { ...org, member_count: count || 0 };
-        } catch (countError) {
-          console.error("Error in member count query:", countError);
-          return { ...org, member_count: 0 };
-        }
-      })
-    );
-
-    setOrganizations(orgsWithCounts || []);
-  } catch (error) {
-    console.error("Error fetching organizations:", error);
-    setOrganizations([]);
-    toast.error("Failed to load organizations. Please try again later.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+      setOrganizations(orgsWithCounts || []);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      setOrganizations([]); // Set to empty array on error
+      toast.error("Failed to load organizations. Please try again later.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleRegisterOrganization = async () => {
     if (!user || !profile) {

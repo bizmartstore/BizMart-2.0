@@ -37,26 +37,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [membership, setMembership] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
-
+  
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const authStateChangeRef = useRef<{ unsubscribe: () => void } | null>(null);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
     if (fetchProfileRef.current) return fetchProfileRef.current;
     const currentRequestId = ++requestIdRef.current;
-
+    
     const fetchPromise = (async () => {
       try {
         // 1. Fetch Profile
         const { data: profData } = await (supabase as any).from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
-
+        
         // 2. Fetch Role (prioritize user_roles, fall back to profiles.role for legacy users)
         const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle();
         const role = roleData?.role || 'customer';
-
+        
         // 3. Fetch Wallet
         const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle();
 
@@ -100,106 +99,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
-
     const init = async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mountedRef.current) return;
-
         setSession(s);
         setUser(s?.user ?? null);
-
         initTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) {
-            setLoading(false);
-            setIsAuthReady(true);
-          }
-        }, 3000); // Reduced timeout to 3s
-
-        if (s?.user) {
-          fetchProfile(s.user).catch(console.error);
-        } else {
-          setLoading(false);
-          setIsAuthReady(true);
-        }
+          if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
+        }, 5000);
+        if (s?.user) fetchProfile(s.user);
+        else { setLoading(false); setIsAuthReady(true); }
       } catch (err) {
-        console.error("[AuthContext] Initialization error:", err);
-        if (mountedRef.current) {
-          setLoading(false);
-          setIsAuthReady(true);
-        }
+        if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
       }
     };
-
     init();
 
-    // Store the unsubscribe function in a ref to clean it up later
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, s) => {
       if (!mountedRef.current) return;
-
       setSession(s);
       setUser(s?.user ?? null);
-
       if (event === 'SIGNED_IN' && s?.user) {
-        setLoading(false);
-        setIsAuthReady(true);
-        fetchProfile(s.user).catch(console.error);
+        setLoading(false); setIsAuthReady(true);
+        fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
-        setProfile(null);
-        setMembership(null);
-        setLoading(false);
-        setIsAuthReady(true);
-        requestIdRef.current++;
-        fetchProfileRef.current = null;
+        setProfile(null); setMembership(null); setLoading(false); setIsAuthReady(true);
+        requestIdRef.current++; fetchProfileRef.current = null;
       } else {
-        setLoading(false);
-        setIsAuthReady(prev => prev || true);
+        setLoading(false); setIsAuthReady(prev => prev || true);
       }
     });
-
-    authStateChangeRef.current = { unsubscribe: subscription.unsubscribe };
 
     return () => {
       mountedRef.current = false;
       if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
-      if (authStateChangeRef.current) {
-        authStateChangeRef.current.unsubscribe();
-      }
+      subscription?.unsubscribe();
     };
   }, [fetchProfile]);
 
   // Real-time membership listener
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase.channel(`membership-${user.id}`)
-      .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "club_memberships",
-        filter: `user_id=eq.${user.id}`
-      }, () => {
-        refreshProfile().catch(console.error);
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "club_memberships", filter: `user_id=eq.${user.id}` }, () => refreshProfile())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+    return () => { supabase.removeChannel(channel); };
+  }, [user, refreshProfile]);
 
   const signOut = async () => {
-    try {
-      await supabase.auth.signOut();
-      setUser(null);
-      setSession(null);
-      setProfile(null);
-      setMembership(null);
-      setIsAuthReady(true);
-      if (user) localStorage.removeItem(`user_role_${user.id}`);
-    } catch (error) {
-      console.error("[AuthContext] Error during sign out:", error);
-    }
+    await supabase.auth.signOut();
+    setUser(null); setSession(null); setProfile(null); setMembership(null); setIsAuthReady(true);
+    if (user) localStorage.removeItem(`user_role_${user.id}`);
   };
 
   return (

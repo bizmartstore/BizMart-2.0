@@ -15,6 +15,7 @@ import UsersTab from "@/components/admin/UsersTab";
 import PrintTab from "@/components/admin/PrintTab";
 import MessagesTab from "@/components/admin/AdminMessagesTab";
 import CodesTab from "@/components/admin/CodesTab";
+import RegistrationCodesTab from "@/components/admin/RegistrationCodesTab";
 import NewsTab from "@/components/admin/NewsTab";
 import ClubTab from "@/components/admin/ClubTab";
 import BCoinsTab from "@/components/admin/BCoinsTab";
@@ -39,6 +40,7 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
     { id: "messages", label: "Messages", icon: <MessageCircle className="h-4 w-4" />, badge: null },
     { id: "codes", label: "Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
+    { id: "registration-codes", label: "Registration Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
     { id: "news", label: "News", icon: <Bell className="h-4 w-4" />, badge: null },
     { id: "banners", label: "Banners", icon: <Award className="h-4 w-4" />, badge: null },
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
@@ -75,7 +77,7 @@ export default function AdminDashboard() {
         (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
-
+      
       setPendingCounts({
         orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
         print: printRes.status === "fulfilled" ? (printRes.value.count || 0) : 0,
@@ -96,7 +98,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (!isAuthReady || !isAdmin) return;
-
+    
     const channel = supabase
       .channel("admin-pending-counts-realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadPendingCounts())
@@ -104,11 +106,11 @@ export default function AdminDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
       .subscribe();
-
+      
     pendingPollRef.current = setInterval(() => {
       loadPendingCounts();
     }, 5000);
-
+      
     return () => {
       supabase.removeChannel(channel);
       if (pendingPollRef.current) clearInterval(pendingPollRef.current);
@@ -164,24 +166,25 @@ export default function AdminDashboard() {
 
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="products"><ProductsTab /></ProductsTab>
+          <TabsContent value="products"><ProductsTab /></TabsContent>
           <TabsContent value="broadcast"><BroadcastTab /></TabsContent>
-          <TabsContent value="categories"><CategoriesTab /></CategoriesTab>
-          <TabsContent value="users"><UsersTab /></UsersTab>
-          <TabsContent value="sellers"><SellersTab /></SellersTab>
-          <TabsContent value="print"><PrintTab /></PrintTab>
-          <TabsContent value="messages"><MessagesTab /></MessagesTab>
-          <TabsContent value="codes"><CodesTab /></CodesTab>
-          <TabsContent value="news"><NewsTab /></NewsTab>
-          <TabsContent value="banners"><BannerTab /></BannerTab>
-          <TabsContent value="club"><ClubTab /></ClubTab>
-          <TabsContent value="organizations"><AdminOrganizationsTab /></AdminOrganizationsTab>
-          <TabsContent value="bcoins"><BCoinsTab /></BCoinsTab>
-          <TabsContent value="gcash"><GCashTab /></GCashTab>
+          <TabsContent value="categories"><CategoriesTab /></TabsContent>
+          <TabsContent value="users"><UsersTab /></TabsContent>
+          <TabsContent value="sellers"><SellersTab /></TabsContent>
+          <TabsContent value="print"><PrintTab /></TabsContent>
+          <TabsContent value="messages"><MessagesTab /></TabsContent>
+          <TabsContent value="codes"><CodesTab /></TabsContent>
+          <TabsContent value="registration-codes"><RegistrationCodesTab /></TabsContent>
+          <TabsContent value="news"><NewsTab /></TabsContent>
+          <TabsContent value="banners"><BannerTab /></TabsContent>
+          <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="organizations"><AdminOrganizationsTab /></TabsContent>
+          <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
+          <TabsContent value="gcash"><GCashTab /></TabsContent>
           {isMainAdmin ? (
-            <TabsContent value="settings"><SettingsTab /></SettingsTab>
+            <TabsContent value="settings"><SettingsTab /></TabsContent>
           ) : (
-            <TabsContent value="settings"><MemberAdminSettingsTab /></MemberAdminSettingsTab>
+            <TabsContent value="settings"><MemberAdminSettingsTab /></TabsContent>
           )}
         </Tabs>
       </div>

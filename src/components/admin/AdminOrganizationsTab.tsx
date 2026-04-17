@@ -5,22 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import {
-  Users,
-  CheckCircle,
-  XCircle,
-  Eye,
-  Archive,
-  Plus,
-  Search,
-  Ticket,
-  DollarSign,
-  Calendar,
-  User,
-  UsersRound,
-  Settings,
-  UserPlus,
-} from "lucide-react";
+import { Users, CheckCircle, XCircle, Eye, Archive, Plus, Search, Ticket, DollarSign, Calendar, User, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,107 +43,27 @@ export default function AdminOrganizationsTab() {
   const [newCodeDialogOpen, setNewCodeDialogOpen] = useState(false);
   const [newCodeCount, setNewCodeCount] = useState(1);
 
-  // Fetch all organizations (pending, approved, rejected, archived)
-  const fetchAllOrganizations = useCallback(async () => {
-    try {
-      setIsLoading({ ...isLoading, all: true });
-      const { data, error } = await supabase
-        .from("organizations")
-        .select(`
-          id,
-          name,
-          description,
-          club_type,
-          adviser_name,
-          status,
-          created_at,
-          creator_id,
-          creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-
-      // Get member counts for each organization
-      const orgsWithCounts = await Promise.all(
-        data?.map(async (org: Organization) => {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const { count, error: countError } = await supabase
-              .from("organization_members")
-              .select("id", { count: "exact", head: true })
-              .eq("organization_id", org.id)
-              .limit(1)
-              .abortSignal(controller.signal);
-
-            clearTimeout(timeoutId);
-
-            if (countError) console.error("Error counting members:", countError);
-            return { ...org, member_count: count || 0 };
-          } catch (countError) {
-            console.error("Error in member count query:", countError);
-            return { ...org, member_count: 0 };
-          }
-        }) || []
-      );
-
-      setAllOrgs(orgsWithCounts);
-    } catch (error) {
-      console.error("Error fetching all organizations:", error);
-      toast.error("Failed to load organizations");
-    } finally {
-      setIsLoading({ ...isLoading, all: false });
-    }
-  }, [isLoading]);
-
-  // Fetch pending organizations
   const fetchPendingOrganizations = useCallback(async () => {
     try {
       setIsLoading({ ...isLoading, pending: true });
       const { data, error } = await supabase
         .from("organizations")
-        .select(`
-          id,
-          name,
-          description,
-          club_type,
-          adviser_name,
-          status,
-          created_at,
-          creator_id,
-          creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
-        `)
+        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
         .eq("status", "pending")
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      // Get member counts for each organization
+      // Get member counts
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: Organization) => {
-          try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
+          const { count, error: countError } = await supabase
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", org.id);
 
-            const { count, error: countError } = await supabase
-              .from("organization_members")
-              .select("id", { count: "exact", head: true })
-              .eq("organization_id", org.id)
-              .limit(1)
-              .abortSignal(controller.signal);
-
-            clearTimeout(timeoutId);
-
-            if (countError) console.error("Error counting members:", countError);
-            return { ...org, member_count: count || 0 };
-          } catch (countError) {
-            console.error("Error in member count query:", countError);
-            return { ...org, member_count: 0 };
-          }
+          if (countError) console.error("Error counting members:", countError);
+          return { ...org, member_count: count || 0 };
         }) || []
       );
 
@@ -171,24 +76,46 @@ export default function AdminOrganizationsTab() {
     }
   }, [isLoading]);
 
-  // Fetch transactions
+  const fetchAllOrganizations = useCallback(async () => {
+    try {
+      setIsLoading({ ...isLoading, all: true });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .in("status", ["approved", "rejected", "archived"])
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get member counts
+      const orgsWithCounts = await Promise.all(
+        data?.map(async (org: Organization) => {
+          const { count, error: countError } = await supabase
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", org.id);
+
+          if (countError) console.error("Error counting members:", countError);
+          return { ...org, member_count: count || 0 };
+        }) || []
+      );
+
+      setAllOrgs(orgsWithCounts);
+    } catch (error) {
+      console.error("Error fetching all organizations:", error);
+      toast.error("Failed to load organizations");
+    } finally {
+      setIsLoading({ ...isLoading, all: false });
+    }
+  }, [isLoading]);
+
   const fetchTransactions = useCallback(async () => {
     try {
       setIsLoading({ ...isLoading, transactions: true });
       const { data, error } = await supabase
         .from("organization_transactions")
-        .select(`
-          id,
-          amount,
-          type,
-          purpose,
-          status,
-          created_at,
-          user_id,
-          profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(50);
+        .select(`*, profile:profiles!organization_transactions_user_id_fkey(first_name, last_name, avatar_url)`)
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -201,20 +128,13 @@ export default function AdminOrganizationsTab() {
     }
   }, [isLoading]);
 
-  // Fetch registration codes
   const fetchCodes = useCallback(async () => {
     try {
       setIsLoading({ ...isLoading, codes: true });
       const { data, error } = await supabase
         .from("registration_codes")
-        .select(`
-          id,
-          code,
-          used,
-          created_at
-        `)
-        .order("created_at", { ascending: false })
-        .limit(100);
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error) throw error;
 
@@ -227,23 +147,21 @@ export default function AdminOrganizationsTab() {
     }
   }, [isLoading]);
 
-  // Initialize all fetches
   useEffect(() => {
-    fetchAllOrganizations();
     fetchPendingOrganizations();
+    fetchAllOrganizations();
     fetchTransactions();
     fetchCodes();
-  }, [fetchAllOrganizations, fetchPendingOrganizations, fetchTransactions, fetchCodes]);
+  }, [fetchPendingOrganizations, fetchAllOrganizations, fetchTransactions, fetchCodes]);
 
-  // Approve organization
   const handleApproveOrganization = async () => {
     if (!orgToAction) return;
 
     try {
-      const { error } = await supabase
-        .from("organizations")
+      const { error } = await (supabase
+        .from("organizations") as any)
         .update({ status: "approved" })
-        .eq("id", orgToAction);
+        .eq("id", orgToAction as string);
 
       if (error) throw error;
 
@@ -258,15 +176,14 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Reject organization
   const handleRejectOrganization = async () => {
     if (!orgToAction) return;
 
     try {
-      const { error } = await supabase
-        .from("organizations")
+      const { error } = await (supabase
+        .from("organizations") as any)
         .update({ status: "rejected" })
-        .eq("id", orgToAction);
+        .eq("id", orgToAction as string);
 
       if (error) throw error;
 
@@ -281,13 +198,12 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Archive organization
   const handleArchiveOrganization = async (orgId: string) => {
     try {
-      const { error } = await supabase
-        .from("organizations")
+      const { error } = await (supabase
+        .from("organizations") as any)
         .update({ status: "archived" })
-        .eq("id", orgId);
+        .eq("id", orgId as string);
 
       if (error) throw error;
 
@@ -299,13 +215,12 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Approve transaction
   const handleApproveTransaction = async (transactionId: string) => {
     try {
-      const { error } = await supabase
-        .from("organization_transactions")
+      const { error } = await (supabase
+        .from("organization_transactions") as any)
         .update({ status: "approved" })
-        .eq("id", transactionId);
+        .eq("id", transactionId as string);
 
       if (error) throw error;
 
@@ -317,20 +232,20 @@ export default function AdminOrganizationsTab() {
         .single();
 
       if (transaction) {
-        const { data: wallet } = await supabase
-          .from("organization_wallets")
+        const { data: wallet } = await (supabase
+          .from("organization_wallets") as any)
           .select("balance")
-          .eq("organization_id", transaction.organization_id)
+          .eq("organization_id", (transaction as any).organization_id as string)
           .single();
 
-        const newBalance = transaction.type === "deposit"
-          ? (wallet?.balance || 0) + transaction.amount
-          : (wallet?.balance || 0) - transaction.amount;
+        const newBalance = (transaction as any).type === "deposit"
+          ? (wallet?.balance || 0) + ((transaction as any).amount as number)
+          : (wallet?.balance || 0) - ((transaction as any).amount as number);
 
-        await supabase
-          .from("organization_wallets")
+        await (supabase
+          .from("organization_wallets") as any)
           .upsert({
-            organization_id: transaction.organization_id,
+            organization_id: (transaction as any).organization_id as string,
             balance: newBalance,
           });
       }
@@ -343,13 +258,12 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Reject transaction
   const handleRejectTransaction = async (transactionId: string) => {
     try {
-      const { error } = await supabase
-        .from("organization_transactions")
+      const { error } = await (supabase
+        .from("organization_transactions") as any)
         .update({ status: "rejected" })
-        .eq("id", transactionId);
+        .eq("id", transactionId as string);
 
       if (error) throw error;
 
@@ -361,7 +275,6 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Generate registration codes
   const handleGenerateCodes = async () => {
     try {
       const codesToCreate = Array.from({ length: newCodeCount }, () => ({
@@ -369,9 +282,7 @@ export default function AdminOrganizationsTab() {
         used: false,
       }));
 
-      const { error } = await supabase
-        .from("registration_codes")
-        .insert(codesToCreate);
+      const { error } = await (supabase.from("registration_codes") as any).insert(codesToCreate);
 
       if (error) throw error;
 
@@ -385,15 +296,14 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Revoke registration code
   const handleRevokeCode = async () => {
     if (!codeToRevoke) return;
 
     try {
-      const { error } = await supabase
-        .from("registration_codes")
+      const { error } = await (supabase
+        .from("registration_codes") as any)
         .update({ used: true })
-        .eq("id", codeToRevoke);
+        .eq("id", codeToRevoke as string);
 
       if (error) throw error;
 
@@ -406,7 +316,6 @@ export default function AdminOrganizationsTab() {
     }
   };
 
-  // Filtered lists
   const filteredPendingOrgs = pendingOrgs.filter((org) =>
     org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     org.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -436,9 +345,8 @@ export default function AdminOrganizationsTab() {
 
   return (
     <div className="space-y-6">
-      {/* TABS LIST */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-5 w-full h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+        <TabsList className="grid grid-cols-4 w-full h-auto mb-6 bg-muted/50 p-1 rounded-xl">
           <TabsTrigger value="pending" className="flex flex-col items-center gap-1 text-[10px] font-medium">
             <Users className="h-4 w-4" />
             <span className="hidden sm:inline">Pending</span>
@@ -461,7 +369,7 @@ export default function AdminOrganizationsTab() {
           </TabsTrigger>
         </TabsList>
 
-        {/* PENDING ORGANIZATIONS TAB CONTENT */}
+        {/* Pending Organizations Tab */}
         <TabsContent value="pending">
           <Card>
             <CardHeader>
@@ -606,14 +514,14 @@ export default function AdminOrganizationsTab() {
           </Dialog>
         </TabsContent>
 
-        {/* ALL ORGANIZATIONS TAB CONTENT */}
+        {/* All Organizations Tab */}
         <TabsContent value="all">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-lg">All Organizations ({allOrgs.length})</CardTitle>
-                  <CardDescription>Manage all organizations</CardDescription>
+                  <CardDescription>Manage all approved organizations</CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -699,7 +607,7 @@ export default function AdminOrganizationsTab() {
           </Card>
         </TabsContent>
 
-        {/* TRANSACTIONS TAB CONTENT */}
+        {/* Transactions Tab */}
         <TabsContent value="transactions">
           <Card>
             <CardHeader>
@@ -778,14 +686,14 @@ export default function AdminOrganizationsTab() {
                                     variant="outline"
                                     onClick={() => handleApproveTransaction(transaction.id)}
                                   >
-                                    <CheckCircle className="h-3 w-3" /> Approve
+                                    <CheckCircle className="h-3 w-3" />
                                   </Button>
                                   <Button
                                     size="sm"
                                     variant="outline"
                                     onClick={() => handleRejectTransaction(transaction.id)}
                                   >
-                                    <XCircle className="h-3 w-3" /> Reject
+                                    <XCircle className="h-3 w-3" />
                                   </Button>
                                 </div>
                               )}
@@ -801,7 +709,7 @@ export default function AdminOrganizationsTab() {
           </Card>
         </TabsContent>
 
-        {/* CODES TAB CONTENT */}
+        {/* Codes Tab */}
         <TabsContent value="codes">
           <Card>
             <CardHeader>
@@ -878,7 +786,9 @@ export default function AdminOrganizationsTab() {
                               size="sm"
                               variant="destructive"
                               className="mt-3 w-full gap-2"
-                              onClick={() => setCodeToRevoke(code.id)}
+                              onClick={() => {
+                                setCodeToRevoke(code.id);
+                              }}
                             >
                               <XCircle className="h-4 w-4" /> Revoke Code
                             </Button>
@@ -893,13 +803,13 @@ export default function AdminOrganizationsTab() {
           </Card>
         </TabsContent>
 
-        {/* JOIN REQUESTS TAB CONTENT */}
+        {/* Join Requests Tab */}
         <TabsContent value="join-requests">
           <JoinRequestsTab />
         </TabsContent>
       </Tabs>
 
-      {/* REVOKE CODE CONFIRMATION DIALOG */}
+      {/* Revoke Code Confirmation */}
       <AlertDialog open={!!codeToRevoke} onOpenChange={() => setCodeToRevoke(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
