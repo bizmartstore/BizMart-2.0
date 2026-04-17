@@ -170,8 +170,9 @@ if (user) {
   }
 
   if (memberData && memberData.role) {
-  setIsMember(true);
-  setUserRole(memberData.role);
+    setIsMember(true);
+    setUserRole(memberData.role);
+  }
 }
     } catch (error) {
       console.error("Error fetching organization data:", error);
