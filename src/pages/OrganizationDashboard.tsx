@@ -542,9 +542,9 @@ export default function OrganizationDashboard() {
                       <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={member.profile?.avatar_url || undefined} />
+                            <AvatarImage src={member.profiles?.avatar_url || undefined} />
                             <AvatarFallback>
-                              {member.profiles?.first_name?.charAt(0) || "U"}{member.profile?.last_name?.charAt(0) || ""}
+                              {member.profiles?.first_name?.charAt(0) || "U"}{member.profiles?.last_name?.charAt(0) || ""}
                             </AvatarFallback>
                           </Avatar>
                           <div>
