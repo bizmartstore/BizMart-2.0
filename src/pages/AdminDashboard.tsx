@@ -90,10 +90,10 @@ export default function AdminDashboard() {
   const loadPendingCounts = useCallback(async () => {
     try {
       const [ordersRes, printRes, gcashRes, bcoinsRes] = await Promise.allSettled([
-        (supabase as any).from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
-        (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("print_orders").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
+        supabase.from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
 
       setPendingCounts({
@@ -185,15 +185,15 @@ export default function AdminDashboard() {
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="broadcast"><BroadcastTab /></TabsContent>
-          <TabsContent value="categories"><CategoriesTab /></TabsContent>
-          <TabsContent value="users"><UsersTab /></TabsContent>
-          <TabsContent value="sellers"><SellersTab /></TabsContent>
-          <TabsContent value="print"><PrintTab /></TabsContent>
+          <TabsContent value="broadcast"><BroadcastTab /></BroadcastTab>
+          <TabsContent value="categories"><CategoriesTab /></CategoriesTab>
+          <TabsContent value="users"><UsersTab /></UsersTab>
+          <TabsContent value="sellers"><SellersTab /></SellersTab>
+          <TabsContent value="print"><PrintTab /></PrintTab>
           <TabsContent value="messages"><MessagesTab /></MessagesTab>
           <TabsContent value="codes"><CodesTab /></CodesTab>
-          <TabsContent value="registration-codes"><RegistrationCodesTab /></TabsContent>
-          <TabsContent value="join-requests"><JoinRequestsTab /></TabsContent>
+          <TabsContent value="registration-codes"><RegistrationCodesTab /></RegistrationCodesTab>
+          <TabsContent value="join-requests"><JoinRequestsTab /></JoinRequestsTab>
           <TabsContent value="news"><NewsTab /></NewsTab>
           <TabsContent value="banners"><BannerTab /></BannerTab>
           <TabsContent value="club"><ClubTab /></ClubTab>
