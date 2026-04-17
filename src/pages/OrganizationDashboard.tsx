@@ -118,7 +118,7 @@ export default function OrganizationDashboard() {
       // Fetch members
       const { data: membersData } = await supabase
         .from("organization_members")
-        .select(`*, profile:profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url)`)
+        .select(`*, profiles(first_name, last_name, email, avatar_url)`)
         .eq("organization_id", id)
         .eq("status", "active")
         .order("role", { ascending: false })
