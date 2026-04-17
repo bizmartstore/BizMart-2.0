@@ -370,21 +370,24 @@ if (!walletData) {
   };
 
   const handleRemoveMember = async () => {
-    if (!memberToRemove || !organization) return;
+  if (!memberToRemove || !organization) return;
 
-    try {
-      await (supabase.from("organization_members") as any)
-  .update({ status: "left" })
-  .eq("id", memberToRemove as string);
+  try {
+    await (supabase.from("organization_members") as any)
+      .update({ status: "left" })
+      .eq("id", memberToRemove as string);
 
-      toast.success("Member removed successfully!");
-      fetchOrganizationData();
-      setMemberToRemove(null);
-    } catch (error) {
-      console.error("Error removing member:", error);
-      toast.error("Failed to remove member");
-    }
-  };
+    setMembers(prev =>
+      prev.filter(member => member.id !== memberToRemove)
+    );
+
+    setMemberToRemove(null);
+    toast.success("Member removed successfully");
+  } catch (error) {
+    console.error("Error removing member:", error);
+    toast.error("Failed to remove member");
+  }
+};
 
   const handleDeleteEvent = async () => {
     if (!eventToDelete) return;
