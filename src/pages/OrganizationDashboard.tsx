@@ -138,7 +138,7 @@ export default function OrganizationDashboard() {
       // Fetch transactions
       const { data: transactionsData } = await supabase
         .from("organization_transactions")
-        .select(`*, profile:profiles!organization_transactions_user_id_fkey(first_name, last_name, avatar_url)`)
+        .select(`*, profiles(first_name, last_name, avatar_url)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
