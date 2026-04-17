@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Check, X, User, Calendar, CreditCard } from "lucide-react";
+import { Users, Check, X, User, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,6 @@ interface JoinRequest {
   organization_id: string;
   user_id: string;
   status: "pending" | "approved" | "rejected";
-  reference_number?: string;
   created_at: string;
   profile?: {
     id: string;
@@ -31,28 +30,6 @@ interface JoinRequest {
     name: string;
   };
 }
-
-// Define the type for organization members
-type OrganizationMember = {
-  id: string;
-  organization_id: string;
-  user_id: string;
-  role: string;
-  status: string;
-  reference_number?: string | null;
-  created_at: string;
-  profile?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    avatar_url?: string;
-  };
-  organization?: {
-    id: string;
-    name: string;
-  };
-};
 
 export default function JoinRequestsTab() {
   const { user } = useAuth();
@@ -72,13 +49,17 @@ export default function JoinRequestsTab() {
 
       const { data, error } = await supabase
         .from("organization_members")
-        .select("*, profile:user_id(*), organization:organization_id(*), reference_number")
-        .eq("status", filter === "all" ? undefined : filter)
+        .select(`
+          *,
+          profile:user_id (*),
+          organization:organization_id (*)
+        `)
+        .in("status", filter === "all" ? ["pending", "approved", "rejected"] : [filter])
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      setJoinRequests((data as JoinRequest[]) || []);
+      setJoinRequests(data || []);
     } catch (error) {
       console.error("Error fetching join requests:", error);
       toast.error("Failed to load join requests");
@@ -89,33 +70,10 @@ export default function JoinRequestsTab() {
 
   const handleApprove = async (requestId: string) => {
     try {
-      // Fetch the join request details
-      const { data: requestData, error: fetchError } = await supabase
-        .from("organization_members")
-        .select("organization_id, user_id, reference_number")
-        .eq("id", requestId)
-        .single();
-
-      if (fetchError) throw fetchError;
-      if (!requestData) throw new Error("Join request not found");
-
-      // Insert the user as a member with status "active"
-      const { error: insertError } = await supabase
-        .from("organization_members")
-        .insert({
-          organization_id: requestData.organization_id,
-          user_id: requestData.user_id,
-          role: "member",
-          status: "active",
-          reference_number: requestData.reference_number || null,
-        } as OrganizationMember);
-
-      if (insertError) throw insertError;
-
-      // Update the original join request status to "approved"
+      // Update the join request status to "approved"
       const { error: updateError } = await supabase
         .from("organization_members")
-        .update({ status: "approved" } as Partial<OrganizationMember>)
+        .update({ status: "approved" })
         .eq("id", requestId);
 
       if (updateError) throw updateError;
@@ -132,7 +90,7 @@ export default function JoinRequestsTab() {
     try {
       const { error } = await supabase
         .from("organization_members")
-        .update({ status: "rejected" } as Partial<OrganizationMember>)
+        .update({ status: "rejected" })
         .eq("id", requestId);
 
       if (error) throw error;
@@ -169,7 +127,7 @@ export default function JoinRequestsTab() {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Users className="h-5 w-5" /> Join Requests
         </h2>
-        <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
+        <Select value={filter} onValueChange={(value) => setFilter(value as "all" | "pending" | "approved" | "rejected")}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -225,14 +183,6 @@ export default function JoinRequestsTab() {
                     <strong>Organization:</strong> {request.organization?.name || "N/A"}
                   </span>
                 </div>
-                {request.reference_number && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CreditCard className="h-4 w-4" />
-                    <span>
-                      <strong>Reference:</strong> {request.reference_number}
-                    </span>
-                  </div>
-                )}
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4" />
                   <span>
