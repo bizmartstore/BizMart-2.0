@@ -373,10 +373,9 @@ if (!walletData) {
     if (!memberToRemove || !organization) return;
 
     try {
-      await (supabase
-        .from("organization_members") as any)
-        .update({ status: "left" })
-        .eq("id", memberToRemove as string);
+      await (supabase.from("organization_members") as any)
+  .update({ status: "left" })
+  .eq("id", memberToRemove as string);
 
       toast.success("Member removed successfully!");
       fetchOrganizationData();
