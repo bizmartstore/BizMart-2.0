@@ -544,7 +544,7 @@ export default function OrganizationDashboard() {
                           <Avatar className="h-10 w-10">
                             <AvatarImage src={member.profile?.avatar_url || undefined} />
                             <AvatarFallback>
-                              {member.profile?.first_name?.charAt(0) || "U"}{member.profile?.last_name?.charAt(0) || ""}
+                              {member.profiles?.first_name?.charAt(0) || "U"}{member.profile?.last_name?.charAt(0) || ""}
                             </AvatarFallback>
                           </Avatar>
                           <div>
