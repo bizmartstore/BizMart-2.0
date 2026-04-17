@@ -163,15 +163,17 @@ if (user) {
     .eq("organization_id", id)
     .eq("user_id", user.id)
     .eq("status", "active")
-    .maybeSingle<{ role: 'creator' | 'officer' | 'member' }>();
+    .maybeSingle();
 
   if (memberError) {
     console.error("Error fetching member data:", memberError);
   }
 
-  if (memberData?.role) {
+  if (memberData) {
+    const role = memberData.role as "creator" | "officer" | "member";
+
     setIsMember(true);
-    setUserRole(memberData.role);
+    setUserRole(role);
   }
 }
     } catch (error) {
