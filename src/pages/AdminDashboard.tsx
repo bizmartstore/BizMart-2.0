@@ -6,7 +6,25 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon } from "lucide-react";
+import {
+  Users,
+  Package,
+  ShoppingCart,
+  Printer,
+  MessageCircle,
+  Crown,
+  Coins,
+  Settings,
+  BarChart3,
+  Bell,
+  Ticket,
+  Award,
+  Store,
+  FolderOpen,
+  Megaphone,
+  Users as UsersIcon,
+  UsersRound
+} from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -25,6 +43,7 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
 import BroadcastTab from "@/components/admin/BroadcastTab";
+import JoinRequestsTab from "@/components/admin/JoinRequestsTab";
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
@@ -39,6 +58,7 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "messages", label: "Messages", icon: <MessageCircle className="h-4 w-4" />, badge: null },
     { id: "codes", label: "Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
     { id: "registration-codes", label: "Registration Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
+    { id: "join-requests", label: "Join Requests", icon: <UsersRound className="h-4 w-4" />, badge: null },
     { id: "news", label: "News", icon: <Bell className="h-4 w-4" />, badge: null },
     { id: "banners", label: "Banners", icon: <Award className="h-4 w-4" />, badge: null },
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
@@ -75,7 +95,6 @@ export default function AdminDashboard() {
         (supabase as any).from("gcash_transactions").select("id", { count: "exact", head: true }).eq("status", "pending"),
         (supabase as any).from("bcoins_redemptions").select("id", { count: "exact", head: true }).eq("status", "pending"),
       ]);
-      
 
       setPendingCounts({
         orders: ordersRes.status === "fulfilled" ? (ordersRes.value.count || 0) : 0,
@@ -89,22 +108,26 @@ export default function AdminDashboard() {
     }
   }, []);
 
-
   useEffect(() => {
     if (isAuthReady && isAdmin) {
       loadPendingCounts();
     }
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
-
   useEffect(() => {
     if (!isAuthReady || !isAdmin) return;
-    
 
+    const channel = supabase
+      .channel("admin-pending-counts-realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => loadPendingCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => loadPendingCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => loadPendingCounts())
+      .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => loadPendingCounts())
+      .subscribe();
 
-
-
-
+    pendingPollRef.current = setInterval(() => {
+      loadPendingCounts();
+    }, 5000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -112,9 +135,7 @@ export default function AdminDashboard() {
     };
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
-
   const availableTabs = getAvailableTabs(isMainAdmin, pendingCounts);
-
 
   if (!isAuthReady) {
     return (
@@ -124,12 +145,10 @@ export default function AdminDashboard() {
     );
   }
 
-
   if (!isAdmin) {
     navigate("/");
     return null;
   }
-
 
   return (
     <div className="min-h-screen bg-background pb-20">
@@ -141,7 +160,6 @@ export default function AdminDashboard() {
             {isMainAdmin ? "👑 Main Admin" : "🛡️ Member Admin"} • {profile?.email}
           </p>
         </div>
-
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="w-full grid grid-cols-4 lg:grid-cols-8 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
@@ -164,7 +182,6 @@ export default function AdminDashboard() {
             ))}
           </TabsList>
 
-
           <TabsContent value="overview"><OverviewTab /></TabsContent>
           <TabsContent value="orders"><OrdersTab /></TabsContent>
           <TabsContent value="products"><ProductsTab /></TabsContent>
@@ -173,16 +190,17 @@ export default function AdminDashboard() {
           <TabsContent value="users"><UsersTab /></TabsContent>
           <TabsContent value="sellers"><SellersTab /></TabsContent>
           <TabsContent value="print"><PrintTab /></TabsContent>
-          <TabsContent value="messages"><MessagesTab /></TabsContent>
-          <TabsContent value="codes"><CodesTab /></TabsContent>
+          <TabsContent value="messages"><MessagesTab /></MessagesTab>
+          <TabsContent value="codes"><CodesTab /></CodesTab>
           <TabsContent value="registration-codes"><RegistrationCodesTab /></TabsContent>
-          <TabsContent value="news"><NewsTab /></TabsContent>
-          <TabsContent value="banners"><BannerTab /></TabsContent>
-          <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="join-requests"><JoinRequestsTab /></TabsContent>
+          <TabsContent value="news"><NewsTab /></NewsTab>
+          <TabsContent value="banners"><BannerTab /></BannerTab>
+          <TabsContent value="club"><ClubTab /></ClubTab>
           {isMainAdmin ? (
-            <TabsContent value="settings"><SettingsTab /></TabsContent>
+            <TabsContent value="settings"><SettingsTab /></SettingsTab>
           ) : (
-            <TabsContent value="settings"><MemberAdminSettingsTab /></TabsContent>
+            <TabsContent value="settings"><MemberAdminSettingsTab /></MemberAdminSettingsTab>
           )}
         </Tabs>
       </div>
