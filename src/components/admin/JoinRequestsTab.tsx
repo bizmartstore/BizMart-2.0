@@ -48,7 +48,6 @@ export default function JoinRequestsTab() {
     try {
       setIsLoading(true);
 
-      // Fetch all join requests with profiles, organizations, and reference_number
       const { data, error } = await supabase
         .from("organization_members")
         .select("*, profile:user_id(*), organization:organization_id(*), reference_number")
@@ -68,7 +67,7 @@ export default function JoinRequestsTab() {
 
   const handleApprove = async (requestId: string) => {
     try {
-      // Fetch the join request to get organization_id, user_id, and reference_number
+      // Fetch the join request details
       const { data: requestData, error: fetchError } = await supabase
         .from("organization_members")
         .select("organization_id, user_id, reference_number")
@@ -76,17 +75,18 @@ export default function JoinRequestsTab() {
         .single();
 
       if (fetchError) throw fetchError;
+      if (!requestData) throw new Error("Join request not found");
 
       // Insert the user as a member with status "active"
       const { error: insertError } = await supabase
         .from("organization_members")
-        .insert({
+        .insert([{
           organization_id: requestData.organization_id,
           user_id: requestData.user_id,
           role: "member",
           status: "active",
           reference_number: requestData.reference_number || null,
-        });
+        }]);
 
       if (insertError) throw insertError;
 
@@ -108,7 +108,6 @@ export default function JoinRequestsTab() {
 
   const handleReject = async (requestId: string) => {
     try {
-      // Update the member status to rejected
       const { error } = await supabase
         .from("organization_members")
         .update({ status: "rejected" })
