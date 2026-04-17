@@ -61,21 +61,32 @@ export default function AdminOrganizationsTab() {
       `)
       .eq("status", "pending")
       .order("created_at", { ascending: false })
-      .limit(50); // Limit the number of organizations fetched
+      .limit(50);
 
     if (error) throw error;
 
-    // Get member counts
+    // Get member counts with error handling and timeout
     const orgsWithCounts = await Promise.all(
       data?.map(async (org: Organization) => {
-        const { count, error: countError } = await supabase
-          .from("organization_members")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", org.id)
-          .limit(1); // Only fetch the count, not the actual data
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
 
-        if (countError) console.error("Error counting members:", countError);
-        return { ...org, member_count: count || 0 };
+          const { count, error: countError } = await supabase
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", org.id)
+            .limit(1)
+            .abortSignal(controller.signal);
+
+          clearTimeout(timeoutId);
+
+          if (countError) console.error("Error counting members:", countError);
+          return { ...org, member_count: count || 0 };
+        } catch (countError) {
+          console.error("Error in member count query:", countError);
+          return { ...org, member_count: 0 };
+        }
       }) || []
     );
 
