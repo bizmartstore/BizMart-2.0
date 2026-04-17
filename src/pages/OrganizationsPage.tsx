@@ -358,7 +358,7 @@ export default function OrganizationsPage() {
                   </CardContent>
                 </Card>
               );
-            }))
+            })}
           </div>
         )}
       </div>
