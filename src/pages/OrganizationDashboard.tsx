@@ -105,10 +105,10 @@ export default function OrganizationDashboard() {
       .single();
 
     if (walletError) {
-      await supabase.from("organization_wallets").insert({
+      await supabase.from("organization_wallets").insert([{
         organization_id: id,
         balance: 0,
-      });
+      }]);
       setWalletBalance(0);
     } else {
       setWalletBalance((walletData as any)?.balance ?? 0);
