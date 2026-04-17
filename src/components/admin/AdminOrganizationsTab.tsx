@@ -44,155 +44,115 @@ export default function AdminOrganizationsTab() {
   const [newCodeCount, setNewCodeCount] = useState(1);
 
   const fetchPendingOrganizations = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, pending: true });
-    const { data, error } = await supabase
-      .from("organizations")
-      .select(`
-        id,
-        name,
-        description,
-        club_type,
-        adviser_name,
-        status,
-        created_at,
-        creator_id,
-        creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
-      `)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(50); // Limit the number of organizations fetched
+    try {
+      setIsLoading({ ...isLoading, pending: true });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // Get member counts
-    const orgsWithCounts = await Promise.all(
-      data?.map(async (org: Organization) => {
-        const { count, error: countError } = await supabase
-          .from("organization_members")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", org.id)
-          .limit(1); // Only fetch the count, not the actual data
+      // Get member counts
+      const orgsWithCounts = await Promise.all(
+        data?.map(async (org: Organization) => {
+          const { count, error: countError } = await supabase
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", org.id);
 
-        if (countError) console.error("Error counting members:", countError);
-        return { ...org, member_count: count || 0 };
-      }) || []
-    );
+          if (countError) console.error("Error counting members:", countError);
+          return { ...org, member_count: count || 0 };
+        }) || []
+      );
 
-    setPendingOrgs(orgsWithCounts);
-  } catch (error) {
-    console.error("Error fetching pending organizations:", error);
-    toast.error("Failed to load pending organizations");
-  } finally {
-    setIsLoading({ ...isLoading, pending: false });
-  }
-}, [isLoading]);
+      setPendingOrgs(orgsWithCounts);
+    } catch (error) {
+      console.error("Error fetching pending organizations:", error);
+      toast.error("Failed to load pending organizations");
+    } finally {
+      setIsLoading({ ...isLoading, pending: false });
+    }
+  }, [isLoading]);
 
   const fetchAllOrganizations = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, all: true });
-    const { data, error } = await supabase
-      .from("organizations")
-      .select(`
-        id,
-        name,
-        description,
-        club_type,
-        adviser_name,
-        status,
-        created_at,
-        creator_id,
-        creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
-      `)
-      .in("status", ["approved", "rejected", "archived"])
-      .order("created_at", { ascending: false })
-      .limit(50); // Limit the number of organizations fetched
+    try {
+      setIsLoading({ ...isLoading, all: true });
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .in("status", ["approved", "rejected", "archived"])
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // Get member counts
-    const orgsWithCounts = await Promise.all(
-      data?.map(async (org: Organization) => {
-        const { count, error: countError } = await supabase
-          .from("organization_members")
-          .select("id", { count: "exact", head: true })
-          .eq("organization_id", org.id)
-          .limit(1); // Only fetch the count, not the actual data
+      // Get member counts
+      const orgsWithCounts = await Promise.all(
+        data?.map(async (org: Organization) => {
+          const { count, error: countError } = await supabase
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", org.id);
 
-        if (countError) console.error("Error counting members:", countError);
-        return { ...org, member_count: count || 0 };
-      }) || []
-    );
+          if (countError) console.error("Error counting members:", countError);
+          return { ...org, member_count: count || 0 };
+        }) || []
+      );
 
-    setAllOrgs(orgsWithCounts);
-  } catch (error) {
-    console.error("Error fetching all organizations:", error);
-    toast.error("Failed to load organizations");
-  } finally {
-    setIsLoading({ ...isLoading, all: false });
-  }
-}, [isLoading]);
+      setAllOrgs(orgsWithCounts);
+    } catch (error) {
+      console.error("Error fetching all organizations:", error);
+      toast.error("Failed to load organizations");
+    } finally {
+      setIsLoading({ ...isLoading, all: false });
+    }
+  }, [isLoading]);
 
   const fetchTransactions = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, transactions: true });
-    const { data, error } = await supabase
-      .from("organization_transactions")
-      .select(`
-        id,
-        amount,
-        type,
-        purpose,
-        status,
-        created_at,
-        user_id,
-        profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)
-      `)
-      .order("created_at", { ascending: false })
-      .limit(50); // Limit the number of transactions fetched
+    try {
+      setIsLoading({ ...isLoading, transactions: true });
+      const { data, error } = await supabase
+        .from("organization_transactions")
+        .select(`*, profile:profiles!organization_transactions_user_id_fkey(first_name, last_name, avatar_url)`)
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    setTransactions(data || []);
-  } catch (error) {
-    console.error("Error fetching transactions:", error);
-    toast.error("Failed to load transactions");
-  } finally {
-    setIsLoading({ ...isLoading, transactions: false });
-  }
-}, [isLoading]);
+      setTransactions(data || []);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+      toast.error("Failed to load transactions");
+    } finally {
+      setIsLoading({ ...isLoading, transactions: false });
+    }
+  }, [isLoading]);
 
   const fetchCodes = useCallback(async () => {
-  try {
-    setIsLoading({ ...isLoading, codes: true });
-    const { data, error } = await supabase
-      .from("registration_codes")
-      .select(`
-        id,
-        code,
-        used,
-        created_at
-      `)
-      .order("created_at", { ascending: false })
-      .limit(100); // Limit the number of codes fetched
+    try {
+      setIsLoading({ ...isLoading, codes: true });
+      const { data, error } = await supabase
+        .from("registration_codes")
+        .select("*")
+        .order("created_at", { ascending: false });
 
-    if (error) throw error;
+      if (error) throw error;
 
-    setCodes(data || []);
-  } catch (error) {
-    console.error("Error fetching codes:", error);
-    toast.error("Failed to load registration codes");
-  } finally {
-    setIsLoading({ ...isLoading, codes: false });
-  }
-}, [isLoading]);
+      setCodes(data || []);
+    } catch (error) {
+      console.error("Error fetching codes:", error);
+      toast.error("Failed to load registration codes");
+    } finally {
+      setIsLoading({ ...isLoading, codes: false });
+    }
+  }, [isLoading]);
 
   useEffect(() => {
-  fetchPendingOrganizations();
-  fetchAllOrganizations();
-  fetchTransactions();
-  fetchCodes();
-}, [fetchPendingOrganizations, fetchAllOrganizations, fetchTransactions, fetchCodes]); // Ensure all fetch functions are included
+    fetchPendingOrganizations();
+    fetchAllOrganizations();
+    fetchTransactions();
+    fetchCodes();
+  }, [fetchPendingOrganizations, fetchAllOrganizations, fetchTransactions, fetchCodes]);
 
   const handleApproveOrganization = async () => {
     if (!orgToAction) return;
