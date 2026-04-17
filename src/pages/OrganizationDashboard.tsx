@@ -163,7 +163,7 @@ if (user) {
     .eq("organization_id", id)
     .eq("user_id", user.id)
     .eq("status", "active")
-  .maybeSingle();
+    .maybeSingle();
 
   if (memberError) {
     console.error("Error fetching member data:", memberError);
@@ -188,22 +188,23 @@ if (user) {
 
     type OrganizationMemberRole = "creator" | "officer" | "member";
 
-const { data, error } = await supabase
-  .from("organization_members")
-  .select("role")
-  .eq("organization_id", id)
-  .eq("user_id", user.id)
-  .eq("status", "active")
-  .single<{ role: OrganizationMemberRole }>();
+    const { data, error } = await supabase
+      .from("organization_members")
+      .select("role")
+      .eq("organization_id", id)
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .single<{ role: OrganizationMemberRole }>();
 
-if (error) {
-  console.error("Error checking membership:", error);
-}
+    if (error) {
+      console.error("Error checking membership:", error);
+    }
 
-if (data?.role) {
-  setIsMember(true);
-  setUserRole(data.role);
-}
+    if (data?.role) {
+      setIsMember(true);
+      setUserRole(data.role);
+    }
+  };
 
   const handleJoinOrganization = async () => {
     if (!user || !organization) return;
