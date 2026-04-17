@@ -108,6 +108,92 @@ BEGIN
 END;
 $$;
 
+-- Function to create organization_events table
+CREATE OR REPLACE FUNCTION public.create_organization_events_table_if_not_exists()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'organization_events'
+  ) THEN
+    CREATE TABLE organization_events (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      description TEXT,
+      start_time TIMESTAMPTZ NOT NULL,
+      end_time TIMESTAMPTZ NOT NULL,
+      location TEXT,
+      created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_organization_events_org_id ON organization_events(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_organization_events_created_by ON organization_events(created_by);
+  END IF;
+END;
+$$;
+
+-- Function to create organization_transactions table
+CREATE OR REPLACE FUNCTION public.create_organization_transactions_table_if_not_exists()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'organization_transactions'
+  ) THEN
+    CREATE TABLE organization_transactions (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      amount NUMERIC(10,2) NOT NULL,
+      type TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_organization_transactions_org_id ON organization_transactions(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_organization_transactions_user_id ON organization_transactions(user_id);
+  END IF;
+END;
+$$;
+
+-- Function to create organization_announcements table
+CREATE OR REPLACE FUNCTION public.create_organization_announcements_table_if_not_exists()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
+    AND table_name = 'organization_announcements'
+  ) THEN
+    CREATE TABLE organization_announcements (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_organization_announcements_org_id ON organization_announcements(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_organization_announcements_created_by ON organization_announcements(created_by);
+  END IF;
+END;
+$$;
+
 -- Function to create all organization tables at once
 CREATE OR REPLACE FUNCTION public.create_all_organization_tables_if_not_exists()
 RETURNS void
@@ -119,5 +205,8 @@ BEGIN
   PERFORM public.create_organizations_table_if_not_exists();
   PERFORM public.create_organization_members_table_if_not_exists();
   PERFORM public.create_organization_wallets_table_if_not_exists();
+  PERFORM public.create_organization_events_table_if_not_exists();
+  PERFORM public.create_organization_transactions_table_if_not_exists();
+  PERFORM public.create_organization_announcements_table_if_not_exists();
 END;
 $$;
