@@ -236,7 +236,7 @@ export default function AdminDashboard() {
           ) : (
             <TabsContent value="settings">
               <MemberAdminSettingsTab />
-            </MemberAdminSettingsTab>
+            </TabsContent>
           )}
         </Tabs>
       </div>
