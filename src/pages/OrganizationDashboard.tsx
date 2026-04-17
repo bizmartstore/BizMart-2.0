@@ -157,19 +157,23 @@ export default function OrganizationDashboard() {
 
       // Check if user is a member and get their role
 if (user) {
-  const { data: memberData, error: memberError } = await supabase
+  type MemberRole = "creator" | "officer" | "member";
+
+  const { data, error } = await supabase
     .from("organization_members")
     .select("role")
     .eq("organization_id", id)
     .eq("user_id", user.id)
     .eq("status", "active")
-    .maybeSingle();
+    .maybeSingle<{ role: MemberRole }>();
 
-  if (memberError) {
-    console.error("Error fetching member data:", memberError);
+  if (error) {
+    console.error("Error fetching member data:", error);
   }
 
-  if (memberData && memberData.role) {
+  const memberData = data;
+
+  if (memberData?.role) {
     setIsMember(true);
     setUserRole(memberData.role);
   }
