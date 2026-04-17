@@ -44,13 +44,13 @@ export default function RegistrationCodesTab() {
   // Ensure tables exist
   const ensureTablesExist = async () => {
     try {
-      // Try to create all organization-related tables at once
-      const { error } = await (supabase as any)
-        .rpc('create_all_organization_tables_if_not_exists');
+      // Try to create registration_codes table if it doesn't exist
+      await (supabase as any)
+        .rpc('create_registration_codes_table_if_not_exists');
       
-      if (error) {
-        console.warn("Could not ensure tables exist:", error);
-      }
+      // Try to create organizations table if it doesn't exist
+      await (supabase as any)
+        .rpc('create_organizations_table_if_not_exists');
     } catch (error) {
       console.warn("Could not ensure tables exist:", error);
     }
