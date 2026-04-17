@@ -12,12 +12,22 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-interface JoinRequest {
+/**
+ * ✅ DB TYPE (IMPORTANT)
+ * This must match your actual table structure ONLY
+ */
+type OrganizationMember = {
   id: string;
   organization_id: string;
   user_id: string;
   status: "pending" | "approved" | "rejected";
   created_at: string;
+};
+
+/**
+ * ✅ UI TYPE (with joins)
+ */
+interface JoinRequest extends OrganizationMember {
   profile?: {
     id: string;
     first_name: string;
@@ -63,7 +73,8 @@ export default function JoinRequestsTab() {
 
       if (error) throw error;
 
-      setJoinRequests(data || []);
+      // ✅ Cast to UI type (safe because select matches structure)
+      setJoinRequests((data as JoinRequest[]) || []);
     } catch (error) {
       console.error("Error fetching join requests:", error);
       toast.error("Failed to load join requests");
@@ -74,13 +85,12 @@ export default function JoinRequestsTab() {
 
   const handleApprove = async (requestId: string) => {
     try {
-      // Update the join request status to "approved"
-      const { error: updateError } = await supabase
-        .from("organization_members")
+      const { error } = await supabase
+        .from<OrganizationMember>("organization_members") // ✅ FIX HERE
         .update({ status: "approved" })
         .eq("id", requestId);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
       toast.success("Join request approved!");
       fetchJoinRequests();
@@ -93,7 +103,7 @@ export default function JoinRequestsTab() {
   const handleReject = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from("organization_members")
+        .from<OrganizationMember>("organization_members") // ✅ FIX HERE
         .update({ status: "rejected" })
         .eq("id", requestId);
 
@@ -131,7 +141,13 @@ export default function JoinRequestsTab() {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Users className="h-5 w-5" /> Join Requests
         </h2>
-        <Select value={filter} onValueChange={(value) => setFilter(value as "all" | "pending" | "approved" | "rejected")}>
+
+        <Select
+          value={filter}
+          onValueChange={(value) =>
+            setFilter(value as "all" | "pending" | "approved" | "rejected")
+          }
+        >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
@@ -150,7 +166,7 @@ export default function JoinRequestsTab() {
           : `${filteredRequests.length} join request(s) found.`}
       </p>
 
-      {filteredRequests.length > 0 ? (
+      {filteredRequests.length > 0 && (
         <div className="space-y-3">
           {filteredRequests.map((request) => (
             <Card key={request.id}>
@@ -164,6 +180,7 @@ export default function JoinRequestsTab() {
                         {request.profile?.last_name?.charAt(0) || ""}
                       </AvatarFallback>
                     </Avatar>
+
                     <div>
                       <CardTitle className="text-lg">
                         {request.profile?.first_name} {request.profile?.last_name}
@@ -173,26 +190,38 @@ export default function JoinRequestsTab() {
                       </CardDescription>
                     </div>
                   </div>
+
                   <Badge
-                    variant={request.status === "pending" ? "secondary" : request.status === "approved" ? "default" : "destructive"}
+                    variant={
+                      request.status === "pending"
+                        ? "secondary"
+                        : request.status === "approved"
+                        ? "default"
+                        : "destructive"
+                    }
                   >
                     {request.status}
                   </Badge>
                 </div>
               </CardHeader>
+
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4" />
                   <span>
-                    <strong>Organization:</strong> {request.organization?.name || "N/A"}
+                    <strong>Organization:</strong>{" "}
+                    {request.organization?.name || "N/A"}
                   </span>
                 </div>
+
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4" />
                   <span>
-                    <strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}
+                    <strong>Requested:</strong>{" "}
+                    {new Date(request.created_at).toLocaleString()}
                   </span>
                 </div>
+
                 {request.status === "pending" && (
                   <div className="flex gap-2 pt-2">
                     <Button
@@ -202,6 +231,7 @@ export default function JoinRequestsTab() {
                     >
                       <Check className="h-4 w-4" /> Approve
                     </Button>
+
                     <Button
                       size="sm"
                       className="flex-1 gap-2 bg-destructive hover:bg-destructive/90"
@@ -215,7 +245,7 @@ export default function JoinRequestsTab() {
             </Card>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
