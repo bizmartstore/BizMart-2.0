@@ -156,20 +156,20 @@ export default function OrganizationDashboard() {
       setAnnouncements(announcementsData || []);
 
       if (user && id) {
-  type MemberRole = "creator" | "officer" | "member";
-
-  const { data: memberData, error } = await supabase
+  const { data, error } = await supabase
     .from("organization_members")
     .select("role")
     .eq("organization_id", id)
     .eq("user_id", user.id)
     .eq("status", "active")
-    .maybeSingle<{ role: MemberRole }>();
+    .maybeSingle();
 
   if (error) {
     console.error("Error fetching member data:", error);
     return;
   }
+
+  const memberData = data as MemberRow | null;
 
   if (memberData?.role) {
     setIsMember(true);
