@@ -42,16 +42,16 @@ export default function JoinRequestsTab() {
     if (user) {
       fetchJoinRequests();
     }
-  }, [user]);
+  }, [user, filter]);
 
   const fetchJoinRequests = async () => {
     try {
       setIsLoading(true);
 
-      // Fetch all join requests with profiles and organizations
+      // Fetch all join requests with profiles, organizations, and reference_number
       const { data, error } = await supabase
         .from("organization_members")
-        .select("*, profile:user_id(*), organization:organization_id(*)")
+        .select("*, profile:user_id(*), organization:organization_id(*), reference_number")
         .eq("status", filter === "all" ? undefined : filter)
         .order("created_at", { ascending: false });
 
@@ -68,13 +68,35 @@ export default function JoinRequestsTab() {
 
   const handleApprove = async (requestId: string) => {
     try {
-      // Update the member status to active
-      const { error } = await (supabase
-        .from("organization_members") as any)
-        .update({ status: "active" })
-        .eq("id", requestId as string);
+      // Fetch the join request to get organization_id, user_id, and reference_number
+      const { data: requestData, error: fetchError } = await supabase
+        .from("organization_members")
+        .select("organization_id, user_id, reference_number")
+        .eq("id", requestId)
+        .single();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
+
+      // Insert the user as a member with status "active"
+      const { error: insertError } = await supabase
+        .from("organization_members")
+        .insert({
+          organization_id: requestData.organization_id,
+          user_id: requestData.user_id,
+          role: "member",
+          status: "active",
+          reference_number: requestData.reference_number || null,
+        });
+
+      if (insertError) throw insertError;
+
+      // Update the original join request status to "approved"
+      const { error: updateError } = await supabase
+        .from("organization_members")
+        .update({ status: "approved" })
+        .eq("id", requestId);
+
+      if (updateError) throw updateError;
 
       toast.success("Join request approved!");
       fetchJoinRequests();
@@ -87,10 +109,10 @@ export default function JoinRequestsTab() {
   const handleReject = async (requestId: string) => {
     try {
       // Update the member status to rejected
-      const { error } = await (supabase
-        .from("organization_members") as any)
+      const { error } = await supabase
+        .from("organization_members")
         .update({ status: "rejected" })
-        .eq("id", requestId as string);
+        .eq("id", requestId);
 
       if (error) throw error;
 
