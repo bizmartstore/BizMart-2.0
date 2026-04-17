@@ -170,10 +170,8 @@ if (user) {
   }
 
   if (memberData) {
-    const role = memberData.role as "creator" | "officer" | "member";
-
     setIsMember(true);
-    setUserRole(role);
+    setUserRole(memberData.role);
   }
 }
     } catch (error) {
@@ -199,7 +197,7 @@ if (user) {
     if (error) console.error("Error checking membership:", error);
     if (data) {
       setIsMember(true);
-      setUserRole(data.role as 'creator' | 'officer' | 'member');
+      setUserRole(data.role);
     }
   };
 
