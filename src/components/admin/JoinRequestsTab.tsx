@@ -12,22 +12,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-/**
- * ✅ DB TYPE (IMPORTANT)
- * This must match your actual table structure ONLY
- */
-type OrganizationMember = {
+interface JoinRequest {
   id: string;
   organization_id: string;
   user_id: string;
   status: "pending" | "approved" | "rejected";
   created_at: string;
-};
-
-/**
- * ✅ UI TYPE (with joins)
- */
-interface JoinRequest extends OrganizationMember {
   profile?: {
     id: string;
     first_name: string;
@@ -73,7 +63,6 @@ export default function JoinRequestsTab() {
 
       if (error) throw error;
 
-      // ✅ Cast to UI type (safe because select matches structure)
       setJoinRequests((data as JoinRequest[]) || []);
     } catch (error) {
       console.error("Error fetching join requests:", error);
@@ -86,8 +75,8 @@ export default function JoinRequestsTab() {
   const handleApprove = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from<OrganizationMember>("organization_members") // ✅ FIX HERE
-        .update({ status: "approved" })
+        .from("organization_members")
+        .update({ status: "approved" } as any) // ✅ FIX
         .eq("id", requestId);
 
       if (error) throw error;
@@ -103,8 +92,8 @@ export default function JoinRequestsTab() {
   const handleReject = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from<OrganizationMember>("organization_members") // ✅ FIX HERE
-        .update({ status: "rejected" })
+        .from("organization_members")
+        .update({ status: "rejected" } as any) // ✅ FIX
         .eq("id", requestId);
 
       if (error) throw error;
