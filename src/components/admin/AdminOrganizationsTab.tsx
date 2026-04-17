@@ -735,3 +735,59 @@ export default function AdminOrganizationsTab() {
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
+                      <TableBody>
+  {filteredTransactions.map((transaction) => (
+    <TableRow key={transaction.id}>
+      <TableCell>
+        <div className="flex items-center gap-2">
+          <Avatar className="h-8 w-8">
+            <AvatarFallback>
+              {transaction.profile?.first_name?.charAt(0) || "O"}
+              {transaction.profile?.last_name?.charAt(0) || ""}
+            </AvatarFallback>
+          </Avatar>
+          <span className="text-sm font-medium">
+            {transaction.profile?.first_name} {transaction.profile?.last_name}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell>
+        <Badge variant={transaction.type === "deposit" ? "default" : "destructive"}>
+          {transaction.type}
+        </Badge>
+      </TableCell>
+      <TableCell className="font-bold">
+        ₱{transaction.amount.toFixed(2)}
+      </TableCell>
+      <TableCell className="text-sm">{transaction.purpose}</TableCell>
+      <TableCell>
+        <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"}>
+          {transaction.status}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-xs">
+        {new Date(transaction.created_at).toLocaleDateString()}
+      </TableCell>
+      <TableCell>
+        {transaction.status === "pending" && (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleApproveTransaction(transaction.id)}
+            >
+              <CheckCircle className="h-3 w-3" /> Approve
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleRejectTransaction(transaction.id)}
+            >
+              <XCircle className="h-3 w-3" /> Reject
+            </Button>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  ))}
+</TableBody>
