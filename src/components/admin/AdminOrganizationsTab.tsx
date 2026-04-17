@@ -81,7 +81,7 @@ export default function AdminOrganizationsTab() {
       setIsLoading({ ...isLoading, all: true });
       const { data, error } = await supabase
         .from("organizations")
-        .select(`*, creator:profiles!fk_organizations_creator_id_fkey(first_name, last_name, email)`)
+        .select(`*, creator:profiles!fk_organizations_creator_id(first_name, last_name, email)`)
         .in("status", ["approved", "rejected", "archived"])
         .order("created_at", { ascending: false });
 
