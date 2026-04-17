@@ -697,3 +697,41 @@ export default function AdminOrganizationsTab() {
             </CardContent>
           </Card>
         </TabsContent>
+        {/* Transactions Tab */}
+        <TabsContent value="transactions">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Organization Transactions</CardTitle>
+              <CardDescription>Review and approve all organization transactions</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading.transactions ? (
+                <div className="flex justify-center items-center py-8">
+                  <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+                </div>
+              ) : filteredTransactions.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">No transactions found</p>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search transactions..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Organization</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Purpose</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
