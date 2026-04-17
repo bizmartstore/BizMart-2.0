@@ -163,7 +163,7 @@ if (user) {
     .eq("organization_id", id)
     .eq("user_id", user.id)
     .eq("status", "active")
-    .maybeSingle<OrganizationMemberRow>();
+  .maybeSingle();
 
   if (memberError) {
     console.error("Error fetching member data:", memberError);
@@ -977,4 +977,3 @@ if (data?.role) {
       </Dialog>
     </div>
   );
-}
