@@ -114,7 +114,7 @@ export default function AdminOrganizationsTab() {
       setIsLoading({ ...isLoading, transactions: true });
       const { data, error } = await supabase
         .from("organization_transactions")
-        .select(`*, profile:profiles!fk_organization_transactions_user_id_fkey(first_name, last_name, avatar_url)`)
+        .select(`*, profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)`)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
