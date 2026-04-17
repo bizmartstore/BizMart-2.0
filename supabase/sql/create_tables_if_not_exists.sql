@@ -110,6 +110,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.create_all_organization_tables_if_not_exists()
 RETURNS void
 LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
 BEGIN
   PERFORM public.create_registration_codes_table_if_not_exists();
