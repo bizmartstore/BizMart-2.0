@@ -50,9 +50,13 @@ export default function JoinRequestsTab() {
       const { data, error } = await supabase
         .from("organization_members")
         .select(`
-          *,
-          profile:user_id (*),
-          organization:organization_id (*)
+          id,
+          organization_id,
+          user_id,
+          status,
+          created_at,
+          profile:user_id (id, first_name, last_name, email, avatar_url),
+          organization:organization_id (id, name)
         `)
         .in("status", filter === "all" ? ["pending", "approved", "rejected"] : [filter])
         .order("created_at", { ascending: false });
@@ -73,7 +77,7 @@ export default function JoinRequestsTab() {
       // Update the join request status to "approved"
       const { error: updateError } = await supabase
         .from("organization_members")
-        .update({ status: "approved" })
+        .update({ status: "approved" } as { status: string })
         .eq("id", requestId);
 
       if (updateError) throw updateError;
@@ -90,7 +94,7 @@ export default function JoinRequestsTab() {
     try {
       const { error } = await supabase
         .from("organization_members")
-        .update({ status: "rejected" })
+        .update({ status: "rejected" } as { status: string })
         .eq("id", requestId);
 
       if (error) throw error;
