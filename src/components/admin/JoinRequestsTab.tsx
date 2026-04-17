@@ -73,21 +73,21 @@ export default function JoinRequestsTab() {
   };
 
   const handleApprove = async (requestId: string) => {
-    try {
-      const { error } = await supabase
-        .from("organization_members")
-        .update({ status: "approved" } as any) // ✅ FIX
-        .eq("id", requestId);
+  try {
+    const { error } = await (supabase
+      .from("organization_members") as any)
+      .update({ status: "approved" })
+      .eq("id", requestId);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast.success("Join request approved!");
-      fetchJoinRequests();
-    } catch (error) {
-      console.error("Error approving join request:", error);
-      toast.error("Failed to approve join request");
-    }
-  };
+    toast.success("Join request approved!");
+    fetchJoinRequests();
+  } catch (error) {
+    console.error("Error approving join request:", error);
+    toast.error("Failed to approve join request");
+  }
+};
 
   const handleReject = async (requestId: string) => {
     try {
