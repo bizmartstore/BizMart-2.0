@@ -90,21 +90,21 @@ export default function JoinRequestsTab() {
 };
 
   const handleReject = async (requestId: string) => {
-    try {
-      const { error } = await supabase
-        .from("organization_members")
-        .update({ status: "rejected" } as any) // ✅ FIX
-        .eq("id", requestId);
+  try {
+    const { error } = await (supabase
+      .from("organization_members") as any)
+      .update({ status: "rejected" })
+      .eq("id", requestId);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast.success("Join request rejected.");
-      fetchJoinRequests();
-    } catch (error) {
-      console.error("Error rejecting join request:", error);
-      toast.error("Failed to reject join request");
-    }
-  };
+    toast.success("Join request rejected.");
+    fetchJoinRequests();
+  } catch (error) {
+    console.error("Error rejecting join request:", error);
+    toast.error("Failed to reject join request");
+  }
+};
 
   const filteredRequests = joinRequests.filter((req) => {
     if (filter === "all") return true;
