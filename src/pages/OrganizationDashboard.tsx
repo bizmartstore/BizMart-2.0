@@ -454,7 +454,7 @@ if (!walletData) {
             <Badge variant={userRole === "creator" ? "default" : userRole === "officer" ? "secondary" : "outline"}>
               {userRole === "creator" ? "Creator" : userRole === "officer" ? "Officer" : "Member"}
             </Badge>
-          )
+          )}
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
