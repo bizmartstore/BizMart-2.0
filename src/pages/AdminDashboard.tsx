@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -182,25 +184,59 @@ export default function AdminDashboard() {
             ))}
           </TabsList>
 
-          <TabsContent value="overview"><OverviewTab /></TabsContent>
-          <TabsContent value="orders"><OrdersTab /></TabsContent>
-          <TabsContent value="products"><ProductsTab /></TabsContent>
-          <TabsContent value="broadcast"><BroadcastTab /></BroadcastTab>
-          <TabsContent value="categories"><CategoriesTab /></CategoriesTab>
-          <TabsContent value="users"><UsersTab /></UsersTab>
-          <TabsContent value="sellers"><SellersTab /></SellersTab>
-          <TabsContent value="print"><PrintTab /></PrintTab>
-          <TabsContent value="messages"><MessagesTab /></MessagesTab>
-          <TabsContent value="codes"><CodesTab /></CodesTab>
-          <TabsContent value="registration-codes"><RegistrationCodesTab /></RegistrationCodesTab>
-          <TabsContent value="join-requests"><JoinRequestsTab /></JoinRequestsTab>
-          <TabsContent value="news"><NewsTab /></NewsTab>
-          <TabsContent value="banners"><BannerTab /></BannerTab>
-          <TabsContent value="club"><ClubTab /></ClubTab>
+          <TabsContent value="overview">
+            <OverviewTab />
+          </TabsContent>
+          <TabsContent value="orders">
+            <OrdersTab />
+          </TabsContent>
+          <TabsContent value="products">
+            <ProductsTab />
+          </TabsContent>
+          <TabsContent value="broadcast">
+            <BroadcastTab />
+          </TabsContent>
+          <TabsContent value="categories">
+            <CategoriesTab />
+          </TabsContent>
+          <TabsContent value="users">
+            <UsersTab />
+          </TabsContent>
+          <TabsContent value="sellers">
+            <SellersTab />
+          </TabsContent>
+          <TabsContent value="print">
+            <PrintTab />
+          </TabsContent>
+          <TabsContent value="messages">
+            <MessagesTab />
+          </TabsContent>
+          <TabsContent value="codes">
+            <CodesTab />
+          </TabsContent>
+          <TabsContent value="registration-codes">
+            <RegistrationCodesTab />
+          </TabsContent>
+          <TabsContent value="join-requests">
+            <JoinRequestsTab />
+          </TabsContent>
+          <TabsContent value="news">
+            <NewsTab />
+          </TabsContent>
+          <TabsContent value="banners">
+            <BannerTab />
+          </TabsContent>
+          <TabsContent value="club">
+            <ClubTab />
+          </TabsContent>
           {isMainAdmin ? (
-            <TabsContent value="settings"><SettingsTab /></SettingsTab>
+            <TabsContent value="settings">
+              <SettingsTab />
+            </TabsContent>
           ) : (
-            <TabsContent value="settings"><MemberAdminSettingsTab /></MemberAdminSettingsTab>
+            <TabsContent value="settings">
+              <MemberAdminSettingsTab />
+            </MemberAdminSettingsTab>
           )}
         </Tabs>
       </div>
