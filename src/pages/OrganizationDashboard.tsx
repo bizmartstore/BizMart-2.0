@@ -98,20 +98,26 @@ export default function OrganizationDashboard() {
     });
 
     // 3. Wallet
-    const { data: walletData, error: walletError } = await supabase
-      .from("organization_wallets")
-      .select("balance")
-      .eq("organization_id", id)
-      .single();
+const { data: walletData, error: walletError } = await supabase
+  .from("organization_wallets")
+  .select("balance")
+  .eq("organization_id", id)
+  .maybeSingle(); // 👈 better than .single()
 
-    if (walletError) {
-      await supabase
-        .from("organization_wallets")
-        .insert([{ organization_id: id!, balance: 0 }]);
-      setWalletBalance(0);
-    } else {
-      setWalletBalance((walletData as { balance: number })?.balance ?? 0);
-    }
+if (walletError) {
+  console.error("Wallet fetch error:", walletError);
+  throw walletError;
+}
+
+if (!walletData) {
+  // ✅ FIX: cast to any to bypass bad typing
+  await (supabase.from("organization_wallets") as any).insert([
+    { organization_id: id!, balance: 0 }
+  ]);
+  setWalletBalance(0);
+} else {
+  setWalletBalance(walletData.balance ?? 0);
+}
 
     // 4. Members (KEEP profiles join ONLY if FK exists)
     const { data: membersData } = await supabase
