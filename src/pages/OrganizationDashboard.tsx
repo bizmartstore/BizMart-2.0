@@ -136,26 +136,28 @@ export default function OrganizationDashboard() {
       setEvents(eventsData || []);
 
       // Fetch transactions
-      const { data: transactionsData } = await supabase
+      const { data: transactionsData, error: transactionsError } = await supabase
         .from("organization_transactions")
-        .select(`*, profiles(first_name, last_name, avatar_url)
+        .select(`*, profiles(first_name, last_name, avatar_url)`)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
+      if (transactionsError) console.error("Error fetching transactions:", transactionsError);
       setTransactions(transactionsData || []);
 
       // Fetch announcements
-      const { data: announcementsData } = await supabase
+      const { data: announcementsData, error: announcementsError } = await supabase
         .from("organization_announcements")
-        .select(`*, profile:profiles!organization_announcements_created_by_fkey(first_name, last_name, avatar_url)`)
+        .select(`*, profiles:profiles!organization_announcements_created_by_fkey(first_name, last_name, avatar_url)`)
         .eq("organization_id", id)
         .order("created_at", { ascending: false });
 
+      if (announcementsError) console.error("Error fetching announcements:", announcementsError);
       setAnnouncements(announcementsData || []);
 
       // Check if user is a member and get their role
       if (user) {
-        const { data: memberData } = await supabase
+        const { data: memberData, error: memberError } = await supabase
           .from("organization_members")
           .select("role")
           .eq("organization_id", id)
@@ -163,6 +165,7 @@ export default function OrganizationDashboard() {
           .eq("status", "active")
           .single() as { data: { role: 'creator' | 'officer' | 'member' } | null };
 
+        if (memberError) console.error("Error fetching member data:", memberError);
         if (memberData) {
           setIsMember(true);
           setUserRole(memberData.role);
@@ -180,7 +183,7 @@ export default function OrganizationDashboard() {
   const checkMembership = async () => {
     if (!user || !id) return;
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("organization_members")
       .select("role")
       .eq("organization_id", id)
@@ -188,6 +191,7 @@ export default function OrganizationDashboard() {
       .eq("status", "active")
       .single() as { data: { role: 'creator' | 'officer' | 'member' } | null };
 
+    if (error) console.error("Error checking membership:", error);
     if (data) {
       setIsMember(true);
       setUserRole(data.role);
