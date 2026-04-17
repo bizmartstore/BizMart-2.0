@@ -169,11 +169,11 @@ export default function OrganizationDashboard() {
     return;
   }
 
-  if (data && "role" in data) {
-    const role = data.role as "creator" | "officer" | "member";
+  const memberData = data as { role?: "creator" | "officer" | "member" } | null;
 
+  if (memberData?.role) {
     setIsMember(true);
-    setUserRole(role);
+    setUserRole(memberData.role);
   } else {
     setIsMember(false);
     setUserRole(null);
