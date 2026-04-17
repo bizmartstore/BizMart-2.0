@@ -188,29 +188,6 @@ export default function OrganizationDashboard() {
     }
   }, [id, navigate, user]);
 
-  const checkMembership = async () => {
-    if (!user || !id) return;
-
-    type OrganizationMemberRole = "creator" | "officer" | "member";
-
-    const { data, error } = await supabase
-      .from("organization_members")
-      .select("role")
-      .eq("organization_id", id)
-      .eq("user_id", user.id)
-      .eq("status", "active")
-      .single();
-
-    if (error) {
-      console.error("Error checking membership:", error);
-    }
-
-    if (data?.role) {
-      setIsMember(true);
-      setUserRole(data.role);
-    }
-  };
-
   const handleJoinOrganization = async () => {
     if (!user || !organization) return;
 
