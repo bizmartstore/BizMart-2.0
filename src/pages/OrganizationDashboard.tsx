@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign } from "lucide-react";
+import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
 import { Organization, Member, Event, Transaction, Announcement } from "@/types";
 
 export default function OrganizationDashboard() {
@@ -36,6 +37,27 @@ export default function OrganizationDashboard() {
   const [isMember, setIsMember] = useState(false);
   const [userRole, setUserRole] = useState<'creator' | 'officer' | 'member' | null>(null);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
+  const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
+
+  const checkPendingJoinRequest = useCallback(async () => {
+    if (!user || !id) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("id, status")
+        .eq("organization_id", id)
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setPendingJoinRequest(!!data);
+    } catch (error) {
+      console.error("Error checking pending join request:", error);
+    }
+  }, [id, user]);
 
   // Form states
   const [newEventForm, setNewEventForm] = useState({
@@ -67,10 +89,11 @@ export default function OrganizationDashboard() {
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
 
   useEffect(() => {
-  if (user && id) {
-    fetchOrganizationData();
-  }
-}, [user, id]);
+    if (user && id) {
+      fetchOrganizationData();
+      checkPendingJoinRequest();
+    }
+  }, [user, id, checkPendingJoinRequest]);
 
   const fetchOrganizationData = useCallback(async () => {
   try {
@@ -409,25 +432,27 @@ if (!walletData) {
           <Button variant="ghost" size="sm" onClick={() => navigate("/organizations")} className="gap-2 mb-4">
             <ArrowLeft className="h-4 w-4" /> Back to Organizations
           </Button>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="font-extrabold text-xl text-foreground flex items-center gap-2">
-                <Crown className="h-5 w-5" /> {organization.name}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {organization.club_type} • {organization.member_count || 0} members
-              </p>
-            </div>
-            {!isMember ? (
-              <Button onClick={() => setIsJoinDialogOpen(true)} className="gap-2">
-                <UserPlus className="h-4 w-4" /> Join Organization
-              </Button>
-            ) : (
-              <Badge variant={userRole === "creator" ? "default" : userRole === "officer" ? "secondary" : "outline"}>
-                {userRole === "creator" ? "Creator" : userRole === "officer" ? "Officer" : "Member"}
-              </Badge>
-            )}
+          <div>
+            <h1 className="font-extrabold text-xl text-foreground flex items-center gap-2">
+              <Crown className="h-5 w-5" /> {organization.name}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {organization.club_type} • {organization.member_count || 0} members
+            </p>
           </div>
+          {pendingJoinRequest ? (
+            <Badge variant="secondary" className="gap-1">
+              <AlertCircle className="h-3 w-3" /> Pending Approval
+            </Badge>
+          ) : !isMember ? (
+            <Button onClick={() => setIsJoinDialogOpen(true)} className="gap-2">
+              <UserPlus className="h-4 w-4" /> Join Organization
+            </Button>
+          ) : (
+            <Badge variant={userRole === "creator" ? "default" : userRole === "officer" ? "secondary" : "outline"}>
+              {userRole === "creator" ? "Creator" : userRole === "officer" ? "Officer" : "Member"}
+            </Badge>
+          )
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -947,25 +972,16 @@ if (!walletData) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Join Organization Dialog */}
-      <Dialog open={isJoinDialogOpen} onOpenChange={setIsJoinDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Join {organization.name}</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to join this organization?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <p className="text-sm"><strong>Type:</strong> {organization.club_type}</p>
-            <p className="text-sm"><strong>Description:</strong> {organization.description}</p>
-            <p className="text-sm"><strong>Adviser:</strong> {organization.adviser_name || "N/A"}</p>
-            <Button onClick={handleJoinOrganization} className="w-full">
-              Confirm Join
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Join Organization Instruction Dialog */}
+      <JoinOrganizationInstructionDialog
+        organizationId={organization.id}
+        organizationName={organization.name}
+        isOpen={isJoinDialogOpen}
+        onOpenChange={setIsJoinDialogOpen}
+        onSuccess={() => {
+          checkPendingJoinRequest();
+        }}
+      />
     </div>
   );
 }

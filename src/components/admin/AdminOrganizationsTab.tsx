@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, CheckCircle, XCircle, Eye, Archive, Plus, Search, Ticket, DollarSign, Calendar, User } from "lucide-react";
+import { Users, CheckCircle, XCircle, Eye, Archive, Plus, Search, Ticket, DollarSign, Calendar, User, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Organization, Transaction, RegistrationCode } from "@/types";
+import JoinRequestsTab from "@/components/admin/JoinRequestsTab";
 
 export default function AdminOrganizationsTab() {
   const navigate = useNavigate();
@@ -361,6 +362,10 @@ export default function AdminOrganizationsTab() {
           <TabsTrigger value="codes" className="flex flex-col items-center gap-1 text-[10px] font-medium">
             <Ticket className="h-4 w-4" />
             <span className="hidden sm:inline">Codes</span>
+          </TabsTrigger>
+          <TabsTrigger value="join-requests" className="flex flex-col items-center gap-1 text-[10px] font-medium">
+            <UsersRound className="h-4 w-4" />
+            <span className="hidden sm:inline">Join Requests</span>
           </TabsTrigger>
         </TabsList>
 
@@ -796,6 +801,11 @@ export default function AdminOrganizationsTab() {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Join Requests Tab */}
+        <TabsContent value="join-requests">
+          <JoinRequestsTab />
         </TabsContent>
       </Tabs>
 

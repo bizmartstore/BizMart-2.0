@@ -25,6 +25,7 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
 import BroadcastTab from "@/components/admin/BroadcastTab";
+import AdminOrganizationsTab from "@/components/admin/AdminOrganizationsTab";
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
           <TabsContent value="news"><NewsTab /></TabsContent>
           <TabsContent value="banners"><BannerTab /></TabsContent>
           <TabsContent value="club"><ClubTab /></TabsContent>
+          <TabsContent value="organizations"><AdminOrganizationsTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           {isMainAdmin ? (

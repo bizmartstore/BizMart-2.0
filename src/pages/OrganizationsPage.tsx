@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Search, Plus, UserPlus } from "lucide-react";
+import { Users, Search, Plus, UserPlus, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
+import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
 import { Organization } from "@/types";
 
 export default function OrganizationsPage() {
@@ -31,6 +32,8 @@ export default function OrganizationsPage() {
     adviser_name: "",
     club_type: "Academic",
   });
+  const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -308,40 +311,73 @@ export default function OrganizationsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredOrganizations.map((org) => (
-              <Card key={org.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/organizations/${org.id}`)}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-lg">{org.name}</CardTitle>
-                      <CardDescription className="text-xs mt-1">{org.club_type}</CardDescription>
+            {filteredOrganizations.map((org) => {
+              const isApproved = org.status === "approved";
+              return (
+                <Card key={org.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/organizations/${org.id}`)}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg">{org.name}</CardTitle>
+                        <CardDescription className="text-xs mt-1">{org.club_type}</CardDescription>
+                      </div>
+                      <Badge variant={isApproved ? "default" : "secondary"}>
+                        {org.club_type}
+                      </Badge>
                     </div>
-                    <Badge variant="default">
-                      {org.club_type}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{org.description}</p>
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <Users className="h-3 w-3" />
-                      <span>{org.member_count || 0} members</span>
-                    </div>
-                    {org.adviser_name && (
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{org.description}</p>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
                       <div className="flex items-center gap-1">
-                        <UserPlus className="h-3 w-3" />
-                        <span>{org.adviser_name}</span>
+                        <Users className="h-3 w-3" />
+                        <span>{org.member_count || 0} members</span>
+                      </div>
+                      {org.adviser_name && (
+                        <div className="flex items-center gap-1">
+                          <UserPlus className="h-3 w-3" />
+                          <span>{org.adviser_name}</span>
+                        </div>
+                      )}
+                    </div>
+                    {isApproved && (
+                      <div className="mt-3">
+                        <Button
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentOrgId(org.id);
+                            setJoinOrgDialogOpen(true);
+                          }}
+                        >
+                          <UserPlus className="h-4 w-4" /> Join Organization
+                        </Button>
                       </div>
                     )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            }))
           </div>
         )}
       </div>
       <BottomNav />
+
+      {/* Join Organization Instruction Dialog */}
+      {currentOrgId && (
+        <JoinOrganizationInstructionDialog
+          organizationId={currentOrgId}
+          organizationName={organizations.find((o) => o.id === currentOrgId)?.name || "Organization"}
+          isOpen={joinOrgDialogOpen}
+          onOpenChange={setJoinOrgDialogOpen}
+          onSuccess={() => {
+            setJoinOrgDialogOpen(false);
+            setCurrentOrgId(null);
+            fetchOrganizations();
+          }}
+        />
+      )}
     </div>
   );
 }
