@@ -22,8 +22,9 @@ export interface Member {
   organization_id: string;
   user_id: string;
   role: 'creator' | 'officer' | 'member';
-  status: 'active' | 'left' | 'banned';
+  status: 'active' | 'left' | 'banned' | 'pending';
   joined_at: string;
+  reference_number?: string;
   profile?: {
     first_name: string | null;
     last_name: string | null;
