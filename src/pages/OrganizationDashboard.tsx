@@ -73,119 +73,127 @@ export default function OrganizationDashboard() {
 }, [user, id]);
 
   const fetchOrganizationData = useCallback(async () => {
-    try {
-      setIsLoading(true);
+  try {
+    setIsLoading(true);
 
-      // Fetch organization
-      const { data: orgData, error: orgError } = await supabase
-        .from("organizations")
-        .select("*")
-        .eq("id", id)
-        .single();
+    // 1. Organization
+    const { data: orgData, error: orgError } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", id)
+      .single();
 
-      if (orgError) throw orgError;
-      if (!orgData) throw new Error("Organization not found");
+    if (orgError) throw orgError;
+    if (!orgData) throw new Error("Organization not found");
 
-      setOrganization(orgData);
+    // 2. Member count
+    const { count } = await supabase
+      .from("organization_members")
+      .select("id", { count: "exact", head: true })
+      .eq("organization_id", id);
 
-      // Fetch member count
-      const { count } = await supabase
+    setOrganization({
+      ...(orgData as Organization),
+      member_count: count || 0,
+    });
+
+    // 3. Wallet
+    const { data: walletData, error: walletError } = await supabase
+      .from("organization_wallets")
+      .select("balance")
+      .eq("organization_id", id)
+      .single();
+
+    if (walletError) {
+      await supabase.from("organization_wallets").insert({
+        organization_id: id,
+        balance: 0,
+      });
+      setWalletBalance(0);
+    } else {
+      setWalletBalance((walletData as any)?.balance ?? 0);
+    }
+
+    // 4. Members (KEEP profiles join ONLY if FK exists)
+    const { data: membersData } = await supabase
+      .from("organization_members")
+      .select("*")
+      .eq("organization_id", id)
+      .eq("status", "active")
+      .order("role", { ascending: false })
+      .order("joined_at", { ascending: false });
+
+    setMembers((membersData as Member[]) || []);
+
+    // 5. Events
+    const { data: eventsData } = await supabase
+      .from("organization_events")
+      .select("*")
+      .eq("organization_id", id)
+      .order("created_at", { ascending: false });
+
+    setEvents((eventsData as Event[]) || []);
+
+    // 6. Transactions (FIXED - NO profiles join)
+    const { data: transactionsData, error: transactionsError } = await supabase
+      .from("organization_transactions")
+      .select("*")
+      .eq("organization_id", id)
+      .order("created_at", { ascending: false });
+
+    if (transactionsError) {
+      console.error("Error fetching transactions:", transactionsError);
+    }
+
+    setTransactions((transactionsData as Transaction[]) || []);
+
+    // 7. Announcements (FIXED - NO profiles join)
+    const { data: announcementsData, error: announcementsError } = await supabase
+      .from("organization_announcements")
+      .select("*")
+      .eq("organization_id", id)
+      .order("created_at", { ascending: false });
+
+    if (announcementsError) {
+      console.error("Error fetching announcements:", announcementsError);
+    }
+
+    setAnnouncements((announcementsData as Announcement[]) || []);
+
+    // 8. Membership check
+    if (user && id) {
+      const { data, error } = await supabase
         .from("organization_members")
-        .select("id", { count: "exact", head: true })
-        .eq("organization_id", id);
-
-      setOrganization({ ...(orgData as Organization), member_count: count || 0 });
-
-      // Fetch wallet balance
-      const { data: walletData, error: walletError } = await supabase
-        .from("organization_wallets")
-        .select("balance")
+        .select("role")
         .eq("organization_id", id)
-        .single();
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .maybeSingle();
 
-      if (walletError) {
-        // Create wallet if it doesn't exist
-        await (supabase.from("organization_wallets") as any).insert({
-            organization_id: id,
-            balance: 0,
-          });
-        setWalletBalance(0);
-      } else if (walletData) {
-        setWalletBalance((walletData as { balance: number }).balance);
+      if (error) {
+        console.error("Error fetching member data:", error);
       }
 
-      // Fetch members
-      const { data: membersData } = await supabase
-        .from("organization_members")
-        .select(`*, profiles(first_name, last_name, email, avatar_url)`)
-        .eq("organization_id", id)
-        .eq("status", "active")
-        .order("role", { ascending: false })
-        .order("joined_at", { ascending: false });
+      const memberData = data as {
+        role?: "creator" | "officer" | "member";
+      } | null;
 
-      setMembers(membersData || []);
-
-      // Fetch events
-      const { data: eventsData } = await supabase
-        .from("organization_events")
-        .select("*")
-        .eq("organization_id", id)
-        .order("created_at", { ascending: false });
-
-      setEvents(eventsData || []);
-
-      // Fetch transactions
-      const { data: transactionsData, error: transactionsError } = await supabase
-        .from("organization_transactions")
-        .select(`*, profiles(first_name, last_name, avatar_url)`)
-        .eq("organization_id", id)
-        .order("created_at", { ascending: false });
-
-      if (transactionsError) console.error("Error fetching transactions:", transactionsError);
-      setTransactions(transactionsData || []);
-
-      // Fetch announcements
-      const { data: announcementsData, error: announcementsError } = await supabase
-        .from("organization_announcements")
-        .select(`*, profiles:profiles!organization_announcements_created_by_fkey(first_name, last_name, avatar_url)`)
-        .eq("organization_id", id)
-        .order("created_at", { ascending: false });
-
-      if (announcementsError) console.error("Error fetching announcements:", announcementsError);
-      setAnnouncements(announcementsData || []);
-
-      if (user && id) {
-  const { data, error } = await supabase
-    .from("organization_members")
-    .select("role")
-    .eq("organization_id", id)
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .maybeSingle();
-
-  if (error) {
-    console.error("Error fetching member data:", error);
-    return;
-  }
-
-  const memberData = data as { role?: "creator" | "officer" | "member" } | null;
-
-  if (memberData?.role) {
-    setIsMember(true);
-    setUserRole(memberData.role);
-  } else {
-    setIsMember(false);
-    setUserRole(null);
-  }
-}
-    } catch (error) {
-      console.error("Error fetching organization data:", error);
-      toast.error("Failed to load organization data");
-      navigate("/organizations");
-    } finally {
-      setIsLoading(false);
+      if (memberData?.role) {
+        setIsMember(true);
+        setUserRole(memberData.role);
+      } else {
+        setIsMember(false);
+        setUserRole(null);
+      }
     }
-  }, [id, navigate, user]);
+  } catch (error) {
+    console.error("Error fetching organization data:", error);
+    toast.error("Failed to load organization data");
+    navigate("/organizations");
+  } finally {
+    setIsLoading(false);
+  }
+}, [id, navigate, user]);
 
   const handleJoinOrganization = async () => {
     if (!user || !organization) return;
