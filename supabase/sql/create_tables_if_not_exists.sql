@@ -62,8 +62,8 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   IF NOT EXISTS (
-    SELECT 1 FROM information_schema.tables 
-    WHERE table_schema = 'public' 
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public'
     AND table_name = 'organization_members'
   ) THEN
     CREATE TABLE organization_members (
@@ -72,9 +72,11 @@ BEGIN
       user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
       role TEXT NOT NULL DEFAULT 'member',
       joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      status TEXT NOT NULL DEFAULT 'active',
-      PRIMARY KEY (organization_id, user_id)
+      status TEXT NOT NULL DEFAULT 'active'
     );
+    
+    -- Create a composite unique constraint instead of a second primary key
+    EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS idx_organization_members_org_user_unique ON organization_members(organization_id, user_id)';;
     
     CREATE INDEX IF NOT EXISTS idx_organization_members_org_id ON organization_members(organization_id);
     CREATE INDEX IF NOT EXISTS idx_organization_members_user_id ON organization_members(user_id);
