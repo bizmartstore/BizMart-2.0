@@ -77,7 +77,7 @@ export default function JoinRequestsTab() {
       // Update the join request status to "approved"
       const { error: updateError } = await supabase
         .from("organization_members")
-        .update({ status: "approved" } as { status: string })
+        .update({ status: "approved" })
         .eq("id", requestId);
 
       if (updateError) throw updateError;
@@ -94,7 +94,7 @@ export default function JoinRequestsTab() {
     try {
       const { error } = await supabase
         .from("organization_members")
-        .update({ status: "rejected" } as { status: string })
+        .update({ status: "rejected" })
         .eq("id", requestId);
 
       if (error) throw error;
