@@ -134,23 +134,33 @@ export default function AdminOrganizationsTab() {
 }, [isLoading]);
 
   const fetchTransactions = useCallback(async () => {
-    try {
-      setIsLoading({ ...isLoading, transactions: true });
-      const { data, error } = await supabase
-        .from("organization_transactions")
-        .select(`*, profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)`)
-        .order("created_at", { ascending: false });
+  try {
+    setIsLoading({ ...isLoading, transactions: true });
+    const { data, error } = await supabase
+      .from("organization_transactions")
+      .select(`
+        id,
+        amount,
+        type,
+        purpose,
+        status,
+        created_at,
+        user_id,
+        profile:profiles!fk_org_tx_user(first_name, last_name, avatar_url)
+      `)
+      .order("created_at", { ascending: false })
+      .limit(50); // Limit the number of transactions fetched
 
-      if (error) throw error;
+    if (error) throw error;
 
-      setTransactions(data || []);
-    } catch (error) {
-      console.error("Error fetching transactions:", error);
-      toast.error("Failed to load transactions");
-    } finally {
-      setIsLoading({ ...isLoading, transactions: false });
-    }
-  }, [isLoading]);
+    setTransactions(data || []);
+  } catch (error) {
+    console.error("Error fetching transactions:", error);
+    toast.error("Failed to load transactions");
+  } finally {
+    setIsLoading({ ...isLoading, transactions: false });
+  }
+}, [isLoading]);
 
   const fetchCodes = useCallback(async () => {
     try {
