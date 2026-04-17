@@ -44,37 +44,49 @@ export default function AdminOrganizationsTab() {
   const [newCodeCount, setNewCodeCount] = useState(1);
 
   const fetchPendingOrganizations = useCallback(async () => {
-    try {
-      setIsLoading({ ...isLoading, pending: true });
-      const { data, error } = await supabase
-        .from("organizations")
-        .select(`*, creator:profiles!fk_organizations_creator_id(first_name, last_name, email)`)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+  try {
+    setIsLoading({ ...isLoading, pending: true });
+    const { data, error } = await supabase
+      .from("organizations")
+      .select(`
+        id,
+        name,
+        description,
+        club_type,
+        adviser_name,
+        status,
+        created_at,
+        creator_id,
+        creator:profiles!fk_organizations_creator_id(first_name, last_name, email)
+      `)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(50); // Limit the number of organizations fetched
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Get member counts
-      const orgsWithCounts = await Promise.all(
-        data?.map(async (org: Organization) => {
-          const { count, error: countError } = await supabase
-            .from("organization_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id);
+    // Get member counts
+    const orgsWithCounts = await Promise.all(
+      data?.map(async (org: Organization) => {
+        const { count, error: countError } = await supabase
+          .from("organization_members")
+          .select("id", { count: "exact", head: true })
+          .eq("organization_id", org.id)
+          .limit(1); // Only fetch the count, not the actual data
 
-          if (countError) console.error("Error counting members:", countError);
-          return { ...org, member_count: count || 0 };
-        }) || []
-      );
+        if (countError) console.error("Error counting members:", countError);
+        return { ...org, member_count: count || 0 };
+      }) || []
+    );
 
-      setPendingOrgs(orgsWithCounts);
-    } catch (error) {
-      console.error("Error fetching pending organizations:", error);
-      toast.error("Failed to load pending organizations");
-    } finally {
-      setIsLoading({ ...isLoading, pending: false });
-    }
-  }, [isLoading]);
+    setPendingOrgs(orgsWithCounts);
+  } catch (error) {
+    console.error("Error fetching pending organizations:", error);
+    toast.error("Failed to load pending organizations");
+  } finally {
+    setIsLoading({ ...isLoading, pending: false });
+  }
+}, [isLoading]);
 
   const fetchAllOrganizations = useCallback(async () => {
     try {
