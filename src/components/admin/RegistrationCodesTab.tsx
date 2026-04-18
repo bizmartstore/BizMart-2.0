@@ -112,7 +112,7 @@ export default function RegistrationCodesTab() {
       const { data, error } = await (supabase as any)
         .from("organizations")
         .select("*")
-        .eq("status", "pending")
+        .order("created_at", { ascending: false });
         .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
