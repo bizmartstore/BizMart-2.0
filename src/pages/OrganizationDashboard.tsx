@@ -135,16 +135,27 @@ export default function OrganizationDashboard() {
   const fetchOrganizationData = useCallback(async () => {
   try {
     setIsLoading(true);
+    
+    if (!id) {
+      throw new Error("Organization ID is missing");
+    }
 
     // 1. Organization with background image
     const { data: orgData, error: orgError } = await supabase
       .from("organizations")
       .select("*, background_image")
       .eq("id", id)
+      .eq("status", "approved")
       .single();
 
-    if (orgError) throw orgError;
-    if (!orgData) throw new Error("Organization not found");
+    if (orgError) {
+      console.error("Organization fetch error:", orgError);
+      throw orgError;
+    }
+    if (!orgData) {
+      console.error("Organization not found for ID:", id);
+      throw new Error("Organization not found or not approved");
+    }
 
     // Set background image
     setOrgBackgroundImage((orgData as any).background_image || null);
