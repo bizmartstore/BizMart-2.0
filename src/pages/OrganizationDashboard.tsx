@@ -138,10 +138,10 @@ if (!walletData) {
   setWalletBalance((walletData as { balance: number })?.balance ?? 0);
 }
 
-    // 4. Members (KEEP profiles join ONLY if FK exists)
+    // 4. Members with profiles data
     const { data: membersData } = await supabase
       .from("organization_members")
-      .select("*")
+      .select(`*, profiles:user_id(first_name, last_name, email, avatar_url)`)
       .eq("organization_id", id)
       .eq("status", "active")
       .order("role", { ascending: false })
@@ -582,11 +582,13 @@ if (!walletData) {
                           </Avatar>
                           <div>
                             <p className="font-medium text-sm">
-                              {member.profile?.first_name} {member.profile?.last_name}
+                              {member.profile?.first_name && member.profile?.last_name
+                                ? `${member.profile.first_name} ${member.profile.last_name}`
+                                : member.profile?.first_name || member.profile?.last_name || "Unknown User"}
                             </p>
                             <p className="text-xs text-muted-foreground">{member.profile?.email}</p>
                             <Badge variant={member.role === "creator" ? "default" : member.role === "officer" ? "secondary" : "outline"} className="mt-1">
-                              {member.role}
+                              {member.role === "creator" ? "Creator" : member.role === "officer" ? "Officer" : "Member"}
                             </Badge>
                           </div>
                         </div>

@@ -400,7 +400,7 @@ export default function OrganizationsPage() {
                           className="w-full gap-2"
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/organizations/${org.id}/overview`);
+                            navigate(`/organizations/${org.id}`);
                           }}
                         >
                           <Eye className="h-4 w-4" /> Explore Organization
