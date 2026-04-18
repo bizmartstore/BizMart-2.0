@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle } from "lucide-react";
+import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 interface RegistrationCode {
   id: string;
@@ -31,6 +33,24 @@ interface PendingOrganization {
   member_count?: number;
 }
 
+interface JoinRequest {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected';
+  reference_number: string | null;
+  created_at: string;
+  profile?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  };
+  organization?: {
+    name: string;
+  };
+}
+
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -40,6 +60,9 @@ export default function RegistrationCodesTab() {
   const [pendingOrgs, setPendingOrgs] = useState<PendingOrganization[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
+  const [activeJoinTab, setActiveJoinTab] = useState("pending");
 
   // Ensure tables exist
   const ensureTablesExist = async () => {
@@ -238,21 +261,87 @@ export default function RegistrationCodesTab() {
   };
 
   useEffect(() => {
-    ensureTablesExist().then(() => {
-      loadCodes();
-      loadPendingOrganizations();
-    });
-  }, []);
+ensureTablesExist().then(() => {
+  loadCodes();
+  loadPendingOrganizations();
+  loadJoinRequests();
+});
+}, []);
+
+  // Load join requests
+  const loadJoinRequests = async () => {
+    try {
+      setIsLoadingRequests(true);
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select(`*, profile:profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organization:organizations!organization_members_organization_id_fkey(name)`)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST205') {
+        setJoinRequests([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setJoinRequests((data as JoinRequest[]) || []);
+    } catch (error) {
+      console.error("Error loading join requests:", error);
+      toast.error("Failed to load join requests");
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
 
   // Also reload when component comes back into view
   useEffect(() => {
     const interval = setInterval(() => {
       loadCodes();
       loadPendingOrganizations();
+      loadJoinRequests();
     }, 30000); // Reload every 30 seconds
     
     return () => clearInterval(interval);
   }, []);
+
+  // Approve join request
+  const approveJoinRequest = async (requestId: string) => {
+    try {
+      // @ts-ignore - TypeScript is too strict about the update type
+      await supabase
+        .from("organization_members")
+        .update({
+          status: "active",
+        })
+        .eq("id", requestId);
+
+      toast.success("Join request approved successfully!");
+      loadJoinRequests();
+    } catch (error) {
+      console.error("Error approving join request:", error);
+      toast.error("Failed to approve join request");
+    }
+  };
+
+  // Reject join request
+  const rejectJoinRequest = async (requestId: string) => {
+    try {
+      // @ts-ignore - TypeScript is too strict about the update type
+      await supabase
+        .from("organization_members")
+        .update({
+          status: "rejected",
+        })
+        .eq("id", requestId);
+
+      toast.success("Join request rejected successfully!");
+      loadJoinRequests();
+    } catch (error) {
+      console.error("Error rejecting join request:", error);
+      toast.error("Failed to reject join request");
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -350,6 +439,127 @@ export default function RegistrationCodesTab() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Join Requests Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Organization Join Requests</CardTitle>
+          <CardDescription>
+            Approve or reject requests to join organizations
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={activeJoinTab === "pending" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setActiveJoinTab("pending")}
+              >
+                <Users className="h-4 w-4" /> Pending ({joinRequests.filter(req => req.status === "pending").length})
+              </Button>
+              <Button
+                variant={activeJoinTab === "approved" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setActiveJoinTab("approved")}
+              >
+                <CheckCircle className="h-4 w-4" /> Approved
+              </Button>
+              <Button
+                variant={activeJoinTab === "rejected" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setActiveJoinTab("rejected")}
+              >
+                <XCircle className="h-4 w-4" /> Rejected
+              </Button>
+            </div>
+
+            {isLoadingRequests ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : activeJoinTab === "pending" && joinRequests.filter(req => req.status === "pending").length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No pending join requests</p>
+            ) : activeJoinTab === "approved" && joinRequests.filter(req => req.status === "pending").length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No approved join requests</p>
+            ) : activeJoinTab === "rejected" && joinRequests.filter(req => req.status === "rejected").length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No rejected join requests</p>
+            ) : (
+              <div className="space-y-3">
+                {joinRequests
+                  .filter(req => {
+                    if (activeJoinTab === "pending") return req.status === "pending";
+                    if (activeJoinTab === "approved") return req.status === "pending";
+                    if (activeJoinTab === "rejected") return req.status === "rejected";
+                    return true;
+                  })
+                  .map((request) => (
+                    <Card key={request.id} className="hover:shadow-md transition-shadow">
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>
+                                  {request.profile?.first_name?.charAt(0) || "U"}{request.profile?.last_name?.charAt(0) || ""}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {request.profile?.first_name} {request.profile?.last_name}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{request.profile?.email}</p>
+                              </div>
+                            </div>
+                            <div className="space-y-1 text-sm">
+                              <p><strong>Organization:</strong> {request.organization?.name || "N/A"}</p>
+                              <p><strong>Reference Number:</strong> {request.reference_number || "N/A"}</p>
+                              <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 ml-4">
+                            {request.status === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => approveJoinRequest(request.id)}
+                                  title="Approve request"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => rejectJoinRequest(request.id)}
+                                  title="Reject request"
+                                >
+                                  <XCircle className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </>
+                            )
+                            }
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => (window as any).navigate(`/organizations/${request.organization_id}`)}
+                              title="View organization"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

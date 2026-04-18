@@ -409,6 +409,7 @@ if (!walletData) {
   const canManageEvents = userRole === "creator" || userRole === "officer";
   const canManageWallet = userRole === "creator" || userRole === "officer";
   const canCreateAnnouncements = userRole === "creator" || userRole === "officer";
+  const isRegularMember = userRole === "member";
 
   if (isLoading) {
     return (
@@ -458,7 +459,7 @@ if (!walletData) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-5 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+          <TabsList className="w-full grid grid-cols-4 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
             <TabsTrigger value="overview" className="flex flex-col items-center gap-1 text-[10px] font-medium">
               <span className="text-lg">📊</span>
               <span className="hidden sm:inline">Overview</span>
@@ -471,10 +472,12 @@ if (!walletData) {
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Events</span>
             </TabsTrigger>
-            <TabsTrigger value="wallet" className="flex flex-col items-center gap-1 text-[10px] font-medium">
-              <Wallet className="h-4 w-4" />
-              <span className="hidden sm:inline">Wallet</span>
-            </TabsTrigger>
+            {!isRegularMember && (
+              <TabsTrigger value="wallet" className="flex flex-col items-center gap-1 text-[10px] font-medium">
+                <Wallet className="h-4 w-4" />
+                <span className="hidden sm:inline">Wallet</span>
+              </TabsTrigger>
+            )}
             <TabsTrigger value="announcements" className="flex flex-col items-center gap-1 text-[10px] font-medium">
               <Megaphone className="h-4 w-4" />
               <span className="hidden sm:inline">Announcements</span>
@@ -726,149 +729,6 @@ if (!walletData) {
             </div>
           </TabsContent>
 
-          {/* Wallet Tab */}
-          <TabsContent value="wallet">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Organization Wallet</CardTitle>
-                <CardDescription>Manage your organization's funds</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-8">
-                  <div className="text-5xl font-bold text-primary mb-2">₱{walletBalance.toFixed(2)}</div>
-                  <p className="text-muted-foreground">Current Balance</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="w-full gap-2" variant="outline">
-                        <CreditCard className="h-4 w-4" /> Make a Deposit
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Submit Deposit Request</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="deposit-amount">Amount (₱) *</Label>
-                          <Input
-                            id="deposit-amount"
-                            type="number"
-                            value={depositForm.amount}
-                            onChange={(e) => setDepositForm({ ...depositForm, amount: e.target.value })}
-                            min="1"
-                            step="0.01"
-                            placeholder="e.g., 500.00"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="deposit-purpose">Purpose *</Label>
-                          <Input
-                            id="deposit-purpose"
-                            value={depositForm.purpose}
-                            onChange={(e) => setDepositForm({ ...depositForm, purpose: e.target.value })}
-                            placeholder="e.g., Membership fees, Event funds"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="deposit-reference">Reference (Optional)</Label>
-                          <Input
-                            id="deposit-reference"
-                            value={depositForm.reference}
-                            onChange={(e) => setDepositForm({ ...depositForm, reference: e.target.value })}
-                            placeholder="e.g., Bank transfer reference"
-                          />
-                        </div>
-                        <Button onClick={handleCreateDeposit} className="w-full">
-                          Submit Deposit Request
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button className="w-full gap-2" variant="outline">
-                        <CreditCard className="h-4 w-4" /> Request Withdrawal
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Submit Withdrawal Request</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="withdrawal-amount">Amount (₱) *</Label>
-                          <Input
-                            id="withdrawal-amount"
-                            type="number"
-                            value={withdrawalForm.amount}
-                            onChange={(e) => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })}
-                            min="1"
-                            step="0.01"
-                            placeholder="e.g., 200.00"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="withdrawal-purpose">Purpose *</Label>
-                          <Input
-                            id="withdrawal-purpose"
-                            value={withdrawalForm.purpose}
-                            onChange={(e) => setWithdrawalForm({ ...withdrawalForm, purpose: e.target.value })}
-                            placeholder="e.g., Event expenses, Supplies"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="withdrawal-recipient">Recipient *</Label>
-                          <Input
-                            id="withdrawal-recipient"
-                            value={withdrawalForm.recipient}
-                            onChange={(e) => setWithdrawalForm({ ...withdrawalForm, recipient: e.target.value })}
-                            placeholder="e.g., GCash number or bank account"
-                          />
-                        </div>
-                        <Button onClick={handleCreateWithdrawal} className="w-full">
-                          Submit Withdrawal Request
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-                <div className="mt-6">
-                  <h3 className="font-medium mb-3">Transaction History</h3>
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
-                    {transactions.map((transaction) => (
-                      <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full ${transaction.type === "deposit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                            {transaction.type === "deposit" ? <CreditCard className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">
-                              {transaction.type === "deposit" ? "Deposit" : "Withdrawal"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {transaction.purpose} • {new Date(transaction.created_at).toLocaleString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className={`font-bold text-sm ${transaction.type === "deposit" ? "text-green-600" : "text-red-600"}`}>
-                            {transaction.type === "deposit" ? "+₱" : "-₱"}{transaction.amount.toFixed(2)}
-                          </p>
-                          <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"} className="mt-1">
-                            {transaction.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                    {transactions.length === 0 && <p className="text-xs text-muted-foreground">No transactions yet</p>}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           {/* Announcements Tab */}
           <TabsContent value="announcements">

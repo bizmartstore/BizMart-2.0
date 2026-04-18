@@ -87,25 +87,41 @@ export default function JoinOrganizationInstructionDialog({
               <p className="text-sm">
                 Go to the <strong>BizMart Store</strong> and pay the organization fee.
                 <br />
-                Save your payment reference number.
+                Save your payment reference number for verification.
+              </p>
+            </AlertDescription>
+          </Alert>
+
+          <Alert variant="default">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Step 2: Submit Your Join Request</AlertTitle>
+            <AlertDescription>
+              <p className="text-sm">
+                After paying, submit this form to request joining the organization.
+                <br />
+                The organization admin will review your payment and approve your request.
               </p>
             </AlertDescription>
           </Alert>
 
           <div className="space-y-2">
-            <Label htmlFor="reference-number">Payment Reference Number (Optional)</Label>
+            <Label htmlFor="reference-number">Payment Reference Number</Label>
             <Input
               id="reference-number"
               value={referenceNumber}
               onChange={(e) => setReferenceNumber(e.target.value)}
-              placeholder="Enter your payment reference number"
+              placeholder="Enter your payment reference number from BizMart Store"
+              required
             />
+            <p className="text-xs text-muted-foreground">
+              This will help the admin verify your payment.
+            </p>
           </div>
 
           <div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <Label htmlFor="paid-confirmation" className="font-normal cursor-pointer">
-              I have paid the organization fee
+              I have paid the organization fee and have the reference number
             </Label>
             <Input
               id="paid-confirmation"
@@ -118,7 +134,7 @@ export default function JoinOrganizationInstructionDialog({
 
           <Button
             onClick={handleSubmitRequest}
-            disabled={!hasPaid || isConfirming}
+            disabled={!hasPaid || !referenceNumber || isConfirming}
             className="w-full gap-2"
           >
             <CreditCard className="h-4 w-4" />

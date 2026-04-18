@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Search, Plus, UserPlus, CheckCircle2 } from "lucide-react";
+import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,6 +25,7 @@ export default function OrganizationsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
   const [registrationCode, setRegistrationCode] = useState("");
   const [formData, setFormData] = useState({
     name: "",
@@ -42,6 +43,27 @@ export default function OrganizationsPage() {
       setIsLoading(false);
     }
   }, [user]);
+
+  const checkPendingJoinRequest = async (orgId: string) => {
+    if (!user) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("id, status")
+        .eq("organization_id", orgId)
+        .eq("user_id", user.id)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      return !!data;
+    } catch (error) {
+      console.error("Error checking pending join request:", error);
+      return false;
+    }
+  };
 
   const fetchOrganizations = async () => {
     try {
@@ -68,7 +90,7 @@ export default function OrganizationsPage() {
 
       // Get member counts for each organization with timeout
       const orgsWithCounts = await Promise.all(
-        (orgData || []).map(async (org: Organization) => {
+        (orgData || []).map(async (org: any) => {
           try {
             const { count, error: countError } = await supabase
               .from("organization_members")
@@ -81,7 +103,13 @@ export default function OrganizationsPage() {
               return { ...org, member_count: 0 };
             }
 
-            return { ...org, member_count: count || 0 };
+            // Check if user has pending join request for this org
+            let hasPendingRequest = false;
+            if (user) {
+              hasPendingRequest = await checkPendingJoinRequest(org.id);
+            }
+
+            return { ...org, member_count: count || 0, hasPendingRequest };
           } catch (countError) {
             console.error("Error in member count query:", countError);
             return { ...org, member_count: 0 };
@@ -89,7 +117,7 @@ export default function OrganizationsPage() {
         })
       );
 
-      setOrganizations(orgsWithCounts || []);
+      setOrganizations(orgsWithCounts || [] as Organization[]);
     } catch (error) {
       console.error("Error fetching organizations:", error);
       setOrganizations([]); // Set to empty array on error
@@ -340,7 +368,7 @@ export default function OrganizationsPage() {
                         </div>
                       )}
                     </div>
-                    {isApproved && (
+                    {isApproved && !(org as any).hasPendingRequest && (
                       <div className="mt-3">
                         <Button
                           size="sm"
@@ -353,6 +381,13 @@ export default function OrganizationsPage() {
                         >
                           <UserPlus className="h-4 w-4" /> Join Organization
                         </Button>
+                      </div>
+                    )}
+                    {isApproved && (org as any).hasPendingRequest && (
+                      <div className="mt-3">
+                        <Badge variant="secondary" className="gap-1 w-full justify-center">
+                          <AlertCircle className="h-3 w-3" /> Pending Approval
+                        </Badge>
                       </div>
                     )}
                   </CardContent>
