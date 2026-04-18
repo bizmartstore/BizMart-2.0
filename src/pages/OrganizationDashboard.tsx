@@ -22,6 +22,9 @@ import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
 import { Organization, Member, Event, Transaction, Announcement } from "@/types";
 
+
+
+
 export default function OrganizationDashboard() {
   const { id } = useParams<{ id: string }>();
   const { user, profile } = useAuth();
