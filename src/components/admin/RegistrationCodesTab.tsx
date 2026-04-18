@@ -107,10 +107,9 @@ export default function RegistrationCodesTab() {
       setIsLoading(true);
       
       const { data, error } = await (supabase as any)
-  .from("organization_members")
-  .select(`*, profiles:user_id(*), organizations:organization_id(*)`)
-  .eq("status", "pending")
-  .order("joined_at", { ascending: false }); // Use joined_at instead of created_at
+        .from("registration_codes")
+        .select("*")
+        .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
         setCodes([]);
@@ -214,7 +213,8 @@ export default function RegistrationCodesTab() {
       const newCodes = Array.from({ length: codeCount }, () => {
         return {
           code: Math.random().toString(36).substring(2, 10).toUpperCase(),
-          used: false
+          used: false,
+          created_at: new Date().toISOString()
         };
       });
 
@@ -691,7 +691,7 @@ export default function RegistrationCodesTab() {
                           className="flex-1 gap-2"
                           onClick={() => navigate(`/organizations/${org.id}`)}
                         >
-                          <Eye className="h-4 w-4" /> View
+                          <Eye className="h-4 w-4" /> View Organization
                         </Button>
                       </div>
                     </CardContent>
