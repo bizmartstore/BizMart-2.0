@@ -1166,5 +1166,5 @@ if (!walletData) {
         }}
       />
     </div>
-  ); // This closes the return statement
-} // This closes the component
+  );
+}
