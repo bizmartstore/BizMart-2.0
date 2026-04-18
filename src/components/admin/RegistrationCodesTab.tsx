@@ -312,7 +312,7 @@ ensureTablesExist().then(() => {
       await (supabase as any)
         .from("organization_members")
         .update({
-          status: "active",
+          status: "approved",
         })
         .eq("id", requestId);
 
