@@ -92,10 +92,8 @@ export default function OrganizationDashboard() {
     if (user && id) {
       fetchOrganizationData();
       checkPendingJoinRequest();
-    } else if (!user) {
-      navigate("/login");
     }
-  }, [user, id, checkPendingJoinRequest, navigate]);
+  }, [user, id, checkPendingJoinRequest]);
 
   const fetchOrganizationData = useCallback(async () => {
   try {
@@ -410,7 +408,6 @@ if (!walletData) {
   const isNotMember = userRole !== "member";
   const canManageEvents = userRole === "creator" || userRole === "officer";
   const canManageWallet = userRole === "creator" || userRole === "officer";
-  const canSeeWallet = (userRole === "creator" || userRole === "officer") && organization?.show_wallet;
   const canCreateAnnouncements = userRole === "creator" || userRole === "officer";
 
   if (isLoading) {
@@ -424,7 +421,7 @@ if (!walletData) {
   if (!organization) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Organization not found or you don't have access</p>
+        <p className="text-muted-foreground">Organization not found</p>
       </div>
     );
   }
@@ -737,17 +734,10 @@ if (!walletData) {
                 <CardDescription>Manage your organization's funds</CardDescription>
               </CardHeader>
               <CardContent>
-                {canSeeWallet ? (
-                  <div className="text-center py-8">
-                    <div className="text-5xl font-bold text-primary mb-2">₱{walletBalance.toFixed(2)}</div>
-                    <p className="text-muted-foreground">Current Balance</p>
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <AlertCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-muted-foreground">Wallet information is only available to organization officers and creator</p>
-                  </div>
-                )}
+                <div className="text-center py-8">
+                  <div className="text-5xl font-bold text-primary mb-2">₱{walletBalance.toFixed(2)}</div>
+                  <p className="text-muted-foreground">Current Balance</p>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Dialog>
                     <DialogTrigger asChild>
@@ -845,39 +835,37 @@ if (!walletData) {
                     </DialogContent>
                   </Dialog>
                 </div>
-                {canSeeWallet && (
-                  <div className="mt-6">
-                    <h3 className="font-medium mb-3">Transaction History</h3>
-                    <div className="space-y-3 max-h-60 overflow-y-auto">
-                      {transactions.map((transaction) => (
-                        <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <div className={`p-2 rounded-full ${transaction.type === "deposit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
-                              {transaction.type === "deposit" ? <CreditCard className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
-                            </div>
-                            <div>
-                              <p className="font-medium text-sm">
-                                {transaction.type === "deposit" ? "Deposit" : "Withdrawal"}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {transaction.purpose} • {new Date(transaction.created_at).toLocaleString()}
-                              </p>
-                            </div>
+                <div className="mt-6">
+                  <h3 className="font-medium mb-3">Transaction History</h3>
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {transactions.map((transaction) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div className="flex items-center gap-3">
+                          <div className={`p-2 rounded-full ${transaction.type === "deposit" ? "bg-green-100 text-green-600" : "bg-red-100 text-red-600"}`}>
+                            {transaction.type === "deposit" ? <CreditCard className="h-4 w-4" /> : <DollarSign className="h-4 w-4" />}
                           </div>
-                          <div className="text-right">
-                            <p className={`font-bold text-sm ${transaction.type === "deposit" ? "text-green-600" : "text-red-600"}`}>
-                              {transaction.type === "deposit" ? "+₱" : "-₱"}{transaction.amount.toFixed(2)}
+                          <div>
+                            <p className="font-medium text-sm">
+                              {transaction.type === "deposit" ? "Deposit" : "Withdrawal"}
                             </p>
-                            <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"} className="mt-1">
-                              {transaction.status}
-                            </Badge>
+                            <p className="text-xs text-muted-foreground">
+                              {transaction.purpose} • {new Date(transaction.created_at).toLocaleString()}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                      {transactions.length === 0 && <p className="text-xs text-muted-foreground">No transactions yet</p>}
-                    </div>
+                        <div className="text-right">
+                          <p className={`font-bold text-sm ${transaction.type === "deposit" ? "text-green-600" : "text-red-600"}`}>
+                            {transaction.type === "deposit" ? "+₱" : "-₱"}{transaction.amount.toFixed(2)}
+                          </p>
+                          <Badge variant={transaction.status === "pending" ? "secondary" : transaction.status === "approved" ? "default" : "destructive"} className="mt-1">
+                            {transaction.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                    {transactions.length === 0 && <p className="text-xs text-muted-foreground">No transactions yet</p>}
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>

@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Calendar, CreditCard } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Check, Copy, X, AlertCircle } from "lucide-react";
 
 interface RegistrationCode {
   id: string;
@@ -41,12 +40,6 @@ export default function RegistrationCodesTab() {
   const [pendingOrgs, setPendingOrgs] = useState<PendingOrganization[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
-
-  // Join request approval states
-  const [joinRequests, setJoinRequests] = useState<any[]>([]);
-  const [joinRequestFilter, setJoinRequestFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
-  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(true);
-  const [isLoadingJoinRequestAction, setIsLoadingJoinRequestAction] = useState(false);
 
   // Ensure tables exist
   const ensureTablesExist = async () => {
@@ -248,7 +241,6 @@ export default function RegistrationCodesTab() {
     ensureTablesExist().then(() => {
       loadCodes();
       loadPendingOrganizations();
-      loadJoinRequests();
     });
   }, []);
 
@@ -257,95 +249,10 @@ export default function RegistrationCodesTab() {
     const interval = setInterval(() => {
       loadCodes();
       loadPendingOrganizations();
-      loadJoinRequests();
     }, 30000); // Reload every 30 seconds
     
     return () => clearInterval(interval);
   }, []);
-
-  // Load join requests
-  const loadJoinRequests = async () => {
-    try {
-      setIsLoadingJoinRequests(true);
-      
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select("*, profile:user_id(*), organization:organization_id(*)")
-        .eq("status", joinRequestFilter === "all" ? undefined : joinRequestFilter)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      setJoinRequests((data as any[]) || []);
-    } catch (error) {
-      console.error("Error loading join requests:", error);
-      toast.error("Failed to load join requests");
-    } finally {
-      setIsLoadingJoinRequests(false);
-    }
-  };
-
-  // Handle join request approval
-  const handleApproveJoinRequest = async (requestId: string) => {
-    try {
-      const { error } = await (supabase
-        .from("organization_members") as any)
-        .update({ status: "active" })
-        .eq("id", requestId);
-
-      if (error) throw error;
-
-      toast.success("Join request approved successfully!");
-      loadJoinRequests();
-    } catch (error) {
-      console.error("Error approving join request:", error);
-      toast.error("Failed to approve join request");
-    }
-  };
-
-  // Handle join request rejection
-  const handleRejectJoinRequest = async (requestId: string) => {
-    try {
-      setIsLoadingJoinRequestAction(true);
-      const { error } = await (supabase
-        .from("organization_members") as any)
-        .update({ status: "rejected" })
-        .eq("id", requestId);
-
-      if (error) throw error;
-
-      toast.success("Join request rejected successfully!");
-      loadJoinRequests();
-    } catch (error) {
-      console.error("Error rejecting join request:", error);
-      toast.error("Failed to reject join request");
-    } finally {
-      setIsLoadingJoinRequestAction(false);
-    }
-  };
-
-  // Get organization name from ID
-  const getOrganizationName = async (orgId: string): Promise<string> => {
-    try {
-      const { data, error } = await supabase
-        .from("organizations")
-        .select("name")
-        .eq("id", orgId)
-        .single();
-
-      if (error) throw error;
-      return (data as { name?: string })?.name || "Unknown Organization";
-    } catch (error) {
-      console.error("Error fetching organization name:", error);
-      return "Unknown Organization";
-    }
-  };
-
-  // Filter join requests by organization
-  const filteredJoinRequests = joinRequests.filter(request => {
-    if (joinRequestFilter === "all") return true;
-    return request.status === joinRequestFilter;
-  });
 
   return (
     <div className="space-y-6">
@@ -448,131 +355,70 @@ export default function RegistrationCodesTab() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Join Requests Approval</CardTitle>
+          <CardTitle>Pending Organizations</CardTitle>
           <CardDescription>
-            Review and approve join requests to organizations
+            Review and approve organizations that have submitted for approval
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div className="flex gap-2">
-              <Button
-                variant={joinRequestFilter === "pending" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setJoinRequestFilter("pending")}
-              >
-                Pending ({joinRequests.filter(r => r.status === "pending").length})
-              </Button>
-              <Button
-                variant={joinRequestFilter === "approved" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setJoinRequestFilter("approved")}
-              >
-                Approved ({joinRequests.filter(r => r.status === "approved").length})
-              </Button>
-              <Button
-                variant={joinRequestFilter === "rejected" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setJoinRequestFilter("rejected")}
-              >
-                Rejected ({joinRequests.filter(r => r.status === "rejected").length})
-              </Button>
-              <Button
-                variant={joinRequestFilter === "all" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setJoinRequestFilter("all")}
-              >
-                All ({joinRequests.length})
-              </Button>
+          {isLoadingOrgs ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
             </div>
-
-            {isLoadingJoinRequests ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : filteredJoinRequests.length === 0 ? (
-              <div className="text-center py-8">
-                <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-muted-foreground">No join requests found</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {filteredJoinRequests.map((request) => (
-                  <Card key={request.id}>
-                    <CardContent className="pt-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback>
-                              {request.profile?.first_name?.charAt(0) || "U"}{request.profile?.last_name?.charAt(0) || ""}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="font-medium">
-                              {request.profile?.first_name} {request.profile?.last_name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{request.profile?.email}</p>
-                          </div>
-                        </div>
-                        <Badge variant={request.status === "pending" ? "secondary" : request.status === "approved" ? "default" : "destructive"}>
-                          {request.status}
-                        </Badge>
+          ) : pendingOrgs.length === 0 ? (
+            <div className="text-center py-8">
+              <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+              <p className="text-muted-foreground">No pending organizations to review</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Organization</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Adviser</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pendingOrgs.map((org) => (
+                  <TableRow key={org.id}>
+                    <TableCell className="font-medium">{org.name}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">{org.club_type}</Badge>
+                    </TableCell>
+                    <TableCell>{org.adviser_name || "-"}</TableCell>
+                    <TableCell>{org.member_count || 0}</TableCell>
+                    <TableCell className="text-xs">
+                      {new Date(org.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => approveOrganization(org.id)}
+                          title="Approve organization"
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => rejectOrganization(org.id)}
+                          title="Reject organization"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
                       </div>
-
-                      <div className="space-y-2 text-sm mb-4">
-                        <p><strong>Organization:</strong> {request.organization?.name || "Unknown"}</p>
-                        {request.reference_number && (
-                          <p><strong>Reference Number:</strong> {request.reference_number}</p>
-                        )}
-                        <p><strong>Role:</strong> {request.role}</p>
-                        <p><strong>Joined:</strong> {new Date(request.created_at).toLocaleString()}</p>
-                      </div>
-
-                      {request.status === "pending" && (
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="flex-1 gap-2"
-                            onClick={async () => {
-                              setIsLoadingJoinRequestAction(true);
-                              try {
-                                const { error } = await (supabase
-                                  .from("organization_members") as any)
-                                  .update({ status: "approved" })
-                                  .eq("id", request.id);
-
-                                if (error) throw error;
-
-                                toast.success("Join request approved!");
-                                loadJoinRequests();
-                              } catch (error) {
-                                console.error("Error approving join request:", error);
-                                toast.error("Failed to approve join request");
-                              } finally {
-                                setIsLoadingJoinRequestAction(false);
-                              }
-                            }}
-                            disabled={isLoadingJoinRequestAction}
-                          >
-                            <Check className="h-4 w-4" /> Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 gap-2"
-                            onClick={() => handleRejectJoinRequest(request.id)}
-                            disabled={isLoadingJoinRequestAction}
-                          >
-                            <X className="h-4 w-4" /> Reject
-                          </Button>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </div>
-            )}
-          </div>
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

@@ -38,6 +38,7 @@ import NotFound from "@/pages/NotFound";
 import ESupportPage from "@/pages/ESupportPage";
 import TrackReportPage from "@/pages/ESupport/TrackReportPage";
 import SubmitReportPage from "@/pages/ESupport/SubmitReportPage";
+import OrganizationsPage from "@/pages/OrganizationsPage";
 import OrganizationDashboard from "@/pages/OrganizationDashboard";
 
 const queryClient = new QueryClient({
@@ -97,6 +98,7 @@ function AppContent() {
             <Route path="/store/:sellerId" element={<StoreViewPage />} />
             <Route path="/seller-store" element={<SellerStorePage />} />
             <Route path="/print-service" element={<PrintServicePage />} />
+            <Route path="/organizations" element={<OrganizationsPage />} />
             <Route path="/organizations/:id" element={<OrganizationDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/guidance" element={<GuidanceDashboard />} />

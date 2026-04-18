@@ -14,7 +14,6 @@ export interface Organization {
     last_name: string | null;
     email: string | null;
   };
-  show_wallet?: boolean;
 }
 
 // Member types

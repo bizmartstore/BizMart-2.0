@@ -85,7 +85,7 @@ export default function JoinOrganizationInstructionDialog({
             <AlertTitle>Step 1: Pay the Organization Fee</AlertTitle>
             <AlertDescription>
               <p className="text-sm">
-                Go to the <strong>BizMart Store</strong> and pay the organization fee of ₱500.
+                Go to the <strong>BizMart Store</strong> and pay the organization fee.
                 <br />
                 Save your payment reference number.
               </p>
@@ -102,20 +102,10 @@ export default function JoinOrganizationInstructionDialog({
             />
           </div>
 
-          <Alert variant="default">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Step 2: Confirm Payment</AlertTitle>
-            <AlertDescription>
-              <p className="text-sm">
-                After paying, check the box below to confirm you have completed the payment.
-              </p>
-            </AlertDescription>
-          </Alert>
-
           <div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <Label htmlFor="paid-confirmation" className="font-normal cursor-pointer">
-              I have paid the organization fee of ₱500
+              I have paid the organization fee
             </Label>
             <Input
               id="paid-confirmation"
