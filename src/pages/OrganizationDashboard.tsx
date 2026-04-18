@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle } from "lucide-react";
+import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -38,6 +38,18 @@ export default function OrganizationDashboard() {
   const [userRole, setUserRole] = useState<'creator' | 'officer' | 'member' | null>(null);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
+  const [depositForm, setDepositForm] = useState({
+    amount: "",
+    purpose: "",
+    reference: "",
+  });
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    amount: "",
+    purpose: "",
+    recipient: "",
+  });
+  const [orgBackgroundImage, setOrgBackgroundImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const checkPendingJoinRequest = useCallback(async () => {
     if (!user || !id) return;
@@ -68,18 +80,6 @@ export default function OrganizationDashboard() {
     fee: 0,
   });
 
-  const [depositForm, setDepositForm] = useState({
-    amount: "",
-    purpose: "",
-    reference: "",
-  });
-
-  const [withdrawalForm, setWithdrawalForm] = useState({
-    amount: "",
-    purpose: "",
-    recipient: "",
-  });
-
   const [newAnnouncementForm, setNewAnnouncementForm] = useState({
     title: "",
     content: "",
@@ -99,7 +99,7 @@ export default function OrganizationDashboard() {
   try {
     setIsLoading(true);
 
-    // 1. Organization
+    // 1. Organization with background image
     const { data: orgData, error: orgError } = await supabase
       .from("organizations")
       .select("*")
@@ -108,6 +108,9 @@ export default function OrganizationDashboard() {
 
     if (orgError) throw orgError;
     if (!orgData) throw new Error("Organization not found");
+
+    // Set background image
+    setOrgBackgroundImage(orgData.background_image || null);
 
     // 2. Member count
     const { count } = await supabase
@@ -158,18 +161,18 @@ if (!walletData) {
 
     setEvents((eventsData as Event[]) || []);
 
-    // 6. Transactions (FIXED - NO profiles join)
-    const { data: transactionsData, error: transactionsError } = await supabase
+    // 6. Wallet transactions with profiles join
+    const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
       .from("organization_transactions")
-      .select("*")
+      .select(`*, profiles:user_id(first_name, last_name, avatar_url)`)
       .eq("organization_id", id)
       .order("created_at", { ascending: false });
 
-    if (transactionsError) {
-      console.error("Error fetching transactions:", transactionsError);
+    if (walletTransactionsError) {
+      console.error("Error fetching wallet transactions:", walletTransactionsError);
     }
 
-    setTransactions((transactionsData as Transaction[]) || []);
+    setTransactions((walletTransactionsData as Transaction[]) || []);
 
     // 7. Announcements (FIXED - NO profiles join)
     const { data: announcementsData, error: announcementsError } = await supabase
@@ -409,6 +412,7 @@ if (!walletData) {
   const canManageEvents = userRole === "creator" || userRole === "officer";
   const canManageWallet = userRole === "creator" || userRole === "officer";
   const canCreateAnnouncements = userRole === "creator" || userRole === "officer";
+  const canManageOrganization = userRole === "creator";
   const isRegularMember = userRole === "member";
   const isMemberOrAbove = userRole === "member" || userRole === "officer" || userRole === "creator";
 
@@ -483,6 +487,12 @@ if (!walletData) {
               <Megaphone className="h-4 w-4" />
               <span className="hidden sm:inline">Announcements</span>
             </TabsTrigger>
+            {canManageOrganization && (
+              <TabsTrigger value="settings" className="flex flex-col items-center gap-1 text-[10px] font-medium">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Settings</span>
+              </TabsTrigger>
+            )}
           </TabsList>
 
           {/* Overview Tab */}
@@ -575,18 +585,18 @@ if (!walletData) {
                       <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
-                            <AvatarImage src={member.profile?.avatar_url || undefined} />
+                            <AvatarImage src={member.profiles?.avatar_url || undefined} />
                             <AvatarFallback>
-                              {member.profile?.first_name?.charAt(0) || "U"}{member.profile?.last_name?.charAt(0) || ""}
+                              {member.profiles?.first_name?.charAt(0) || "U"}{member.profiles?.last_name?.charAt(0) || ""}
                             </AvatarFallback>
                           </Avatar>
                           <div>
                             <p className="font-medium text-sm">
-                              {member.profile?.first_name && member.profile?.last_name
-                                ? `${member.profile.first_name} ${member.profile.last_name}`
-                                : member.profile?.first_name || member.profile?.last_name || "Unknown User"}
+                              {member.profiles?.first_name && member.profiles?.last_name
+                                ? `${member.profiles.first_name} ${member.profiles.last_name}`
+                                : member.profiles?.first_name || member.profiles?.last_name || "Unknown User"}
                             </p>
-                            <p className="text-xs text-muted-foreground">{member.profile?.email}</p>
+                            <p className="text-xs text-muted-foreground">{member.profiles?.email}</p>
                             <Badge variant={member.role === "creator" ? "default" : member.role === "officer" ? "secondary" : "outline"} className="mt-1">
                               {member.role === "creator" ? "Creator" : member.role === "officer" ? "Officer" : "Member"}
                             </Badge>
@@ -751,6 +761,152 @@ if (!walletData) {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* Deposit Form */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Deposit Funds</CardTitle>
+                  <CardDescription>Request to deposit money into organization wallet</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="deposit-amount">Amount (₱) *</Label>
+                      <Input
+                        id="deposit-amount"
+                        type="number"
+                        value={depositForm.amount}
+                        onChange={(e) => setDepositForm({ ...depositForm, amount: e.target.value })}
+                        min="1"
+                        step="0.01"
+                        placeholder="e.g., 500.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="deposit-purpose">Purpose *</Label>
+                      <Input
+                        id="deposit-purpose"
+                        value={depositForm.purpose}
+                        onChange={(e) => setDepositForm({ ...depositForm, purpose: e.target.value })}
+                        placeholder="e.g., Membership fees, Event funding"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="deposit-reference">Reference (Optional)</Label>
+                      <Input
+                        id="deposit-reference"
+                        value={depositForm.reference}
+                        onChange={(e) => setDepositForm({ ...depositForm, reference: e.target.value })}
+                        placeholder="e.g., GCash transaction number"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleCreateDeposit}
+                      className="w-full"
+                      disabled={!depositForm.amount || parseFloat(depositForm.amount) <= 0}
+                    >
+                      Request Deposit
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Withdrawal Form */}
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Withdraw Funds</CardTitle>
+                  <CardDescription>Request to withdraw money from organization wallet</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="withdrawal-amount">Amount (₱) *</Label>
+                      <Input
+                        id="withdrawal-amount"
+                        type="number"
+                        value={withdrawalForm.amount}
+                        onChange={(e) => setWithdrawalForm({ ...withdrawalForm, amount: e.target.value })}
+                        min="1"
+                        step="0.01"
+                        placeholder="e.g., 200.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="withdrawal-purpose">Purpose *</Label>
+                      <Input
+                        id="withdrawal-purpose"
+                        value={withdrawalForm.purpose}
+                        onChange={(e) => setWithdrawalForm({ ...withdrawalForm, purpose: e.target.value })}
+                        placeholder="e.g., Event expenses, Supplies"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="withdrawal-recipient">Recipient Name *</Label>
+                      <Input
+                        id="withdrawal-recipient"
+                        value={withdrawalForm.recipient}
+                        onChange={(e) => setWithdrawalForm({ ...withdrawalForm, recipient: e.target.value })}
+                        placeholder="e.g., John Doe"
+                      />
+                    </div>
+                    <Button
+                      onClick={handleCreateWithdrawal}
+                      className="w-full"
+                      disabled={!withdrawalForm.amount || parseFloat(withdrawalForm.amount) <= 0 || !withdrawalForm.recipient}
+                    >
+                      Request Withdrawal
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Transaction History */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Transaction History</CardTitle>
+                  <CardDescription>Recent transactions and requests</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {transactions.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">No transactions yet</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {transactions.map((transaction) => (
+                          <div key={transaction.id} className={`p-3 border rounded-lg ${transaction.status === 'pending' ? 'bg-yellow-50 border-yellow-200' : transaction.status === 'approved' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="font-medium text-sm">
+                                {transaction.type === 'deposit' ? 'Deposit' : 'Withdrawal'}
+                                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  {transaction.status}
+                                </span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                ₱{transaction.amount.toFixed(2)} • {transaction.purpose}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {transaction.reference && `Ref: ${transaction.reference}`}
+                              </p>
+                              {transaction.profile && (
+                                <p className="text-xs text-muted-foreground">
+                                  Requested by: {transaction.profile.first_name} {transaction.profile.last_name}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-muted-foreground">
+                                {new Date(transaction.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </TabsContent>
           )}
 
@@ -858,7 +1014,130 @@ if (!walletData) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Join Organization Instruction Dialog */}
+      {/* Settings Tab - Only for creators */}
+      {canManageOrganization && (
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Organization Settings</CardTitle>
+              <CardDescription>Manage your organization's appearance and details</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Background Image Upload */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Organization Background Image</h3>
+                  <div className="flex items-center gap-4">
+                    {orgBackgroundImage ? (
+                      <div className="relative">
+                        <img
+                          src={orgBackgroundImage}
+                          alt="Organization background"
+                          className="w-32 h-20 object-cover rounded-lg border"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                          onClick={async () => {
+                            if (!organization) return;
+                            try {
+                                setIsUploadingImage(true);
+                                const { error } = await supabase
+                                  .from("organizations")
+                                  .update({ background_image: null } as any)
+                                  .eq("id", organization.id);
+                              if (error) throw error;
+                              setOrgBackgroundImage(null);
+                              toast.success("Background image removed!");
+                            } catch (error) {
+                              console.error("Error removing background image:", error);
+                              toast.error("Failed to remove background image");
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-32 h-20 bg-muted rounded-lg border flex items-center justify-center">
+                        <p className="text-xs text-muted-foreground">No image</p>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <Label htmlFor="background-image-upload" className="cursor-pointer">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          disabled={isUploadingImage}
+                        >
+                          {isUploadingImage ? "Uploading..." : "Upload Background Image"}
+                        </Button>
+                        <Input
+                          id="background-image-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file || !organization) return;
+                            
+                            try {
+                              setIsUploadingImage(true);
+                              
+                              // Upload to Supabase storage
+                              const fileExt = file.name.split('.').pop();
+                              const fileName = `${organization.id}-bg-${Date.now()}.${fileExt}`;
+                              const filePath = `${fileName}`;
+                              
+                              const { error: uploadError } = await supabase
+                                .storage
+                                .from('organization-backgrounds')
+                                .upload(filePath, file);
+                              
+                              if (uploadError) throw uploadError;
+                              
+                              // Get public URL
+                              const { data: urlData } = supabase
+                                .storage
+                                .from('organization-backgrounds')
+                                .getPublicUrl(filePath);
+                              
+                              // Update organization record
+                              const { error: updateError } = await supabase
+                                .from("organizations")
+                                .update({ background_image: urlData.publicUrl } as any)
+                                .eq("id", organization.id);
+                              
+                              if (updateError) throw updateError;
+                              
+                              setOrgBackgroundImage(urlData.publicUrl);
+                              toast.success("Background image uploaded successfully!");
+                            } catch (error) {
+                              console.error("Error uploading background image:", error);
+                              toast.error("Failed to upload background image");
+                            } finally {
+                              setIsUploadingImage(false);
+                            }
+                          }}
+                        />
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Upload an image that will be used as the background for your organization
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      )}
+
+      {/* Join Organization Instruction Dialog */
       <JoinOrganizationInstructionDialog
         organizationId={organization.id}
         organizationName={organization.name}

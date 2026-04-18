@@ -352,7 +352,7 @@ export default function OrganizationsPage() {
             {filteredOrganizations.map((org) => {
               const isApproved = org.status === "approved";
               return (
-                <Card key={org.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => navigate(`/organizations/${org.id}`)}>
+                <Card key={org.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
                       <div>

@@ -9,6 +9,7 @@ export interface Organization {
   creator_id: string;
   member_count?: number;
   created_at: string;
+  background_image?: string | null;
   creator?: {
     first_name: string | null;
     last_name: string | null;
@@ -26,7 +27,7 @@ export interface Member {
   role: 'creator' | 'officer' | 'member';
   status: 'active' | 'left' | 'banned';
   joined_at: string;
-  profile?: {
+  profiles?: {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
@@ -65,6 +66,21 @@ export interface Transaction {
     last_name: string | null;
     avatar_url: string | null;
   };
+}
+
+// Wallet Transaction types
+export interface WalletTransaction {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  purpose: string;
+  reference: string | null;
+  created_at: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
 }
 
 // Announcement types
