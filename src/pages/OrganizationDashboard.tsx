@@ -302,7 +302,7 @@ if (!walletData) {
         purpose: depositForm.purpose,
         reference: depositForm.reference,
         gcash_fee: 0,
-      });
+      } as TransactionInsert); // Add type assertion
 
     if (error) throw error;
 
