@@ -22,7 +22,41 @@ import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
 import { Organization, Member, Event, Transaction, Announcement } from "@/types";
 
+// Add these type definitions after your imports
+interface OrganizationMemberInsert {
+  organization_id: string;
+  user_id: string;
+  role: "creator" | "officer" | "member";
+}
 
+interface EventInsert {
+  organization_id: string;
+  name: string;
+  description: string;
+  deadline: string;
+  capacity: number;
+  fee: number;
+  status: string;
+  created_by: string;
+}
+
+interface TransactionInsert {
+  organization_id: string;
+  user_id: string;
+  type: "deposit" | "withdrawal";
+  amount: number;
+  status: string;
+  purpose: string;
+  reference: string;
+  gcash_fee: number;
+}
+
+interface AnnouncementInsert {
+  organization_id: string;
+  title: string;
+  content: string;
+  created_by: string;
+}
 
 
 export default function OrganizationDashboard() {
