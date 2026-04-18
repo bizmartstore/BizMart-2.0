@@ -689,7 +689,11 @@ export default function RegistrationCodesTab() {
                           size="sm"
                           variant="outline"
                           className="flex-1 gap-2"
-                          onClick={() => navigate(`/organizations/${org.id}`)}
+                          onClick={() => {
+                            navigate(`/organizations/${org.id}`);
+                            // Optional: Scroll to top to ensure smooth transition
+                            window.scrollTo(0, 0);
+                          }}
                         >
                           <Eye className="h-4 w-4" /> View Organization
                         </Button>
