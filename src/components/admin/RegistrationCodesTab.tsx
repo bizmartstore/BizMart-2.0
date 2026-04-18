@@ -168,13 +168,13 @@ export default function RegistrationCodesTab() {
 
   // Load approved organizations
   const loadApprovedOrganizations = async () => {
-    try {
-      setIsLoadingApproved(true);
-      const { data, error } = await (supabase as any)
-        .from("organizations")
-        .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
-        .eq("status", "approved")
-        .order("created_at", { ascending: false });
+  try {
+    setIsLoadingApproved(true);
+    const { data, error } = await (supabase as any)
+      .from("organizations")
+      .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+      .eq("status", "approved")
+      .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
         setApprovedOrgs([]);
