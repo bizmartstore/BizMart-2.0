@@ -133,10 +133,10 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingOrgs(true);
     const { data, error } = await (supabase as any)
-      .from("organizations")
-      .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
-      .eq("status", "pending")
-      .order("created_at", { ascending: false });
+  .from("organizations")
+  .select(`*, profiles:creator_id(*)`)
+  .eq("status", "pending")
+  .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
         setPendingOrgs([]);
