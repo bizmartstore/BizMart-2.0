@@ -309,7 +309,7 @@ ensureTablesExist().then(() => {
   const approveJoinRequest = async (requestId: string) => {
     try {
       // @ts-ignore - TypeScript is too strict about the update type
-      await supabase
+      await (supabase as any)
         .from("organization_members")
         .update({
           status: "active",
