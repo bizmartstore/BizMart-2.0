@@ -376,9 +376,12 @@ if (!walletData) {
   if (!memberToRemove || !organization) return;
 
   try {
-    await (supabase.from("organization_members") as any)
+    const { error } = await supabase
+      .from("organization_members")
       .update({ status: "left" })
-      .eq("id", memberToRemove as string);
+      .eq("id", memberToRemove);
+
+    if (error) throw error;
 
     setMembers(prev =>
       prev.filter(member => member.id !== memberToRemove)
