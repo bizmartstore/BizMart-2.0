@@ -248,11 +248,13 @@ if (!walletData) {
 };
 
   const handleCreateEvent = async () => {
-    if (!organization || !user) return;
+  if (!organization || !user) return;
 
-    try {
-      const { error } = await (supabase.from("organization_events") as any).insert({
-        organization_id: (organization as any).id,
+  try {
+    const { error } = await supabase
+      .from("organization_events")
+      .insert({
+        organization_id: organization.id,
         name: newEventForm.name,
         description: newEventForm.description,
         deadline: newEventForm.deadline,
@@ -262,22 +264,22 @@ if (!walletData) {
         created_by: user.id,
       });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast.success("Event created successfully!");
-      fetchOrganizationData();
-      setNewEventForm({
-        name: "",
-        description: "",
-        deadline: "",
-        capacity: 10,
-        fee: 0,
-      });
-    } catch (error) {
-      console.error("Error creating event:", error);
-      toast.error("Failed to create event");
-    }
-  };
+    toast.success("Event created successfully!");
+    fetchOrganizationData();
+    setNewEventForm({
+      name: "",
+      description: "",
+      deadline: "",
+      capacity: 10,
+      fee: 0,
+    });
+  } catch (error) {
+    console.error("Error creating event:", error);
+    toast.error("Failed to create event");
+  }
+};
 
   const handleCreateDeposit = async () => {
     if (!organization || !user) return;
