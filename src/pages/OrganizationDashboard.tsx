@@ -232,7 +232,7 @@ if (!walletData) {
         organization_id: organization.id,
         user_id: user.id,
         role: "member",
-      });
+      } as OrganizationMemberInsert); // Add type assertion
 
     if (error) throw error;
 
