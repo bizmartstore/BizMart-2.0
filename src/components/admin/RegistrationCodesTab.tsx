@@ -173,7 +173,7 @@ export default function RegistrationCodesTab() {
     setIsLoadingApproved(true);
     const { data, error } = await (supabase as any)
   .from("organizations")
-  .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+  .select(`*, profiles:creator_id(*)`)
   .eq("status", "approved")
   .order("created_at", { ascending: false });
 
