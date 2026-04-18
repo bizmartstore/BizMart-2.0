@@ -282,17 +282,19 @@ if (!walletData) {
 };
 
   const handleCreateDeposit = async () => {
-    if (!organization || !user) return;
+  if (!organization || !user) return;
 
-    const amount = parseFloat(depositForm.amount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
+  const amount = parseFloat(depositForm.amount);
+  if (isNaN(amount) || amount <= 0) {
+    toast.error("Please enter a valid amount");
+    return;
+  }
 
-    try {
-      const { error } = await (supabase.from("organization_transactions") as any).insert({
-        organization_id: (organization as any).id,
+  try {
+    const { error } = await supabase
+      .from("organization_transactions")
+      .insert({
+        organization_id: organization.id,
         user_id: user.id,
         type: "deposit",
         amount,
@@ -302,20 +304,20 @@ if (!walletData) {
         gcash_fee: 0,
       });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast.success("Deposit request submitted for admin approval!");
-      fetchOrganizationData();
-      setDepositForm({
-        amount: "",
-        purpose: "",
-        reference: "",
-      });
-    } catch (error) {
-      console.error("Error creating deposit:", error);
-      toast.error("Failed to submit deposit request");
-    }
-  };
+    toast.success("Deposit request submitted for admin approval!");
+    fetchOrganizationData();
+    setDepositForm({
+      amount: "",
+      purpose: "",
+      reference: "",
+    });
+  } catch (error) {
+    console.error("Error creating deposit:", error);
+    toast.error("Failed to submit deposit request");
+  }
+};
 
   const handleCreateWithdrawal = async () => {
     if (!organization || !user) return;
