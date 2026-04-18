@@ -92,8 +92,10 @@ export default function OrganizationDashboard() {
     if (user && id) {
       fetchOrganizationData();
       checkPendingJoinRequest();
+    } else if (!user) {
+      navigate("/login");
     }
-  }, [user, id, checkPendingJoinRequest]);
+  }, [user, id, checkPendingJoinRequest, navigate]);
 
   const fetchOrganizationData = useCallback(async () => {
   try {
@@ -422,7 +424,7 @@ if (!walletData) {
   if (!organization) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Organization not found</p>
+        <p className="text-muted-foreground">Organization not found or you don't have access</p>
       </div>
     );
   }
