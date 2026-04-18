@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -11,8 +11,10 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye } from "lucide-react";
+import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface RegistrationCode {
   id: string;
@@ -31,6 +33,11 @@ interface PendingOrganization {
   creator_id: string;
   created_at: string;
   member_count?: number;
+  creator?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  };
 }
 
 interface JoinRequest {
@@ -51,6 +58,23 @@ interface JoinRequest {
   };
 }
 
+interface ApprovedOrganization {
+  id: string;
+  name: string;
+  description: string;
+  adviser_name: string | null;
+  club_type: string;
+  status: string;
+  creator_id: string;
+  created_at: string;
+  member_count?: number;
+  creator?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  };
+}
+
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -63,21 +87,19 @@ export default function RegistrationCodesTab() {
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [activeJoinTab, setActiveJoinTab] = useState("pending");
+  const [activeOrgTab, setActiveOrgTab] = useState("pending");
+  const [approvedOrgs, setApprovedOrgs] = useState<ApprovedOrganization[]>([]);
+  const [isLoadingApproved, setIsLoadingApproved] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const navigate = useNavigate();
 
-  // Ensure tables exist
-  const ensureTablesExist = async () => {
-    try {
-      // Try to create all organization-related tables at once
-      const { error } = await (supabase as any)
-        .rpc('create_all_organization_tables_if_not_exists');
-      
-      if (error) {
-        console.warn("Could not ensure tables exist:", error);
-      }
-    } catch (error) {
-      console.warn("Could not ensure tables exist:", error);
-    }
-  };
+  // Load all data
+  useEffect(() => {
+    loadCodes();
+    loadPendingOrganizations();
+    loadJoinRequests();
+    loadApprovedOrganizations();
+  }, []);
 
   // Load registration codes
   const loadCodes = async () => {
@@ -111,8 +133,8 @@ export default function RegistrationCodesTab() {
       setIsLoadingOrgs(true);
       const { data, error } = await (supabase as any)
         .from("organizations")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .eq("status", "pending")
         .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
@@ -122,6 +144,7 @@ export default function RegistrationCodesTab() {
 
       if (error) throw error;
 
+      // Get member counts
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: PendingOrganization) => {
           const { count, error: countError } = await (supabase as any)
@@ -130,17 +153,55 @@ export default function RegistrationCodesTab() {
             .eq("organization_id", org.id);
 
           if (countError) console.error("Error counting members:", countError);
-
           return { ...org, member_count: count || 0 };
         }) || []
       );
 
-      setPendingOrgs(orgsWithCounts || []);
+      setPendingOrgs(orgsWithCounts);
     } catch (error) {
       console.error("Error loading pending organizations:", error);
       toast.error("Failed to load pending organizations");
     } finally {
       setIsLoadingOrgs(false);
+    }
+  };
+
+  // Load approved organizations
+  const loadApprovedOrganizations = async () => {
+    try {
+      setIsLoadingApproved(true);
+      const { data, error } = await (supabase as any)
+        .from("organizations")
+        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST205') {
+        setApprovedOrgs([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      // Get member counts
+      const orgsWithCounts = await Promise.all(
+        data?.map(async (org: ApprovedOrganization) => {
+          const { count, error: countError } = await (supabase as any)
+            .from("organization_members")
+            .select("id", { count: "exact", head: true })
+            .eq("organization_id", org.id);
+
+          if (countError) console.error("Error counting members:", countError);
+          return { ...org, member_count: count || 0 };
+        }) || []
+      );
+
+      setApprovedOrgs(orgsWithCounts);
+    } catch (error) {
+      console.error("Error loading approved organizations:", error);
+      toast.error("Failed to load approved organizations");
+    } finally {
+      setIsLoadingApproved(false);
     }
   };
 
@@ -222,6 +283,7 @@ export default function RegistrationCodesTab() {
 
       toast.success("Organization approved successfully!");
       await loadPendingOrganizations();
+      await loadApprovedOrganizations();
     } catch (error) {
       console.error("Error approving organization:", error);
       toast.error("Failed to approve organization");
@@ -248,6 +310,7 @@ export default function RegistrationCodesTab() {
 
       toast.success("Organization rejected successfully!");
       await loadPendingOrganizations();
+      await loadApprovedOrganizations();
     } catch (error) {
       console.error("Error rejecting organization:", error);
       toast.error("Failed to reject organization");
@@ -259,14 +322,6 @@ export default function RegistrationCodesTab() {
     navigator.clipboard.writeText(code);
     toast.success("Code copied to clipboard!");
   };
-
-  useEffect(() => {
-ensureTablesExist().then(() => {
-  loadCodes();
-  loadPendingOrganizations();
-  loadJoinRequests();
-});
-}, []);
 
   // Load join requests
   const loadJoinRequests = async () => {
@@ -294,30 +349,18 @@ ensureTablesExist().then(() => {
     }
   };
 
-  // Also reload when component comes back into view
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadCodes();
-      loadPendingOrganizations();
-      loadJoinRequests();
-    }, 30000); // Reload every 30 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
-
   // Approve join request
   const approveJoinRequest = async (requestId: string) => {
     try {
-      // @ts-ignore - TypeScript is too strict about the update type
       await (supabase as any)
         .from("organization_members")
         .update({
-          status: "approved",
+          status: "active",
         })
         .eq("id", requestId);
 
       toast.success("Join request approved successfully!");
-      loadJoinRequests();
+      await loadJoinRequests();
     } catch (error) {
       console.error("Error approving join request:", error);
       toast.error("Failed to approve join request");
@@ -327,7 +370,6 @@ ensureTablesExist().then(() => {
   // Reject join request
   const rejectJoinRequest = async (requestId: string) => {
     try {
-      // @ts-ignore - TypeScript is too strict about the update type
       await (supabase as any)
         .from("organization_members")
         .update({
@@ -336,15 +378,36 @@ ensureTablesExist().then(() => {
         .eq("id", requestId);
 
       toast.success("Join request rejected successfully!");
-      loadJoinRequests();
+      await loadJoinRequests();
     } catch (error) {
       console.error("Error rejecting join request:", error);
       toast.error("Failed to reject join request");
     }
   };
 
+  // Filtered data
+  const filteredPendingOrgs = pendingOrgs.filter((org) =>
+    org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    org.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    org.club_type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredApprovedOrgs = approvedOrgs.filter((org) =>
+    org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    org.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    org.club_type.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredJoinRequests = joinRequests.filter((req) => {
+    if (activeJoinTab === "pending") return req.status === "pending";
+    if (activeJoinTab === "approved") return req.status === "approved";
+    if (activeJoinTab === "rejected") return req.status === "rejected";
+    return true;
+  });
+
   return (
     <div className="space-y-6">
+      {/* Generate Codes Section */}
       <Card>
         <CardHeader>
           <CardTitle>Generate Registration Codes</CardTitle>
@@ -483,151 +546,243 @@ ensureTablesExist().then(() => {
               <div className="flex justify-center items-center py-8">
                 <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
               </div>
-            ) : activeJoinTab === "pending" && joinRequests.filter(req => req.status === "pending").length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No pending join requests</p>
-            ) : activeJoinTab === "approved" && joinRequests.filter(req => req.status === "approved").length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No approved join requests</p>
-            ) : activeJoinTab === "rejected" && joinRequests.filter(req => req.status === "rejected").length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No rejected join requests</p>
+            ) : filteredJoinRequests.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No join requests found</p>
             ) : (
               <div className="space-y-3">
-                {joinRequests
-                  .filter(req => {
-                    if (activeJoinTab === "pending") return req.status === "pending";
-                    if (activeJoinTab === "approved") return req.status === "approved";
-                    if (activeJoinTab === "rejected") return req.status === "rejected";
-                    return true;
-                  })
-                  .map((request) => (
-                    <Card key={request.id} className="hover:shadow-md transition-shadow">
-                      <CardContent className="pt-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>
-                                  {request.profile?.first_name?.charAt(0) || "U"}{request.profile?.last_name?.charAt(0) || ""}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-sm">
-                                  {request.profile?.first_name} {request.profile?.last_name}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{request.profile?.email}</p>
-                              </div>
-                            </div>
-                            <div className="space-y-1 text-sm">
-                              <p><strong>Organization:</strong> {request.organization?.name || "N/A"}</p>
-                              <p><strong>Reference Number:</strong> {request.reference_number || "N/A"}</p>
-                              <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}</p>
+                {filteredJoinRequests.map((request) => (
+                  <Card key={request.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback>
+                                {request.profile?.first_name?.charAt(0) || "U"}{request.profile?.last_name?.charAt(0) || ""}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="font-medium text-sm">
+                                {request.profile?.first_name} {request.profile?.last_name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{request.profile?.email}</p>
                             </div>
                           </div>
-                          <div className="flex gap-2 ml-4">
-                            {request.status === "pending" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => approveJoinRequest(request.id)}
-                                  title="Approve request"
-                                >
-                                  <CheckCircle className="h-4 w-4 text-green-600" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => rejectJoinRequest(request.id)}
-                                  title="Reject request"
-                                >
-                                  <XCircle className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </>
-                            )
-                            }
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => (window as any).navigate(`/organizations/${request.organization_id}`)}
-                              title="View organization"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                          <div className="space-y-1 text-sm">
+                            <p><strong>Organization:</strong> {request.organization?.name || "N/A"}</p>
+                            {request.reference_number && (
+                              <p><strong>Reference:</strong> {request.reference_number}</p>
+                            )}
+                            <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}</p>
                           </div>
                         </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        <div className="flex gap-2 ml-4">
+                          {request.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => approveJoinRequest(request.id)}
+                                title="Approve request"
+                              >
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => rejectJoinRequest(request.id)}
+                                title="Reject request"
+                              >
+                                <XCircle className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/organizations/${request.organization_id}`)}
+                            title="View organization"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </div>
         </CardContent>
       </Card>
 
+      {/* Approved Organizations Section */}
       <Card>
         <CardHeader>
-          <CardTitle>Pending Organizations</CardTitle>
-          <CardDescription>
-            Review and approve organizations that have submitted for approval
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Approved Organizations ({approvedOrgs.length})</CardTitle>
+              <CardDescription>View all approved organizations</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoadingApproved ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : filteredApprovedOrgs.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No approved organizations found</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="relative">
+                <Input
+                  placeholder="Search approved organizations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-0"
+                />
+              </div>
+              <div className="space-y-3">
+                {filteredApprovedOrgs.map((org) => (
+                  <Card key={org.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{org.name}</CardTitle>
+                          <CardDescription className="text-xs mt-1">
+                            {org.club_type} • Status: {org.status}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="default">
+                          {org.status}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-3">{org.description}</p>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-3 w-3" />
+                          <span>Created: {new Date(org.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3 w-3" />
+                          <span>Members: {org.member_count || 0}</span>
+                        </div>
+                        {org.adviser_name && (
+                          <div className="flex items-center gap-2 col-span-2">
+                            <Users className="h-3 w-3" />
+                            <span>Adviser: {org.adviser_name}</span>
+                          </div>
+                        )}
+                        {org.creator && (
+                          <div className="flex items-center gap-2 col-span-2">
+                            <Users className="h-3 w-3" />
+                            <span>Creator: {org.creator.first_name} {org.creator.last_name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 gap-2"
+                          onClick={() => navigate(`/organizations/${org.id}`)}
+                        >
+                          <Eye className="h-4 w-4" /> View
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Pending Organizations Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-lg">Pending Organizations ({pendingOrgs.length})</CardTitle>
+              <CardDescription>Review and approve new organization registrations</CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoadingOrgs ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
             </div>
-          ) : pendingOrgs.length === 0 ? (
-            <div className="text-center py-8">
-              <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-muted-foreground">No pending organizations to review</p>
-            </div>
+          ) : filteredPendingOrgs.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">No pending organizations to review</p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Organization</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Adviser</TableHead>
-                  <TableHead>Members</TableHead>
-                  <TableHead>Created</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pendingOrgs.map((org) => (
-                  <TableRow key={org.id}>
-                    <TableCell className="font-medium">{org.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{org.club_type}</Badge>
-                    </TableCell>
-                    <TableCell>{org.adviser_name || "-"}</TableCell>
-                    <TableCell>{org.member_count || 0}</TableCell>
-                    <TableCell className="text-xs">
-                      {new Date(org.created_at).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-2">
+            <div className="space-y-4">
+              <div className="relative">
+                <Input
+                  placeholder="Search pending organizations..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-0"
+                />
+              </div>
+              <div className="space-y-3">
+                {filteredPendingOrgs.map((org) => (
+                  <Card key={org.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">{org.name}</CardTitle>
+                          <CardDescription className="text-xs mt-1">
+                            {org.club_type} • Created: {new Date(org.created_at).toLocaleDateString()}
+                          </CardDescription>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">Pending</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-3">{org.description}</p>
+                      <div className="grid grid-cols-2 gap-4 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3 w-3" />
+                          <span>Adviser: {org.adviser_name || "N/A"}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-3 w-3" />
+                          <span>Members: {org.member_count || 0}</span>
+                        </div>
+                        {org.creator && (
+                          <div className="flex items-center gap-2 col-span-2">
+                            <Users className="h-3 w-3" />
+                            <span>Creator: {org.creator.first_name} {org.creator.last_name} ({org.creator.email})</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2 mt-4">
                         <Button
-                          variant="outline"
                           size="sm"
+                          className="flex-1 gap-2"
                           onClick={() => approveOrganization(org.id)}
-                          title="Approve organization"
                         >
-                          <Check className="h-3 w-3" />
+                          <CheckCircle className="h-4 w-4" /> Approve
                         </Button>
                         <Button
-                          variant="outline"
                           size="sm"
+                          variant="outline"
+                          className="flex-1 gap-2"
                           onClick={() => rejectOrganization(org.id)}
-                          title="Reject organization"
                         >
-                          <X className="h-3 w-3" />
+                          <XCircle className="h-4 w-4" /> Reject
                         </Button>
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </CardContent>
+                  </Card>
                 ))}
-              </TableBody>
-            </Table>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

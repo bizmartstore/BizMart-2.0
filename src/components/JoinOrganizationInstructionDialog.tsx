@@ -42,6 +42,11 @@ export default function JoinOrganizationInstructionDialog({
       return;
     }
 
+    if (!referenceNumber) {
+      toast.error("Please enter your payment reference number");
+      return;
+    }
+
     setIsConfirming(true);
 
     try {
@@ -53,7 +58,7 @@ export default function JoinOrganizationInstructionDialog({
           user_id: user.id,
           role: "member",
           status: "pending",
-          reference_number: referenceNumber || undefined,
+          reference_number: referenceNumber,
         });
 
       if (error) throw error;

@@ -368,7 +368,7 @@ export default function OrganizationsPage() {
                         </div>
                       )}
                     </div>
-                    {isApproved && !(org as any).hasPendingRequest && (
+                    {isApproved && !pendingJoinRequest && (
                       <div className="mt-3">
                         <Button
                           size="sm"
@@ -383,7 +383,7 @@ export default function OrganizationsPage() {
                         </Button>
                       </div>
                     )}
-                    {isApproved && (org as any).hasPendingRequest && (
+                    {isApproved && pendingJoinRequest && (
                       <div className="mt-3">
                         <Badge variant="secondary" className="gap-1 w-full justify-center">
                           <AlertCircle className="h-3 w-3" /> Pending Approval

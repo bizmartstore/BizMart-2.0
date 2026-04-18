@@ -410,6 +410,7 @@ if (!walletData) {
   const canManageWallet = userRole === "creator" || userRole === "officer";
   const canCreateAnnouncements = userRole === "creator" || userRole === "officer";
   const isRegularMember = userRole === "member";
+  const isMemberOrAbove = userRole === "member" || userRole === "officer" || userRole === "creator";
 
   if (isLoading) {
     return (
@@ -729,6 +730,27 @@ if (!walletData) {
             </div>
           </TabsContent>
 
+
+          {/* Wallet Tab - Only for creators and officers */}
+          {canManageWallet && (
+            <TabsContent value="wallet">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium">Organization Wallet</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <p className="text-2xl font-bold text-green-600">
+                        ₱{walletBalance.toFixed(2)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Available Balance</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          )}
 
           {/* Announcements Tab */}
           <TabsContent value="announcements">
