@@ -223,25 +223,29 @@ if (!walletData) {
 }, [id, navigate, user]);
 
   const handleJoinOrganization = async () => {
-    if (!user || !organization) return;
+  if (!user || !organization) return;
 
-    try {
-      await (supabase.from("organization_members") as any).insert({
-        organization_id: (organization as any).id,
+  try {
+    const { error } = await supabase
+      .from("organization_members")
+      .insert({
+        organization_id: organization.id,
         user_id: user.id,
         role: "member",
       });
 
-      toast.success(`Successfully joined ${organization.name}!`);
-      setIsMember(true);
-      setUserRole("member");
-      fetchOrganizationData();
-      setIsJoinDialogOpen(false);
-    } catch (error) {
-      console.error("Error joining organization:", error);
-      toast.error("Failed to join organization");
-    }
-  };
+    if (error) throw error;
+
+    toast.success(`Successfully joined ${organization.name}!`);
+    setIsMember(true);
+    setUserRole("member");
+    fetchOrganizationData();
+    setIsJoinDialogOpen(false);
+  } catch (error) {
+    console.error("Error joining organization:", error);
+    toast.error("Failed to join organization");
+  }
+};
 
   const handleCreateEvent = async () => {
     if (!organization || !user) return;
