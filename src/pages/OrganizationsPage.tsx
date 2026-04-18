@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle } from "lucide-react";
+import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,8 +44,8 @@ export default function OrganizationsPage() {
     }
   }, [user]);
 
-  const checkPendingJoinRequest = async (orgId: string) => {
-    if (!user) return false;
+  const checkMembershipStatus = async (orgId: string) => {
+    if (!user) return { isMember: false, hasPendingRequest: false };
 
     try {
       const { data, error } = await supabase
@@ -53,15 +53,21 @@ export default function OrganizationsPage() {
         .select("id, status")
         .eq("organization_id", orgId)
         .eq("user_id", user.id)
-        .eq("status", "pending")
         .maybeSingle();
 
       if (error) throw error;
 
-      return !!data;
+      if (data) {
+        return {
+          isMember: (data as { status: string }).status === "active",
+          hasPendingRequest: (data as { status: string }).status === "pending"
+        };
+      }
+      
+      return { isMember: false, hasPendingRequest: false };
     } catch (error) {
-      console.error("Error checking pending join request:", error);
-      return false;
+      console.error("Error checking membership status:", error);
+      return { isMember: false, hasPendingRequest: false };
     }
   };
 
@@ -103,13 +109,17 @@ export default function OrganizationsPage() {
               return { ...org, member_count: 0 };
             }
 
-            // Check if user has pending join request for this org
-            let hasPendingRequest = false;
+            // Check if user is member or has pending request for this org
+            let membershipStatus = { isMember: false, hasPendingRequest: false };
             if (user) {
-              hasPendingRequest = await checkPendingJoinRequest(org.id);
+              membershipStatus = await checkMembershipStatus(org.id);
             }
 
-            return { ...org, member_count: count || 0, hasPendingRequest };
+            return {
+              ...org,
+              member_count: count || 0,
+              ...membershipStatus
+            };
           } catch (countError) {
             console.error("Error in member count query:", countError);
             return { ...org, member_count: 0 };
@@ -368,7 +378,7 @@ export default function OrganizationsPage() {
                         </div>
                       )}
                     </div>
-                    {isApproved && !pendingJoinRequest && (
+                    {isApproved && !org.isMember && !org.hasPendingRequest && (
                       <div className="mt-3">
                         <Button
                           size="sm"
@@ -383,7 +393,21 @@ export default function OrganizationsPage() {
                         </Button>
                       </div>
                     )}
-                    {isApproved && pendingJoinRequest && (
+                    {isApproved && org.isMember && (
+                      <div className="mt-3">
+                        <Button
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/organizations/${org.id}/overview`);
+                          }}
+                        >
+                          <Eye className="h-4 w-4" /> Explore Organization
+                        </Button>
+                      </div>
+                    )}
+                    {isApproved && org.hasPendingRequest && (
                       <div className="mt-3">
                         <Badge variant="secondary" className="gap-1 w-full justify-center">
                           <AlertCircle className="h-3 w-3" /> Pending Approval

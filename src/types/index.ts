@@ -14,6 +14,8 @@ export interface Organization {
     last_name: string | null;
     email: string | null;
   };
+  isMember?: boolean;
+  hasPendingRequest?: boolean;
 }
 
 // Member types

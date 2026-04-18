@@ -690,8 +690,7 @@ export default function RegistrationCodesTab() {
                           variant="outline"
                           className="flex-1 gap-2"
                           onClick={() => {
-                            navigate(`/organizations/${org.id}`);
-                            // Optional: Scroll to top to ensure smooth transition
+                            navigate(`/organizations/${org.id}/overview`);
                             window.scrollTo(0, 0);
                           }}
                         >

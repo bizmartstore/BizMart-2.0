@@ -24,10 +24,13 @@ export default function PWAUpdatePrompt() {
 
   useEffect(() => {
     if (needRefresh) {
-      setShowUpdate(true);
-      setCountdown(10);
+      // Only show update prompt if not already showing
+      if (!showUpdate) {
+        setShowUpdate(true);
+        setCountdown(10);
+      }
     }
-  }, [needRefresh]);
+  }, [needRefresh, showUpdate]);
 
   useEffect(() => {
     if (!showUpdate || countdown <= 0) return;
