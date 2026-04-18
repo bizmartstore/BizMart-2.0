@@ -102,7 +102,7 @@ export default function JoinOrganizationInstructionDialog({
             />
           </div>
 
-          <Alert variant="info">
+          <Alert variant="default">
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Step 2: Confirm Payment</AlertTitle>
             <AlertDescription>

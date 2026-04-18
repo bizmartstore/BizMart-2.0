@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Calendar, CreditCard } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface RegistrationCode {
   id: string;
@@ -333,7 +334,7 @@ export default function RegistrationCodesTab() {
         .single();
 
       if (error) throw error;
-      return data?.name || "Unknown Organization";
+      return (data as { name?: string })?.name || "Unknown Organization";
     } catch (error) {
       console.error("Error fetching organization name:", error);
       return "Unknown Organization";
