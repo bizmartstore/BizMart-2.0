@@ -139,7 +139,7 @@ export default function OrganizationDashboard() {
     // 1. Organization with background image
     const { data: orgData, error: orgError } = await supabase
       .from("organizations")
-      .select("*")
+      .select("*, background_image")
       .eq("id", id)
       .single();
 
@@ -147,7 +147,7 @@ export default function OrganizationDashboard() {
     if (!orgData) throw new Error("Organization not found");
 
     // Set background image
-    setOrgBackgroundImage(orgData.background_image || null);
+    setOrgBackgroundImage((orgData as any).background_image || null);
 
     // 2. Member count
     const { count } = await supabase
@@ -187,7 +187,7 @@ if (!walletData) {
       .order("role", { ascending: false })
       .order("joined_at", { ascending: false });
 
-    setMembers((membersData as Member[]) || []);
+    setMembers(membersData || []);
 
     // 5. Events
     const { data: eventsData } = await supabase
@@ -196,7 +196,7 @@ if (!walletData) {
       .eq("organization_id", id)
       .order("created_at", { ascending: false });
 
-    setEvents((eventsData as Event[]) || []);
+    setEvents(eventsData || []);
 
     // 6. Wallet transactions with profiles join
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
@@ -209,7 +209,7 @@ if (!walletData) {
       console.error("Error fetching wallet transactions:", walletTransactionsError);
     }
 
-    setTransactions((walletTransactionsData as Transaction[]) || []);
+    setTransactions(walletTransactionsData || []);
 
     // 7. Announcements (FIXED - NO profiles join)
     const { data: announcementsData, error: announcementsError } = await supabase
@@ -222,7 +222,7 @@ if (!walletData) {
       console.error("Error fetching announcements:", announcementsError);
     }
 
-    setAnnouncements((announcementsData as Announcement[]) || []);
+    setAnnouncements(announcementsData || []);
 
     // 8. Membership check
     if (user && id) {
@@ -238,9 +238,7 @@ if (!walletData) {
         console.error("Error fetching member data:", error);
       }
 
-      const memberData = data as {
-        role?: "creator" | "officer" | "member";
-      } | null;
+      const memberData = data as { role?: "creator" | "officer" | "member" } | null;
 
       if (memberData?.role) {
         setIsMember(true);
@@ -265,11 +263,11 @@ if (!walletData) {
   try {
     const { error } = await supabase
       .from("organization_members")
-      .insert({
+      .insert([{
         organization_id: organization.id,
         user_id: user.id,
         role: "member",
-      } as OrganizationMemberInsert); // Add type assertion
+      }] as any);
 
     if (error) throw error;
 
@@ -290,7 +288,7 @@ if (!walletData) {
   try {
     const { error } = await supabase
       .from("organization_events")
-      .insert({
+      .insert([{
         organization_id: organization.id,
         name: newEventForm.name,
         description: newEventForm.description,
@@ -299,7 +297,7 @@ if (!walletData) {
         fee: newEventForm.fee,
         status: "upcoming",
         created_by: user.id,
-      } as EventInsert); // Add type assertion
+      }] as any);
 
     if (error) throw error;
 
@@ -330,7 +328,7 @@ if (!walletData) {
   try {
     const { error } = await supabase
       .from("organization_transactions")
-      .insert({
+      .insert([{
         organization_id: organization.id,
         user_id: user.id,
         type: "deposit",
@@ -339,7 +337,7 @@ if (!walletData) {
         purpose: depositForm.purpose,
         reference: depositForm.reference,
         gcash_fee: 0,
-      } as TransactionInsert); // Add type assertion
+      }] as any);
 
     if (error) throw error;
 
@@ -368,7 +366,7 @@ if (!walletData) {
   try {
     const { error } = await supabase
       .from("organization_transactions")
-      .insert({
+      .insert([{
         organization_id: organization.id,
         user_id: user.id,
         type: "withdrawal",
@@ -377,7 +375,7 @@ if (!walletData) {
         purpose: withdrawalForm.purpose,
         reference: withdrawalForm.recipient,
         gcash_fee: 0,
-      } as TransactionInsert); // Add type assertion
+      }] as any);
 
     if (error) throw error;
 
@@ -400,12 +398,12 @@ if (!walletData) {
   try {
     const { error } = await supabase
       .from("organization_announcements")
-      .insert({
+      .insert([{
         organization_id: organization.id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
-      } as AnnouncementInsert); // Add type assertion
+      }] as any);
 
     if (error) throw error;
 
@@ -425,9 +423,9 @@ if (!walletData) {
   if (!memberToRemove || !organization) return;
 
   try {
-    const { error } = await supabase
-      .from("organization_members")
-      .update({ status: "left" } as { status: string })
+    const { error } = await (supabase
+      .from("organization_members") as any)
+      .update({ status: "left" })
       .eq("id", memberToRemove);
 
     if (error) throw error;
@@ -646,11 +644,11 @@ if (!walletData) {
                             <p className="font-medium text-sm">
                               {member.profiles?.first_name && member.profiles?.last_name
                                 ? `${member.profiles.first_name} ${member.profiles.last_name}`
-                                : member.user_id
-                                  ? "Loading..."
+                                : user?.id === member.user_id
+                                  ? `${profile?.first_name || ''} ${profile?.last_name || ''}`.trim() || 'You'
                                   : "Unknown User"}
                             </p>
-                            <p className="text-xs text-muted-foreground">{member.profiles?.email}</p>
+                            <p className="text-xs text-muted-foreground">{member.profiles?.email || 'No email available'}</p>
                             <Badge variant={member.role === "creator" ? "default" : member.role === "officer" ? "secondary" : "outline"} className="mt-1">
                               {member.role === "creator" ? "Creator" : member.role === "officer" ? "Officer" : "Member"}
                             </Badge>
@@ -1097,10 +1095,10 @@ if (!walletData) {
                             if (!organization) return;
                             try {
                                 setIsUploadingImage(true);
-                                const { error } = await supabase
-                                  .from("organizations")
-                                  .update({ background_image: null } as any)
-                                  .eq("id", organization.id);
+                                const { error } = await (supabase
+                                    .from("organizations") as any)
+                                    .update({ background_image: null })
+                                    .eq("id", organization.id);
                               if (error) throw error;
                               setOrgBackgroundImage(null);
                               toast.success("Background image removed!");
@@ -1161,9 +1159,9 @@ if (!walletData) {
                                 .getPublicUrl(filePath);
                               
                               // Update organization record
-                              const { error: updateError } = await supabase
-                                .from("organizations")
-                                .update({ background_image: urlData.publicUrl } as any)
+                              const { error: updateError } = await (supabase
+                                .from("organizations") as any)
+                                .update({ background_image: urlData.publicUrl })
                                 .eq("id", organization.id);
                               
                               if (updateError) throw updateError;

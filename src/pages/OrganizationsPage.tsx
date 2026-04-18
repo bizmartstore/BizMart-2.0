@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye } from "lucide-react";
+import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +33,8 @@ export default function OrganizationsPage() {
     adviser_name: "",
     club_type: "Academic",
   });
+  const [orgBackgroundImage, setOrgBackgroundImage] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
 
@@ -149,6 +151,8 @@ export default function OrganizationsPage() {
     }
 
     try {
+      setIsUploadingImage(true);
+      
       // Verify registration code
       const { data: codeData, error: codeError } = await supabase
         .from("registration_codes")
@@ -167,22 +171,54 @@ export default function OrganizationsPage() {
       }
 
       // Create organization
+      const orgPayload = {
+        name: formData.name,
+        description: formData.description,
+        adviser_name: formData.adviser_name,
+        club_type: formData.club_type,
+        status: "pending",
+        creator_id: user.id,
+      };
+
+      // Upload background image if provided
+      if (orgBackgroundImage) {
+        const fileExt = orgBackgroundImage.name.split('.').pop();
+        const fileName = `${user.id}-org-bg-${Date.now()}.${fileExt}`;
+        const filePath = `organization-backgrounds/${fileName}`;
+        
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase
+          .storage
+          .from('organization-backgrounds' as any)
+          .upload(filePath, orgBackgroundImage);
+        
+        if (uploadError) {
+          console.error("Error uploading background image:", uploadError);
+          toast.warning("Background image upload failed, but organization will still be created");
+        } else {
+          // Get public URL
+          const { data: urlData } = supabase
+            .storage
+            .from('organization-backgrounds' as any)
+            .getPublicUrl(filePath);
+          
+          (orgPayload as any).background_image = urlData.publicUrl;
+        }
+      }
+
       const { data: orgData, error: orgError } = await supabase
         .from("organizations")
-        .insert({
-          name: formData.name,
-          description: formData.description,
-          adviser_name: formData.adviser_name,
-          club_type: formData.club_type,
-          status: "pending",
-          creator_id: user.id,
-        } as any)
+        .insert(orgPayload as any)
         .select()
         .single() as { data: any; error: any };
 
       if (orgError) {
         console.error("Organization creation error:", orgError);
         throw orgError;
+      }
+
+      if (!orgData) {
+        throw new Error("Organization data is null");
       }
 
       // Mark code as used
@@ -192,21 +228,24 @@ export default function OrganizationsPage() {
         .eq("id", (codeData as any).id);
 
       // Add creator as member with creator role
-      await (supabase
-        .from("organization_members") as any)
-        .insert({
+      await supabase
+        .from("organization_members")
+        .insert([{
           organization_id: (orgData as any).id,
           user_id: user.id,
           role: "creator",
-        });
+        }] as any);
 
       toast.success("Organization registration submitted for approval!");
       setIsRegisterModalOpen(false);
       fetchOrganizations();
       resetForm();
+      setOrgBackgroundImage(null);
     } catch (error) {
       console.error("Error registering organization:", error);
       toast.error("Failed to register organization. Please check your registration code.");
+    } finally {
+      setIsUploadingImage(false);
     }
   };
 
@@ -327,8 +366,64 @@ export default function OrganizationsPage() {
                   </p>
                 </div>
 
-                <Button onClick={handleRegisterOrganization} className="w-full">
-                  Submit for Approval
+                {/* Background Image Upload */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Organization Background Image (Optional)</h3>
+                  <div className="flex items-center gap-4">
+                    {orgBackgroundImage ? (
+                      <div className="relative">
+                        <img
+                          src={URL.createObjectURL(orgBackgroundImage)}
+                          alt="Preview"
+                          className="w-32 h-20 object-cover rounded-lg border"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                          onClick={() => setOrgBackgroundImage(null)}
+                          title="Remove image"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-32 h-20 bg-muted rounded-lg border flex items-center justify-center">
+                        <p className="text-xs text-muted-foreground">No image</p>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <Label htmlFor="background-image-upload" className="cursor-pointer">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          disabled={isUploadingImage}
+                        >
+                          {isUploadingImage ? "Uploading..." : "Upload Background Image"}
+                        </Button>
+                        <Input
+                          id="background-image-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setOrgBackgroundImage(file);
+                            }
+                          }}
+                        />
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Upload an image that will be used as the background for your organization
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={handleRegisterOrganization} className="w-full" disabled={isUploadingImage || !registrationCode}>
+                  {isUploadingImage ? "Processing..." : "Submit for Approval"}
                 </Button>
               </div>
             </DialogContent>
