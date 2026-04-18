@@ -262,7 +262,7 @@ if (!walletData) {
         fee: newEventForm.fee,
         status: "upcoming",
         created_by: user.id,
-      });
+      } as EventInsert); // Add type assertion
 
     if (error) throw error;
 
