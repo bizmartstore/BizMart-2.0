@@ -494,7 +494,7 @@ ensureTablesExist().then(() => {
                 {joinRequests
                   .filter(req => {
                     if (activeJoinTab === "pending") return req.status === "pending";
-                    if (activeJoinTab === "approved") return req.status === "pending";
+                    if (activeJoinTab === "approved") return req.status === "approved";
                     if (activeJoinTab === "rejected") return req.status === "rejected";
                     return true;
                   })
