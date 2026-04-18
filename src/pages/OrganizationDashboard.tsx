@@ -1155,6 +1155,7 @@ if (!walletData) {
       )}
 
       {/* Join Organization Instruction Dialog */
+      {/* Join Organization Instruction Dialog */}
       <JoinOrganizationInstructionDialog
         organizationId={organization.id}
         organizationName={organization.name}
@@ -1165,5 +1166,5 @@ if (!walletData) {
         }}
       />
     </div>
-  );
-}
+  ); // This closes the return statement
+} // This closes the component
