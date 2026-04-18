@@ -1162,9 +1162,9 @@ if (!walletData) {
                               
                               // Update organization record
                               const { error: updateError } = await supabase
-                                .from("organizations")
-                                .update({ background_image: urlData.publicUrl } as any)
-                                .eq("id", organization.id);
+  .from("organizations")
+  .update({ background_image: urlData.publicUrl })
+  .eq("id", organization.id);
                               
                               if (updateError) throw updateError;
                               
