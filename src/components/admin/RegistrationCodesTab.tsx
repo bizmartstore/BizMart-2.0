@@ -33,7 +33,7 @@ interface PendingOrganization {
   creator_id: string;
   created_at: string;
   member_count?: number;
-  creator?: {
+  profiles?: {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
@@ -47,13 +47,13 @@ interface JoinRequest {
   status: 'pending' | 'approved' | 'rejected';
   reference_number: string | null;
   created_at: string;
-  profile?: {
+  profiles?: {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
     avatar_url: string | null;
   };
-  organization?: {
+  organizations?: {
     name: string;
   };
 }
@@ -68,7 +68,7 @@ interface ApprovedOrganization {
   creator_id: string;
   created_at: string;
   member_count?: number;
-  creator?: {
+  profiles?: {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
@@ -133,7 +133,7 @@ export default function RegistrationCodesTab() {
       setIsLoadingOrgs(true);
       const { data, error } = await (supabase as any)
         .from("organizations")
-        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
@@ -172,7 +172,7 @@ export default function RegistrationCodesTab() {
       setIsLoadingApproved(true);
       const { data, error } = await (supabase as any)
         .from("organizations")
-        .select(`*, creator:profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+        .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
         .eq("status", "approved")
         .order("created_at", { ascending: false });
 
@@ -329,7 +329,7 @@ export default function RegistrationCodesTab() {
       setIsLoadingRequests(true);
       const { data, error } = await (supabase as any)
         .from("organization_members")
-        .select(`*, profile:profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organization:organizations!organization_members_organization_id_fkey(name)`)
+        .select(`*, profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_members_organization_id_fkey(name)`)
         .eq("status", "pending")
         .order("created_at", { ascending: false });
 
@@ -558,18 +558,18 @@ export default function RegistrationCodesTab() {
                           <div className="flex items-center gap-2 mb-2">
                             <Avatar className="h-8 w-8">
                               <AvatarFallback>
-                                {request.profile?.first_name?.charAt(0) || "U"}{request.profile?.last_name?.charAt(0) || ""}
+                                {request.profiles?.first_name?.charAt(0) || "U"}{request.profiles?.last_name?.charAt(0) || ""}
                               </AvatarFallback>
                             </Avatar>
                             <div>
                               <p className="font-medium text-sm">
-                                {request.profile?.first_name} {request.profile?.last_name}
+                                {request.profiles?.first_name} {request.profiles?.last_name}
                               </p>
-                              <p className="text-xs text-muted-foreground">{request.profile?.email}</p>
+                              <p className="text-xs text-muted-foreground">{request.profiles?.email}</p>
                             </div>
                           </div>
                           <div className="space-y-1 text-sm">
-                            <p><strong>Organization:</strong> {request.organization?.name || "N/A"}</p>
+                            <p><strong>Organization:</strong> {request.organizations?.name || "N/A"}</p>
                             {request.reference_number && (
                               <p><strong>Reference:</strong> {request.reference_number}</p>
                             )}
@@ -676,10 +676,10 @@ export default function RegistrationCodesTab() {
                             <span>Adviser: {org.adviser_name}</span>
                           </div>
                         )}
-                        {org.creator && (
+                        {org.profiles && (
                           <div className="flex items-center gap-2 col-span-2">
                             <Users className="h-3 w-3" />
-                            <span>Creator: {org.creator.first_name} {org.creator.last_name}</span>
+                            <span>Creator: {org.profiles.first_name} {org.profiles.last_name}</span>
                           </div>
                         )}
                       </div>
@@ -754,10 +754,10 @@ export default function RegistrationCodesTab() {
                           <Users className="h-3 w-3" />
                           <span>Members: {org.member_count || 0}</span>
                         </div>
-                        {org.creator && (
+                        {org.profiles && (
                           <div className="flex items-center gap-2 col-span-2">
                             <Users className="h-3 w-3" />
-                            <span>Creator: {org.creator.first_name} {org.creator.last_name} ({org.creator.email})</span>
+                            <span>Creator: {org.profiles.first_name} {org.profiles.last_name} ({org.profiles.email})</span>
                           </div>
                         )}
                       </div>
