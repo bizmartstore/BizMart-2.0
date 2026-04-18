@@ -129,13 +129,13 @@ export default function RegistrationCodesTab() {
 
   // Load pending organizations
   const loadPendingOrganizations = async () => {
-    try {
-      setIsLoadingOrgs(true);
-      const { data, error } = await (supabase as any)
-        .from("organizations")
-        .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+  try {
+    setIsLoadingOrgs(true);
+    const { data, error } = await (supabase as any)
+      .from("organizations")
+      .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
         setPendingOrgs([]);
