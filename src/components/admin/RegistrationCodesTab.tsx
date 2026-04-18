@@ -325,13 +325,13 @@ export default function RegistrationCodesTab() {
 
   // Load join requests
   const loadJoinRequests = async () => {
-    try {
-      setIsLoadingRequests(true);
-      const { data, error } = await (supabase as any)
-        .from("organization_members")
-        .select(`*, profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_members_organization_id_fkey(name)`)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
+  try {
+    setIsLoadingRequests(true);
+    const { data, error } = await (supabase as any)
+      .from("organization_members")
+      .select(`*, profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_members_organization_id_fkey(name)`)
+      .eq("status", "pending")
+      .order("joined_at", { ascending: false }); // Fix: Use joined_at instead of created_at
 
       if (error && error.code === 'PGRST205') {
         setJoinRequests([]);
