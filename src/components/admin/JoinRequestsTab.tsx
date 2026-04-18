@@ -45,15 +45,15 @@ export default function JoinRequestsTab() {
   }, [user]);
 
   const fetchJoinRequests = async () => {
-    try {
-      setIsLoading(true);
+  try {
+    setIsLoading(true);
 
-      // Fetch all join requests with profiles and organizations
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select("*, profile:user_id(*), organization:organization_id(*)")
-        .eq("status", filter === "all" ? undefined : filter)
-        .order("created_at", { ascending: false });
+    // Fetch all join requests with profiles and organizations
+    const { data, error } = await supabase
+      .from("organization_members")
+      .select(`*, profile:user_id(*), organization:organization_id(*)`)
+      .eq("status", filter === "all" ? undefined : filter)
+      .order("joined_at", { ascending: false }); // Fix: Use joined_at instead of created_at
 
       if (error) throw error;
 
