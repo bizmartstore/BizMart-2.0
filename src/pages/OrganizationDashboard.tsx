@@ -368,7 +368,7 @@ if (!walletData) {
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
-      });
+      } as AnnouncementInsert); // Add type assertion
 
     if (error) throw error;
 
