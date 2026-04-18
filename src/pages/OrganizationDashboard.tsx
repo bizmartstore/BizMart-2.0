@@ -358,29 +358,31 @@ if (!walletData) {
 };
 
   const handleCreateAnnouncement = async () => {
-    if (!organization || !user) return;
+  if (!organization || !user) return;
 
-    try {
-      const { error } = await (supabase.from("organization_announcements") as any).insert({
-        organization_id: (organization as any).id,
+  try {
+    const { error } = await supabase
+      .from("organization_announcements")
+      .insert({
+        organization_id: organization.id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
       });
 
-      if (error) throw error;
+    if (error) throw error;
 
-      toast.success("Announcement created successfully!");
-      fetchOrganizationData();
-      setNewAnnouncementForm({
-        title: "",
-        content: "",
-      });
-    } catch (error) {
-      console.error("Error creating announcement:", error);
-      toast.error("Failed to create announcement");
-    }
-  };
+    toast.success("Announcement created successfully!");
+    fetchOrganizationData();
+    setNewAnnouncementForm({
+      title: "",
+      content: "",
+    });
+  } catch (error) {
+    console.error("Error creating announcement:", error);
+    toast.error("Failed to create announcement");
+  }
+};
 
   const handleRemoveMember = async () => {
   if (!memberToRemove || !organization) return;
