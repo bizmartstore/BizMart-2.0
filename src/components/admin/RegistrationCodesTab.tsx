@@ -485,7 +485,7 @@ ensureTablesExist().then(() => {
               </div>
             ) : activeJoinTab === "pending" && joinRequests.filter(req => req.status === "pending").length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No pending join requests</p>
-            ) : activeJoinTab === "approved" && joinRequests.filter(req => req.status === "pending").length === 0 ? (
+            ) : activeJoinTab === "approved" && joinRequests.filter(req => req.status === "approved").length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No approved join requests</p>
             ) : activeJoinTab === "rejected" && joinRequests.filter(req => req.status === "rejected").length === 0 ? (
               <p className="text-muted-foreground text-center py-8">No rejected join requests</p>
