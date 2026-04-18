@@ -26,6 +26,16 @@ const features = [
     restricted: false,
   },
   {
+    id: "organizations",
+    label: "Organizations",
+    desc: "Join Clubs",
+    icon: Users,
+    bg: "bg-gradient-to-br from-green-500 to-emerald-500",
+    emoji: "👥",
+    path: "/organizations",
+    restricted: false,
+  },
+  {
     id: "club",
     label: "BizMart Club",
     desc: "VIP Access",
