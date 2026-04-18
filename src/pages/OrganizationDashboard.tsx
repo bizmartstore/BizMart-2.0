@@ -1154,7 +1154,7 @@ if (!walletData) {
         </TabsContent>
       )}
 
-      {/* Join Organization Instruction Dialog */
+      
       {/* Join Organization Instruction Dialog */}
       <JoinOrganizationInstructionDialog
         organizationId={organization.id}
