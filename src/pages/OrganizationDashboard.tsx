@@ -390,7 +390,7 @@ if (!walletData) {
   try {
     const { error } = await supabase
       .from("organization_members")
-      .update({ status: "left" })
+      .update({ status: "left" } as { status: string })
       .eq("id", memberToRemove);
 
     if (error) throw error;
