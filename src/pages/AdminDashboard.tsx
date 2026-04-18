@@ -25,7 +25,6 @@ import SettingsTab from "@/components/admin/SettingsTab";
 import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
 import BroadcastTab from "@/components/admin/BroadcastTab";
-import AdminOrganizationsTab from "@/components/admin/AdminOrganizationsTab";
 
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
@@ -34,7 +33,6 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
     { id: "broadcast", label: "Broadcast", icon: <Megaphone className="h-4 w-4" />, badge: null },
     { id: "categories", label: "Categories", icon: <FolderOpen className="h-4 w-4" />, badge: null },
-    { id: "organizations", label: "Organizations", icon: <UsersIcon className="h-4 w-4" />, badge: null },
     { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
     { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4" />, badge: null },
     { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
@@ -178,7 +176,6 @@ export default function AdminDashboard() {
           <TabsContent value="news"><NewsTab /></TabsContent>
           <TabsContent value="banners"><BannerTab /></TabsContent>
           <TabsContent value="club"><ClubTab /></TabsContent>
-          <TabsContent value="organizations"><AdminOrganizationsTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
           {isMainAdmin ? (
