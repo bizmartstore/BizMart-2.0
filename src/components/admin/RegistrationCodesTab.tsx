@@ -107,9 +107,10 @@ export default function RegistrationCodesTab() {
       setIsLoading(true);
       
       const { data, error } = await (supabase as any)
-        .from("registration_codes")
-        .select("*")
-        .order("created_at", { ascending: false });
+  .from("organization_members")
+  .select(`*, profiles:user_id(*), organizations:organization_id(*)`)
+  .eq("status", "pending")
+  .order("joined_at", { ascending: false }); // Use joined_at instead of created_at
 
       if (error && error.code === 'PGRST205') {
         setCodes([]);
