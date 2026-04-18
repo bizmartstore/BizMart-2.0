@@ -172,10 +172,10 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingApproved(true);
     const { data, error } = await (supabase as any)
-      .from("organizations")
-      .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
-      .eq("status", "approved")
-      .order("created_at", { ascending: false });
+  .from("organizations")
+  .select(`*, profiles!organizations_creator_id_fkey(first_name, last_name, email)`)
+  .eq("status", "approved")
+  .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST205') {
         setApprovedOrgs([]);
