@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar } from "lucide-react";
+import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -75,6 +75,27 @@ interface ApprovedOrganization {
   };
 }
 
+interface OrganizationTransaction {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  type: 'deposit' | 'withdrawal';
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected';
+  purpose: string;
+  reference: string | null;
+  gcash_fee: number;
+  created_at: string;
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+  organizations?: {
+    name: string;
+  };
+}
+
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -91,6 +112,9 @@ export default function RegistrationCodesTab() {
   const [approvedOrgs, setApprovedOrgs] = useState<ApprovedOrganization[]>([]);
   const [isLoadingApproved, setIsLoadingApproved] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [transactions, setTransactions] = useState<OrganizationTransaction[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
+  const [activeWalletTab, setActiveWalletTab] = useState("pending");
   const navigate = useNavigate();
 
   // Load all data
@@ -99,6 +123,7 @@ export default function RegistrationCodesTab() {
     loadPendingOrganizations();
     loadJoinRequests();
     loadApprovedOrganizations();
+    loadTransactions();
   }, []);
 
   // Load registration codes
@@ -202,6 +227,31 @@ export default function RegistrationCodesTab() {
       toast.error("Failed to load approved organizations");
     } finally {
       setIsLoadingApproved(false);
+    }
+  };
+
+  // Load organization transactions
+  const loadTransactions = async () => {
+    try {
+      setIsLoadingTransactions(true);
+      const { data, error } = await (supabase as any)
+        .from("organization_transactions")
+        .select(`*, profiles:user_id(first_name, last_name, avatar_url), organizations:organization_id(name)`)
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST205') {
+        setTransactions([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setTransactions(data || []);
+    } catch (error) {
+      console.error("Error loading transactions:", error);
+      toast.error("Failed to load transactions");
+    } finally {
+      setIsLoadingTransactions(false);
     }
   };
 
@@ -315,6 +365,77 @@ export default function RegistrationCodesTab() {
     } catch (error) {
       console.error("Error rejecting organization:", error);
       toast.error("Failed to reject organization");
+    }
+  };
+
+  // Approve transaction
+  const approveTransaction = async (transactionId: string) => {
+    try {
+      const { error } = await (supabase as any)
+        .from("organization_transactions")
+        .update({
+          status: "approved",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", transactionId);
+
+      if (error) throw error;
+
+      // Update organization wallet balance
+      const transaction = transactions.find(t => t.id === transactionId);
+      if (transaction) {
+        // Get current balance
+        const { data: walletData, error: walletError } = await (supabase as any)
+          .from("organization_wallets")
+          .select("balance")
+          .eq("organization_id", transaction.organization_id)
+          .maybeSingle();
+
+        if (walletError) throw walletError;
+
+        const currentBalance = walletData?.balance || 0;
+        const newBalance = transaction.type === 'deposit'
+          ? currentBalance + transaction.amount
+          : currentBalance - transaction.amount;
+
+        // Update balance
+        const { error: updateError } = await (supabase as any)
+          .from("organization_wallets")
+          .update({
+            balance: newBalance,
+            updated_at: new Date().toISOString()
+          })
+          .eq("organization_id", transaction.organization_id);
+
+        if (updateError) throw updateError;
+      }
+
+      toast.success("Transaction approved successfully!");
+      await loadTransactions();
+    } catch (error) {
+      console.error("Error approving transaction:", error);
+      toast.error("Failed to approve transaction");
+    }
+  };
+
+  // Reject transaction
+  const rejectTransaction = async (transactionId: string) => {
+    try {
+      const { error } = await (supabase as any)
+        .from("organization_transactions")
+        .update({
+          status: "rejected",
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", transactionId);
+
+      if (error) throw error;
+
+      toast.success("Transaction rejected successfully!");
+      await loadTransactions();
+    } catch (error) {
+      console.error("Error rejecting transaction:", error);
+      toast.error("Failed to reject transaction");
     }
   };
 
@@ -703,6 +824,148 @@ export default function RegistrationCodesTab() {
               </div>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Wallet Transactions Approval Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Wallet Transactions Approval</CardTitle>
+          <CardDescription>Approve or reject deposit and withdrawal requests</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex gap-2 mb-4">
+              <Button
+                variant={activeWalletTab === "pending" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setActiveWalletTab("pending")}
+              >
+                <CheckCircle className="h-4 w-4" /> Pending ({transactions.filter(t => t.status === "pending").length})
+              </Button>
+              <Button
+                variant={activeWalletTab === "approved" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setActiveWalletTab("approved")}
+              >
+                <Check className="h-4 w-4" /> Approved
+              </Button>
+              <Button
+                variant={activeWalletTab === "rejected" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => setActiveWalletTab("rejected")}
+              >
+                <X className="h-4 w-4" /> Rejected
+              </Button>
+            </div>
+
+            {isLoadingTransactions ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transactions
+                  .filter(t => {
+                    if (activeWalletTab === "pending") return t.status === "pending";
+                    if (activeWalletTab === "approved") return t.status === "approved";
+                    if (activeWalletTab === "rejected") return t.status === "rejected";
+                    return true;
+                  })
+                  .map((transaction) => (
+                    <Card key={transaction.id} className={"hover:shadow-md transition-shadow".concat(
+                      transaction.status === "pending" ? " border-2 border-yellow-200" :
+                      transaction.status === "approved" ? " border-2 border-green-200" :
+                      " border-2 border-red-200"
+                    )}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2">
+                              <Avatar className="h-8 w-8">
+                                <AvatarFallback>
+                                  {transaction.profiles?.first_name?.charAt(0) || "U"}{transaction.profiles?.last_name?.charAt(0) || ""}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {transaction.type === "deposit" ? "Deposit" : "Withdrawal"}
+                                  <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${transaction.status === "pending" ? "bg-yellow-100 text-yellow-800" : transaction.status === "approved" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                                    {transaction.status}
+                                  </span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Organization:</strong> {transaction.organizations?.name || "N/A"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Amount:</strong> ₱{transaction.amount.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Purpose:</strong> {transaction.purpose}
+                                </p>
+                                {transaction.reference && (
+                                  <p className="text-xs text-muted-foreground">
+                                    <strong>Reference:</strong> {transaction.reference}
+                                  </p>
+                                )}
+                                <p className="text-xs text-muted-foreground">
+                                  <strong>Requested:</strong> {new Date(transaction.created_at).toLocaleString()}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex gap-2 ml-4 flex-shrink-0">
+                            {transaction.status === "pending" && (
+                              <>
+                                <Button
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => approveTransaction(transaction.id)}
+                                  title="Approve transaction"
+                                >
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => rejectTransaction(transaction.id)}
+                                  title="Reject transaction"
+                                >
+                                  <X className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-8 p-0"
+                              onClick={() => navigate(`/organizations/${transaction.organization_id}`)}
+                              title="View organization"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                {transactions.filter(t => {
+                  if (activeWalletTab === "pending") return t.status === "pending";
+                  if (activeWalletTab === "approved") return t.status === "approved";
+                  if (activeWalletTab === "rejected") return t.status === "rejected";
+                  return true;
+                }).length === 0 && (
+                  <p className="text-muted-foreground text-center py-8">
+                    No {activeWalletTab} transactions found
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 

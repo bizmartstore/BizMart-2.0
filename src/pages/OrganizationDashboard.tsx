@@ -609,7 +609,9 @@ if (!walletData) {
                             <p className="font-medium text-sm">
                               {member.profiles?.first_name && member.profiles?.last_name
                                 ? `${member.profiles.first_name} ${member.profiles.last_name}`
-                                : member.profiles?.first_name || member.profiles?.last_name || "Unknown User"}
+                                : member.user_id
+                                  ? "Loading..."
+                                  : "Unknown User"}
                             </p>
                             <p className="text-xs text-muted-foreground">{member.profiles?.email}</p>
                             <Badge variant={member.role === "creator" ? "default" : member.role === "officer" ? "secondary" : "outline"} className="mt-1">
