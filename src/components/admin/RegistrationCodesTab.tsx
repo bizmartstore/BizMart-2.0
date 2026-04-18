@@ -272,7 +272,7 @@ ensureTablesExist().then(() => {
   const loadJoinRequests = async () => {
     try {
       setIsLoadingRequests(true);
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("organization_members")
         .select(`*, profile:profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organization:organizations!organization_members_organization_id_fkey(name)`)
         .eq("status", "pending")
