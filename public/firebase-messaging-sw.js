@@ -13,24 +13,16 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// ✅ HANDLE ALL PUSH (background + closed)
+// ✅ Background messages ONLY
 messaging.onBackgroundMessage((payload) => {
   console.log("[FCM] Background message:", payload);
 
-  const title = payload.notification?.title || "BizMart";
+  const title = payload.notification?.title || "New Notification";
 
   const options = {
     body: payload.notification?.body || "",
-
-    // ✅ FORCE YOUR LOGO (no more bell)
-    icon: "/pwa-192x192.png",
+    icon: payload.notification?.icon || "/pwa-192x192.png",
     badge: "/pwa-192x192.png",
-
-    // Optional enhancements
-    image: payload.notification?.image || undefined,
-    tag: payload.data?.tag || "default", // prevents stacking duplicates
-    renotify: true,
-
     data: {
       link: payload.data?.link || "/",
     },
@@ -39,7 +31,7 @@ messaging.onBackgroundMessage((payload) => {
   self.registration.showNotification(title, options);
 });
 
-// ✅ CLICK HANDLER
+// ✅ Click handling
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
@@ -48,7 +40,7 @@ self.addEventListener("notificationclick", (event) => {
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientsArr) => {
       for (const client of clientsArr) {
-        if (client.url.includes(urlToOpen) && "focus" in client) {
+        if (client.url === urlToOpen && "focus" in client) {
           return client.focus();
         }
       }
