@@ -5,8 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/types/supabase";
 
-type FcmTokenInsert =
-  Database["public"]["Tables"]["fcm_tokens"]["Insert"];
+type FcmTokenInsert = Database["public"]["Tables"]["fcm_tokens"]["Insert"];
 
 export function useFCM() {
   const { user } = useAuth();
@@ -40,7 +39,7 @@ export function useFCM() {
         .from("fcm_tokens")
         .upsert(payload, {
           onConflict: "user_id",
-        });
+        } as { onConflict: string });
 
       if (error) {
         console.error("[FCM] Error:", error);
