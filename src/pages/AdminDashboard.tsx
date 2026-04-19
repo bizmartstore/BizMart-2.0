@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon } from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon, ClipboardList } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -43,6 +43,7 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
     { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
     { id: "bcoins", label: "BCoins", icon: <Coins className="h-4 w-4" />, badge: pendingCounts.bcoins > 0 ? pendingCounts.bcoins : null },
     { id: "gcash", label: "GCash", icon: <Bell className="h-4 w-4" />, badge: pendingCounts.gcash > 0 ? pendingCounts.gcash : null },
+    { id: "pos", label: "POS", icon: <ClipboardList className="h-4 w-4" />, badge: null },
   ];
 
   if (isMainAdmin) {
@@ -177,6 +178,7 @@ export default function AdminDashboard() {
           <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
+          <TabsContent value="pos"><div className="p-4"><h2 className="text-xl font-bold mb-4">POS System</h2><p className="text-sm text-muted-foreground">Access the POS system at <a href="/pos" className="text-primary underline">/pos</a></p></div></TabsContent>
           {isMainAdmin ? (
             <TabsContent value="settings"><SettingsTab /></TabsContent>
           ) : (
