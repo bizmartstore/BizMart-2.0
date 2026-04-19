@@ -1,6 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { getMessaging } from "firebase/messaging/sw";
-import { onMessage } from "firebase/messaging"; // Import from firebase/messaging
+import { onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
@@ -29,7 +29,6 @@ if (typeof window !== "undefined") {
         console.log('[Firebase] Service Worker registered with scope:', registration.scope);
       }).catch((error) => {
         console.warn('[Firebase] Service Worker registration failed (non-critical):', error);
-        // This is not critical - FCM can still work without service worker registration
       });
     }
 
@@ -39,8 +38,8 @@ if (typeof window !== "undefined") {
     // Handle foreground notifications
     onMessage(messaging, (payload) => {
       console.log("[Firebase] Foreground message received:", payload);
-      const { title, body, icon, data } = payload.notification || {};
-      const { link } = data || {};
+      const { title, body, icon } = payload.notification || {};
+      const { link } = payload.data || {};
 
       // Show notification
       if (title && body) {
@@ -57,7 +56,6 @@ if (typeof window !== "undefined") {
     });
   } catch (error) {
     console.warn("Firebase Messaging not available:", error);
-    // Firebase messaging is optional - app can still work without it
   }
 }
 
