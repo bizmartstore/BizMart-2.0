@@ -12,7 +12,7 @@ import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
 import { useFCM } from "@/hooks/useFCM";
 
-// Pages
+// Pages (unchanged)
 import Index from "@/pages/Index";
 import LoginPage from "@/pages/LoginPage";
 import SignUpPage from "@/pages/SignUpPage";
@@ -55,6 +55,20 @@ const queryClient = new QueryClient({
 function AppContent() {
   const { loading: authLoading } = useAuth();
   const [showSplash, setShowSplash] = useState(true);
+
+  // ✅ FIX: Register Firebase Service Worker
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("/firebase-messaging-sw.js")
+        .then((registration) => {
+          console.log("[SW] Registered:", registration.scope);
+        })
+        .catch((err) => {
+          console.error("[SW] Registration failed:", err);
+        });
+    }
+  }, []);
 
   // Initialize FCM
   useFCM();
