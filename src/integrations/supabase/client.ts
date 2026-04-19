@@ -1,10 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
+import type { Database } from "@/types/supabase"; // ✅ FIXED (IMPORTANT)
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Hard fail if env is missing (better than silent bugs)
 if (!SUPABASE_URL) {
   throw new Error("Missing VITE_SUPABASE_URL in environment variables");
 }
@@ -13,7 +12,7 @@ if (!SUPABASE_PUBLISHABLE_KEY) {
   throw new Error("Missing VITE_SUPABASE_PUBLISHABLE_KEY in environment variables");
 }
 
-// Typed Supabase client (IMPORTANT: no fallback '')
+// ✅ Properly typed Supabase client
 export const supabase = createClient<Database>(
   SUPABASE_URL,
   SUPABASE_PUBLISHABLE_KEY,
@@ -27,7 +26,6 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Debug helper (safe)
 console.log(
   `[Supabase] Initialized → ${SUPABASE_URL.slice(0, 25)}...`
 );
