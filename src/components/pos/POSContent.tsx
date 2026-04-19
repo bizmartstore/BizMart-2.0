@@ -619,7 +619,7 @@ export default function POSContent() {
                     <SelectValue placeholder="Select a customer" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Walk-in Customer</SelectItem>
+                    <SelectItem value="walk_in">Walk-in Customer</SelectItem>
                     {customers.map((customer) => (
                       <SelectItem key={customer.id} value={customer.id}>
                         {customer.first_name} {customer.last_name} ({customer.grade_level}-{customer.section})
