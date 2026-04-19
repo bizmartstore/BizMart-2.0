@@ -7,6 +7,7 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon, ClipboardList } from "lucide-react";
+import POSContent from "@/components/pos/POSContent";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -178,7 +179,7 @@ export default function AdminDashboard() {
           <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
-          <TabsContent value="pos"><div className="p-4"><h2 className="text-xl font-bold mb-4">POS System</h2><p className="text-sm text-muted-foreground">Access the POS system at <a href="/pos" className="text-primary underline">/pos</a></p></div></TabsContent>
+          <TabsContent value="pos"><div className="p-4"><POSContent /></div></TabsContent>
           {isMainAdmin ? (
             <TabsContent value="settings"><SettingsTab /></TabsContent>
           ) : (
