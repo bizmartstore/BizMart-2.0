@@ -1,6 +1,6 @@
-import { useEffect, useCallback, useRef } from "react";
-import { messaging } from "@/lib/firebase";
-import { getToken, isSupported } from "firebase/messaging";
+import { useEffect, useCallback, useRef, useState } from "react";
+import { initMessaging } from "@/lib/firebase";
+import { getToken } from "firebase/messaging";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/types/supabase";
@@ -10,56 +10,41 @@ type FcmTokenInsert = Database["public"]["Tables"]["fcm_tokens"]["Insert"];
 export function useFCM() {
   const { user } = useAuth();
   const hasAttemptedRegistration = useRef(false);
+  const [messaging, setMessaging] = useState<any>(null);
+
+  // ✅ Initialize messaging properly
+  useEffect(() => {
+    initMessaging().then((msg) => {
+      if (msg) setMessaging(msg);
+    });
+  }, []);
 
   const requestPermission = useCallback(async () => {
     try {
-      // ✅ Prevent duplicate calls
-      if (!user || hasAttemptedRegistration.current) return;
-
-      // ✅ Check if messaging is supported (important for Safari / SSR)
-      const supported = await isSupported();
-      if (!supported) {
-        console.log("[FCM] Messaging not supported in this browser.");
-        return;
-      }
-
-      if (!messaging) {
-        console.log("[FCM] Messaging not initialized.");
-        return;
-      }
+      if (!user || !messaging || hasAttemptedRegistration.current) return;
 
       hasAttemptedRegistration.current = true;
 
-      // ✅ Ask notification permission
       const permission = await Notification.requestPermission();
-
       if (permission !== "granted") {
-        console.log("[FCM] Notification permission denied.");
+        console.log("[FCM] Permission denied");
         return;
       }
 
-      // ✅ Wait for service worker
       const registration = await navigator.serviceWorker.ready;
 
-      if (!registration) {
-        console.error("[FCM] No service worker registration found.");
-        return;
-      }
-
-      // ✅ Get FCM token (CRITICAL FIX HERE)
       const token = await getToken(messaging, {
         vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
         serviceWorkerRegistration: registration,
       });
 
       if (!token) {
-        console.log("[FCM] No token received.");
+        console.log("[FCM] No token received");
         return;
       }
 
-      console.log("[FCM] Token received:", token);
+      console.log("[FCM] Token:", token);
 
-      // ✅ Save token to Supabase
       const payload: FcmTokenInsert = {
         user_id: user.id,
         token,
@@ -69,24 +54,23 @@ export function useFCM() {
 
       const { error } = await supabase
         .from("fcm_tokens")
-        .upsert(payload, {
-          onConflict: "user_id",
-        });
+        .upsert(payload, { onConflict: "user_id" });
 
       if (error) {
-        console.error("[FCM] Error saving token:", error);
+        console.error("[FCM] Save error:", error);
       } else {
-        console.log("[FCM] Token saved successfully.");
+        console.log("[FCM] Token saved");
       }
     } catch (err) {
       console.error("[FCM] Error:", err);
     }
-  }, [user]);
+  }, [user, messaging]);
 
   useEffect(() => {
-    if (!user) return;
-    requestPermission();
-  }, [user, requestPermission]);
+    if (user && messaging) {
+      requestPermission();
+    }
+  }, [user, messaging, requestPermission]);
 
   return { requestPermission };
 }
