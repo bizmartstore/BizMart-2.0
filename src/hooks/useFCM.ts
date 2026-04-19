@@ -24,6 +24,7 @@ export function useFCM() {
         return;
       }
 
+      // Get token with service worker context
       const token = await getToken(messaging, {
         vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
       });
