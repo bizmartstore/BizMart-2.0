@@ -4,7 +4,7 @@ importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js");
 
 firebase.initializeApp({
-  apiKey: "AIzaSy...",
+  apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
   authDomain: "bizmart-aaf1b.firebaseapp.com",
   projectId: "bizmart-aaf1b",
   messagingSenderId: "310239525651",
