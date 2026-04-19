@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getMessaging, isSupported, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
-  apiKey: "AIzaSy...",
+  apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
   authDomain: "bizmart-aaf1b.firebaseapp.com",
   projectId: "bizmart-aaf1b",
   storageBucket: "bizmart-aaf1b.firebasestorage.app",
