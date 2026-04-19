@@ -801,7 +801,7 @@ export default function POSContent() {
                 </Select>
               </div>
               
-              {customerId === '' && (
+              {customerId === 'walk_in' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">First Name</Label>
