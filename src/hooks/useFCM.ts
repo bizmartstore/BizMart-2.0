@@ -12,7 +12,6 @@ export function useFCM() {
   const hasAttemptedRegistration = useRef(false);
   const [messaging, setMessaging] = useState<any>(null);
 
-  // ✅ Initialize messaging properly
   useEffect(() => {
     initMessaging().then((msg) => {
       if (msg) setMessaging(msg);
@@ -21,9 +20,9 @@ export function useFCM() {
 
   const requestPermission = useCallback(async () => {
     try {
-      if (!user || !messaging || hasAttemptedRegistration.current) return;
+      if (!user || !messaging) return;
 
-      hasAttemptedRegistration.current = true;
+      if (hasAttemptedRegistration.current) return;
 
       const permission = await Notification.requestPermission();
       if (permission !== "granted") {
@@ -31,10 +30,18 @@ export function useFCM() {
         return;
       }
 
-      const registration = await navigator.serviceWorker.ready;
+      // ✅ FIX: Get correct SW
+      const registration = await navigator.serviceWorker.getRegistration(
+        "/firebase-messaging-sw.js"
+      );
+
+      if (!registration) {
+        console.error("[FCM] Service worker not found");
+        return;
+      }
 
       const token = await getToken(messaging, {
-        vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+        vapidKey: "BLiQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
         serviceWorkerRegistration: registration,
       });
 
@@ -54,12 +61,13 @@ export function useFCM() {
 
       const { error } = await supabase
         .from("fcm_tokens")
-        .upsert(payload, { onConflict: "user_id" });
+        .upsert(payload, { onConflict: "token" }); // ✅ FIXED
 
       if (error) {
         console.error("[FCM] Save error:", error);
       } else {
         console.log("[FCM] Token saved");
+        hasAttemptedRegistration.current = true; // ✅ move here
       }
     } catch (err) {
       console.error("[FCM] Error:", err);
