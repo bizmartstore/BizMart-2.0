@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Package, User, ShoppingCart, Printer, Copy, CheckCircle2, X, Loader2, Plus, Minus, Truck, Users, PackageCheck } from "lucide-react";
+import { Package, User, ShoppingCart, Printer, Copy, CheckCircle2, X, Loader2, Trash2, Plus, Minus, Truck, Home, Clock, AlertCircle, RefreshCw } from "lucide-react";
 
 // Types
 type OrderType = 'print' | 'photocopy';
@@ -33,7 +33,7 @@ interface Customer {
 
 interface POSOrder {
   id: string;
-  user_id: string;
+  user_id: string | null;
   order_type: OrderType;
   total_pages: number;
   bw_pages: number;
@@ -50,7 +50,7 @@ interface POSOrder {
   customer_section?: string;
 }
 
-// Pricing constants - FIXED AS REQUESTED
+// Pricing constants - FIXED: Corrected photocopy pricing
 const PRICING = {
   photocopy: {
     short: { bw: 2.0, color: 4.0 },
@@ -72,7 +72,6 @@ export default function POSContent() {
   const [now, setNow] = useState(new Date());
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
-  const [cart, setCart] = useState<POSOrder[]>([]);
   const [activeTab, setActiveTab] = useState<OrderType>('print');
   const [orderType, setOrderType] = useState<OrderType>('print');
   const [pageSize, setPageSize] = useState<PageSize>('a4');
@@ -81,7 +80,7 @@ export default function POSContent() {
   const [pickupTime, setPickupTime] = useState<string>('');
   const [pageCount, setPageCount] = useState<number>(1);
   const [isColor, setIsColor] = useState<boolean>(false);
-  const [customerId, setCustomerId] = useState<string>('');
+  const [customerId, setCustomerId] = useState<string>('walk-in');
   const [customerName, setCustomerName] = useState<string>('');
   const [customerGrade, setCustomerGrade] = useState<string>('');
   const [customerSection, setCustomerSection] = useState<string>('');
@@ -177,15 +176,19 @@ export default function POSContent() {
     return total + deliveryCost;
   };
 
-  // Auto-add to cart/checkout when selection changes
+  // Auto-submit order when form changes (no cart, direct checkout)
   useEffect(() => {
-    if (pageCount <= 0 || !customerId) return;
+    if (pageCount <= 0 || customerId === '' || pickupDate === '' || pickupTime === '') return;
 
     const cost = calculateCost(orderType, pageSize, isColor, pageCount, deliveryType);
+    const customer = customerId === 'walk-in' ? null : customers.find(c => c.id === customerId);
+    const customerNameFinal = customerId === 'walk-in' ? customerName : `${customer?.first_name || ''} ${customer?.last_name || ''}`;
+    const customerGradeFinal = customerId === 'walk-in' ? customerGrade : customer?.grade_level;
+    const customerSectionFinal = customerId === 'walk-in' ? customerSection : customer?.section;
 
     const newOrder: POSOrder = {
       id: Date.now().toString(),
-      user_id: customerId,
+      user_id: customerId === 'walk-in' ? null : customerId,
       order_type: orderType,
       total_pages: pageCount,
       bw_pages: isColor ? 0 : pageCount,
@@ -197,77 +200,50 @@ export default function POSContent() {
       cost,
       status: 'pending',
       created_at: new Date().toISOString(),
-      customer_name: customerId ? `${customers.find(c => c.id === customerId)?.first_name} ${customers.find(c => c.id === customerId)?.last_name}` : undefined,
-      customer_grade: customerGrade || (customerId ? customers.find(c => c.id === customerId)?.grade_level : undefined),
-      customer_section: customerSection || (customerId ? customers.find(c => c.id === customerId)?.section : undefined),
+      customer_name: customerNameFinal || undefined,
+      customer_grade: customerGradeFinal,
+      customer_section: customerSectionFinal,
     };
 
-    // Auto-checkout - submit immediately
-    submitOrder(newOrder);
-  }, [pageCount, isColor, pageSize, deliveryType, customerId, customerGrade, customerSection, orderType, pickupDate, pickupTime, customers]);
+    // Submit order immediately
+    const submitOrder = async () => {
+      try {
+        await (supabase as any)
+          .from('pos_orders')
+          .insert([{
+            user_id: newOrder.user_id,
+            order_type: newOrder.order_type,
+            total_pages: newOrder.total_pages,
+            bw_pages: newOrder.bw_pages,
+            colored_pages: newOrder.colored_pages,
+            page_size: newOrder.page_size,
+            delivery_type: newOrder.delivery_type,
+            pickup_date: newOrder.pickup_date,
+            pickup_time: newOrder.pickup_time,
+            cost: newOrder.cost,
+            status: newOrder.status,
+            customer_name: newOrder.customer_name,
+            customer_grade: newOrder.customer_grade,
+            customer_section: newOrder.customer_section,
+          }]);
 
-  // Submit order directly (auto-checkout)
-  const submitOrder = async (order: POSOrder) => {
-    if (!user) {
-      toast.error("Please login as admin");
-      return;
-    }
-
-    if (pickupDate !== todayManila) {
-      toast.error("Pickup date must be today.");
-      return;
-    }
-
-    if (noTimesToday) {
-      toast.error("No available times for today.");
-      return;
-    }
-
-    const selectedMinutes = timeToMinutes(pickupTime);
-    const minMinutes = timeToMinutes(minTimeString);
-    if (selectedMinutes < minMinutes) {
-      toast.error(`Pickup time must be at least 10 minutes from now.`);
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const { data: orderData, error } = await (supabase as any)
-        .from('pos_orders')
-        .insert({
-          user_id: order.user_id || null,
-          order_type: order.order_type,
-          total_pages: order.total_pages,
-          bw_pages: order.bw_pages,
-          colored_pages: order.colored_pages,
-          page_size: order.page_size,
-          delivery_type: order.delivery_type,
-          pickup_date: order.pickup_date,
-          pickup_time: order.pickup_time,
-          cost: order.cost,
-          status: 'pending',
-          customer_name: order.customer_name || null,
-          customer_grade: order.customer_grade || null,
-          customer_section: order.customer_section || null,
-        })
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (orderData) {
-        toast.success(`✓ Order #${orderData.id.slice(0, 8)} - ₱${order.cost.toFixed(2)}`);
-        setCart([...cart, orderData]);
+        toast.success(`${orderType === 'print' ? 'Print' : 'Photocopy'} order submitted!`);
+        loadOrders();
+        
         // Reset form
         setPageCount(1);
         setIsColor(false);
+        setCustomerId('walk-in');
+        setCustomerName('');
+        setCustomerGrade('');
+        setCustomerSection('');
+      } catch (error) {
+        toast.error("Failed to submit order");
       }
-    } catch (error: any) {
-      toast.error("Failed to process order: " + error.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    };
+
+    submitOrder();
+  }, [pageCount, orderType, pageSize, isColor, deliveryType, pickupDate, pickupTime, customerId, customerName, customerGrade, customerSection, customers, loadOrders]);
 
   // Update order status
   const updateOrderStatus = async (orderId: string, status: OrderStatus) => {
@@ -280,7 +256,7 @@ export default function POSContent() {
       if (error) throw error;
 
       toast.success("Order status updated!");
-      await loadOrders();
+      loadOrders();
     } catch (error) {
       toast.error("Failed to update order status");
     }
@@ -288,8 +264,9 @@ export default function POSContent() {
 
   // Get customer name
   const getCustomerName = (customerId: string) => {
+    if (customerId === 'walk-in') return 'Walk-in';
     const customer = customers.find(c => c.id === customerId);
-    return customer ? `${customer.first_name} ${customer.last_name}` : 'Walk-in';
+    return customer ? `${customer.first_name} ${customer.last_name}` : 'Customer';
   };
 
   // Get order status badge
@@ -339,7 +316,7 @@ export default function POSContent() {
         </TabsList>
 
         <TabsContent value="print" className="space-y-4 mt-4">
-          {/* Print Order Form - SIMPLIFIED */}
+          {/* Print Order Form - Jollibee/Mall Style */}
           <Card className="p-4 space-y-4">
             <h3 className="font-bold text-sm flex items-center gap-2">
               <Printer className="h-4 w-4 text-primary" /> Print Order
@@ -353,7 +330,7 @@ export default function POSContent() {
                   size="sm"
                   variant="outline"
                   onClick={() => setPageCount(Math.max(1, pageCount - 1))}
-                  disabled={pageCount <= 1 || submitting}
+                  disabled={pageCount <= 1}
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
@@ -362,13 +339,11 @@ export default function POSContent() {
                   value={pageCount}
                   onChange={(e) => setPageCount(Math.max(1, Number(e.target.value)) || 1)}
                   className="w-20 text-center text-sm font-bold"
-                  disabled={submitting}
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setPageCount(pageCount + 1)}
-                  disabled={submitting}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -380,19 +355,11 @@ export default function POSContent() {
               <Label className="text-sm font-bold">Color Type</Label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={!isColor}
-                    onCheckedChange={() => setIsColor(false)}
-                    disabled={submitting}
-                  />
+                  <Checkbox checked={!isColor} onCheckedChange={() => setIsColor(false)} />
                   <span className="text-sm">Black & White</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={isColor}
-                    onCheckedChange={() => setIsColor(true)}
-                    disabled={submitting}
-                  />
+                  <Checkbox checked={isColor} onCheckedChange={() => setIsColor(true)} />
                   <span className="text-sm">Color</span>
                 </label>
               </div>
@@ -401,11 +368,7 @@ export default function POSContent() {
             {/* Paper Size */}
             <div className="space-y-2">
               <Label className="text-sm font-bold">Paper Size</Label>
-              <Select
-                value={pageSize}
-                onValueChange={(value) => setPageSize(value as PageSize)}
-                disabled={submitting}
-              >
+              <Select value={pageSize} onValueChange={(value) => setPageSize(value as PageSize)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
@@ -417,105 +380,94 @@ export default function POSContent() {
               </Select>
             </div>
 
-            {/* Delivery Method */}
-            <div className="space-y-2">
+            {/* Delivery Settings */}
+            <div className="space-y-3">
               <Label className="text-sm font-bold">Delivery Method</Label>
-              <Select
-                value={deliveryType}
-                onValueChange={(value) => setDeliveryType(value as DeliveryType)}
-                disabled={submitting}
-              >
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDeliveryType("pickup")}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "pickup" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  <Home className="h-3.5 w-3.5" /> Pickup
+                </button>
+                <button
+                  onClick={() => setDeliveryType("delivery")}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "delivery" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  <Truck className="h-3.5 w-3.5" /> Delivery (+₱10)
+                </button>
+              </div>
+            </div>
+
+            {/* Pickup Date & Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Pickup Date</Label>
+                <Input type="date" value={pickupDate} min={todayManila} max={todayManila} disabled className="text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Pickup Time</Label>
+                <Input
+                  type="time"
+                  value={pickupTime}
+                  onChange={(e) => setPickupTime(e.target.value)}
+                  min={noTimesToday ? undefined : minTimeString}
+                  disabled={noTimesToday}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Customer Selection - FIXED: Empty string value issue */}
+            <div className="space-y-3">
+              <Label className="text-sm font-bold">Customer</Label>
+              <Select value={customerId} onValueChange={setCustomerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pickup">Pickup</SelectItem>
-                  <SelectItem value="delivery">Delivery (+₱10)</SelectItem>
+                  <SelectItem value="walk-in">🚶 Walk-in Customer</SelectItem>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.first_name} {customer.last_name} ({customer.grade_level}-{customer.section})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Cost Display - UPDATED */}
-            <div className="bg-primary/5 rounded-lg p-3">
-              <p className="text-sm font-bold">
-                Cost: ₱{calculateCost('print', pageSize, isColor, pageCount, deliveryType).toFixed(2)}
-              </p>
-            </div>
-          </Card>
-
-          {/* Customer Selection */}
-          <Card className="p-4 space-y-4">
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" /> Customer Information
-            </h3>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold">Customer</Label>
-                <Select
-                  value={customerId}
-                  onValueChange={setCustomerId}
-                  disabled={submitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Walk-in Customer</SelectItem>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.first_name} {customer.last_name} ({customer.grade_level}-{customer.section})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               
-              {customerId === '' && (
+              {customerId !== 'walk-in' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">First Name</Label>
-                    <Input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter first name"
-                      disabled={submitting}
-                    />
+                    <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter first name" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">Last Name</Label>
-                    <Input
-                      value={customerGrade}
-                      onChange={(e) => setCustomerGrade(e.target.value)}
-                      placeholder="Enter last name"
-                      disabled={submitting}
-                    />
+                    <Input value={customerGrade} onChange={(e) => setCustomerGrade(e.target.value)} placeholder="Enter last name" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">Grade</Label>
-                    <Input
-                      value={customerGrade}
-                      onChange={(e) => setCustomerGrade(e.target.value)}
-                      placeholder="e.g., 11"
-                      disabled={submitting}
-                    />
+                    <Input value={customerGrade} onChange={(e) => setCustomerGrade(e.target.value)} placeholder="e.g., 11" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">Section</Label>
-                    <Input
-                      value={customerSection}
-                      onChange={(e) => setCustomerSection(e.target.value)}
-                      placeholder="e.g., A"
-                      disabled={submitting}
-                    />
+                    <Input value={customerSection} onChange={(e) => setCustomerSection(e.target.value)} placeholder="e.g., A" />
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Cost Display */}
+            <div className="bg-primary/5 rounded-xl p-3">
+              <p className="text-sm font-bold">
+                Cost: ₱{calculateCost(orderType, pageSize, isColor, pageCount, deliveryType).toFixed(2)}
+              </p>
             </div>
           </Card>
         </TabsContent>
 
         <TabsContent value="photocopy" className="space-y-4 mt-4">
-          {/* Photocopy Order Form - SIMPLIFIED */}
+          {/* Photocopy Order Form - Same style as print */}
           <Card className="p-4 space-y-4">
             <h3 className="font-bold text-sm flex items-center gap-2">
               <Copy className="h-4 w-4 text-primary" /> Photocopy Order
@@ -529,7 +481,7 @@ export default function POSContent() {
                   size="sm"
                   variant="outline"
                   onClick={() => setPageCount(Math.max(1, pageCount - 1))}
-                  disabled={pageCount <= 1 || submitting}
+                  disabled={pageCount <= 1}
                 >
                   <Minus className="h-4 w-4" />
                 </Button>
@@ -538,13 +490,11 @@ export default function POSContent() {
                   value={pageCount}
                   onChange={(e) => setPageCount(Math.max(1, Number(e.target.value)) || 1)}
                   className="w-20 text-center text-sm font-bold"
-                  disabled={submitting}
                 />
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setPageCount(pageCount + 1)}
-                  disabled={submitting}
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
@@ -556,19 +506,11 @@ export default function POSContent() {
               <Label className="text-sm font-bold">Color Type</Label>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={!isColor}
-                    onCheckedChange={() => setIsColor(false)}
-                    disabled={submitting}
-                  />
+                  <Checkbox checked={!isColor} onCheckedChange={() => setIsColor(false)} />
                   <span className="text-sm">Black & White</span>
                 </label>
                 <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={isColor}
-                    onCheckedChange={() => setIsColor(true)}
-                    disabled={submitting}
-                  />
+                  <Checkbox checked={isColor} onCheckedChange={() => setIsColor(true)} />
                   <span className="text-sm">Color</span>
                 </label>
               </div>
@@ -577,11 +519,7 @@ export default function POSContent() {
             {/* Paper Size */}
             <div className="space-y-2">
               <Label className="text-sm font-bold">Paper Size</Label>
-              <Select
-                value={pageSize}
-                onValueChange={(value) => setPageSize(value as PageSize)}
-                disabled={submitting}
-              >
+              <Select value={pageSize} onValueChange={(value) => setPageSize(value as PageSize)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select size" />
                 </SelectTrigger>
@@ -593,99 +531,88 @@ export default function POSContent() {
               </Select>
             </div>
 
-            {/* Delivery Method */}
-            <div className="space-y-2">
+            {/* Delivery Settings */}
+            <div className="space-y-3">
               <Label className="text-sm font-bold">Delivery Method</Label>
-              <Select
-                value={deliveryType}
-                onValueChange={(value) => setDeliveryType(value as DeliveryType)}
-                disabled={submitting}
-              >
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setDeliveryType("pickup")}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "pickup" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  <Home className="h-3.5 w-3.5" /> Pickup
+                </button>
+                <button
+                  onClick={() => setDeliveryType("delivery")}
+                  className={`py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${deliveryType === "delivery" ? "bg-primary text-primary-foreground shadow-md" : "bg-muted text-muted-foreground"}`}
+                >
+                  <Truck className="h-3.5 w-3.5" /> Delivery (+₱10)
+                </button>
+              </div>
+            </div>
+
+            {/* Pickup Date & Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Pickup Date</Label>
+                <Input type="date" value={pickupDate} min={todayManila} max={todayManila} disabled className="text-xs" />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs font-bold">Pickup Time</Label>
+                <Input
+                  type="time"
+                  value={pickupTime}
+                  onChange={(e) => setPickupTime(e.target.value)}
+                  min={noTimesToday ? undefined : minTimeString}
+                  disabled={noTimesToday}
+                  className="text-xs"
+                />
+              </div>
+            </div>
+
+            {/* Customer Selection */}
+            <div className="space-y-3">
+              <Label className="text-sm font-bold">Customer</Label>
+              <Select value={customerId} onValueChange={setCustomerId}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Select method" />
+                  <SelectValue placeholder="Select customer" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pickup">Pickup</SelectItem>
-                  <SelectItem value="delivery">Delivery (+₱10)</SelectItem>
+                  <SelectItem value="walk-in">🚶 Walk-in Customer</SelectItem>
+                  {customers.map((customer) => (
+                    <SelectItem key={customer.id} value={customer.id}>
+                      {customer.first_name} {customer.last_name} ({customer.grade_level}-{customer.section})
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Cost Display - UPDATED */}
-            <div className="bg-primary/5 rounded-lg p-3">
-              <p className="text-sm font-bold">
-                Cost: ₱{calculateCost('photocopy', pageSize, isColor, pageCount, deliveryType).toFixed(2)}
-              </p>
-            </div>
-          </Card>
-
-          {/* Customer Information (same as print) */}
-          <Card className="p-4 space-y-4">
-            <h3 className="font-bold text-sm flex items-center gap-2">
-              <User className="h-4 w-4 text-primary" /> Customer Information
-            </h3>
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-bold">Customer</Label>
-                <Select
-                  value={customerId}
-                  onValueChange={setCustomerId}
-                  disabled={submitting}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a customer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Walk-in Customer</SelectItem>
-                    {customers.map((customer) => (
-                      <SelectItem key={customer.id} value={customer.id}>
-                        {customer.first_name} {customer.last_name} ({customer.grade_level}-{customer.section})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
               
-              {customerId === '' && (
+              {customerId !== 'walk-in' && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">First Name</Label>
-                    <Input
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Enter first name"
-                      disabled={submitting}
-                    />
+                    <Input value={customerName} onChange={(e) => setCustomerName(e.target.value)} placeholder="Enter first name" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">Last Name</Label>
-                    <Input
-                      value={customerGrade}
-                      onChange={(e) => setCustomerGrade(e.target.value)}
-                      placeholder="Enter last name"
-                      disabled={submitting}
-                    />
+                    <Input value={customerGrade} onChange={(e) => setCustomerGrade(e.target.value)} placeholder="Enter last name" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">Grade</Label>
-                    <Input
-                      value={customerGrade}
-                      onChange={(e) => setCustomerGrade(e.target.value)}
-                      placeholder="e.g., 11"
-                      disabled={submitting}
-                    />
+                    <Input value={customerGrade} onChange={(e) => setCustomerGrade(e.target.value)} placeholder="e.g., 11" />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs font-bold">Section</Label>
-                    <Input
-                      value={customerSection}
-                      onChange={(e) => setCustomerSection(e.target.value)}
-                      placeholder="e.g., A"
-                      disabled={submitting}
-                    />
+                    <Input value={customerSection} onChange={(e) => setCustomerSection(e.target.value)} placeholder="e.g., A" />
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Cost Display */}
+            <div className="bg-primary/5 rounded-xl p-3">
+              <p className="text-sm font-bold">
+                Cost: ₱{calculateCost(orderType, pageSize, isColor, pageCount, deliveryType).toFixed(2)}
+              </p>
             </div>
           </Card>
         </TabsContent>
@@ -697,6 +624,9 @@ export default function POSContent() {
           <h3 className="font-bold text-sm flex items-center gap-2">
             <Package className="h-4 w-4 text-primary" /> Recent Orders
           </h3>
+          <Button size="sm" variant="outline" onClick={loadOrders}>
+            <RefreshCw className="h-3 w-3 mr-1" /> Refresh
+          </Button>
         </div>
 
         {loadingOrders ? (
@@ -705,26 +635,25 @@ export default function POSContent() {
           </div>
         ) : orders.length === 0 ? (
           <div className="text-center py-8">
-            <PackageCheck className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No orders yet</p>
+            <AlertCircle className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-sm text-muted-foreground">No orders found</p>
           </div>
         ) : (
           <div className="space-y-3">
             {orders.slice(0, 10).map((order) => (
               <div
                 key={order.id}
-                className="border rounded-lg p-3 hover:bg-muted/50 transition-colors"
+                className="border rounded-lg p-3 cursor-pointer hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {order.order_type === 'print' ? <Printer className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4 text-secondary" />}
                     <div>
                       <p className="text-xs font-bold">
-                        {order.order_type === 'print' ? 'Print' : 'Photocopy'}
-                        {order.customer_name && ` - ${order.customer_name}`}
+                        {order.order_type === 'print' ? 'Print' : 'Photocopy'} - {order.customer_name || 'Walk-in'}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        #{order.id.slice(0, 8)} • {order.total_pages} pages • {order.page_size.toUpperCase()}
+                        #{order.id.slice(0, 8)} • {order.page_size.toUpperCase()} • {order.total_pages} pages
                       </p>
                     </div>
                   </div>
