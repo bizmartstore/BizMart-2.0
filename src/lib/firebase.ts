@@ -34,6 +34,16 @@ if (typeof window !== "undefined") {
 
     // Initialize messaging
     messaging = getMessaging(app);
+    
+    // Set background message handler
+    if (messaging) {
+      import("firebase/messaging/sw").then(({ onBackgroundMessage }) => {
+        onBackgroundMessage(messaging, (payload) => {
+          console.log('[Firebase] Background message received:', payload);
+          // You can customize the notification here
+        });
+      });
+    }
   } catch (error) {
     console.warn("Firebase Messaging not available:", error);
     // Firebase messaging is optional - app can still work without it

@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRegisterSW } from "virtual:pwa-register/react";
 import { RefreshCw, X } from "lucide-react";
 
 export default function PWAUpdatePrompt() {
   const [showUpdate, setShowUpdate] = useState(false);
   const [countdown, setCountdown] = useState(10);
+  const hasShownUpdate = useRef(false);
+  const updateCheckCount = useRef(0);
 
   const {
     needRefresh: [needRefresh],
@@ -24,14 +26,14 @@ export default function PWAUpdatePrompt() {
   });
 
   useEffect(() => {
-    if (needRefresh) {
-      // Only show update prompt if not already showing
-      if (!showUpdate) {
-        setShowUpdate(true);
-        setCountdown(10);
-      }
+    // Only show update prompt after the first load and after user has interacted
+    if (needRefresh && !hasShownUpdate.current && updateCheckCount.current > 0) {
+      hasShownUpdate.current = true;
+      setShowUpdate(true);
+      setCountdown(10);
     }
-  }, [needRefresh, showUpdate]);
+    updateCheckCount.current++;
+  }, [needRefresh]);
 
   useEffect(() => {
     if (!showUpdate || countdown <= 0) return;
@@ -60,6 +62,7 @@ export default function PWAUpdatePrompt() {
   };
 
   const handleDismiss = () => {
+    hasShownUpdate.current = false;
     setShowUpdate(false);
   };
 

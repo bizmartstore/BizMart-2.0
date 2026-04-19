@@ -117,7 +117,12 @@ export default function OrdersTab() {
       if (error) throw error;
 
       // Send Push Notification to Customer
-      await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
+      try {
+        await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
+        console.log(`[OrdersTab] Notification sent for order ${orderId} with status ${newStatus}`);
+      } catch (error) {
+        console.error(`[OrdersTab] Failed to send notification for order ${orderId}:`, error);
+      }
 
       // Award BCoins if completed (only for product orders)
       if (newStatus === "completed" && !isPrint && orderToUpdate.bcoins_earned) {

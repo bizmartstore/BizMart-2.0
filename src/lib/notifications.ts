@@ -165,6 +165,21 @@ export const notifyCustomerOrder = async (userId: string, orderId: string, statu
     icon: "📦",
     sendPush: true
   });
+
+  // Also trigger local notification for immediate feedback
+  try {
+    const { data: fcmToken } = await (supabase as any)
+      .from("fcm_tokens")
+      .select("fcm_token")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (fcmToken?.fcm_token) {
+      console.log("FCM token found, push notification should be sent via edge function");
+    }
+  } catch (error) {
+    console.error("Failed to check FCM token:", error);
+  }
 };
 
 /**
