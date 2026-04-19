@@ -28,7 +28,7 @@ if (typeof window !== "undefined") {
       }).then((registration) => {
         console.log('[Firebase] Service Worker registered with scope:', registration.scope);
       }).catch((error) => {
-        console.warn('[Firebase] Service Worker registration failed (non-critical):', error);
+        console.error('[Firebase] Service Worker registration failed:', error);
       });
     }
 
