@@ -12,19 +12,22 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-let messaging: any = null;
+let messagingInstance: any = null;
 
-if (typeof window !== "undefined") {
-  isSupported().then((supported) => {
-    if (!supported) {
-      console.log("[Firebase] Messaging not supported");
-      return;
-    }
+export const initMessaging = async () => {
+  if (typeof window === "undefined") return null;
 
-    messaging = getMessaging(app);
+  const supported = await isSupported();
+  if (!supported) {
+    console.log("[Firebase] Messaging not supported");
+    return null;
+  }
+
+  if (!messagingInstance) {
+    messagingInstance = getMessaging(app);
 
     // Foreground notifications
-    onMessage(messaging, (payload) => {
+    onMessage(messagingInstance, (payload) => {
       console.log("[Firebase] Foreground message:", payload);
 
       const { title, body, icon } = payload.notification || {};
@@ -41,7 +44,9 @@ if (typeof window !== "undefined") {
         };
       }
     });
-  });
-}
+  }
 
-export { app, messaging };
+  return messagingInstance;
+};
+
+export { app };
