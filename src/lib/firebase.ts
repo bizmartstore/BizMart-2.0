@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getMessaging, isSupported, onMessage } from "firebase/messaging";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
+  apiKey: "AIzaSy...",
   authDomain: "bizmart-aaf1b.firebaseapp.com",
   projectId: "bizmart-aaf1b",
   storageBucket: "bizmart-aaf1b.firebasestorage.app",
@@ -14,35 +14,38 @@ const app = initializeApp(firebaseConfig);
 
 let messaging: any = null;
 
-// ✅ FIX: initialize properly with async IIFE
-(async () => {
-  if (typeof window === "undefined") return;
+export const initMessaging = async () => {
+  if (typeof window === "undefined") return null;
 
   const supported = await isSupported();
   if (!supported) {
     console.log("[Firebase] Messaging not supported");
-    return;
+    return null;
   }
 
-  messaging = getMessaging(app);
+  if (!messaging) {
+    messaging = getMessaging(app);
 
-  onMessage(messaging, (payload) => {
-    console.log("[Firebase] Foreground message:", payload);
+    onMessage(messaging, (payload) => {
+      console.log("[Firebase] Foreground message:", payload);
 
-    const { title, body, icon } = payload.notification || {};
-    const { link } = payload.data || {};
+      const { title, body, icon } = payload.notification || {};
+      const { link } = payload.data || {};
 
-    if (title && body) {
-      const notification = new Notification(title, {
-        body,
-        icon: icon || "/pwa-192x192.png",
-      });
+      if (title && body) {
+        const notification = new Notification(title, {
+          body,
+          icon: icon || "/pwa-192x192.png",
+        });
 
-      notification.onclick = () => {
-        window.location.href = link || "/";
-      };
-    }
-  });
-})();
+        notification.onclick = () => {
+          window.location.href = link || "/";
+        };
+      }
+    });
+  }
 
-export { app, messaging };
+  return messaging;
+};
+
+export { app };
