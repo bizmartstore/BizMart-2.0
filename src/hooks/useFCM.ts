@@ -40,7 +40,7 @@ export function useFCM() {
               user_id: user.id,
               token,
               role: user.role || "customer", // Fallback to "customer" if role is undefined
-            } as FcmToken);
+            } as unknown as FcmToken);
 
           if (error) {
             console.error("[FCM] Failed to save FCM token to Supabase:", error);
