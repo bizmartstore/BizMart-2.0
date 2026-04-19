@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getMessaging } from "firebase/messaging/sw";
+import { getMessaging, onMessage } from "firebase/messaging/sw";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC8lS2_jwxlJfG41Ibdy1D__PDalIajf10",
@@ -34,6 +34,26 @@ if (typeof window !== "undefined") {
 
     // Initialize messaging
     messaging = getMessaging(app);
+
+    // Handle foreground notifications
+    onMessage(messaging, (payload) => {
+      console.log("[Firebase] Foreground message received:", payload);
+      const { title, body, icon, data } = payload.notification || {};
+      const { link } = data || {};
+
+      // Show notification
+      if (title && body) {
+        const notification = new Notification(title, {
+          body,
+          icon,
+        });
+
+        // Navigate to the link when clicked
+        notification.onclick = () => {
+          window.location.href = link || "/";
+        };
+      }
+    });
   } catch (error) {
     console.warn("Firebase Messaging not available:", error);
     // Firebase messaging is optional - app can still work without it
