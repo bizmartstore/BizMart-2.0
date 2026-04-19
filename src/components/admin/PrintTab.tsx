@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, MapPin, User, Eye, Loader2, RefreshCw, AlertCircle, FileText, Palette, File, Download } from "lucide-react";
 import { sendNotification } from "@/lib/notifications";
+import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export default function PrintTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -113,6 +114,19 @@ export default function PrintTab() {
         icon: "🖨️",
         sendPush: true
       });
+
+      // Also trigger local notification for immediate feedback on this device
+      const statusMessages: Record<string, string> = {
+        approved: "Your print request has been approved and is being processed! 🖨️",
+        completed: "Your print request has been completed. Thank you! 🎉",
+        rejected: "Your print request was rejected. Please contact support. ❌",
+        canceled: "Your print request has been canceled. ⚠️"
+      };
+      
+      triggerLocalPushNotification(
+        `Print Request ${newStatus.toUpperCase()} 🖨️`,
+        statusMessages[newStatus] || `Your print request is now ${newStatus}.`
+      );
 
       toast.success(`Print order ${newStatus}! Notification sent.`);
     } catch (e: any) {

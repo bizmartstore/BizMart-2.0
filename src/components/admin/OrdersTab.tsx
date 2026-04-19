@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Search, CheckCircle2, XCircle, Truck, Package, Eye, ShoppingCart, Printer, Loader2, RefreshCw, User, MapPin, FileText } from "lucide-react";
 import { notifyCustomerOrder, notifyCustomerBCoins } from "@/lib/notifications";
+import { triggerLocalPushNotification } from "@/lib/pushNotifications";
 
 export default function OrdersTab() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -120,6 +121,19 @@ export default function OrdersTab() {
       try {
         await notifyCustomerOrder(orderToUpdate.user_id, orderId, newStatus);
         console.log(`[OrdersTab] Notification sent for order ${orderId} with status ${newStatus}`);
+        
+        // Also trigger local notification for immediate feedback on this device
+        const statusMessages: Record<string, string> = {
+          approved: "Your order has been approved and is being prepared! 📦",
+          completed: "Your order has been completed. Thank you for shopping! 🎉",
+          rejected: "Your order was unfortunately rejected. Please contact support. ❌",
+          canceled: "Your order has been canceled. ⚠️"
+        };
+        
+        triggerLocalPushNotification(
+          `Order ${status.toUpperCase()} 📦`,
+          statusMessages[newStatus] || `Order #${orderId.slice(0, 8)} is now ${newStatus}.`
+        );
       } catch (error) {
         console.error(`[OrdersTab] Failed to send notification for order ${orderId}:`, error);
       }

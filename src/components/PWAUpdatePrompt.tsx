@@ -4,10 +4,9 @@ import { RefreshCw, X } from "lucide-react";
 
 export default function PWAUpdatePrompt() {
   const [showUpdate, setShowUpdate] = useState(false);
-  const [countdown, setCountdown] = useState(10);
   const hasShownUpdate = useRef(false);
   const updateCheckCount = useRef(0);
-  const updateApplied = useRef(false);
+  const userDismissed = useRef(false);
 
   const {
     needRefresh: [needRefresh],
@@ -27,33 +26,18 @@ export default function PWAUpdatePrompt() {
   });
 
   useEffect(() => {
-    // Only show update prompt after the first load and after user has interacted
-    // Don't show if we just applied an update
-    if (needRefresh && !hasShownUpdate.current && !updateApplied.current && updateCheckCount.current > 0) {
+    // Only show update prompt once after first load and after user has interacted
+    // Don't show on first load at all (updateCheckCount.current > 1)
+    // Don't show if user dismissed it
+    if (needRefresh && !hasShownUpdate.current && updateCheckCount.current > 1 && !userDismissed.current) {
       hasShownUpdate.current = true;
       setShowUpdate(true);
-      setCountdown(10);
     }
     updateCheckCount.current++;
   }, [needRefresh]);
 
-  useEffect(() => {
-    if (!showUpdate || countdown <= 0) return;
-    const timer = setTimeout(() => {
-      setCountdown((prev) => prev - 1);
-    }, 1000);
-    return () => clearTimeout(timer);
-  }, [showUpdate, countdown]);
-
-  useEffect(() => {
-    if (countdown === 0 && showUpdate) {
-      handleUpdate();
-    }
-  }, [countdown, showUpdate]);
-
   const handleUpdate = async () => {
     try {
-      updateApplied.current = true;
       await updateServiceWorker(true);
       setTimeout(() => {
         window.location.reload();
@@ -65,7 +49,7 @@ export default function PWAUpdatePrompt() {
   };
 
   const handleDismiss = () => {
-    hasShownUpdate.current = false;
+    userDismissed.current = true;
     setShowUpdate(false);
   };
 
@@ -76,7 +60,6 @@ export default function PWAUpdatePrompt() {
       <div className="flex items-center gap-2">
         <RefreshCw className="h-4 w-4 animate-spin" />
         <span className="text-sm font-semibold">A new update is available!</span>
-        <span className="text-xs opacity-80">Auto-updating in {countdown}s...</span>
       </div>
       <div className="flex items-center gap-2">
         <button
