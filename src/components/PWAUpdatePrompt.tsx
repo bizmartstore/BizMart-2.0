@@ -12,9 +12,10 @@ export default function PWAUpdatePrompt() {
   } = useRegisterSW({
     onRegisteredSW(swUrl, r) {
       if (r) {
+        // Only check for updates every 1 hour instead of every minute
         setInterval(() => {
           r.update();
-        }, 60 * 1000);
+        }, 60 * 60 * 1000);
       }
     },
     onRegisterError(error) {
