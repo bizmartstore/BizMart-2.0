@@ -32,7 +32,6 @@ import SellersPage from "@/pages/SellersPage";
 import StoreViewPage from "@/pages/StoreViewPage";
 import SellerStorePage from "@/pages/SellerStorePage";
 import PrintServicePage from "@/pages/PrintServicePage";
-import POSPage from "@/pages/POSPage";
 import AdminDashboard from "@/pages/AdminDashboard";
 import GuidanceDashboard from "@/pages/GuidanceDashboard";
 import NotFound from "@/pages/NotFound";
@@ -99,7 +98,6 @@ function AppContent() {
             <Route path="/store/:sellerId" element={<StoreViewPage />} />
             <Route path="/seller-store" element={<SellerStorePage />} />
             <Route path="/print-service" element={<PrintServicePage />} />
-            <Route path="/pos" element={<POSPage />} />
             <Route path="/organizations" element={<OrganizationsPage />} />
             <Route path="/organizations/:id" element={<OrganizationDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
