@@ -26,7 +26,7 @@ export function useFCM() {
       }
 
       // ✅ IMPORTANT: Get existing service worker registration
-      const registration = await navigator.serviceWorker.getRegistration();
+      const registration = await navigator.serviceWorker.ready;
 
       if (!registration) {
         console.error("[FCM] No service worker registration found.");
