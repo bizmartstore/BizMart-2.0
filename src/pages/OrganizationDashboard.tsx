@@ -94,7 +94,7 @@ export default function OrganizationDashboard() {
     try {
       const { data, error } = await supabase
         .from("organization_members")
-        .select("id, status")
+        .select("*")
         .eq("organization_id", id)
         .eq("user_id", user.id)
         .eq("status", "pending")
@@ -140,10 +140,10 @@ export default function OrganizationDashboard() {
       throw new Error("Organization ID is missing");
     }
 
-    // 1. Organization with background image
+    // 1. Organization data
     const { data: orgData, error: orgError } = await supabase
       .from("organizations")
-      .select("*, background_image")
+      .select("*")
       .eq("id", id)
       .eq("status", "approved")
       .single();
@@ -156,9 +156,6 @@ export default function OrganizationDashboard() {
       console.error("Organization not found for ID:", id);
       throw new Error("Organization not found or not approved");
     }
-
-    // Set background image
-    setOrgBackgroundImage((orgData as any).background_image || null);
 
     // 2. Member count
     const { count } = await supabase
@@ -174,19 +171,19 @@ export default function OrganizationDashboard() {
     // 3. Wallet
 const { data: walletData, error: walletError } = await supabase
   .from("organization_wallets")
-  .select("balance")
+  .select("*")
   .eq("organization_id", id)
   .maybeSingle();
 
 if (walletError) throw walletError;
 
 if (!walletData) {
-  await (supabase.from("organization_wallets") as any).insert([
-    { organization_id: id!, balance: 0 }
-  ]);
+  await (supabase
+    .from("organization_wallets") as any)
+    .insert([{ organization_id: id!, balance: 0 }]);
   setWalletBalance(0);
 } else {
-  setWalletBalance((walletData as { balance: number })?.balance ?? 0);
+  setWalletBalance((walletData as { balance: number }).balance ?? 0);
 }
 
     // 4. Members with profiles data
@@ -198,7 +195,7 @@ if (!walletData) {
       .order("role", { ascending: false })
       .order("joined_at", { ascending: false });
 
-    setMembers(membersData || []);
+    setMembers(membersData || [] as Member[]);
 
     // 5. Events
     const { data: eventsData } = await supabase
@@ -209,10 +206,10 @@ if (!walletData) {
 
     setEvents(eventsData || []);
 
-    // 6. Wallet transactions with profiles join
+    // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
       .from("organization_transactions")
-      .select(`*, profiles:user_id(first_name, last_name, avatar_url)`)
+      .select("*")
       .eq("organization_id", id)
       .order("created_at", { ascending: false });
 
@@ -239,19 +236,18 @@ if (!walletData) {
     if (user && id) {
       const { data, error } = await supabase
         .from("organization_members")
-        .select("role")
+        .select("role, status")
         .eq("organization_id", id)
         .eq("user_id", user.id)
-        .eq("status", "active")
         .maybeSingle();
 
       if (error) {
         console.error("Error fetching member data:", error);
       }
 
-      const memberData = data as { role?: "creator" | "officer" | "member" } | null;
+      const memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
 
-      if (memberData?.role) {
+      if (memberData?.role && memberData.status === "active") {
         setIsMember(true);
         setUserRole(memberData.role);
       } else {
@@ -272,13 +268,14 @@ if (!walletData) {
   if (!user || !organization) return;
 
   try {
-    const { error } = await supabase
-      .from("organization_members")
+    const { error } = await (supabase
+      .from("organization_members") as any)
       .insert([{
         organization_id: organization.id,
         user_id: user.id,
         role: "member",
-      }] as any);
+        status: "active",
+      }]);
 
     if (error) throw error;
 
@@ -297,8 +294,8 @@ if (!walletData) {
   if (!organization || !user) return;
 
   try {
-    const { error } = await supabase
-      .from("organization_events")
+    const { error } = await (supabase
+      .from("organization_events") as any)
       .insert([{
         organization_id: organization.id,
         name: newEventForm.name,
@@ -308,7 +305,8 @@ if (!walletData) {
         fee: newEventForm.fee,
         status: "upcoming",
         created_by: user.id,
-      }] as any);
+        created_at: new Date().toISOString(),
+      }]);
 
     if (error) throw error;
 
@@ -337,8 +335,8 @@ if (!walletData) {
   }
 
   try {
-    const { error } = await supabase
-      .from("organization_transactions")
+    const { error } = await (supabase
+      .from("organization_transactions") as any)
       .insert([{
         organization_id: organization.id,
         user_id: user.id,
@@ -348,7 +346,7 @@ if (!walletData) {
         purpose: depositForm.purpose,
         reference: depositForm.reference,
         gcash_fee: 0,
-      }] as any);
+      }]);
 
     if (error) throw error;
 
@@ -375,8 +373,8 @@ if (!walletData) {
   }
 
   try {
-    const { error } = await supabase
-      .from("organization_transactions")
+    const { error } = await (supabase
+      .from("organization_transactions") as any)
       .insert([{
         organization_id: organization.id,
         user_id: user.id,
@@ -386,7 +384,7 @@ if (!walletData) {
         purpose: withdrawalForm.purpose,
         reference: withdrawalForm.recipient,
         gcash_fee: 0,
-      }] as any);
+      }]);
 
     if (error) throw error;
 
@@ -407,14 +405,15 @@ if (!walletData) {
   if (!organization || !user) return;
 
   try {
-    const { error } = await supabase
-      .from("organization_announcements")
+    const { error } = await (supabase
+      .from("organization_announcements") as any)
       .insert([{
         organization_id: organization.id,
         title: newAnnouncementForm.title,
         content: newAnnouncementForm.content,
         created_by: user.id,
-      }] as any);
+        created_at: new Date().toISOString(),
+      }]);
 
     if (error) throw error;
 
@@ -457,7 +456,12 @@ if (!walletData) {
     if (!eventToDelete) return;
 
     try {
-      await supabase.from("organization_events").delete().eq("id", eventToDelete);
+      const { error } = await (supabase
+          .from("organization_events") as any)
+          .delete()
+          .eq("id", eventToDelete);
+
+      if (error) throw error;
 
       toast.success("Event deleted successfully!");
       fetchOrganizationData();
@@ -1105,11 +1109,11 @@ if (!walletData) {
                           onClick={async () => {
                             if (!organization) return;
                             try {
-                                setIsUploadingImage(true);
-                                const { error } = await (supabase
-                                    .from("organizations") as any)
-                                    .update({ background_image: null })
-                                    .eq("id", organization.id);
+                              setIsUploadingImage(true);
+                              const { error } = await (supabase
+                                .from("organizations") as any)
+                                .update({ background_image: null })
+                                .eq("id", organization.id);
                               if (error) throw error;
                               setOrgBackgroundImage(null);
                               toast.success("Background image removed!");
