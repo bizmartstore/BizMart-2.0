@@ -1,33 +1,21 @@
-import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types';
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
 const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
-// Hard fail if env is missing (better than silent bugs)
-if (!SUPABASE_URL) {
-  throw new Error("Missing VITE_SUPABASE_URL in environment variables");
+if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
+  console.error("Supabase environment variables are missing! Check your .env file or Vercel settings.");
 }
 
-if (!SUPABASE_PUBLISHABLE_KEY) {
-  throw new Error("Missing VITE_SUPABASE_PUBLISHABLE_KEY in environment variables");
-}
-
-// Typed Supabase client (IMPORTANT: no fallback '')
-export const supabase = createClient<Database>(
-  SUPABASE_URL,
-  SUPABASE_PUBLISHABLE_KEY,
-  {
-    auth: {
-      storage: localStorage,
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
+export const supabase = createClient<Database>(SUPABASE_URL || '', SUPABASE_PUBLISHABLE_KEY || '', {
+  auth: {
+    storage: localStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
   }
-);
+});
 
-// Debug helper (safe)
-console.log(
-  `[Supabase] Initialized → ${SUPABASE_URL.slice(0, 25)}...`
-);
+// Debug helper
+console.log(`[Supabase] Initialized with URL: ${SUPABASE_URL?.slice(0, 20)}...`);
