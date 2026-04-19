@@ -398,7 +398,6 @@ export type Database = {
           used?: boolean;
         };
       };
-    };
     fcm_tokens: {
         Row: {
           id: string;
