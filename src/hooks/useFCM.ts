@@ -19,14 +19,21 @@ export function useFCM() {
     try {
       const permission = await Notification.requestPermission();
 
-      if (permission !== "granted") return;
+      if (permission !== "granted") {
+        console.log("[FCM] Notification permission denied.");
+        return;
+      }
 
       const token = await getToken(messaging, {
-        vapidKey:
-          "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+        vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
       });
 
-      if (!token) return;
+      if (!token) {
+        console.log("[FCM] No token received.");
+        return;
+      }
+
+      console.log("[FCM] Token received:", token);
 
       const payload: FcmTokenInsert = {
         user_id: user.id,
@@ -42,10 +49,12 @@ export function useFCM() {
         });
 
       if (error) {
-        console.error("[FCM] Error:", error);
+        console.error("[FCM] Error saving token:", error);
+      } else {
+        console.log("[FCM] Token saved successfully.");
       }
     } catch (err) {
-      console.warn("[FCM]", err);
+      console.error("[FCM] Error:", err);
     }
   }, [user]);
 
