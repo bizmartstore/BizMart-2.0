@@ -7,6 +7,7 @@ export default function PWAUpdatePrompt() {
   const [countdown, setCountdown] = useState(10);
   const hasShownUpdate = useRef(false);
   const updateCheckCount = useRef(0);
+  const updateApplied = useRef(false);
 
   const {
     needRefresh: [needRefresh],
@@ -27,7 +28,8 @@ export default function PWAUpdatePrompt() {
 
   useEffect(() => {
     // Only show update prompt after the first load and after user has interacted
-    if (needRefresh && !hasShownUpdate.current && updateCheckCount.current > 0) {
+    // Don't show if we just applied an update
+    if (needRefresh && !hasShownUpdate.current && !updateApplied.current && updateCheckCount.current > 0) {
       hasShownUpdate.current = true;
       setShowUpdate(true);
       setCountdown(10);
@@ -51,6 +53,7 @@ export default function PWAUpdatePrompt() {
 
   const handleUpdate = async () => {
     try {
+      updateApplied.current = true;
       await updateServiceWorker(true);
       setTimeout(() => {
         window.location.reload();
