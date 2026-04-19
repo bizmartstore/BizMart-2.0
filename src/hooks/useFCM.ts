@@ -5,6 +5,7 @@ import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/types/supabase";
 
+// ✅ Correct Supabase Insert type
 type FcmTokenInsert =
   Database["public"]["Tables"]["fcm_tokens"]["Insert"];
 
@@ -22,6 +23,8 @@ export function useFCM() {
 
       if (permission !== "granted") return;
 
+      console.log("[FCM] Permission granted");
+
       const token = await getToken(messaging, {
         vapidKey:
           "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
@@ -29,6 +32,9 @@ export function useFCM() {
 
       if (!token) return;
 
+      console.log("[FCM] Token:", token);
+
+      // ✅ Fully typed payload (NO Record<any>)
       const payload: FcmTokenInsert = {
         user_id: user.id,
         token,
@@ -43,10 +49,12 @@ export function useFCM() {
         });
 
       if (error) {
-        console.error("[FCM] Error:", error);
+        console.error("[FCM] Save error:", error);
+      } else {
+        console.log("[FCM] Token saved successfully");
       }
     } catch (err) {
-      console.warn("[FCM]", err);
+      console.warn("[FCM] Error:", err);
     }
   }, [user]);
 
