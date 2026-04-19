@@ -19,30 +19,6 @@ firebase.initializeApp(firebaseConfig);
 // Get Firebase Messaging instance
 const messaging = firebase.messaging();
 
-// Set the VAPID key (must match the one in Firebase Console)
-messaging.useServiceWorker(self.registration);
-
-// Request permission and get token
-messaging.getToken({
-  vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
-})
-  .then((currentToken) => {
-    if (currentToken) {
-      console.log("[firebase-messaging-sw.js] FCM Token:", currentToken);
-      // Send the token to your server (e.g., via fetch or Supabase)
-      fetch("/api/save-fcm-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: currentToken }),
-      }).catch((err) => console.error("Failed to save token:", err));
-    } else {
-      console.log("[firebase-messaging-sw.js] No registration token available.");
-    }
-  })
-  .catch((err) => {
-    console.error("[firebase-messaging-sw.js] Error fetching FCM token:", err);
-  });
-
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
   console.log("[firebase-messaging-sw.js] Background message:", payload);
@@ -77,5 +53,28 @@ self.addEventListener("notificationclick", (event) => {
     })
   );
 });
+
+// Request permission and get token (only in service worker context)
+if (self.registration) {
+  messaging.getToken({
+    vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+  })
+    .then((currentToken) => {
+      if (currentToken) {
+        console.log("[firebase-messaging-sw.js] FCM Token:", currentToken);
+        // Send token to your server
+        fetch("/api/save-fcm-token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token: currentToken }),
+        }).catch((err) => console.error("Failed to save token:", err));
+      } else {
+        console.log("[firebase-messaging-sw.js] No registration token available.");
+      }
+    })
+    .catch((err) => {
+      console.error("[firebase-messaging-sw.js] Error fetching FCM token:", err);
+    });
+}
 
 console.log("[firebase-messaging-sw.js] Service worker loaded");
