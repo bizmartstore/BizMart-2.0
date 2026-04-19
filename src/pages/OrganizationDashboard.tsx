@@ -223,7 +223,10 @@ if (!walletData) {
       console.error("Error fetching wallet transactions:", walletTransactionsError);
     }
 
-    setTransactions(walletTransactionsData || []);
+    setTransactions((walletTransactionsData || []).map(t => ({
+  ...t,
+  type: t.type as "deposit" | "withdrawal"
+})) as Transaction[]);
 
     // 7. Announcements
     const { data: announcementsData, error: announcementsError } = await supabase
