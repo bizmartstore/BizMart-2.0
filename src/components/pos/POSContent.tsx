@@ -89,7 +89,7 @@ export default function POSContent() {
   const [pickupTime, setPickupTime] = useState<string>('');
   const [pageCount, setPageCount] = useState<number>(1);
   const [isColor, setIsColor] = useState<boolean>(false);
-  const [customerId, setCustomerId] = useState<string>('');
+  const [customerId, setCustomerId] = useState<string>('walk_in');
   const [customerName, setCustomerName] = useState<string>('');
   const [customerGrade, setCustomerGrade] = useState<string>('');
   const [customerSection, setCustomerSection] = useState<string>('');
