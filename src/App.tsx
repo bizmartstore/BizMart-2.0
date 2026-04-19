@@ -11,7 +11,6 @@ import { CartProvider } from "@/context/CartContext";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
 import SplashScreen from "@/components/SplashScreen";
 import { useFCM } from "@/hooks/useFCM";
-import PWAUpdatePrompt from "@/components/PWAUpdatePrompt";
 
 // Pages
 import Index from "@/pages/Index";
@@ -73,7 +72,6 @@ function AppContent() {
 
   return (
     <>
-      <PWAUpdatePrompt />
       <Toaster />
       <Sonner />
       <TooltipProvider>
