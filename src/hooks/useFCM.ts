@@ -3,12 +3,10 @@ import { messaging } from "@/lib/firebase";
 import { getToken } from "firebase/messaging";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/types/supabase";
 
-interface FcmToken {
-  user_id: string;
-  token: string;
-  role: string;
-}
+type FcmTokenInsert =
+  Database["public"]["Tables"]["fcm_tokens"]["Insert"];
 
 export function useFCM() {
   const { user } = useAuth();
@@ -22,35 +20,33 @@ export function useFCM() {
     try {
       const permission = await Notification.requestPermission();
 
-      if (permission === "granted") {
-        console.log("[FCM] Notification permission granted");
+      if (permission !== "granted") return;
 
-        // Get FCM token with VAPID key
-        const token = await getToken(messaging, {
-          vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+      const token = await getToken(messaging, {
+        vapidKey:
+          "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+      });
+
+      if (!token) return;
+
+      const payload: FcmTokenInsert = {
+        user_id: user.id,
+        token,
+        device_type: "web",
+        created_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from("fcm_tokens")
+        .upsert(payload, {
+          onConflict: "user_id",
         });
 
-        if (token) {
-          console.log("[FCM] FCM token:", token);
-
-          // Save token to Supabase
-          const { error } = await supabase
-            .from("fcm_tokens")
-            .upsert({
-              user_id: user.id,
-              token,
-              role: user.role || "customer", // Fallback to "customer" if role is undefined
-            } as unknown as FcmToken);
-
-          if (error) {
-            console.error("[FCM] Failed to save FCM token to Supabase:", error);
-          } else {
-            console.log("[FCM] FCM token saved to Supabase");
-          }
-        }
+      if (error) {
+        console.error("[FCM] Error:", error);
       }
-    } catch (error) {
-      console.warn("[FCM] Permission error (OK if not supported):", error instanceof Error ? error.message : String(error));
+    } catch (err) {
+      console.warn("[FCM]", err);
     }
   }, [user]);
 
