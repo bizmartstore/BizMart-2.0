@@ -17,6 +17,7 @@ export function useFCM() {
     hasAttemptedRegistration.current = true;
 
     try {
+      // ✅ Ask notification permission
       const permission = await Notification.requestPermission();
 
       if (permission !== "granted") {
@@ -24,9 +25,18 @@ export function useFCM() {
         return;
       }
 
-      // Get token with proper error handling
+      // ✅ IMPORTANT: Get existing service worker registration
+      const registration = await navigator.serviceWorker.getRegistration();
+
+      if (!registration) {
+        console.error("[FCM] No service worker registration found.");
+        return;
+      }
+
+      // ✅ FIX: Pass service worker to getToken
       const token = await getToken(messaging, {
         vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+        serviceWorkerRegistration: registration,
       }).catch((err) => {
         console.error("[FCM] Error getting token:", err);
         return null;
@@ -37,8 +47,9 @@ export function useFCM() {
         return;
       }
 
-      console.log("[Firebase] FCM Token received:", token);
+      console.log("[FCM] Token received:", token);
 
+      // ✅ Save to Supabase
       const payload: FcmTokenInsert = {
         user_id: user.id,
         token,
@@ -65,7 +76,7 @@ export function useFCM() {
   useEffect(() => {
     if (!user || !messaging) return;
     requestPermission();
-  }, [user, requestPermission]);
+  }, [user, messaging, requestPermission]);
 
   return { requestPermission };
 }
