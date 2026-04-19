@@ -26,19 +26,22 @@ export const initMessaging = async () => {
   if (!messaging) {
     messaging = getMessaging(app);
 
-    // ✅ Foreground handler (NO system notification here)
     onMessage(messaging, (payload) => {
       console.log("[Firebase] Foreground message:", payload);
 
-      const { title, body } = payload.notification || {};
+      const { title, body, icon } = payload.notification || {};
+      const { link } = payload.data || {};
 
-      // Optional: simple log only (cleanest setup)
       if (title && body) {
-        console.log(`[FCM] ${title} - ${body}`);
-      }
+        const notification = new Notification(title, {
+          body,
+          icon: icon || "/pwa-192x192.png",
+        });
 
-      // ⚠️ DO NOT use new Notification() here
-      // Service worker handles notifications to avoid duplicates
+        notification.onclick = () => {
+          window.location.href = link || "/";
+        };
+      }
     });
   }
 
