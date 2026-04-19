@@ -4,13 +4,6 @@ import { getToken } from "firebase/messaging";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
-interface FcmToken {
-  user_id: string;
-  token: string;
-  role: string;
-  created_at?: string;
-}
-
 export function useFCM() {
   const { user } = useAuth();
   const hasAttemptedRegistration = useRef(false);
@@ -42,7 +35,7 @@ export function useFCM() {
               token,
               role: user.role || "customer",
               created_at: new Date().toISOString(),
-            } as unknown as Record<string, unknown>);
+            });
 
           if (error) {
             console.error("[FCM] Failed to save FCM token to Supabase:", error);
@@ -57,7 +50,7 @@ export function useFCM() {
   }, [user]);
 
   useEffect(() => {
-    if (!user || !messaging) return;
+    if (!user || !messabase) return;
     requestPermission();
   }, [user, requestPermission]);
 
