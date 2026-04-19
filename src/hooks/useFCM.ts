@@ -39,7 +39,7 @@ export function useFCM() {
         .from("fcm_tokens")
         .upsert(payload, {
           onConflict: "user_id",
-        } as { onConflict: string });
+        });
 
       if (error) {
         console.error("[FCM] Error:", error);
