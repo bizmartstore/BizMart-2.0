@@ -178,9 +178,9 @@ const { data: walletData, error: walletError } = await supabase
 if (walletError) throw walletError;
 
 if (!walletData) {
-  await (supabase
-    .from("organization_wallets") as any)
-    .insert([{ organization_id: id!, balance: 0 }]);
+  await (supabase.from("organization_wallets") as any).insert([
+    { organization_id: id!, balance: 0 }
+  ]);
   setWalletBalance(0);
 } else {
   setWalletBalance((walletData as { balance: number }).balance ?? 0);
@@ -219,7 +219,7 @@ if (!walletData) {
 
     setTransactions(walletTransactionsData || []);
 
-    // 7. Announcements (FIXED - NO profiles join)
+    // 7. Announcements
     const { data: announcementsData, error: announcementsError } = await supabase
       .from("organization_announcements")
       .select("*")
@@ -457,9 +457,9 @@ if (!walletData) {
 
     try {
       const { error } = await (supabase
-          .from("organization_events") as any)
-          .delete()
-          .eq("id", eventToDelete);
+        .from("organization_events") as any)
+        .delete()
+        .eq("id", eventToDelete);
 
       if (error) throw error;
 
@@ -809,7 +809,6 @@ if (!walletData) {
             </div>
           </TabsContent>
 
-
           {/* Wallet Tab - Only for creators and officers */}
           {canManageWallet && (
             <TabsContent value="wallet">
@@ -955,11 +954,6 @@ if (!walletData) {
                               <p className="text-xs text-muted-foreground">
                                 {transaction.reference && `Ref: ${transaction.reference}`}
                               </p>
-                              {transaction.profile && (
-                                <p className="text-xs text-muted-foreground">
-                                  Requested by: {transaction.profile.first_name} {transaction.profile.last_name}
-                                </p>
-                              )}
                             </div>
                             <div className="text-right">
                               <p className="text-xs text-muted-foreground">
@@ -1041,6 +1035,129 @@ if (!walletData) {
               {announcements.length === 0 && <p className="text-muted-foreground text-sm">No announcements yet</p>}
             </div>
           </TabsContent>
+
+          {/* Settings Tab - Only for creators */}
+          {canManageOrganization && (
+            <TabsContent value="settings">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Organization Settings</CardTitle>
+                  <CardDescription>Manage your organization's appearance and details</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-6">
+                    {/* Background Image Upload */}
+                    <div className="space-y-4">
+                      <h3 className="text-sm font-medium">Organization Background Image</h3>
+                      <div className="flex items-center gap-4">
+                        {orgBackgroundImage ? (
+                          <div className="relative">
+                            <img
+                              src={orgBackgroundImage}
+                              alt="Organization background"
+                              className="w-32 h-20 object-cover rounded-lg border"
+                            />
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                              onClick={async () => {
+                                if (!organization) return;
+                                try {
+                                  setIsUploadingImage(true);
+                                  const { error } = await (supabase
+                                    .from("organizations") as any)
+                                    .update({ background_image: null })
+                                    .eq("id", organization.id);
+                                  if (error) throw error;
+                                  setOrgBackgroundImage(null);
+                                  toast.success("Background image removed!");
+                                } catch (error) {
+                                  console.error("Error removing background image:", error);
+                                  toast.error("Failed to remove background image");
+                                } finally {
+                                  setIsUploadingImage(false);
+                                }
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="w-32 h-20 bg-muted rounded-lg border flex items-center justify-center">
+                            <p className="text-xs text-muted-foreground">No image</p>
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <Label htmlFor="background-image-upload" className="cursor-pointer">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              disabled={isUploadingImage}
+                            >
+                              {isUploadingImage ? "Uploading..." : "Upload Background Image"}
+                            </Button>
+                            <Input
+                              id="background-image-upload"
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file || !organization) return;
+                                
+                                try {
+                                  setIsUploadingImage(true);
+                                  
+                                  // Upload to Supabase storage
+                                  const fileExt = file.name.split('.').pop();
+                                  const fileName = `${organization.id}-bg-${Date.now()}.${fileExt}`;
+                                  const filePath = `${fileName}`;
+                                  
+                                  const { error: uploadError } = await supabase
+                                    .storage
+                                    .from('organization-backgrounds')
+                                    .upload(filePath, file);
+                                  
+                                  if (uploadError) throw uploadError;
+                                  
+                                  // Get public URL
+                                  const { data: urlData } = supabase
+                                    .storage
+                                    .from('organization-backgrounds')
+                                    .getPublicUrl(filePath);
+                                  
+                                  // Update organization record
+                                  const { error: updateError } = await (supabase
+                                    .from("organizations") as any)
+                                    .update({ background_image: urlData.publicUrl })
+                                    .eq("id", organization.id);
+                                  
+                                  if (updateError) throw updateError;
+                                  
+                                  setOrgBackgroundImage(urlData.publicUrl);
+                                  toast.success("Background image uploaded successfully!");
+                                } catch (error) {
+                                  console.error("Error uploading background image:", error);
+                                  toast.error("Failed to upload background image");
+                                } finally {
+                                  setIsUploadingImage(false);
+                                }
+                              }}
+                            />
+                          </Label>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Upload an image that will be used as the background for your organization
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
         </Tabs>
       </div>
       <BottomNav />
@@ -1081,130 +1198,6 @@ if (!walletData) {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Settings Tab - Only for creators */}
-      {canManageOrganization && (
-        <TabsContent value="settings">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Organization Settings</CardTitle>
-              <CardDescription>Manage your organization's appearance and details</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Background Image Upload */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Organization Background Image</h3>
-                  <div className="flex items-center gap-4">
-                    {orgBackgroundImage ? (
-                      <div className="relative">
-                        <img
-                          src={orgBackgroundImage}
-                          alt="Organization background"
-                          className="w-32 h-20 object-cover rounded-lg border"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="absolute -top-2 -right-2 h-6 w-6 p-0"
-                          onClick={async () => {
-                            if (!organization) return;
-                            try {
-                              setIsUploadingImage(true);
-                              const { error } = await (supabase
-                                .from("organizations") as any)
-                                .update({ background_image: null })
-                                .eq("id", organization.id);
-                              if (error) throw error;
-                              setOrgBackgroundImage(null);
-                              toast.success("Background image removed!");
-                            } catch (error) {
-                              console.error("Error removing background image:", error);
-                              toast.error("Failed to remove background image");
-                            } finally {
-                              setIsUploadingImage(false);
-                            }
-                          }}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="w-32 h-20 bg-muted rounded-lg border flex items-center justify-center">
-                        <p className="text-xs text-muted-foreground">No image</p>
-                      </div>
-                    )}
-                    <div className="flex-1">
-                      <Label htmlFor="background-image-upload" className="cursor-pointer">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          disabled={isUploadingImage}
-                        >
-                          {isUploadingImage ? "Uploading..." : "Upload Background Image"}
-                        </Button>
-                        <Input
-                          id="background-image-upload"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={async (e) => {
-                            const file = e.target.files?.[0];
-                            if (!file || !organization) return;
-                            
-                            try {
-                              setIsUploadingImage(true);
-                              
-                              // Upload to Supabase storage
-                              const fileExt = file.name.split('.').pop();
-                              const fileName = `${organization.id}-bg-${Date.now()}.${fileExt}`;
-                              const filePath = `${fileName}`;
-                              
-                              const { error: uploadError } = await supabase
-                                .storage
-                                .from('organization-backgrounds')
-                                .upload(filePath, file);
-                              
-                              if (uploadError) throw uploadError;
-                              
-                              // Get public URL
-                              const { data: urlData } = supabase
-                                .storage
-                                .from('organization-backgrounds')
-                                .getPublicUrl(filePath);
-                              
-                              // Update organization record
-                              const { error: updateError } = await (supabase
-                                .from("organizations") as any)
-                                .update({ background_image: urlData.publicUrl })
-                                .eq("id", organization.id);
-                              
-                              if (updateError) throw updateError;
-                              
-                              setOrgBackgroundImage(urlData.publicUrl);
-                              toast.success("Background image uploaded successfully!");
-                            } catch (error) {
-                              console.error("Error uploading background image:", error);
-                              toast.error("Failed to upload background image");
-                            } finally {
-                              setIsUploadingImage(false);
-                            }
-                          }}
-                        />
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Upload an image that will be used as the background for your organization
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      )}
-
-      
       {/* Join Organization Instruction Dialog */}
       <JoinOrganizationInstructionDialog
         organizationId={organization.id}
