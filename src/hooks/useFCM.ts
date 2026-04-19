@@ -61,7 +61,7 @@ export function useFCM() {
 
       const { error } = await supabase
         .from("fcm_tokens")
-        .upsert(payload, { onConflict: "token" }); // ✅ FIXED
+        .upsert(payload, { onConflict: "user_id,token" });// ✅ FIXED
 
       if (error) {
         console.error("[FCM] Save error:", error);
