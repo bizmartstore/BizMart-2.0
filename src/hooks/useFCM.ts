@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useRef } from "react";
 import { messaging } from "@/lib/firebase";
-import { getToken } from "firebase/messaging";
+import { getToken, isSupported } from "firebase/messaging";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/types/supabase";
@@ -12,11 +12,24 @@ export function useFCM() {
   const hasAttemptedRegistration = useRef(false);
 
   const requestPermission = useCallback(async () => {
-    if (!messaging || !user || hasAttemptedRegistration.current) return;
-
-    hasAttemptedRegistration.current = true;
-
     try {
+      // ✅ Prevent duplicate calls
+      if (!user || hasAttemptedRegistration.current) return;
+
+      // ✅ Check if messaging is supported (important for Safari / SSR)
+      const supported = await isSupported();
+      if (!supported) {
+        console.log("[FCM] Messaging not supported in this browser.");
+        return;
+      }
+
+      if (!messaging) {
+        console.log("[FCM] Messaging not initialized.");
+        return;
+      }
+
+      hasAttemptedRegistration.current = true;
+
       // ✅ Ask notification permission
       const permission = await Notification.requestPermission();
 
@@ -25,7 +38,7 @@ export function useFCM() {
         return;
       }
 
-      // ✅ IMPORTANT: Get existing service worker registration
+      // ✅ Wait for service worker
       const registration = await navigator.serviceWorker.ready;
 
       if (!registration) {
@@ -33,13 +46,10 @@ export function useFCM() {
         return;
       }
 
-      // ✅ FIX: Pass service worker to getToken
+      // ✅ Get FCM token (CRITICAL FIX HERE)
       const token = await getToken(messaging, {
         vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
         serviceWorkerRegistration: registration,
-      }).catch((err) => {
-        console.error("[FCM] Error getting token:", err);
-        return null;
       });
 
       if (!token) {
@@ -49,7 +59,7 @@ export function useFCM() {
 
       console.log("[FCM] Token received:", token);
 
-      // ✅ Save to Supabase
+      // ✅ Save token to Supabase
       const payload: FcmTokenInsert = {
         user_id: user.id,
         token,
@@ -74,9 +84,9 @@ export function useFCM() {
   }, [user]);
 
   useEffect(() => {
-    if (!user || !messaging) return;
+    if (!user) return;
     requestPermission();
-  }, [user, messaging, requestPermission]);
+  }, [user, requestPermission]);
 
   return { requestPermission };
 }
