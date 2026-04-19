@@ -274,7 +274,7 @@ export default function POSContent() {
       toast.error("Please enter a valid page count");
       return;
     }
-    if (!customerId && !customerName) {
+    if (customerId === 'walk_in' && !customerName) {
       toast.error("Please select or enter a customer");
       return;
     }
