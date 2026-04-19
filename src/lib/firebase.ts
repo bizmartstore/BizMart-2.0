@@ -10,7 +10,7 @@ const firebaseConfig = {
   storageBucket: "bizmart-aaf1b.firebasestorage.app",
   messagingSenderId: "310239525651",
   appId: "1:310239525651:web:d65ab855cdef15919ab8e6",
-  measurementId: "G-FP54T49NG5"
+  measurementId: "G-FP54T49NG5",
 };
 
 const app = initializeApp(firebaseConfig);
@@ -20,11 +20,11 @@ let messaging: any = null;
 // Only initialize messaging in the browser
 if (typeof window !== "undefined") {
   try {
-    // Register service worker - use classic type and handle errors gracefully
+    // Register service worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/firebase-messaging-sw.js', {
         scope: '/',
-        type: 'classic'
+        type: 'classic',
       }).then((registration) => {
         console.log('[Firebase] Service Worker registered with scope:', registration.scope);
       }).catch((error) => {
@@ -45,7 +45,7 @@ if (typeof window !== "undefined") {
       if (title && body) {
         const notification = new Notification(title, {
           body,
-          icon,
+          icon: icon || "/pwa-192x192.png",
         });
 
         // Navigate to the link when clicked
@@ -55,7 +55,7 @@ if (typeof window !== "undefined") {
       }
     });
   } catch (error) {
-    console.warn("Firebase Messaging not available:", error);
+    console.error("Firebase Messaging initialization error:", error);
   }
 }
 
