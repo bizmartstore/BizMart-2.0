@@ -106,6 +106,49 @@ export type Database = {
           status?: string;
         };
       };
+      pos_orders: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          order_type: "print" | "photocopy";
+          file_url: string | null;
+          file_name: string | null;
+          total_pages: number;
+          bw_pages: number;
+          colored_pages: number;
+          page_size: "short" | "a4" | "long";
+          delivery_type: "pickup" | "delivery";
+          pickup_date: string;
+          pickup_time: string;
+          cost: number;
+          status: "pending" | "approved" | "completed" | "rejected" | "canceled";
+          created_at: string;
+          customer_name: string | null;
+          customer_grade: string | null;
+          customer_section: string | null;
+        };
+        Insert: {
+          user_id?: string | null;
+          order_type: "print" | "photocopy";
+          file_url?: string | null;
+          file_name?: string | null;
+          total_pages: number;
+          bw_pages: number;
+          colored_pages: number;
+          page_size: "short" | "a4" | "long";
+          delivery_type: "pickup" | "delivery";
+          pickup_date: string;
+          pickup_time: string;
+          cost: number;
+          status?: "pending" | "approved" | "completed" | "rejected" | "canceled";
+          customer_name?: string | null;
+          customer_grade?: string | null;
+          customer_section?: string | null;
+        };
+        Update: {
+          status?: "pending" | "approved" | "completed" | "rejected" | "canceled";
+        };
+      };
       products: {
         Row: {
           id: string;

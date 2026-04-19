@@ -13,6 +13,10 @@ export default function OverviewTab() {
     pendingPrintOrders: 0,
     completedPrintOrders: 0,
     printRevenue: 0,
+    totalPosOrders: 0,
+    pendingPosOrders: 0,
+    completedPosOrders: 0,
+    posRevenue: 0,
     totalSellers: 0,
     totalClubMembers: 0,
     totalGCashTransactions: 0,
@@ -38,6 +42,13 @@ export default function OverviewTab() {
       const completedPrintOrders = printOrders?.filter((o: any) => o.status === "completed").length || 0;
       const printRevenue = printOrders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.cost || 0), 0) || 0;
 
+      // POS orders stats
+      const { data: posOrders } = await (supabase as any).from("pos_orders").select("status, cost");
+      const totalPosOrders = posOrders?.length || 0;
+      const pendingPosOrders = posOrders?.filter((o: any) => o.status === "pending").length || 0;
+      const completedPosOrders = posOrders?.filter((o: any) => o.status === "completed").length || 0;
+      const posRevenue = posOrders?.filter((o: any) => o.status === "completed").reduce((sum: number, o: any) => sum + Number(o.cost || 0), 0) || 0;
+
       // Users
       const { count: totalUsers } = await (supabase as any).from("profiles").select("*", { count: "exact", head: true });
 
@@ -52,27 +63,33 @@ export default function OverviewTab() {
       const totalGCashTransactions = gcashTxns?.length || 0;
       const pendingGCashTransactions = gcashTxns?.filter((t: any) => t.status === "pending").length || 0;
 
-      // Recent activity - combine orders and print orders
-      const [recentOrdersData, recentPrintData] = await Promise.all([
+      // Recent activity - combine orders, print orders, and POS orders
+      const [recentOrdersData, recentPrintData, recentPosData] = await Promise.all([
         (supabase as any).from("orders").select("*").order("created_at", { ascending: false }).limit(3),
         (supabase as any).from("print_orders").select("*").order("created_at", { ascending: false }).limit(3),
+        (supabase as any).from("pos_orders").select("*").order("created_at", { ascending: false }).limit(3),
       ]);
 
       const combined = [
         ...(recentOrdersData.data || []).map((o: any) => ({ ...o, type: 'order' })),
         ...(recentPrintData.data || []).map((p: any) => ({ ...p, type: 'print' })),
+        ...(recentPosData.data || []).map((p: any) => ({ ...p, type: 'pos' })),
       ].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5);
 
       setStats({
         totalOrders,
         pendingOrders,
         completedOrders,
-        totalRevenue: ordersRevenue + printRevenue,
+        totalRevenue: ordersRevenue + printRevenue + posRevenue,
         totalUsers: totalUsers || 0,
         totalPrintOrders,
         pendingPrintOrders,
         completedPrintOrders,
         printRevenue,
+        totalPosOrders,
+        pendingPosOrders,
+        completedPosOrders,
+        posRevenue,
         totalSellers: totalSellers || 0,
         totalClubMembers: totalClubMembers || 0,
         totalGCashTransactions,
@@ -89,17 +106,20 @@ export default function OverviewTab() {
 
   // Real-time subscriptions for all stats tables
   useEffect(() => {
-    const channel = supabase
-      .channel("admin-overview-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        loadStats();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
-        loadStats();
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => {
-        loadStats();
-      })
+const channel = supabase
+  .channel("admin-overview-realtime")
+  .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
+    loadStats();
+  })
+  .on("postgres_changes", { event: "*", schema: "public", table: "print_orders" }, () => {
+    loadStats();
+  })
+  .on("postgres_changes", { event: "*", schema: "public", table: "pos_orders" }, () => {
+    loadStats();
+  })
+  .on("postgres_changes", { event: "*", schema: "public", table: "gcash_transactions" }, () => {
+    loadStats();
+  })
       .on("postgres_changes", { event: "*", schema: "public", table: "bcoins_redemptions" }, () => {
         loadStats();
       })
@@ -135,6 +155,14 @@ export default function OverviewTab() {
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
+            <Package className="h-5 w-5 text-blue-500" />
+            <span className="text-xs font-bold text-muted-foreground">POS Orders</span>
+          </div>
+          <p className="text-2xl font-extrabold">{stats.totalPosOrders}</p>
+          <p className="text-[10px] text-muted-foreground">{stats.pendingPosOrders} pending</p>
+        </div>
+        <div className="bg-card rounded-xl p-4 border border-border">
+          <div className="flex items-center gap-2 mb-2">
             <Printer className="h-5 w-5 text-purple-500" />
             <span className="text-xs font-bold text-muted-foreground">Print Orders</span>
           </div>
@@ -147,7 +175,7 @@ export default function OverviewTab() {
             <span className="text-xs font-bold text-muted-foreground">Total Revenue</span>
           </div>
           <p className="text-2xl font-extrabold">₱{stats.totalRevenue.toFixed(2)}</p>
-          <p className="text-[10px] text-muted-foreground">Products + Print</p>
+          <p className="text-[10px] text-muted-foreground">All Services</p>
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
@@ -212,15 +240,17 @@ export default function OverviewTab() {
             {recentOrders.map((item: any, idx: number) => {
               const isPrint = item.type === 'print';
               const isOrder = item.type === 'order';
+              const isPos = item.type === 'pos';
               
               return (
                 <div key={`${item.type}-${item.id}-${idx}`} className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
                   <div className="flex items-center gap-2">
                     {isPrint && <Printer className="h-4 w-4 text-purple-500" />}
                     {isOrder && <Package className="h-4 w-4 text-secondary" />}
+                    {isPos && <Package className="h-4 w-4 text-blue-500" />}
                     <div>
                       <p className="text-xs font-bold">
-                        {isPrint ? `Print: ${item.file_name}` : `Order: ${item.customer_name || 'Customer'}`}
+                        {isPrint ? `Print: ${item.file_name}` : isPos ? `POS: ${item.customer_name || 'Customer'}` : `Order: ${item.customer_name || 'Customer'}`}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
                         #{item.id.slice(0, 8)} • {new Date(item.created_at).toLocaleDateString()}
