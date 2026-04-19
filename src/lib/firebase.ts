@@ -20,15 +20,21 @@ let messaging: any = null;
 // Only initialize messaging in the browser
 if (typeof window !== "undefined") {
   try {
-    // Register service worker
+    // Register service worker only if not already registered
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-        scope: '/',
-        type: 'classic',
-      }).then((registration) => {
-        console.log('[Firebase] Service Worker registered with scope:', registration.scope);
-      }).catch((error) => {
-        console.error('[Firebase] Service Worker registration failed:', error);
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        if (registrations.length === 0) {
+          navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+            scope: '/',
+            type: 'classic',
+          }).then((registration) => {
+            console.log('[Firebase] Service Worker registered with scope:', registration.scope);
+          }).catch((error) => {
+            console.error('[Firebase] Service Worker registration failed:', error);
+          });
+        } else {
+          console.log('[Firebase] Service Worker already registered');
+        }
       });
     }
 
