@@ -207,7 +207,10 @@ if (!walletData) {
       .eq("organization_id", id)
       .order("created_at", { ascending: false });
 
-    setEvents(eventsData || []);
+    setEvents((eventsData || []).map(e => ({
+  ...e,
+  status: e.status as "upcoming" | "ongoing" | "completed"
+})) as Event[]);
 
     // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
