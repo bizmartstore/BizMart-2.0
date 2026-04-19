@@ -32,55 +32,112 @@ async function getAccessToken(serviceAccount: any) {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders })
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders })
+  }
 
   try {
     const { userId, title, message, link, icon } = await req.json()
-    const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
+
+    const supabase = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    )
+
     const serviceAccountRaw = Deno.env.get('FIREBASE_SERVICE_ACCOUNT')
 
     if (!serviceAccountRaw) {
       console.error("[send-push] Missing FIREBASE_SERVICE_ACCOUNT secret");
-      return new Response(JSON.stringify({ error: 'Server configuration missing' }), { status: 500, headers: corsHeaders })
+      return new Response(
+        JSON.stringify({ error: 'Server configuration missing' }),
+        { status: 500, headers: corsHeaders }
+      )
     }
 
     const serviceAccount = JSON.parse(serviceAccountRaw)
-    
+
     // Get user tokens
-    const { data: tokens } = await supabase.from('fcm_tokens').select('token').eq('user_id', userId)
-    if (!tokens || tokens.length === 0) return new Response(JSON.stringify({ success: true, message: 'No tokens' }), { headers: corsHeaders })
+    const { data: tokens } = await supabase
+      .from('fcm_tokens')
+      .select('token')
+      .eq('user_id', userId)
+
+    if (!tokens || tokens.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: 'No tokens' }),
+        { headers: corsHeaders }
+      )
+    }
 
     const accessToken = await getAccessToken(serviceAccount)
     const results = []
 
     for (const { token } of tokens) {
       try {
-        const fcmRes = await fetch(`https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`,
-          },
-          body: JSON.stringify({
-            message: {
-              token,
-              notification: { title, body: message },
-              data: { link: link || '/', icon: icon || '' },
-              webpush: {
-                fcm_options: { link: link || '/' }
-              }
-            }
-          })
-        })
+        const fcmRes = await fetch(
+          `https://fcm.googleapis.com/v1/projects/${serviceAccount.project_id}/messages:send`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+              message: {
+                token,
+
+                // ✅ FIX: USE DATA ONLY (NO notification field)
+                data: {
+                  title: title || "New Notification",
+                  body: message || "",
+                  link: link || "/",
+                  icon: icon || "/pwa-192x192.png",
+                },
+
+                webpush: {
+                  fcm_options: {
+                    link: link || "/",
+                  },
+                },
+              },
+            }),
+          }
+        )
+
         const resData = await fcmRes.json()
-        results.push({ token: token.slice(0, 10), status: fcmRes.ok ? 'success' : 'error', details: resData })
+
+        results.push({
+          token: token.slice(0, 10),
+          status: fcmRes.ok ? 'success' : 'error',
+          details: resData,
+        })
+
       } catch (err) {
-        results.push({ token: token.slice(0, 10), status: 'failed', error: err.message })
+        results.push({
+          token: token.slice(0, 10),
+          status: 'failed',
+          error: err.message,
+        })
       }
     }
 
-    return new Response(JSON.stringify({ success: true, results }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(
+      JSON.stringify({ success: true, results }),
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+      }
+    )
+
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsHeaders })
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        status: 500,
+        headers: corsHeaders,
+      }
+    )
   }
 })
