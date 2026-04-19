@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Check, X, User, Calendar, CreditCard } from "lucide-react";
+import { Users, Check, X, User, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +17,7 @@ interface JoinRequest {
   organization_id: string;
   user_id: string;
   status: "pending" | "approved" | "rejected";
-  reference_number?: string;
-  joined_at: string; // ✅ FIXED
+  joined_at: string;
   profile?: {
     id: string;
     first_name: string;
@@ -42,7 +41,7 @@ export default function JoinRequestsTab() {
     if (user) {
       fetchJoinRequests();
     }
-  }, [user, filter]); // ✅ refetch when filter changes
+  }, [user, filter]);
 
   const fetchJoinRequests = async () => {
     try {
@@ -50,10 +49,17 @@ export default function JoinRequestsTab() {
 
       let query = supabase
         .from("organization_members")
-        .select(`*, profile:user_id(*), organization:organization_id(*)`)
+        .select(`
+          id,
+          organization_id,
+          user_id,
+          status,
+          joined_at,
+          profile:user_id(id, first_name, last_name, email, avatar_url),
+          organization:organization_id(id, name)
+        `)
         .order("joined_at", { ascending: false });
 
-      // ✅ FIXED filter logic
       if (filter !== "all") {
         query = query.eq("status", filter);
       }
@@ -62,13 +68,11 @@ export default function JoinRequestsTab() {
 
       if (error) throw error;
 
-      // ✅ SAFE mapping instead of unsafe cast
-      const formatted: JoinRequest[] = (data || []).map((req) => ({
+      const formatted: JoinRequest[] = (data || []).map((req: any) => ({
         id: req.id,
         organization_id: req.organization_id,
         user_id: req.user_id,
-        status: req.status as "pending" | "approved" | "rejected",
-        reference_number: req.reference_number ?? undefined,
+        status: req.status,
         joined_at: req.joined_at,
         profile: req.profile
           ? {
@@ -154,6 +158,7 @@ export default function JoinRequestsTab() {
         <h2 className="text-xl font-bold flex items-center gap-2">
           <Users className="h-5 w-5" /> Join Requests
         </h2>
+
         <Select value={filter} onValueChange={(value) => setFilter(value as any)}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by status" />
@@ -187,6 +192,7 @@ export default function JoinRequestsTab() {
                         {request.profile?.last_name?.charAt(0) || ""}
                       </AvatarFallback>
                     </Avatar>
+
                     <div>
                       <CardTitle className="text-lg">
                         {request.profile?.first_name} {request.profile?.last_name}
@@ -196,6 +202,7 @@ export default function JoinRequestsTab() {
                       </CardDescription>
                     </div>
                   </div>
+
                   <Badge
                     variant={
                       request.status === "pending"
@@ -218,15 +225,6 @@ export default function JoinRequestsTab() {
                   </span>
                 </div>
 
-                {request.reference_number && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CreditCard className="h-4 w-4" />
-                    <span>
-                      <strong>Reference:</strong> {request.reference_number}
-                    </span>
-                  </div>
-                )}
-
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4" />
                   <span>
@@ -244,6 +242,7 @@ export default function JoinRequestsTab() {
                     >
                       <Check className="h-4 w-4" /> Approve
                     </Button>
+
                     <Button
                       size="sm"
                       className="flex-1 gap-2 bg-destructive hover:bg-destructive/90"
