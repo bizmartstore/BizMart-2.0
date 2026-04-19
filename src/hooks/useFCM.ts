@@ -24,9 +24,12 @@ export function useFCM() {
         return;
       }
 
-      // Get token with service worker context
+      // Get token with proper error handling
       const token = await getToken(messaging, {
         vapidKey: "BLIQ3xFdLjDAkx3Oa5ivCLI58eix9VOaGyZvBBdUKACmQcFzRDI-f80moCbq08ZKOFcy53TKTFqDu34cG0XIyiE",
+      }).catch((err) => {
+        console.error("[FCM] Error getting token:", err);
+        return null;
       });
 
       if (!token) {
@@ -34,7 +37,7 @@ export function useFCM() {
         return;
       }
 
-      console.log("[FCM] Token received:", token);
+      console.log("[Firebase] FCM Token received:", token);
 
       const payload: FcmTokenInsert = {
         user_id: user.id,
