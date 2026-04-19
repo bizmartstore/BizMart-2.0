@@ -18,7 +18,7 @@ interface JoinRequest {
   user_id: string;
   status: "pending" | "approved" | "rejected";
   reference_number?: string;
-  created_at: string;
+  joined_at: string; // ✅ FIXED
   profile?: {
     id: string;
     first_name: string;
@@ -42,22 +42,52 @@ export default function JoinRequestsTab() {
     if (user) {
       fetchJoinRequests();
     }
-  }, [user]);
+  }, [user, filter]); // ✅ refetch when filter changes
 
   const fetchJoinRequests = async () => {
-  try {
-    setIsLoading(true);
+    try {
+      setIsLoading(true);
 
-    // Fetch all join requests with profiles and organizations
-    const { data, error } = await supabase
-      .from("organization_members")
-      .select(`*, profile:user_id(*), organization:organization_id(*)`)
-      .eq("status", filter === "all" ? undefined : filter)
-      .order("joined_at", { ascending: false }); // Fix: Use joined_at instead of created_at
+      let query = supabase
+        .from("organization_members")
+        .select(`*, profile:user_id(*), organization:organization_id(*)`)
+        .order("joined_at", { ascending: false });
+
+      // ✅ FIXED filter logic
+      if (filter !== "all") {
+        query = query.eq("status", filter);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
-      setJoinRequests((data as JoinRequest[]) || []);
+      // ✅ SAFE mapping instead of unsafe cast
+      const formatted: JoinRequest[] = (data || []).map((req) => ({
+        id: req.id,
+        organization_id: req.organization_id,
+        user_id: req.user_id,
+        status: req.status as "pending" | "approved" | "rejected",
+        reference_number: req.reference_number ?? undefined,
+        joined_at: req.joined_at,
+        profile: req.profile
+          ? {
+              id: req.profile.id,
+              first_name: req.profile.first_name,
+              last_name: req.profile.last_name,
+              email: req.profile.email,
+              avatar_url: req.profile.avatar_url ?? undefined,
+            }
+          : undefined,
+        organization: req.organization
+          ? {
+              id: req.organization.id,
+              name: req.organization.name,
+            }
+          : undefined,
+      }));
+
+      setJoinRequests(formatted);
     } catch (error) {
       console.error("Error fetching join requests:", error);
       toast.error("Failed to load join requests");
@@ -68,11 +98,10 @@ export default function JoinRequestsTab() {
 
   const handleApprove = async (requestId: string) => {
     try {
-      // Update the member status to active
-      const { error } = await (supabase
-        .from("organization_members") as any)
+      const { error } = await supabase
+        .from("organization_members")
         .update({ status: "active" })
-        .eq("id", requestId as string);
+        .eq("id", requestId);
 
       if (error) throw error;
 
@@ -86,11 +115,10 @@ export default function JoinRequestsTab() {
 
   const handleReject = async (requestId: string) => {
     try {
-      // Update the member status to rejected
-      const { error } = await (supabase
-        .from("organization_members") as any)
+      const { error } = await supabase
+        .from("organization_members")
         .update({ status: "rejected" })
-        .eq("id", requestId as string);
+        .eq("id", requestId);
 
       if (error) throw error;
 
@@ -145,7 +173,7 @@ export default function JoinRequestsTab() {
           : `${filteredRequests.length} join request(s) found.`}
       </p>
 
-      {filteredRequests.length > 0 ? (
+      {filteredRequests.length > 0 && (
         <div className="space-y-3">
           {filteredRequests.map((request) => (
             <Card key={request.id}>
@@ -169,12 +197,19 @@ export default function JoinRequestsTab() {
                     </div>
                   </div>
                   <Badge
-                    variant={request.status === "pending" ? "secondary" : request.status === "approved" ? "default" : "destructive"}
+                    variant={
+                      request.status === "pending"
+                        ? "secondary"
+                        : request.status === "approved"
+                        ? "default"
+                        : "destructive"
+                    }
                   >
                     {request.status}
                   </Badge>
                 </div>
               </CardHeader>
+
               <CardContent className="space-y-3">
                 <div className="flex items-center gap-2 text-sm">
                   <User className="h-4 w-4" />
@@ -182,6 +217,7 @@ export default function JoinRequestsTab() {
                     <strong>Organization:</strong> {request.organization?.name || "N/A"}
                   </span>
                 </div>
+
                 {request.reference_number && (
                   <div className="flex items-center gap-2 text-sm">
                     <CreditCard className="h-4 w-4" />
@@ -190,12 +226,15 @@ export default function JoinRequestsTab() {
                     </span>
                   </div>
                 )}
+
                 <div className="flex items-center gap-2 text-sm">
                   <Calendar className="h-4 w-4" />
                   <span>
-                    <strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}
+                    <strong>Requested:</strong>{" "}
+                    {new Date(request.joined_at).toLocaleString()}
                   </span>
                 </div>
+
                 {request.status === "pending" && (
                   <div className="flex gap-2 pt-2">
                     <Button
@@ -218,7 +257,7 @@ export default function JoinRequestsTab() {
             </Card>
           ))}
         </div>
-      ) : null}
+      )}
     </div>
   );
 }
