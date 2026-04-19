@@ -195,7 +195,10 @@ if (!walletData) {
       .order("role", { ascending: false })
       .order("joined_at", { ascending: false });
 
-    setMembers(membersData || [] as Member[]);
+    setMembers((membersData || []).map(m => ({
+  ...m,
+  role: m.role as "member" | "creator" | "officer"
+})) as Member[]);
 
     // 5. Events
     const { data: eventsData } = await supabase
