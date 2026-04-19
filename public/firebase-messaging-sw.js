@@ -1,14 +1,24 @@
-// Firebase service worker - Minimal version that won't fail if Firebase SDKs don't load
-// This prevents service worker registration failures
+// Firebase service worker - Minimal version that won't make authenticated requests
+// This prevents refresh token errors and service worker issues
 
-// Simple fallback service worker that doesn't depend on Firebase SDKs
+// Simple fallback service worker that only handles basic push notifications
 self.addEventListener('push', (event) => {
-  console.log('[firebase-messaging-sw.js] Push event received, but Firebase not loaded');
+  console.log('[firebase-messaging-sw.js] Push event received');
+  
+  // Don't try to parse complex data - just show a basic notification
+  event.waitUntil(
+    self.registration.showNotification('New Notification', {
+      body: 'You have a new notification',
+      icon: '/pwa-192x192.png',
+      badge: '/pwa-192x192.png',
+      data: { link: '/' }
+    })
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.link || event.notification.data?.url || '/';
+  const urlToOpen = '/';
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
