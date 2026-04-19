@@ -399,6 +399,32 @@ export type Database = {
         };
       };
     };
+    fcm_tokens: {
+        Row: {
+          id: string;
+          user_id: string | null;
+          token: string;
+          device_type: string | null;
+          created_at: string | null;
+          updated_at: string | null;
+        };
+        Insert: {
+          user_id?: string | null;
+          token: string;
+          device_type?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Update: {
+          user_id?: string | null;
+          token?: string;
+          device_type?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        };
+        Relationships: [];
+      },
+    };
     Functions: {
       get_user_role: {
         Args: { _user_id: string };
