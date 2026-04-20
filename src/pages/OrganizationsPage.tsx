@@ -205,7 +205,7 @@ export default function OrganizationsPage() {
         // Upload to Supabase storage
         const { error: uploadError } = await supabase
   .storage
-  .from('organization-logos')
+  .from('organization-backgrounds' as any)  // Correct bucket
   .upload(filePath, orgBackgroundImage)  // Use the correct variable
   .catch(() => ({ error: { message: 'Storage bucket not configured' } }));
         
