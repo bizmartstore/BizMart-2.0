@@ -321,20 +321,20 @@ export default function OrganizationsPage() {
         // Upload to Supabase storage
         const { error: uploadError } = await supabase
           .storage
-          .from('organization-logos' as any)
+          .from('organization-logos')
           .upload(filePath, editLogoImage);
         
         if (uploadError) {
           console.error("Error uploading logo image:", uploadError);
-          toast.warning("Logo image upload failed, but other changes will still be saved");
+          toast.error("Logo image upload failed: " + uploadError.message);
         } else {
           // Get public URL
           const { data: urlData } = supabase
             .storage
-            .from('organization-logos' as any)
+            .from('organization-logos')
             .getPublicUrl(filePath);
           
-          // Update organization with logo URL
+          // Update organization with logo URL and existing colors
           const { error: orgError } = await supabase
             .from("organizations")
             .update({
@@ -345,6 +345,7 @@ export default function OrganizationsPage() {
           
           if (orgError) {
             console.error("Organization update error:", orgError);
+            toast.error("Failed to update organization with logo: " + orgError.message);
             throw orgError;
           }
         }
@@ -367,6 +368,27 @@ export default function OrganizationsPage() {
 
         if (detailsError) {
           console.error("Organization update error:", detailsError);
+          toast.error("Failed to update organization: " + detailsError.message);
+          throw detailsError;
+        }
+      } else {
+        // If logo was uploaded, update the other fields separately
+        const { error: detailsError } = await supabase
+          .from("organizations")
+          .update({
+            name: editFormData.name,
+            description: editFormData.description,
+            adviser_name: editFormData.adviser_name,
+            club_type: editFormData.club_type,
+            primary_color: editFormData.primary_color,
+            secondary_color: editFormData.secondary_color,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingOrgId);
+
+        if (detailsError) {
+          console.error("Organization update error:", detailsError);
+          toast.error("Failed to update organization details: " + detailsError.message);
           throw detailsError;
         }
       }
@@ -529,15 +551,7 @@ export default function OrganizationsPage() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <Label htmlFor="background-image-upload" className="cursor-pointer">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          disabled={isUploadingImage}
-                        >
-                          {isUploadingImage ? "Uploading..." : "Upload Background Image"}
-                        </Button>
+                      <div className="flex gap-2">
                         <Input
                           id="background-image-upload"
                           type="file"
@@ -550,7 +564,16 @@ export default function OrganizationsPage() {
                             }
                           }}
                         />
-                      </Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 flex-1"
+                          disabled={isUploadingImage}
+                          onClick={() => document.getElementById('background-image-upload')?.click()}
+                        >
+                          {isUploadingImage ? "Uploading..." : "Upload Background Image"}
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Upload an image that will be used as the background for your organization
                       </p>
@@ -585,15 +608,7 @@ export default function OrganizationsPage() {
                       </div>
                     )}
                     <div className="flex-1">
-                      <Label htmlFor="logo-image-upload" className="cursor-pointer">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-2"
-                          disabled={isUploadingImage}
-                        >
-                          {isUploadingImage ? "Uploading..." : "Upload Logo Image"}
-                        </Button>
+                      <div className="flex gap-2">
                         <Input
                           id="logo-image-upload"
                           type="file"
@@ -606,7 +621,16 @@ export default function OrganizationsPage() {
                             }
                           }}
                         />
-                      </Label>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 flex-1"
+                          disabled={isUploadingImage}
+                          onClick={() => document.getElementById('logo-image-upload')?.click()}
+                        >
+                          {isUploadingImage ? "Uploading..." : "Upload Logo Image"}
+                        </Button>
+                      </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Upload an image that will be used as the logo for your organization (recommended: square format)
                       </p>
@@ -885,56 +909,57 @@ export default function OrganizationsPage() {
               <div className="space-y-4">
                 <h3 className="text-sm font-medium">Update Organization Logo (Optional)</h3>
                 <div className="flex items-center gap-4">
-                  {editLogoImage ? (
-                    <div className="relative">
-                      <img
-                        src={URL.createObjectURL(editLogoImage)}
-                        alt="Logo Preview"
-                        className="w-16 h-16 object-cover rounded-lg border"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute -top-2 -right-2 h-6 w-6 p-0"
-                        onClick={() => setEditLogoImage(null)}
-                        title="Remove logo"
-                      >
-                        <X className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 bg-muted rounded-lg border flex items-center justify-center">
-                      <p className="text-xs text-muted-foreground">No logo</p>
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <Label htmlFor="edit-logo-image-upload" className="cursor-pointer">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        disabled={isEditing}
-                      >
-                        {isEditing ? "Uploading..." : "Upload New Logo Image"}
-                      </Button>
-                      <Input
-                        id="edit-logo-image-upload"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={async (e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setEditLogoImage(file);
-                          }
-                        }}
-                      />
-                    </Label>
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Upload a new logo image for your organization (recommended: square format)
-                    </p>
+                {editLogoImage ? (
+                  <div className="relative">
+                    <img
+                      src={URL.createObjectURL(editLogoImage)}
+                      alt="Logo Preview"
+                      className="w-16 h-16 object-cover rounded-lg border"
+                    />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                      onClick={() => setEditLogoImage(null)}
+                      title="Remove logo"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
                   </div>
+                ) : (
+                  <div className="w-16 h-16 bg-muted rounded-lg border flex items-center justify-center">
+                    <p className="text-xs text-muted-foreground">No logo</p>
+                  </div>
+                )}
+                <div className="flex-1">
+                  <div className="flex gap-2">
+                    <Input
+                      id="edit-logo-image-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditLogoImage(file);
+                        }
+                      }}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2 flex-1"
+                      disabled={isEditing}
+                      onClick={() => document.getElementById('edit-logo-image-upload')?.click()}
+                    >
+                      {isEditing ? "Uploading..." : "Upload New Logo Image"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Upload a new logo image for your organization (recommended: square format)
+                  </p>
                 </div>
+              </div>
               </div>
 
               {/* Color Selection for Edit */}
