@@ -361,18 +361,18 @@ export default function OrganizationsPage() {
       
       // Update organization details if no logo was uploaded or after logo upload
       if (!editLogoImage) {
-        const { error: detailsError } = await supabase
-          .from("organizations")
-          .update({
-            name: editFormData.name,
-            description: editFormData.description,
-            adviser_name: editFormData.adviser_name,
-            club_type: editFormData.club_type,
-            primary_color: editFormData.primary_color,
-            secondary_color: editFormData.secondary_color,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingOrgId);
+        // In handleUpdateOrganization, change the update payload to:
+const { error: detailsError } = await supabase
+  .from("organizations")
+  .update({
+    name: editFormData.name,
+    description: editFormData.description,
+    adviser_name: editFormData.adviser_name,
+    club_type: editFormData.club_type,
+    // Remove primary_color and secondary_color
+    updated_at: new Date().toISOString(),
+  })
+  .eq("id", editingOrgId);
 
         if (detailsError) {
           console.error("Organization update error:", detailsError);
