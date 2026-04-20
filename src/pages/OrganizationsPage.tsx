@@ -202,11 +202,11 @@ export default function OrganizationsPage() {
         const fileName = `${user.id}-org-bg-${Date.now()}.${fileExt}`;
         const filePath = `organization-backgrounds/${fileName}`;
         
-        // Upload to Supabase storage
-        const { error: uploadError } = await supabase
+      // Upload to Supabase storage
+const { error: uploadError } = await supabase
   .storage
-  .from('organization-backgrounds' as any)  // Correct bucket
-  .upload(filePath, orgBackgroundImage)  // Use the correct variable
+  .from('organization-backgrounds' as any)
+  .upload(filePath, orgBackgroundImage)
   .catch(() => ({ error: { message: 'Storage bucket not configured' } }));
         
         if (uploadError) {
