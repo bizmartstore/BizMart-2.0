@@ -302,6 +302,7 @@ export default function OrganizationsPage() {
       setIsEditing(true);
       
       const orgPayload: any = {
+        id: editingOrgId,
         name: editFormData.name,
         description: editFormData.description,
         adviser_name: editFormData.adviser_name,
@@ -333,18 +334,41 @@ export default function OrganizationsPage() {
             .from('organization-logos' as any)
             .getPublicUrl(filePath);
           
-          orgPayload.logo_image = urlData.publicUrl;
+          // Update organization with logo URL
+          const { error: orgError } = await supabase
+            .from("organizations")
+            .update({
+              logo_image: urlData.publicUrl,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", editingOrgId);
+          
+          if (orgError) {
+            console.error("Organization update error:", orgError);
+            throw orgError;
+          }
         }
       }
+      
+      // Update organization details if no logo was uploaded or after logo upload
+      if (!editLogoImage) {
+        const { error: detailsError } = await supabase
+          .from("organizations")
+          .update({
+            name: editFormData.name,
+            description: editFormData.description,
+            adviser_name: editFormData.adviser_name,
+            club_type: editFormData.club_type,
+            primary_color: editFormData.primary_color,
+            secondary_color: editFormData.secondary_color,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingOrgId);
 
-      const { error: orgError } = await supabase
-        .from("organizations")
-        .update(orgPayload)
-        .eq("id", editingOrgId);
-
-      if (orgError) {
-        console.error("Organization update error:", orgError);
-        throw orgError;
+        if (detailsError) {
+          console.error("Organization update error:", detailsError);
+          throw detailsError;
+        }
       }
 
       toast.success("Organization updated successfully!");
