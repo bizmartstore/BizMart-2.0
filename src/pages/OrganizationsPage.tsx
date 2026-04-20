@@ -314,40 +314,47 @@ export default function OrganizationsPage() {
 
       // Upload logo image if provided
       if (editLogoImage) {
-        const fileExt = editLogoImage.name.split('.').pop();
-        const fileName = `${user.id}-org-logo-${Date.now()}.${fileExt}`;
-        const filePath = `organization-logos/${fileName}`;
-        
-        // Upload to Supabase storage
-        const { error: uploadError } = await supabase
-          .storage
-          .from('organization-logos')
-          .upload(filePath, editLogoImage);
-        
-        if (uploadError) {
-          console.error("Error uploading logo image:", uploadError);
-          toast.error("Logo image upload failed: " + uploadError.message);
-        } else {
-          // Get public URL
-          const { data: urlData } = supabase
+        try {
+          const fileExt = editLogoImage.name.split('.').pop();
+          const fileName = `${user.id}-org-logo-${Date.now()}.${fileExt}`;
+          const filePath = `organization-logos/${fileName}`;
+          
+          // Upload to Supabase storage
+          const { error: uploadError } = await supabase
             .storage
             .from('organization-logos')
-            .getPublicUrl(filePath);
+            .upload(filePath, editLogoImage);
           
-          // Update organization with logo URL and existing colors
-          const { error: orgError } = await supabase
-            .from("organizations")
-            .update({
-              logo_image: urlData.publicUrl,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", editingOrgId);
-          
-          if (orgError) {
-            console.error("Organization update error:", orgError);
-            toast.error("Failed to update organization with logo: " + orgError.message);
-            throw orgError;
+          if (uploadError) {
+            console.error("Error uploading logo image:", uploadError);
+            toast.error("Logo upload failed. Please contact admin to set up storage bucket.");
+          } else {
+            // Get public URL
+            const { data: urlData } = supabase
+              .storage
+              .from('organization-logos')
+              .getPublicUrl(filePath);
+            
+            // Update organization with logo URL (only update logo, skip color fields)
+            const { error: orgError } = await supabase
+              .from("organizations")
+              .update({
+                logo_image: urlData.publicUrl,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", editingOrgId)
+              .select();
+            
+            if (orgError) {
+              console.error("Organization update error:", orgError);
+              toast.error("Failed to update organization: " + (orgError.message || "Unknown error"));
+            } else {
+              toast.success("Logo updated successfully!");
+            }
           }
+        } catch (error) {
+          console.error("Error in logo upload process:", error);
+          toast.error("Logo upload failed. Please try again or contact support.");
         }
       }
       
