@@ -32,11 +32,25 @@ export default function OrganizationsPage() {
     description: "",
     adviser_name: "",
     club_type: "Academic",
+    primary_color: "#3b82f6",
+    secondary_color: "#1e40af",
   });
   const [orgBackgroundImage, setOrgBackgroundImage] = useState<File | null>(null);
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
-  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+    const [orgLogoImage, setOrgLogoImage] = useState<File | null>(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
+    const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+    const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
+    const [editFormData, setEditFormData] = useState({
+      name: "",
+      description: "",
+      adviser_name: "",
+      club_type: "Academic",
+      primary_color: "#3b82f6",
+      secondary_color: "#1e40af",
+    });
+    const [editLogoImage, setEditLogoImage] = useState<File | null>(null);
+    const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -171,13 +185,15 @@ export default function OrganizationsPage() {
       }
 
       // Create organization
-      const orgPayload = {
+      const orgPayload: any = {
         name: formData.name,
         description: formData.description,
         adviser_name: formData.adviser_name,
         club_type: formData.club_type,
         status: "pending",
         creator_id: user.id,
+        primary_color: formData.primary_color || "#3b82f6",
+        secondary_color: formData.secondary_color || "#1e40af",
       };
 
       // Upload background image if provided
@@ -202,13 +218,39 @@ export default function OrganizationsPage() {
             .from('organization-backgrounds' as any)
             .getPublicUrl(filePath);
           
-          (orgPayload as any).background_image = urlData.publicUrl;
+          orgPayload.background_image = urlData.publicUrl;
+        }
+      }
+
+      // Upload logo image if provided
+      if (orgLogoImage) {
+        const fileExt = orgLogoImage.name.split('.').pop();
+        const fileName = `${user.id}-org-logo-${Date.now()}.${fileExt}`;
+        const filePath = `organization-logos/${fileName}`;
+        
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase
+          .storage
+          .from('organization-logos' as any)
+          .upload(filePath, orgLogoImage);
+        
+        if (uploadError) {
+          console.error("Error uploading logo image:", uploadError);
+          toast.warning("Logo image upload failed, but organization will still be created");
+        } else {
+          // Get public URL
+          const { data: urlData } = supabase
+            .storage
+            .from('organization-logos' as any)
+            .getPublicUrl(filePath);
+          
+          orgPayload.logo_image = urlData.publicUrl;
         }
       }
 
       const { data: orgData, error: orgError } = await supabase
         .from("organizations")
-        .insert(orgPayload as any)
+        .insert(orgPayload)
         .select()
         .single() as { data: any; error: any };
 
@@ -231,21 +273,89 @@ export default function OrganizationsPage() {
       await supabase
         .from("organization_members")
         .insert([{
-          organization_id: (orgData as any).id,
+          organization_id: orgData.id,
           user_id: user.id,
           role: "creator",
-        }] as any);
+        }]);
 
       toast.success("Organization registration submitted for approval!");
       setIsRegisterModalOpen(false);
       fetchOrganizations();
       resetForm();
       setOrgBackgroundImage(null);
+      setOrgLogoImage(null);
     } catch (error) {
       console.error("Error registering organization:", error);
       toast.error("Failed to register organization. Please check your registration code.");
     } finally {
       setIsUploadingImage(false);
+    }
+  };
+
+  const handleUpdateOrganization = async () => {
+    if (!user || !editingOrgId) {
+      toast.error("Please log in to update an organization");
+      return;
+    }
+
+    try {
+      setIsEditing(true);
+      
+      const orgPayload: any = {
+        name: editFormData.name,
+        description: editFormData.description,
+        adviser_name: editFormData.adviser_name,
+        club_type: editFormData.club_type,
+        primary_color: editFormData.primary_color,
+        secondary_color: editFormData.secondary_color,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Upload logo image if provided
+      if (editLogoImage) {
+        const fileExt = editLogoImage.name.split('.').pop();
+        const fileName = `${user.id}-org-logo-${Date.now()}.${fileExt}`;
+        const filePath = `organization-logos/${fileName}`;
+        
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase
+          .storage
+          .from('organization-logos' as any)
+          .upload(filePath, editLogoImage);
+        
+        if (uploadError) {
+          console.error("Error uploading logo image:", uploadError);
+          toast.warning("Logo image upload failed, but other changes will still be saved");
+        } else {
+          // Get public URL
+          const { data: urlData } = supabase
+            .storage
+            .from('organization-logos' as any)
+            .getPublicUrl(filePath);
+          
+          orgPayload.logo_image = urlData.publicUrl;
+        }
+      }
+
+      const { error: orgError } = await supabase
+        .from("organizations")
+        .update(orgPayload)
+        .eq("id", editingOrgId);
+
+      if (orgError) {
+        console.error("Organization update error:", orgError);
+        throw orgError;
+      }
+
+      toast.success("Organization updated successfully!");
+      setEditingOrgId(null);
+      fetchOrganizations();
+      setEditLogoImage(null);
+    } catch (error) {
+      console.error("Error updating organization:", error);
+      toast.error("Failed to update organization. Please try again.");
+    } finally {
+      setIsEditing(false);
     }
   };
 
@@ -255,6 +365,8 @@ export default function OrganizationsPage() {
       description: "",
       adviser_name: "",
       club_type: "Academic",
+      primary_color: "#3b82f6",
+      secondary_color: "#1e40af",
     });
     setRegistrationCode("");
   };
@@ -422,7 +534,106 @@ export default function OrganizationsPage() {
                   </div>
                 </div>
 
-                <Button onClick={handleRegisterOrganization} className="w-full" disabled={isUploadingImage || !registrationCode}>
+                {/* Logo Image Upload */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Organization Logo (Optional)</h3>
+                  <div className="flex items-center gap-4">
+                    {orgLogoImage ? (
+                      <div className="relative">
+                        <img
+                          src={URL.createObjectURL(orgLogoImage)}
+                          alt="Logo Preview"
+                          className="w-16 h-16 object-cover rounded-lg border"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                          onClick={() => setOrgLogoImage(null)}
+                          title="Remove logo"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="w-16 h-16 bg-muted rounded-lg border flex items-center justify-center">
+                        <p className="text-xs text-muted-foreground">No logo</p>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <Label htmlFor="logo-image-upload" className="cursor-pointer">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          disabled={isUploadingImage}
+                        >
+                          {isUploadingImage ? "Uploading..." : "Upload Logo Image"}
+                        </Button>
+                        <Input
+                          id="logo-image-upload"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setOrgLogoImage(file);
+                            }
+                          }}
+                        />
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Upload an image that will be used as the logo for your organization (recommended: square format)
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Color Selection */}
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Organization Colors</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="primary-color">Primary Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="primary-color"
+                          type="color"
+                          value={formData.primary_color}
+                          onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
+                          className="w-12 h-10 p-0"
+                        />
+                        <Input
+                          type="text"
+                          value={formData.primary_color}
+                          onChange={(e) => setFormData({ ...formData, primary_color: e.target.value })}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="secondary-color">Secondary Color</Label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          id="secondary-color"
+                          type="color"
+                          value={formData.secondary_color}
+                          onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
+                          className="w-12 h-10 p-0"
+                        />
+                        <Input
+                          type="text"
+                          value={formData.secondary_color}
+                          onChange={(e) => setFormData({ ...formData, secondary_color: e.target.value })}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <Button onClick={handleRegisterOrganization} className="w-full" disabled={isUploadingImage || !registrationCode || !formData.name || !formData.description || !formData.club_type}>
                   {isUploadingImage ? "Processing..." : "Submit for Approval"}
                 </Button>
               </div>
@@ -446,13 +657,44 @@ export default function OrganizationsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredOrganizations.map((org) => {
               const isApproved = org.status === "approved";
+              const isCreator = user?.id === org.creator_id;
+              
               return (
-                <Card key={org.id} className="hover:shadow-md transition-shadow">
+                <Card
+                  key={org.id}
+                  className="hover:shadow-md transition-shadow cursor-pointer"
+                  style={org.primary_color ? {
+                    borderTop: `4px solid ${org.primary_color}`,
+                    boxShadow: `0 0 0 1px ${org.primary_color}20`
+                  } : undefined}
+                >
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <div>
-                        <CardTitle className="text-lg">{org.name}</CardTitle>
-                        <CardDescription className="text-xs mt-1">{org.club_type}</CardDescription>
+                      <div className="flex items-center gap-3">
+                        {org.logo_image && (
+                          <div className="w-12 h-12 rounded-full overflow-hidden border-2" style={org.primary_color ? {
+                            borderColor: org.primary_color
+                          } : undefined}>
+                            <img
+                              src={org.logo_image}
+                              alt={org.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <CardTitle className="text-lg" style={org.primary_color ? {
+                            color: org.primary_color
+                          } : undefined}>
+                            {org.name}
+                          </CardTitle>
+                          <CardDescription className="text-xs mt-1 flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full" style={org.primary_color ? {
+                              backgroundColor: org.primary_color
+                            } : undefined}></span>
+                            {org.club_type}
+                          </CardDescription>
+                        </div>
                       </div>
                       <Badge variant={isApproved ? "default" : "secondary"}>
                         {org.club_type}
@@ -461,7 +703,7 @@ export default function OrganizationsPage() {
                   </CardHeader>
                   <CardContent>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{org.description}</p>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
                       <div className="flex items-center gap-1">
                         <Users className="h-3 w-3" />
                         <span>{org.member_count || 0} members</span>
@@ -509,6 +751,29 @@ export default function OrganizationsPage() {
                         </Badge>
                       </div>
                     )}
+                    {isCreator && org.status === "approved" && (
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1 gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingOrgId(org.id);
+                            setEditFormData({
+                              name: org.name,
+                              description: org.description,
+                              adviser_name: org.adviser_name || "",
+                              club_type: org.club_type,
+                              primary_color: org.primary_color || "#3b82f6",
+                              secondary_color: org.secondary_color || "#1e40af",
+                            });
+                          }}
+                        >
+                          Edit
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               );
@@ -531,6 +796,186 @@ export default function OrganizationsPage() {
             fetchOrganizations();
           }}
         />
+      )}
+
+      {/* Edit Organization Dialog */}
+      {editingOrgId && (
+        <Dialog open={!!editingOrgId} onOpenChange={() => setEditingOrgId(null)}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Organization</DialogTitle>
+              <DialogDescription>
+                Update your organization details and colors.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-org-name">Organization Name *</Label>
+                <Input
+                  id="edit-org-name"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  placeholder="e.g., Computer Science Club"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-org-description">Description *</Label>
+                <Input
+                  id="edit-org-description"
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  placeholder="Brief description of your organization"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-org-adviser">Adviser Name (Optional)</Label>
+                <Input
+                  id="edit-org-adviser"
+                  value={editFormData.adviser_name}
+                  onChange={(e) => setEditFormData({ ...editFormData, adviser_name: e.target.value })}
+                  placeholder="e.g., Mr. Smith"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-org-type">Club Type *</Label>
+                <Select value={editFormData.club_type} onValueChange={(value) => setEditFormData({ ...editFormData, club_type: value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select club type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Academic">Academic</SelectItem>
+                    <SelectItem value="Sports">Sports</SelectItem>
+                    <SelectItem value="Arts">Arts</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Logo Image Upload for Edit */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Update Organization Logo (Optional)</h3>
+                <div className="flex items-center gap-4">
+                  {editLogoImage ? (
+                    <div className="relative">
+                      <img
+                        src={URL.createObjectURL(editLogoImage)}
+                        alt="Logo Preview"
+                        className="w-16 h-16 object-cover rounded-lg border"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute -top-2 -right-2 h-6 w-6 p-0"
+                        onClick={() => setEditLogoImage(null)}
+                        title="Remove logo"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 bg-muted rounded-lg border flex items-center justify-center">
+                      <p className="text-xs text-muted-foreground">No logo</p>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <Label htmlFor="edit-logo-image-upload" className="cursor-pointer">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        disabled={isEditing}
+                      >
+                        {isEditing ? "Uploading..." : "Upload New Logo Image"}
+                      </Button>
+                      <Input
+                        id="edit-logo-image-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setEditLogoImage(file);
+                          }
+                        }}
+                      />
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Upload a new logo image for your organization (recommended: square format)
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Color Selection for Edit */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium">Organization Colors</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-primary-color">Primary Color</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="edit-primary-color"
+                        type="color"
+                        value={editFormData.primary_color}
+                        onChange={(e) => setEditFormData({ ...editFormData, primary_color: e.target.value })}
+                        className="w-12 h-10 p-0"
+                      />
+                      <Input
+                        type="text"
+                        value={editFormData.primary_color}
+                        onChange={(e) => setEditFormData({ ...editFormData, primary_color: e.target.value })}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-secondary-color">Secondary Color</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="edit-secondary-color"
+                        type="color"
+                        value={editFormData.secondary_color}
+                        onChange={(e) => setEditFormData({ ...editFormData, secondary_color: e.target.value })}
+                        className="w-12 h-10 p-0"
+                      />
+                      <Input
+                        type="text"
+                        value={editFormData.secondary_color}
+                        onChange={(e) => setEditFormData({ ...editFormData, secondary_color: e.target.value })}
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setEditingOrgId(null)}
+                  disabled={isEditing}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpdateOrganization}
+                  className="flex-1"
+                  disabled={isEditing || !editFormData.name || !editFormData.description || !editFormData.club_type}
+                >
+                  {isEditing ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

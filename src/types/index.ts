@@ -10,6 +10,9 @@ export interface Organization {
   member_count?: number;
   created_at: string;
   background_image?: string | null;
+  logo_image?: string | null;
+  primary_color?: string | null;
+  secondary_color?: string | null;
   creator?: {
     first_name: string | null;
     last_name: string | null;
