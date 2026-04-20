@@ -369,7 +369,6 @@ const { error: detailsError } = await supabase
     description: editFormData.description,
     adviser_name: editFormData.adviser_name,
     club_type: editFormData.club_type,
-    // Remove primary_color and secondary_color
     updated_at: new Date().toISOString(),
   })
   .eq("id", editingOrgId);
