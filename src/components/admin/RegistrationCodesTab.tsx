@@ -556,11 +556,11 @@ export default function RegistrationCodesTab() {
 
       // Load event member requests
       const { data: requestsData, error: requestsError } = await supabase
-        .from("organization_event_members" as any)
-        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
-        .eq("status", "pending")
-        .in("event_id", (eventsData as any || []).map((e: any) => e.id))
-        .order("created_at", { ascending: false });
+  .from("organization_event_members" as any)  // ✅ Correct table name
+  .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
+  .eq("status", "pending")
+  .in("event_id", (eventsData as any || []).map((e: any) => e.id))
+  .order("created_at", { ascending: false });
 
       if (requestsError) throw requestsError;
 
