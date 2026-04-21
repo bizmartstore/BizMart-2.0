@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X, MessageSquare, Users as UsersIcon } from "lucide-react";
+import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +20,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
-import FreedomWall from "@/components/FreedomWall";
 import { Organization, Member, Event, Transaction, Announcement } from "@/types";
 
 // Add these type definitions after your imports
@@ -88,9 +87,6 @@ export default function OrganizationDashboard() {
   });
   const [orgBackgroundImage, setOrgBackgroundImage] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [backgroundImageFile, setBackgroundImageFile] = useState<File | null>(null);
-  const [textColor, setTextColor] = useState<string>("text-foreground");
-  const [showFreedomWall, setShowFreedomWall] = useState(false);
 
   const checkPendingJoinRequest = useCallback(async () => {
     if (!user || !id) return;
@@ -119,7 +115,6 @@ export default function OrganizationDashboard() {
     deadline: "",
     capacity: 10,
     fee: 0,
-    requires_payment: false,
   });
 
   const [newAnnouncementForm, setNewAnnouncementForm] = useState({
@@ -129,10 +124,6 @@ export default function OrganizationDashboard() {
 
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
-  const [eventJoinRequests, setEventJoinRequests] = useState<any[]>([]);
-  const [isLoadingJoinRequests, setIsLoadingJoinRequests] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [showEventJoinRequests, setShowEventJoinRequests] = useState(false);
 
   useEffect(() => {
     if (user && id) {
@@ -321,7 +312,6 @@ if (!walletData) {
         deadline: newEventForm.deadline,
         capacity: newEventForm.capacity,
         fee: newEventForm.fee,
-        requires_payment: newEventForm.requires_payment,
         status: "upcoming",
         created_by: user.id,
         created_at: new Date().toISOString(),
@@ -337,7 +327,6 @@ if (!walletData) {
       deadline: "",
       capacity: 10,
       fee: 0,
-      requires_payment: false,
     });
   } catch (error) {
     console.error("Error creating event:", error);
@@ -492,31 +481,6 @@ if (!walletData) {
     }
   };
 
-  const fetchEventJoinRequests = async (eventId: string) => {
-    if (!canManageEvents) return;
-    
-    try {
-      setIsLoadingJoinRequests(true);
-      
-      // Get all join requests for this event
-      const { data: joinRequests, error: joinError } = await supabase
-        .from("organization_event_join_requests")
-        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), transaction:transaction_id(*)`)
-        .eq("event_id", eventId)
-        .eq("status", "pending")
-        .order("created_at", { ascending: false });
-
-      if (joinError) throw joinError;
-
-      setEventJoinRequests(joinRequests || []);
-    } catch (error) {
-      console.error("Error fetching join requests:", error);
-      toast.error("Failed to load join requests");
-    } finally {
-      setIsLoadingJoinRequests(false);
-    }
-  };
-
   const canManageMembers = userRole === "creator" || userRole === "officer";
   const isNotMember = userRole !== "member";
   const canManageEvents = userRole === "creator" || userRole === "officer";
@@ -525,48 +489,6 @@ if (!walletData) {
   const canManageOrganization = userRole === "creator";
   const isRegularMember = userRole === "member";
   const isMemberOrAbove = userRole === "member" || userRole === "officer" || userRole === "creator";
-  const canAccessFreedomWall = userRole === "creator" || userRole === "officer" || userRole === "member";
-
-  // Calculate text color based on background brightness
-  const calculateImageBrightness = async (imageUrl: string): Promise<number> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.src = imageUrl;
-      
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          let totalBrightness = 0;
-          let pixelCount = 0;
-          
-          for (let i = 0; i < imageData.data.length; i += 4) {
-            const r = imageData.data[i];
-            const g = imageData.data[i + 1];
-            const b = imageData.data[i + 2];
-            // Calculate brightness using luminance formula
-            const brightness = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-            totalBrightness += brightness;
-            pixelCount++;
-          }
-          
-          const avgBrightness = totalBrightness / pixelCount;
-          resolve(avgBrightness);
-        } else {
-          resolve(128); // Default brightness if canvas fails
-        }
-      };
-      
-      img.onerror = () => {
-        resolve(128); // Default brightness if image fails to load
-      };
-    });
-  };
 
   if (isLoading) {
     return (
@@ -616,7 +538,7 @@ if (!walletData) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="w-full grid grid-cols-5 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
+          <TabsList className="w-full grid grid-cols-4 h-auto mb-6 bg-muted/50 p-1 rounded-xl">
             <TabsTrigger value="overview" className="flex flex-col items-center gap-1 text-[10px] font-medium">
               <span className="text-lg">📊</span>
               <span className="hidden sm:inline">Overview</span>
@@ -629,12 +551,6 @@ if (!walletData) {
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Events</span>
             </TabsTrigger>
-            {canAccessFreedomWall && (
-              <TabsTrigger value="freedom-wall" className="flex flex-col items-center gap-1 text-[10px] font-medium">
-                <MessageSquare className="h-4 w-4" />
-                <span className="hidden sm:inline">Freedom Wall</span>
-              </TabsTrigger>
-            )}
             {!isRegularMember && (
               <TabsTrigger value="wallet" className="flex flex-col items-center gap-1 text-[10px] font-medium">
                 <Wallet className="h-4 w-4" />
@@ -822,45 +738,28 @@ if (!walletData) {
                           onChange={(e) => setNewEventForm({ ...newEventForm, deadline: e.target.value })}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="event-capacity">Capacity</Label>
-                        <Input
-                          id="event-capacity"
-                          type="number"
-                          value={newEventForm.capacity}
-                          onChange={(e) => setNewEventForm({ ...newEventForm, capacity: parseInt(e.target.value) || 0 })}
-                          min="1"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="event-fee">Event Fee (₱)</Label>
-                        <Input
-                          id="event-fee"
-                          type="number"
-                          value={newEventForm.fee}
-                          onChange={(e) => setNewEventForm({ ...newEventForm, fee: parseFloat(e.target.value) || 0 })}
-                          min="0"
-                          step="0.01"
-                          disabled={!newEventForm.requires_payment}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="event-requires-payment">Requires Payment to Join</Label>
-                        <Select
-                          value={newEventForm.requires_payment ? "true" : "false"}
-                          onValueChange={(value) => setNewEventForm({ ...newEventForm, requires_payment: value === "true" })}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select payment requirement" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="false">No payment required</SelectItem>
-                            <SelectItem value="true">Payment required</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground">
-                          If enabled, members must pay the event fee before joining
-                        </p>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="event-capacity">Capacity</Label>
+                          <Input
+                            id="event-capacity"
+                            type="number"
+                            value={newEventForm.capacity}
+                            onChange={(e) => setNewEventForm({ ...newEventForm, capacity: parseInt(e.target.value) || 0 })}
+                            min="1"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="event-fee">Fee (₱)</Label>
+                          <Input
+                            id="event-fee"
+                            type="number"
+                            value={newEventForm.fee}
+                            onChange={(e) => setNewEventForm({ ...newEventForm, fee: parseFloat(e.target.value) || 0 })}
+                            min="0"
+                            step="0.01"
+                          />
+                        </div>
                       </div>
                       <Button onClick={handleCreateEvent} className="w-full">
                         Create Event
@@ -911,12 +810,6 @@ if (!walletData) {
                         <DollarSign className="h-3 w-3" />
                         <span>Status: {event.status}</span>
                       </div>
-                      {event.requires_payment && (
-                        <div className="flex items-center gap-1 col-span-2">
-                          <AlertCircle className="h-3 w-3 text-yellow-500" />
-                          <span className="text-yellow-600 font-medium">Payment Required to Join</span>
-                        </div>
-                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -1152,182 +1045,6 @@ if (!walletData) {
             </div>
           </TabsContent>
 
-          {/* Freedom Wall Tab */}
-          {canAccessFreedomWall && (
-            <TabsContent value="freedom-wall">
-              <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-purple-50">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5" /> Freedom Wall
-                      </CardTitle>
-                      <CardDescription>
-                        Share messages, post announcements, and connect with members
-                      </CardDescription>
-                    </div>
-                    {canManageOrganization && (
-                      <Button
-                        size="sm"
-                        variant={showFreedomWall ? "default" : "outline"}
-                        onClick={() => setShowFreedomWall(!showFreedomWall)}
-                      >
-                        {showFreedomWall ? "Hide Wall" : "Show Wall"}
-                      </Button>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {showFreedomWall ? (
-                    <FreedomWall
-                      organizationId={organization.id}
-                      userRole={userRole}
-                    />
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-muted-foreground mb-4">Freedom Wall is currently hidden</p>
-                      <Button
-                        onClick={() => setShowFreedomWall(true)}
-                        size="sm"
-                      >
-                        Show Freedom Wall
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </TabsContent>
-          )}
-
-          {/* Event Join Requests Modal */}
-          <Dialog open={showEventJoinRequests} onOpenChange={setShowEventJoinRequests}>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Event Join Requests - {selectedEvent?.name}</DialogTitle>
-                <DialogDescription>
-                  Manage join requests for this event
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                {isLoadingJoinRequests ? (
-                  <div className="flex justify-center py-4">
-                    <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full" />
-                  </div>
-                ) : eventJoinRequests.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-4">No join requests for this event</p>
-                ) : (
-                  <div className="space-y-3">
-                    {eventJoinRequests.map((request) => (
-                      <Card key={request.id} className="hover:shadow-md transition-shadow">
-                        <CardContent className="pt-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3 mb-2">
-                                <Avatar className="h-10 w-10">
-                                  <AvatarFallback>
-                                    {request.profiles?.first_name?.charAt(0) || "U"}{request.profiles?.last_name?.charAt(0) || ""}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-medium">
-                                    {request.profiles?.first_name} {request.profiles?.last_name}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">{request.profiles?.email}</p>
-                                  {request.reference_number && (
-                                    <p className="text-xs text-muted-foreground">
-                                      <strong>Reference:</strong> {request.reference_number}
-                                    </p>
-                                  )}
-                                  <p className="text-xs text-muted-foreground">
-                                    <strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}
-                                  </p>
-                                </div>
-                              </div>
-                              {request.transaction && (
-                                <div className="mt-2 p-2 bg-muted/20 rounded-lg">
-                                  <p className="text-sm font-medium">Payment Status:</p>
-                                  <Badge variant={request.transaction.status === "approved" ? "default" : request.transaction.status === "pending" ? "secondary" : "destructive"}>
-                                    {request.transaction.status}
-                                  </Badge>
-                                  {request.transaction.amount > 0 && (
-                                    <p className="text-sm font-medium mt-1">
-                                      Amount: ₱{request.transaction.amount.toFixed(2)}
-                                    </p>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex gap-2 ml-4">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={async () => {
-                                  try {
-                                    // Approve join request
-                                    await supabase
-                                      .from("organization_members")
-                                      .update({ status: "active" })
-                                      .eq("id", request.id);
-
-                                    // Approve transaction if exists
-                                    if (request.transaction_id) {
-                                      await supabase
-                                        .from("organization_transactions")
-                                        .update({ status: "approved" })
-                                        .eq("id", request.transaction_id);
-                                    }
-
-                                    toast.success("Join request approved!");
-                                    fetchEventJoinRequests(selectedEvent?.id || "");
-                                  } catch (error) {
-                                    console.error("Error approving request:", error);
-                                    toast.error("Failed to approve request");
-                                  }
-                                }}
-                              >
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive"
-                                onClick={async () => {
-                                  try {
-                                    // Reject join request
-                                    await supabase
-                                      .from("organization_members")
-                                      .update({ status: "rejected" })
-                                      .eq("id", request.id);
-
-                                    // Reject transaction if exists
-                                    if (request.transaction_id) {
-                                      await supabase
-                                        .from("organization_transactions")
-                                        .update({ status: "rejected" })
-                                        .eq("id", request.transaction_id);
-                                    }
-
-                                    toast.success("Join request rejected!");
-                                    fetchEventJoinRequests(selectedEvent?.id || "");
-                                  } catch (error) {
-                                    console.error("Error rejecting request:", error);
-                                    toast.error("Failed to reject request");
-                                  }
-                                }}
-                              >
-                                Reject
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </DialogContent>
-          </Dialog>
-
           {/* Settings Tab - Only for creators */}
           {canManageOrganization && (
             <TabsContent value="settings">
@@ -1401,7 +1118,6 @@ if (!walletData) {
                                 
                                 try {
                                   setIsUploadingImage(true);
-                                  setBackgroundImageFile(file);
                                   
                                   // Upload to Supabase storage
                                   const fileExt = file.name.split('.').pop();
@@ -1430,19 +1146,12 @@ if (!walletData) {
                                   if (updateError) throw updateError;
                                   
                                   setOrgBackgroundImage(urlData.publicUrl);
-                                  
-                                  // Calculate text color based on background brightness
-                                  const brightness = await calculateImageBrightness(urlData.publicUrl);
-                                  const color = brightness > 128 ? "text-black" : "text-white";
-                                  setTextColor(color);
-                                  
                                   toast.success("Background image uploaded successfully!");
                                 } catch (error) {
                                   console.error("Error uploading background image:", error);
                                   toast.error("Failed to upload background image");
                                 } finally {
                                   setIsUploadingImage(false);
-                                  setBackgroundImageFile(null);
                                 }
                               }}
                             />
