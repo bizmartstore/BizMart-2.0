@@ -140,7 +140,6 @@ export default function RegistrationCodesTab() {
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [activeWalletTab, setActiveWalletTab] = useState("pending");
   const [eventJoinRequests, setEventJoinRequests] = useState<EventJoinRequest[]>([]);
-  const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [activeEventTab, setActiveEventTab] = useState("pending");
   const navigate = useNavigate();
 
@@ -992,7 +991,7 @@ export default function RegistrationCodesTab() {
                                       const { error: memberError } = await (supabase as any)
                                         .from("organization_members")
                                         .insert([{
-                                          organization_id: request.organization_id,
+                                          organization_id: request.events?.organization_id,
                                           user_id: request.user_id,
                                           role: "member",
                                           status: "active",
@@ -1039,7 +1038,7 @@ export default function RegistrationCodesTab() {
                               size="sm"
                               variant="outline"
                               className="h-8 w-8 p-0"
-                              onClick={() => navigate(`/organizations/${request.organization_id}`)}
+                              onClick={() => navigate(`/organizations/${request.events?.organization_id}`)}
                               title="View organization"
                             >
                               <Eye className="h-4 w-4" />

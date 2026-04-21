@@ -50,7 +50,7 @@ export interface Event {
   status: 'upcoming' | 'ongoing' | 'completed';
   created_by: string;
   created_at: string;
-  requires_payment: boolean;
+  requires_payment?: boolean;
   payment_instructions?: string;
 }
 
