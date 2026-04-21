@@ -135,9 +135,9 @@ export default function RegistrationCodesTab() {
   const [transactions, setTransactions] = useState<OrganizationTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [activeWalletTab, setActiveWalletTab] = useState("pending");
-  const [selectedOrgForDetails, setSelectedOrgForDetails] = useState<ApprovedOrganization | null>(null);
+  const [selectedOrgForDetails, setSelectedOrgForDetails] = useState<any>(null);
   const [orgEvents, setOrgEvents] = useState<any[]>([]);
-  const [eventMemberRequests, setEventMemberRequests] = useState<EventMemberRequest[]>([]);
+  const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
   const navigate = useNavigate();
 
@@ -556,11 +556,11 @@ export default function RegistrationCodesTab() {
 
       // Load event member requests
       const { data: requestsData, error: requestsError } = await supabase
-        .from("event_members" as any)
+        .from("organization_event_members" as any)
         .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
         .eq("status", "pending")
         .in("event_id", (eventsData as any || []).map((e: any) => e.id))
-        .order("joined_at", { ascending: false });
+        .order("created_at", { ascending: false });
 
       if (requestsError) throw requestsError;
 
@@ -584,12 +584,12 @@ export default function RegistrationCodesTab() {
   // Approve event member request
   const approveEventMemberRequest = async (requestId: string) => {
     try {
-      const request = eventMemberRequests.find(r => r.id === requestId);
+      const request = eventMemberRequests.find((r: any) => r.id === requestId);
       if (!request) return;
 
       // Update event member status to approved
       const { error } = await supabase
-        .from("event_members" as any)
+        .from("organization_event_members" as any)
         .update({
           status: "approved",
         })
@@ -612,7 +612,7 @@ export default function RegistrationCodesTab() {
         const { error: transactionError } = await supabase
           .from("organization_transactions" as any)
           .insert([{
-            organization_id: selectedOrgForDetails?.id,
+            organization_id: (selectedOrgForDetails as any)?.id,
             user_id: request.user_id,
             type: "deposit",
             amount: request.events.fee,
@@ -626,7 +626,7 @@ export default function RegistrationCodesTab() {
       }
 
       toast.success("Member approved successfully!");
-      loadOrganizationDetails(selectedOrgForDetails?.id || "");
+      loadOrganizationDetails((selectedOrgForDetails as any)?.id || "");
     } catch (error) {
       console.error("Error approving event member request:", error);
       toast.error("Failed to approve member request");
@@ -637,7 +637,7 @@ export default function RegistrationCodesTab() {
   const rejectEventMemberRequest = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from("event_members" as any)
+        .from("organization_event_members" as any)
         .update({
           status: "rejected",
         })
@@ -646,7 +646,7 @@ export default function RegistrationCodesTab() {
       if (error) throw error;
 
       toast.success("Member request rejected successfully!");
-      loadOrganizationDetails(selectedOrgForDetails?.id || "");
+      loadOrganizationDetails((selectedOrgForDetails as any)?.id || "");
     } catch (error) {
       console.error("Error rejecting event member request:", error);
       toast.error("Failed to reject member request");
@@ -781,7 +781,7 @@ export default function RegistrationCodesTab() {
           setEventMemberRequests([]);
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{selectedOrgForDetails?.name} - Organization Details</DialogTitle>
             <DialogDescription>
