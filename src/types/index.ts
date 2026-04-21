@@ -50,29 +50,6 @@ export interface Event {
   status: 'upcoming' | 'ongoing' | 'completed';
   created_by: string;
   created_at: string;
-  requires_payment?: boolean;
-  payment_instructions?: string;
-}
-
-// Event Join Request types
-export interface EventJoinRequest {
-  id: string;
-  event_id: string;
-  user_id: string;
-  status: 'pending' | 'approved' | 'rejected';
-  payment_proof?: string | null;
-  created_at: string;
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-    avatar_url: string | null;
-  };
-  events?: {
-    name: string;
-    fee: number;
-    requires_payment: boolean;
-  };
 }
 
 // Transaction types

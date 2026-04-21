@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X, MessageCircle, Check } from "lucide-react";
+import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +20,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
-import { Organization, Member, Event, Transaction, Announcement, EventJoinRequest } from "@/types";
+import { Organization, Member, Event, Transaction, Announcement } from "@/types";
 
 // Add these type definitions after your imports
 interface OrganizationMemberInsert {
@@ -66,7 +66,6 @@ export default function OrganizationDashboard() {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [eventJoinRequests, setEventJoinRequests] = useState<EventJoinRequest[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -88,54 +87,6 @@ export default function OrganizationDashboard() {
   });
   const [orgBackgroundImage, setOrgBackgroundImage] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [backgroundTextColor, setBackgroundTextColor] = useState<string>("text-white");
-
-  // Function to calculate text color based on background brightness
-  const calculateTextColor = (imageUrl: string) => {
-    // Create a temporary canvas to calculate brightness
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    
-    img.crossOrigin = 'Anonymous';
-    img.src = imageUrl;
-    
-    img.onload = () => {
-      canvas.width = 100;
-      canvas.height = 100;
-      ctx?.drawImage(img, 0, 0, 100, 100);
-      
-      // Get pixel data
-      const imageData = ctx?.getImageData(0, 0, 100, 100).data;
-      if (imageData) {
-        let brightness = 0;
-        let pixels = 0;
-        
-        // Calculate average brightness
-        for (let i = 0; i < imageData.length; i += 4) {
-          const r = imageData[i];
-          const g = imageData[i + 1];
-          const b = imageData[i + 2];
-          brightness += (r * 299 + g * 587 + b * 114) / 1000;
-          pixels++;
-        }
-        
-        brightness = brightness / pixels;
-        
-        // Set text color based on brightness
-        if (brightness > 128) {
-          setBackgroundTextColor("text-black");
-        } else {
-          setBackgroundTextColor("text-white");
-        }
-      }
-    };
-    
-    img.onerror = () => {
-      // If image fails to load, default to white text
-      setBackgroundTextColor("text-white");
-    };
-  };
 
   const checkPendingJoinRequest = useCallback(async () => {
     if (!user || !id) return;
@@ -173,8 +124,6 @@ export default function OrganizationDashboard() {
 
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
-  const [eventJoinRequestToApprove, setEventJoinRequestToApprove] = useState<string | null>(null);
-  const [eventJoinRequestToReject, setEventJoinRequestToReject] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && id) {
@@ -259,25 +208,9 @@ if (!walletData) {
       .order("created_at", { ascending: false });
 
     setEvents((eventsData || []).map(e => ({
-      ...e,
-      status: e.status as "upcoming" | "ongoing" | "completed",
-      requires_payment: e.requires_payment || false,
-      payment_instructions: e.payment_instructions || undefined,
-    })) as Event[]);
-
-    // 5.1 Event Join Requests (for creators and officers)
-    if (canManageEvents) {
-      const { data: joinRequestsData } = await supabase
-        .from("event_join_requests")
-        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee, requires_payment)`)
-        .eq("organization_id", id)
-        .order("created_at", { ascending: false });
-
-      setEventJoinRequests((joinRequestsData || []).map(req => ({
-        ...req,
-        status: req.status as "pending" | "approved" | "rejected",
-      })) as EventJoinRequest[]);
-    }
+  ...e,
+  status: e.status as "upcoming" | "ongoing" | "completed"
+})) as Event[]);
 
     // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
@@ -309,37 +242,28 @@ if (!walletData) {
     setAnnouncements(announcementsData || []);
 
     // 8. Membership check
-      if (user && id) {
-        const { data, error } = await supabase
-          .from("organization_members")
-          .select("role, status")
-          .eq("organization_id", id)
-          .eq("user_id", user.id)
-          .maybeSingle();
-  
-        if (error) {
-          console.error("Error fetching member data:", error);
-        }
-  
-        const memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
-  
-        if (memberData?.role && memberData.status === "active") {
-          setIsMember(true);
-          setUserRole(memberData.role);
-        } else {
-          setIsMember(false);
-          setUserRole(null);
-        }
+    if (user && id) {
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("role, status")
+        .eq("organization_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching member data:", error);
       }
-  
-      // Load background image and calculate text color
-        if (organization?.background_image) {
-          setOrgBackgroundImage(organization.background_image);
-          calculateTextColor(organization.background_image);
-        } else {
-          // Default text color when no background image
-          setBackgroundTextColor("text-white");
-        }
+
+      const memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
+
+      if (memberData?.role && memberData.status === "active") {
+        setIsMember(true);
+        setUserRole(memberData.role);
+      } else {
+        setIsMember(false);
+        setUserRole(null);
+      }
+    }
   } catch (error) {
     console.error("Error fetching organization data:", error);
     toast.error("Failed to load organization data");
@@ -391,8 +315,6 @@ if (!walletData) {
         status: "upcoming",
         created_by: user.id,
         created_at: new Date().toISOString(),
-        requires_payment: newEventForm.fee > 0,
-        payment_instructions: newEventForm.fee > 0 ? "Please pay the event fee at the BizMart Store Office before your request can be approved." : undefined,
       }]);
 
     if (error) throw error;
@@ -559,66 +481,6 @@ if (!walletData) {
     }
   };
 
-  const handleApproveJoinRequest = async () => {
-    if (!eventJoinRequestToApprove) return;
-
-    try {
-      const request = eventJoinRequests.find(req => req.id === eventJoinRequestToApprove);
-      if (!request) throw new Error("Request not found");
-
-      const { error } = await supabase
-        .from("event_join_requests")
-        .update({ status: "approved" })
-        .eq("id", eventJoinRequestToApprove);
-
-      if (error) throw error;
-
-      // Add user to organization members if not already a member
-      const { data: existingMember } = await supabase
-        .from("organization_members")
-        .select("*")
-        .eq("organization_id", organization?.id)
-        .eq("user_id", request.user_id)
-        .maybeSingle();
-
-      if (!existingMember) {
-        await (supabase.from("organization_members") as any).insert([{
-          organization_id: organization?.id,
-          user_id: request.user_id,
-          role: "member",
-          status: "active",
-        }]);
-      }
-
-      toast.success("Join request approved successfully!");
-      fetchOrganizationData();
-      setEventJoinRequestToApprove(null);
-    } catch (error) {
-      console.error("Error approving join request:", error);
-      toast.error("Failed to approve join request");
-    }
-  };
-
-  const handleRejectJoinRequest = async () => {
-    if (!eventJoinRequestToReject) return;
-
-    try {
-      const { error } = await supabase
-        .from("event_join_requests")
-        .update({ status: "rejected" })
-        .eq("id", eventJoinRequestToReject);
-
-      if (error) throw error;
-
-      toast.success("Join request rejected successfully!");
-      fetchOrganizationData();
-      setEventJoinRequestToReject(null);
-    } catch (error) {
-      console.error("Error rejecting join request:", error);
-      toast.error("Failed to reject join request");
-    }
-  };
-
   const canManageMembers = userRole === "creator" || userRole === "officer";
   const isNotMember = userRole !== "member";
   const canManageEvents = userRole === "creator" || userRole === "officer";
@@ -627,7 +489,6 @@ if (!walletData) {
   const canManageOrganization = userRole === "creator";
   const isRegularMember = userRole === "member";
   const isMemberOrAbove = userRole === "member" || userRole === "officer" || userRole === "creator";
-  const isOfficerOrAbove = userRole === "officer" || userRole === "creator";
 
   if (isLoading) {
     return (
@@ -690,10 +551,6 @@ if (!walletData) {
               <Calendar className="h-4 w-4" />
               <span className="hidden sm:inline">Events</span>
             </TabsTrigger>
-            <TabsTrigger value="freedom-wall" className="flex flex-col items-center gap-1 text-[10px] font-medium">
-              <MessageCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Freedom Wall</span>
-            </TabsTrigger>
             {!isRegularMember && (
               <TabsTrigger value="wallet" className="flex flex-col items-center gap-1 text-[10px] font-medium">
                 <Wallet className="h-4 w-4" />
@@ -715,12 +572,12 @@ if (!walletData) {
           {/* Overview Tab */}
           <TabsContent value="overview">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-              <Card className={"bg-card " + backgroundTextColor}>
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Organization Info</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm mb-2">{organization.description}</p>
+                  <p className="text-sm text-muted-foreground mb-2">{organization.description}</p>
                   <div className="space-y-2 text-xs">
                     <div className="flex justify-between">
                       <span>Type:</span>
@@ -745,7 +602,7 @@ if (!walletData) {
                   </div>
                 </CardContent>
               </Card>
-              <Card className={"bg-card " + backgroundTextColor}>
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Recent Announcements</CardTitle>
                 </CardHeader>
@@ -756,10 +613,10 @@ if (!walletData) {
                       <p className="text-xs text-muted-foreground line-clamp-2">{announcement.content}</p>
                     </div>
                   ))}
-                  {announcements.length === 0 && <p className="text-xs">No announcements yet</p>}
+                  {announcements.length === 0 && <p className="text-xs text-muted-foreground">No announcements yet</p>}
                 </CardContent>
               </Card>
-              <Card className={"bg-card " + backgroundTextColor}>
+              <Card>
                 <CardHeader>
                   <CardTitle className="text-sm font-medium">Upcoming Events</CardTitle>
                 </CardHeader>
@@ -770,19 +627,13 @@ if (!walletData) {
                     .map((event) => (
                       <div key={event.id} className="border-b pb-2 last:border-0">
                         <h4 className="font-medium text-sm">{event.name}</h4>
-                        <p className="text-xs">Deadline: {event.deadline ? new Date(event.deadline).toLocaleDateString() : "N/A"}</p>
-                        {event.fee > 0 && <p className="text-xs font-medium text-green-600">Fee: ₱{event.fee.toFixed(2)}</p>}
+                        <p className="text-xs text-muted-foreground">Deadline: {event.deadline ? new Date(event.deadline).toLocaleDateString() : "N/A"}</p>
                       </div>
                     ))}
-                  {events.filter((event) => event.status === "upcoming").length === 0 && <p className="text-xs">No upcoming events</p>}
+                  {events.filter((event) => event.status === "upcoming").length === 0 && <p className="text-xs text-muted-foreground">No upcoming events</p>}
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
-
-          {/* Freedom Wall Tab */}
-          <TabsContent value="freedom-wall">
-            <FreedomWall organizationId={organization.id} userRole={userRole} />
           </TabsContent>
 
           {/* Members Tab */}
@@ -907,28 +758,7 @@ if (!walletData) {
                             onChange={(e) => setNewEventForm({ ...newEventForm, fee: parseFloat(e.target.value) || 0 })}
                             min="0"
                             step="0.01"
-                            placeholder="0 for free events"
                           />
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Payment Requirements</Label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="requires-payment"
-                            checked={newEventForm.fee > 0}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setNewEventForm({
-                                ...newEventForm,
-                                fee: checked ? 100 : 0
-                              });
-                            }}
-                          />
-                          <Label htmlFor="requires-payment" className="text-sm">
-                            Require payment for this event
-                          </Label>
                         </div>
                       </div>
                       <Button onClick={handleCreateEvent} className="w-full">
@@ -962,7 +792,7 @@ if (!walletData) {
                     </div>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-sm mb-3">{event.description}</p>
+                    <p className="text-sm text-muted-foreground mb-3">{event.description}</p>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                       <div className="flex items-center gap-1">
                         <Calendar className="h-3 w-3" />
@@ -981,189 +811,12 @@ if (!walletData) {
                         <span>Status: {event.status}</span>
                       </div>
                     </div>
-                    {event.requires_payment && event.payment_instructions && (
-                      <p className="text-xs text-muted-foreground mt-2 text-green-600">
-                        <strong>Payment Required:</strong> {event.payment_instructions}
-                      </p>
-                    )}
-                    {canManageEvents && eventJoinRequests.filter(req => req.event_id === event.id && req.status === "pending").length > 0 && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-3 gap-2"
-                        onClick={() => {
-                          // Scroll to join requests section
-                          document.getElementById('event-join-requests')?.scrollIntoView({ behavior: 'smooth' });
-                        }}
-                      >
-                        <Users className="h-4 w-4" />
-                        View Join Requests ({eventJoinRequests.filter(req => req.event_id === event.id && req.status === "pending").length})
-                      </Button>
-                    )}
                   </CardContent>
                 </Card>
               ))}
               {events.length === 0 && <p className="text-muted-foreground text-sm">No events yet</p>}
             </div>
-
-            {/* Event Join Requests Section - Only for creators and officers */}
-            {canManageEvents && eventJoinRequests.length > 0 && (
-              <div id="event-join-requests" className="mt-8">
-                <h2 className="text-lg font-bold mb-4">Event Join Requests</h2>
-                <div className="space-y-3">
-                  {eventJoinRequests.map((request) => (
-                    <Card key={request.id}>
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <CardTitle className="text-sm">
-                              {request.profiles?.first_name} {request.profiles?.last_name}
-                            </CardTitle>
-                            <CardDescription className="text-xs">
-                              Requested: {new Date(request.created_at).toLocaleString()}
-                            </CardDescription>
-                          </div>
-                          <Badge variant={request.status === "pending" ? "default" : request.status === "approved" ? "secondary" : "destructive"}>
-                            {request.status}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-2 text-sm">
-                          <p><strong>Event:</strong> {request.events?.name}</p>
-                          <p><strong>Fee:</strong> ₱{request.events?.fee.toFixed(2)}</p>
-                          {request.events?.requires_payment && (
-                            <p className="text-green-600 font-medium">
-                              <strong>Payment Required:</strong> {request.events?.fee > 0 ? "Yes - Pay at BizMart Store Office" : "No"}
-                            </p>
-                          )}
-                          <p className="text-sm mt-2"><strong>Message:</strong></p>
-                          <p className="text-sm text-muted-foreground">{request.events?.description}</p>
-                        </div>
-                        <div className="flex gap-2 mt-4">
-                          {request.status === "pending" && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="gap-2 flex-1"
-                                onClick={() => {
-                                  setEventJoinRequestToApprove(request.id);
-                                }}
-                              >
-                                <Check className="h-4 w-4" /> Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="gap-2 flex-1"
-                                onClick={() => {
-                                  setEventJoinRequestToReject(request.id);
-                                }}
-                              >
-                                <X className="h-4 w-4" /> Reject
-                              </Button>
-                            </>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-            )}
           </TabsContent>
-
-          {/* Join Event Button - For all members */}
-          {isMemberOrAbove && (
-            <div className="mb-4">
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="gap-2">
-                    <UserPlus className="h-4 w-4" /> Join Event
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Join Event</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <p className="text-sm text-muted-foreground">
-                      Select an event you want to join. {isRegularMember ? "Your request will be reviewed by organization officers." : "You can join directly as an officer/creator."}
-                    </p>
-                    <div className="space-y-2">
-                      <Label>Available Events</Label>
-                      <div className="space-y-2 max-h-40 overflow-y-auto">
-                        {events
-                          .filter(event => event.status === "upcoming")
-                          .map((event) => (
-                            <Card key={event.id} className="p-3">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <h4 className="font-medium">{event.name}</h4>
-                                  <p className="text-xs text-muted-foreground">
-                                    Capacity: {event.capacity} • Fee: ₱{event.fee.toFixed(2)}
-                                  </p>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  onClick={async () => {
-                                    if (isRegularMember) {
-                                      // Create join request
-                                      try {
-                                        const { error } = await supabase
-                                          .from("event_join_requests")
-                                          .insert([{
-                                            event_id: event.id,
-                                            user_id: user.id,
-                                            organization_id: organization.id,
-                                            status: "pending",
-                                            created_at: new Date().toISOString(),
-                                          }]);
-
-                                        if (error) throw error;
-
-                                        toast.success("Join request submitted! Waiting for approval.");
-                                      } catch (error) {
-                                        console.error("Error creating join request:", error);
-                                        toast.error("Failed to submit join request");
-                                      }
-                                    } else {
-                                      // Add directly as member
-                                      try {
-                                        const { error } = await (supabase.from("organization_members") as any).insert([{
-                                          organization_id: organization.id,
-                                          user_id: user.id,
-                                          role: "member",
-                                          status: "active",
-                                        }]);
-
-                                        if (error) throw error;
-
-                                        toast.success("Successfully joined the event!");
-                                      } catch (error) {
-                                        console.error("Error joining event:", error);
-                                        toast.error("Failed to join event");
-                                      }
-                                    }
-                                  }}
-                                >
-                                  {isRegularMember ? "Request to Join" : "Join Now"}
-                                </Button>
-                              </div>
-                              {event.requires_payment && event.payment_instructions && (
-                                <p className="text-xs text-green-600 mt-2">
-                                  {event.payment_instructions}
-                                </p>
-                              )}
-                            </Card>
-                          ))}
-                      </div>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-            </div>
-          )
 
           {/* Wallet Tab - Only for creators and officers */}
           {canManageWallet && (

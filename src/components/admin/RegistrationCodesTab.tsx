@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard, MessageSquare, Users as UsersIcon } from "lucide-react";
+import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -96,30 +96,6 @@ interface OrganizationTransaction {
   };
 }
 
-interface EventJoinRequest {
-  id: string;
-  event_id: string;
-  user_id: string;
-  status: 'pending' | 'approved' | 'rejected';
-  payment_proof?: string | null;
-  created_at: string;
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-    email: string | null;
-    avatar_url: string | null;
-  };
-  events?: {
-    name: string;
-    fee: number;
-    requires_payment: boolean;
-    organization_id: string;
-  };
-  organizations?: {
-    name: string;
-  };
-}
-
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -139,8 +115,6 @@ export default function RegistrationCodesTab() {
   const [transactions, setTransactions] = useState<OrganizationTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [activeWalletTab, setActiveWalletTab] = useState("pending");
-  const [eventJoinRequests, setEventJoinRequests] = useState<EventJoinRequest[]>([]);
-  const [activeEventTab, setActiveEventTab] = useState("pending");
   const navigate = useNavigate();
 
   // Load all data
@@ -150,7 +124,6 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadApprovedOrganizations();
     loadTransactions();
-    loadEventJoinRequests();
   }, []);
 
   // Load registration codes
@@ -279,28 +252,6 @@ export default function RegistrationCodesTab() {
       toast.error("Failed to load transactions");
     } finally {
       setIsLoadingTransactions(false);
-    }
-  };
-
-  // Load event join requests
-  const loadEventJoinRequests = async () => {
-    try {
-      setIsLoadingRequests(true);
-      
-      const { data, error } = await (supabase as any)
-        .from("event_join_requests")
-        .select(`*, profiles!user_id(first_name, last_name, email, avatar_url), events!event_join_requests_event_id_fkey(name, fee, requires_payment, organization_id), organizations!event_join_requests_organization_id_fkey(name)`)
-        .order("created_at", { ascending: false });
-
-      if (error && error.code !== 'PGRST205') {
-        throw error;
-      }
-
-      setEventJoinRequests((data as EventJoinRequest[]) || []);
-    } catch (error) {
-      console.error("Error loading event join requests:", error);
-    } finally {
-      setIsLoadingRequests(false);
     }
   };
 
@@ -873,184 +824,6 @@ export default function RegistrationCodesTab() {
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
-
-      {/* Event Join Requests Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">Event Join Requests</CardTitle>
-              <CardDescription>Approve or reject requests to join organization events</CardDescription>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex gap-2 mb-4">
-              <Button
-                variant={activeEventTab === "pending" ? "default" : "outline"}
-                size="sm"
-                className="flex-1 gap-2"
-                onClick={() => setActiveEventTab("pending")}
-              >
-                <CheckCircle className="h-4 w-4" /> Pending ({eventJoinRequests.filter(req => req.status === "pending").length})
-              </Button>
-              <Button
-                variant={activeEventTab === "approved" ? "default" : "outline"}
-                size="sm"
-                className="flex-1 gap-2"
-                onClick={() => setActiveEventTab("approved")}
-              >
-                <Check className="h-4 w-4" /> Approved
-              </Button>
-              <Button
-                variant={activeEventTab === "rejected" ? "default" : "outline"}
-                size="sm"
-                className="flex-1 gap-2"
-                onClick={() => setActiveEventTab("rejected")}
-              >
-                <X className="h-4 w-4" /> Rejected
-              </Button>
-            </div>
-
-            {isLoadingRequests ? (
-              <div className="flex justify-center items-center py-8">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-              </div>
-            ) : eventJoinRequests.filter(req => {
-              if (activeEventTab === "pending") return req.status === "pending";
-              if (activeEventTab === "approved") return req.status === "approved";
-              if (activeEventTab === "rejected") return req.status === "rejected";
-              return true;
-            }).length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">No event join requests found</p>
-            ) : (
-              <div className="space-y-3">
-                {eventJoinRequests
-                  .filter(req => {
-                    if (activeEventTab === "pending") return req.status === "pending";
-                    if (activeEventTab === "approved") return req.status === "approved";
-                    if (activeEventTab === "rejected") return req.status === "rejected";
-                    return true;
-                  })
-                  .map((request) => (
-                    <Card key={request.id} className={"hover:shadow-md transition-shadow".concat(
-                      request.status === "pending" ? " border-2 border-yellow-200" :
-                      request.status === "approved" ? " border-2 border-green-200" :
-                      " border-2 border-red-200"
-                    )}>
-                      <CardContent className="pt-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>
-                                  {request.profiles?.first_name?.charAt(0) || "U"}{request.profiles?.last_name?.charAt(0) || ""}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-sm">
-                                  {request.profiles?.first_name} {request.profiles?.last_name}
-                                  <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${request.status === "pending" ? "bg-yellow-100 text-yellow-800" : request.status === "approved" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                                    {request.status}
-                                  </span>
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Event:</strong> {request.events?.name || "N/A"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Organization:</strong> {request.organizations?.name || request.events?.organization_id}
-                                </p>
-                                {request.events?.requires_payment && (
-                                  <p className="text-xs text-green-600 font-medium">
-                                    <strong>Payment Required:</strong> ₱{request.events.fee.toFixed(2)}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-4 flex-shrink-0">
-                            {request.status === "pending" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={async () => {
-                                    try {
-                                      await (supabase as any)
-                                        .from("event_join_requests")
-                                        .update({ status: "approved" })
-                                        .eq("id", request.id);
-
-                                      // Add user to organization members
-                                      const { error: memberError } = await (supabase as any)
-                                        .from("organization_members")
-                                        .insert([{
-                                          organization_id: request.events?.organization_id,
-                                          user_id: request.user_id,
-                                          role: "member",
-                                          status: "active",
-                                        }]);
-
-                                      if (memberError) throw memberError;
-
-                                      toast.success("Join request approved!");
-                                      loadEventJoinRequests();
-                                    } catch (error) {
-                                      console.error("Error approving join request:", error);
-                                      toast.error("Failed to approve join request");
-                                    }
-                                  }}
-                                  title="Approve request"
-                                >
-                                  <Check className="h-4 w-4 text-green-600" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 w-8 p-0"
-                                  onClick={async () => {
-                                    try {
-                                      await (supabase as any)
-                                        .from("event_join_requests")
-                                        .update({ status: "rejected" })
-                                        .eq("id", request.id);
-
-                                      toast.success("Join request rejected!");
-                                      loadEventJoinRequests();
-                                    } catch (error) {
-                                      console.error("Error rejecting join request:", error);
-                                      toast.error("Failed to reject join request");
-                                    }
-                                  }}
-                                  title="Reject request"
-                                >
-                                  <X className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 w-8 p-0"
-                              onClick={() => navigate(`/organizations/${request.events?.organization_id}`)}
-                              title="View organization"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-              </div>
-            )}
-          </div>
         </CardContent>
       </Card>
 
