@@ -559,20 +559,20 @@ export default function RegistrationCodesTab() {
         .from("event_members" as any)
         .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
         .eq("status", "pending")
-        .in("event_id", (eventsData || []).map(e => e.id))
+        .in("event_id", (eventsData as any || []).map((e: any) => e.id))
         .order("joined_at", { ascending: false });
 
       if (requestsError) throw requestsError;
 
-      setOrgEvents(eventsData || []);
-      setEventMemberRequests((requestsData as EventMemberRequest[]) || []);
+      setOrgEvents(eventsData as any || []);
+      setEventMemberRequests((requestsData as any) || []);
       
       // Update selected org with wallet balance
       if (selectedOrgForDetails) {
         setSelectedOrgForDetails({
           ...selectedOrgForDetails,
-          wallet_balance: (walletData as { balance: number })?.balance || 0
-        });
+          wallet_balance: (walletData as any)?.balance || 0
+        } as any);
       }
     } catch (error) {
       console.error("Error loading organization details:", error);
@@ -602,9 +602,9 @@ export default function RegistrationCodesTab() {
         const { error: walletError } = await supabase
           .from("organization_wallets" as any)
           .update({
-            balance: (selectedOrgForDetails?.wallet_balance || 0) + request.events.fee
+            balance: ((selectedOrgForDetails as any)?.wallet_balance || 0) + request.events.fee
           })
-          .eq("organization_id", selectedOrgForDetails?.id);
+          .eq("organization_id", (selectedOrgForDetails as any)?.id);
 
         if (walletError) throw walletError;
 
@@ -834,7 +834,7 @@ export default function RegistrationCodesTab() {
                 <CardContent>
                   <div className="space-y-2">
                     <p className="text-2xl font-bold text-green-600">
-                      ₱{selectedOrgForDetails?.wallet_balance?.toFixed(2) || "0.00"}
+                      ₱{(selectedOrgForDetails as any)?.wallet_balance?.toFixed(2) || "0.00"}
                     </p>
                     <p className="text-xs text-muted-foreground">Available Balance</p>
                   </div>
