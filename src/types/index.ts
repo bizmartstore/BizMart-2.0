@@ -52,6 +52,22 @@ export interface Event {
   created_at: string;
 }
 
+// Event Member types
+export interface EventMember {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'joined';
+  joined_at: string;
+  payment_proof?: string | null;
+  profile?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  };
+}
+
 // Transaction types
 export interface Transaction {
   id: string;
@@ -81,6 +97,19 @@ export interface WalletTransaction {
   status: 'pending' | 'approved' | 'rejected';
   purpose: string;
   reference: string | null;
+  created_at: string;
+  approved_by?: string | null;
+  approved_at?: string | null;
+}
+
+// Event Transaction types
+export interface EventTransaction {
+  id: string;
+  event_id: string;
+  user_id: string;
+  amount: number;
+  status: 'pending' | 'approved' | 'rejected' | 'completed';
+  payment_proof?: string | null;
   created_at: string;
   approved_by?: string | null;
   approved_at?: string | null;

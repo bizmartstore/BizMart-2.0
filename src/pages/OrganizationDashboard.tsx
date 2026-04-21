@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X } from "lucide-react";
+import { Users, UserPlus, Calendar, Wallet, Megaphone, Settings, Crown, ArrowLeft, UserCog, Plus, Edit, Trash2, Coins, CreditCard, DollarSign, AlertCircle, X, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -20,7 +20,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
-import { Organization, Member, Event, Transaction, Announcement } from "@/types";
+import EventDetailModal from "@/pages/EventDetailModal";
+import { Organization, Member, Event, Transaction, Announcement, EventMember } from "@/types";
 
 // Add these type definitions after your imports
 interface OrganizationMemberInsert {
@@ -75,6 +76,8 @@ export default function OrganizationDashboard() {
   const [userRole, setUserRole] = useState<'creator' | 'officer' | 'member' | null>(null);
   const [isJoinDialogOpen, setIsJoinDialogOpen] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [eventModalOpen, setEventModalOpen] = useState(false);
   const [depositForm, setDepositForm] = useState({
     amount: "",
     purpose: "",
@@ -124,6 +127,7 @@ export default function OrganizationDashboard() {
 
   const [memberToRemove, setMemberToRemove] = useState<string | null>(null);
   const [eventToDelete, setEventToDelete] = useState<string | null>(null);
+  const [eventMembers, setEventMembers] = useState<EventMember[]>([]);
 
   useEffect(() => {
     if (user && id) {
@@ -211,6 +215,20 @@ if (!walletData) {
   ...e,
   status: e.status as "upcoming" | "ongoing" | "completed"
 })) as Event[]);
+
+    // 5.1 Load event members for creator/officer
+    if (canManageEvents && eventsData) {
+      const { data: membersData } = await supabase
+        .from("event_members")
+        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url)`)
+        .in("event_id", eventsData.map(e => e.id))
+        .eq("status", "approved")
+        .order("joined_at", { ascending: true });
+
+      if (membersData) {
+        setEventMembers(membersData as EventMember[]);
+      }
+    }
 
     // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
@@ -780,15 +798,27 @@ if (!walletData) {
                           {event.status === "upcoming" ? "Upcoming" : event.status === "ongoing" ? "Ongoing" : "Completed"}
                         </CardDescription>
                       </div>
-                      {canManageEvents && (
+                      <div className="flex gap-2">
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => setEventToDelete(event.id)}
+                          onClick={() => {
+                            setSelectedEvent(event);
+                            setEventModalOpen(true);
+                          }}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
+                          <Eye className="h-4 w-4" /> View
                         </Button>
-                      )}
+                        {canManageEvents && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEventToDelete(event.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -817,6 +847,17 @@ if (!walletData) {
               {events.length === 0 && <p className="text-muted-foreground text-sm">No events yet</p>}
             </div>
           </TabsContent>
+
+          {/* Event Detail Modal */}
+          <EventDetailModal
+            event={selectedEvent}
+            organizationId={id || ""}
+            isOpen={eventModalOpen}
+            onOpenChange={setEventModalOpen}
+            onSuccess={() => {
+              fetchOrganizationData();
+            }}
+          />
 
           {/* Wallet Tab - Only for creators and officers */}
           {canManageWallet && (
