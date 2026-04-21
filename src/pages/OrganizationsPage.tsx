@@ -242,7 +242,7 @@ const { error: uploadError } = await supabase
           // Get public URL
           const { data: urlData } = supabase
             .storage
-            .from('organization-logos' as any)
+            .from('organization-logos')
             .getPublicUrl(filePath);
           
           orgPayload.logo_image = urlData.publicUrl;
