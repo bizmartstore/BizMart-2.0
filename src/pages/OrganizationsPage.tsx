@@ -232,7 +232,7 @@ const { error: uploadError } = await supabase
         // Upload to Supabase storage
         const { error: uploadError } = await supabase
           .storage
-          .from('organization-logos' as any)
+          .from('organization-logos')
           .upload(filePath, orgLogoImage);
         
         if (uploadError) {
