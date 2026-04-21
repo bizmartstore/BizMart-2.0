@@ -112,6 +112,7 @@ function AppContent() {
             <Route path="/print-service" element={<PrintServicePage />} />
             <Route path="/organizations" element={<OrganizationsPage />} />
             <Route path="/organizations/:id" element={<OrganizationDashboard />} />
+            <Route path="/organizations/:id/overview" element={<OrganizationDashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/guidance" element={<GuidanceDashboard />} />
             <Route path="/e-support" element={<ESupportPage />} />

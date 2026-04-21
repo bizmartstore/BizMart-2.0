@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard } from "lucide-react";
+import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard, Plus } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -75,6 +75,26 @@ interface ApprovedOrganization {
   };
 }
 
+interface EventMemberRequest {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: 'pending' | 'approved' | 'rejected' | 'joined';
+  joined_at: string;
+  payment_proof?: string | null;
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    avatar_url: string | null;
+  };
+  events?: {
+    id: string;
+    name: string;
+    fee: number;
+  };
+}
+
 interface OrganizationTransaction {
   id: string;
   organization_id: string;
@@ -115,6 +135,10 @@ export default function RegistrationCodesTab() {
   const [transactions, setTransactions] = useState<OrganizationTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [activeWalletTab, setActiveWalletTab] = useState("pending");
+  const [selectedOrgForDetails, setSelectedOrgForDetails] = useState<ApprovedOrganization | null>(null);
+  const [orgEvents, setOrgEvents] = useState<any[]>([]);
+  const [eventMemberRequests, setEventMemberRequests] = useState<EventMemberRequest[]>([]);
+  const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
   const navigate = useNavigate();
 
   // Load all data
@@ -507,6 +531,128 @@ export default function RegistrationCodesTab() {
     }
   };
 
+  // Load organization details and events
+  const loadOrganizationDetails = async (orgId: string) => {
+    try {
+      setIsLoadingOrgDetails(true);
+      
+      // Load organization wallet
+      const { data: walletData, error: walletError } = await supabase
+        .from("organization_wallets" as any)
+        .select("balance")
+        .eq("organization_id", orgId)
+        .maybeSingle();
+
+      if (walletError) throw walletError;
+
+      // Load organization events
+      const { data: eventsData, error: eventsError } = await supabase
+        .from("organization_events" as any)
+        .select("*")
+        .eq("organization_id", orgId)
+        .order("created_at", { ascending: false });
+
+      if (eventsError) throw eventsError;
+
+      // Load event member requests
+      const { data: requestsData, error: requestsError } = await supabase
+        .from("event_members" as any)
+        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
+        .eq("status", "pending")
+        .in("event_id", (eventsData || []).map(e => e.id))
+        .order("joined_at", { ascending: false });
+
+      if (requestsError) throw requestsError;
+
+      setOrgEvents(eventsData || []);
+      setEventMemberRequests((requestsData as EventMemberRequest[]) || []);
+      
+      // Update selected org with wallet balance
+      if (selectedOrgForDetails) {
+        setSelectedOrgForDetails({
+          ...selectedOrgForDetails,
+          wallet_balance: (walletData as { balance: number })?.balance || 0
+        });
+      }
+    } catch (error) {
+      console.error("Error loading organization details:", error);
+    } finally {
+      setIsLoadingOrgDetails(false);
+    }
+  };
+
+  // Approve event member request
+  const approveEventMemberRequest = async (requestId: string) => {
+    try {
+      const request = eventMemberRequests.find(r => r.id === requestId);
+      if (!request) return;
+
+      // Update event member status to approved
+      const { error } = await supabase
+        .from("event_members" as any)
+        .update({
+          status: "approved",
+        })
+        .eq("id", requestId);
+
+      if (error) throw error;
+
+      // If event has a fee, add to organization wallet
+      if (request.events?.fee && request.events.fee > 0) {
+        const { error: walletError } = await supabase
+          .from("organization_wallets" as any)
+          .update({
+            balance: (selectedOrgForDetails?.wallet_balance || 0) + request.events.fee
+          })
+          .eq("organization_id", selectedOrgForDetails?.id);
+
+        if (walletError) throw walletError;
+
+        // Add transaction record
+        const { error: transactionError } = await supabase
+          .from("organization_transactions" as any)
+          .insert([{
+            organization_id: selectedOrgForDetails?.id,
+            user_id: request.user_id,
+            type: "deposit",
+            amount: request.events.fee,
+            status: "approved",
+            purpose: `Event fee: ${request.events.name}`,
+            reference: `Event: ${request.events.name}`,
+            gcash_fee: 0,
+          }]);
+
+        if (transactionError) throw transactionError;
+      }
+
+      toast.success("Member approved successfully!");
+      loadOrganizationDetails(selectedOrgForDetails?.id || "");
+    } catch (error) {
+      console.error("Error approving event member request:", error);
+      toast.error("Failed to approve member request");
+    }
+  };
+
+  // Reject event member request
+  const rejectEventMemberRequest = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from("event_members" as any)
+        .update({
+          status: "rejected",
+        })
+        .eq("id", requestId);
+
+      if (error) throw error;
+
+      toast.success("Member request rejected successfully!");
+      loadOrganizationDetails(selectedOrgForDetails?.id || "");
+    } catch (error) {
+      console.error("Error rejecting event member request:", error);
+      toast.error("Failed to reject member request");
+    }
+  };
+
   // Filtered data
   const filteredPendingOrgs = pendingOrgs.filter((org) =>
     org.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -626,6 +772,184 @@ export default function RegistrationCodesTab() {
           )}
         </CardContent>
       </Card>
+
+      {/* Organization Details Modal */}
+      <Dialog open={!!selectedOrgForDetails} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedOrgForDetails(null);
+          setOrgEvents([]);
+          setEventMemberRequests([]);
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{selectedOrgForDetails?.name} - Organization Details</DialogTitle>
+            <DialogDescription>
+              View organization information, events, and approve event member requests
+            </DialogDescription>
+          </DialogHeader>
+
+          {isLoadingOrgDetails ? (
+            <div className="flex justify-center items-center py-8">
+              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Organization Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Organization Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Type</p>
+                      <p className="text-sm text-muted-foreground">{selectedOrgForDetails?.club_type}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Status</p>
+                      <Badge variant="default">{selectedOrgForDetails?.status}</Badge>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Adviser</p>
+                      <p className="text-sm text-muted-foreground">{selectedOrgForDetails?.adviser_name || "N/A"}</p>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Created</p>
+                      <p className="text-sm text-muted-foreground">{new Date(selectedOrgForDetails?.created_at || "").toLocaleDateString()}</p>
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <p className="text-sm font-medium">Description</p>
+                      <p className="text-sm text-muted-foreground">{selectedOrgForDetails?.description}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Organization Wallet */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Organization Wallet</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-2xl font-bold text-green-600">
+                      ₱{selectedOrgForDetails?.wallet_balance?.toFixed(2) || "0.00"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Available Balance</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Organization Events */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Organization Events ({orgEvents.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {orgEvents.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No events created yet</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {orgEvents.map((event) => (
+                        <div key={event.id} className="border rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="font-medium">{event.name}</h3>
+                            <Badge variant={event.status === "upcoming" ? "default" : event.status === "ongoing" ? "secondary" : "outline"}>
+                              {event.status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{event.description}</p>
+                          <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                              <p className="font-medium">Deadline</p>
+                              <p>{event.deadline ? new Date(event.deadline).toLocaleDateString() : "N/A"}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium">Capacity</p>
+                              <p>{event.capacity}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium">Fee</p>
+                              <p>₱{event.fee.toFixed(2)}</p>
+                            </div>
+                            <div>
+                              <p className="font-medium">Created</p>
+                              <p>{new Date(event.created_at).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Event Member Requests */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm font-medium">Event Member Requests ({eventMemberRequests.length})</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {eventMemberRequests.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No pending event member requests</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {eventMemberRequests.map((request) => (
+                        <Card key={request.id} className="hover:shadow-md transition-shadow">
+                          <CardContent className="pt-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarFallback>
+                                      {request.profiles?.first_name?.charAt(0) || "U"}{request.profiles?.last_name?.charAt(0) || ""}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div>
+                                    <p className="font-medium text-sm">
+                                      {request.profiles?.first_name} {request.profiles?.last_name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">{request.profiles?.email}</p>
+                                  </div>
+                                </div>
+                                <div className="space-y-1 text-sm">
+                                  <p><strong>Event:</strong> {request.events?.name || "N/A"}</p>
+                                  <p><strong>Fee:</strong> ₱{request.events?.fee || 0}</p>
+                                  <p><strong>Requested:</strong> {new Date(request.joined_at).toLocaleString()}</p>
+                                </div>
+                              </div>
+                              <div className="flex gap-2 ml-4 flex-shrink-0">
+                                <Button
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => approveEventMemberRequest(request.id)}
+                                  title="Approve request"
+                                >
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => rejectEventMemberRequest(request.id)}
+                                  title="Reject request"
+                                >
+                                  <X className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Join Requests Section */}
       <Card>
@@ -807,16 +1131,15 @@ export default function RegistrationCodesTab() {
                       </div>
                       <div className="flex gap-2 mt-4">
                         <Button
-                          size="sm"
-                          variant="outline"
-                          className="flex-1 gap-2"
-                          onClick={() => {
-                            navigate(`/organizations/${org.id}/overview`);
-                            window.scrollTo(0, 0);
-                          }}
-                        >
-                          <Eye className="h-4 w-4" /> View Organization
-                        </Button>
+                            size="sm"
+                            className="flex-1 gap-2"
+                            onClick={() => {
+                              setSelectedOrgForDetails(org);
+                              loadOrganizationDetails(org.id);
+                            }}
+                          >
+                            <Eye className="h-4 w-4" /> View Details
+                          </Button>
                       </div>
                     </CardContent>
                   </Card>

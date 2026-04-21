@@ -68,6 +68,11 @@ export interface EventMember {
   };
 }
 
+// Extended Organization type with wallet balance
+export interface OrganizationWithWallet extends Organization {
+  wallet_balance?: number;
+}
+
 // Transaction types
 export interface Transaction {
   id: string;
