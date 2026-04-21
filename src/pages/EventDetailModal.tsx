@@ -45,7 +45,7 @@ export default function EventDetailModal({
 
     try {
       const { data, error } = await supabase
-        .from("event_members")
+        .from("event_members" as any)
         .select("*")
         .eq("event_id", event.id)
         .eq("user_id", user.id)
@@ -54,8 +54,8 @@ export default function EventDetailModal({
       if (error) throw error;
 
       if (data) {
-        setHasPendingRequest(data.status === "pending");
-        setHasJoined(data.status === "approved" || data.status === "joined");
+        setHasPendingRequest((data as any).status === "pending");
+        setHasJoined((data as any).status === "approved" || (data as any).status === "joined");
       }
     } catch (error) {
       console.error("Error checking event status:", error);
@@ -67,15 +67,15 @@ export default function EventDetailModal({
 
     try {
       const { data, error } = await supabase
-        .from("event_members")
-        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url)`)
+        .from("event_members" as any)
+        .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
         .eq("event_id", event.id)
         .eq("status", "approved")
         .order("joined_at", { ascending: true });
 
       if (error) throw error;
 
-      setEventMembers(data || []);
+      setEventMembers((data as any) || []);
     } catch (error) {
       console.error("Error loading event members:", error);
     }
@@ -91,7 +91,7 @@ export default function EventDetailModal({
       if (event.fee === 0) {
         // Auto-join for free events
         const { error } = await supabase
-          .from("event_members")
+          .from("event_members" as any)
           .insert([{
             event_id: event.id,
             user_id: user.id,
@@ -109,7 +109,7 @@ export default function EventDetailModal({
 
       // For paid events, create a pending request
       const { error } = await supabase
-        .from("event_members")
+        .from("event_members" as any)
         .insert([{
           event_id: event.id,
           user_id: user.id,
@@ -203,7 +203,7 @@ export default function EventDetailModal({
               {isLoading ? "Processing..." : <UserPlus className="h-4 w-4" />}
               {event.fee === 0 ? "Join Event" : "Request to Join"}
             </Button>
-          )
+          )}
 
           {hasPendingRequest && (
             <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -214,7 +214,7 @@ export default function EventDetailModal({
                 </p>
               </div>
             </div>
-          )
+          )}
 
           {hasJoined && (
             <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -223,7 +223,7 @@ export default function EventDetailModal({
                 <p className="text-sm text-green-800">You have joined this event!</p>
               </div>
             </div>
-          )
+          )}
 
           {event.status !== "upcoming" && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
@@ -232,7 +232,7 @@ export default function EventDetailModal({
                 <p className="text-sm text-red-800">This event is no longer accepting new members.</p>
               </div>
             </div>
-          )
+          )}
 
           {/* Members List */}
           {eventMembers.length > 0 && (
@@ -245,23 +245,23 @@ export default function EventDetailModal({
                   <div key={member.id} className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
                       <AvatarFallback>
-                        {member.profiles?.first_name?.charAt(0) || "U"}
-                        {member.profiles?.last_name?.charAt(0) || ""}
+                        {member.profile?.first_name?.charAt(0) || "U"}
+                        {member.profile?.last_name?.charAt(0) || ""}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <p className="text-sm font-medium">
-                        {member.profiles?.first_name} {member.profiles?.last_name}
+                        {member.profile?.first_name} {member.profile?.last_name}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {member.profiles?.email}
+                        {member.profile?.email}
                       </p>
                     </div>
                   </div>
                 ))}
               </CardContent>
             </Card>
-          )
+          )}
         </div>
       </DialogContent>
     </Dialog>

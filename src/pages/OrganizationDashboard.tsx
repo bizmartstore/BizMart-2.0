@@ -219,14 +219,14 @@ if (!walletData) {
     // 5.1 Load event members for creator/officer
     if (canManageEvents && eventsData) {
       const { data: membersData } = await supabase
-        .from("event_members")
-        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url)`)
+        .from("event_members" as any)
+        .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
         .in("event_id", eventsData.map(e => e.id))
         .eq("status", "approved")
         .order("joined_at", { ascending: true });
 
       if (membersData) {
-        setEventMembers(membersData as EventMember[]);
+        setEventMembers((membersData as any) || []);
       }
     }
 
