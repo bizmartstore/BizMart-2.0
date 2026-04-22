@@ -197,7 +197,7 @@ export default function RegistrationCodesTab() {
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: PendingOrganization) => {
           const { count, error: countError } = await (supabase as any)
-            .from("organization_members")
+            .from("organization_event_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
 
