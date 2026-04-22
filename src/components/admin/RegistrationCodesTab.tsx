@@ -1239,7 +1239,7 @@ export default function RegistrationCodesTab() {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Payment References Section */}
+                {/* Payment References Section - Only show once */}
                 <div className="space-y-3 mt-6">
                   {isLoadingReferences ? (
                     <div className="flex justify-center items-center py-4">
@@ -1265,7 +1265,7 @@ export default function RegistrationCodesTab() {
                                       <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                      <strong>Status:"</strong>
+                                      <strong>Status:</strong>
                                       <Badge variant={ref.status === "available" ? "default" : "outline"}>
                                         {ref.status}
                                       </Badge>
@@ -1510,19 +1510,24 @@ export default function RegistrationCodesTab() {
                   if (approvedOrgs.length > 0) {
                     const sampleOrg = approvedOrgs[0];
                     
-                    const { error } = await supabase
+                    const { error, data: newRef } = await supabase
                       .from("payment_references" as any)
-                      .insert({
+                      .insert([{
                         organization_id: sampleOrg.id,
-                        reference_code: refNumber,
+                        reference_number: refNumber,
                         amount: 50.00,
-                        used: false,
-                      });
+                        status: "available",
+                      }])
+                      .select() as any;
                     
                     if (error) throw error;
                     
+                    if (newRef && newRef[0]) {
+                      // Add the new reference to the state
+                      setPaymentReferences(prev => [...prev, newRef[0]]);
+                    }
+                    
                     toast.success(`Payment reference generated: ${refNumber}`);
-                    await loadPaymentReferences();
                   }
                 } catch (error) {
                   console.error("Error generating payment reference:", error);
