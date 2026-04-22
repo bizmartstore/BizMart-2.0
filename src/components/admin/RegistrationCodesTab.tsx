@@ -499,7 +499,7 @@ export default function RegistrationCodesTab() {
   const approveJoinRequest = async (requestId: string) => {
     try {
       await (supabase as any)
-        .from("organization_members")
+        .from("organization_event_members")
         .update({
           status: "active",
         })
