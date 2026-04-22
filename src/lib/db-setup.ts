@@ -11,52 +11,10 @@ export async function setupPaymentReferencesTable() {
       .select("id", { count: "exact" })
       .limit(1);
 
-    // If table doesn't exist (PGRST116 error), create it
+    // If table doesn't exist (PGRST116 error), notify user to create it manually
     if (checkError?.code === 'PGRST116') {
-      try {
-        // Create the table using the SQL endpoint
-        const { error: sqlError } = await fetch(supabase.url + '/rest/v1/', {
-          method: 'POST',
-          headers: {
-            'apikey': supabase.key,
-            'Authorization': `Bearer ${supabase.key}`,
-            'Content-Type': 'application/json',
-            'Prefer': 'return=minimal'
-          },
-          body: JSON.stringify({
-            type: 'create',
-            table: 'payment_references',
-            schema: 'public',
-            definition: {
-              id: { type: 'uuid', primary_key: true, default: 'gen_random_uuid()' },
-              organization_id: { type: 'uuid', references: 'organizations(id)', on_delete: 'cascade' },
-              reference_code: { type: 'text' },
-              amount: { type: 'numeric', default: 0 },
-              status: { type: 'text', default: 'available' },
-              used: { type: 'boolean', default: false },
-              used_by: { type: 'uuid', references: 'auth.users(id)', on_delete: 'set null' },
-              used_at: { type: 'timestamptz' },
-              created_at: { type: 'timestamptz', default: 'now()' },
-              updated_at: { type: 'timestamptz', default: 'now()' }
-            }
-          })
-        });
-
-        if (sqlError) {
-          console.error("Error creating payment_references table:", sqlError);
-          toast.error("Failed to setup payment references table");
-        } else {
-          // Create indexes
-          await supabase
-            .from("payment_references")
-            .select("*", { head: true, count: 'exact' });
-
-          toast.success("Payment references table created successfully");
-        }
-      } catch (sqlError) {
-        console.error("Error creating payment_references table:", sqlError);
-        toast.error("Failed to setup payment references table");
-      }
+      console.warn("payment_references table does not exist. Please create it manually using the SQL provided in the documentation.");
+      toast.warning("Payment references table not found. Please create it manually.");
     } else if (checkError && checkError.code !== 'PGRST116') {
       console.error("Error checking payment_references table:", checkError);
     }
@@ -82,9 +40,7 @@ export async function setupOrganizationMembersReferenceColumn() {
     // If column doesn't exist, add it
     if (checkError?.code === 'PGRST116') {
       const { error: addError } = await supabase
-        .rpc('execute_sql', {
-          sql: 'ALTER TABLE organization_members ADD COLUMN IF NOT EXISTS reference_number TEXT DEFAULT NULL'
-        });
+        .rpc('create_organization_members_table_if_not_exists');
 
       if (addError) {
         console.error("Error adding reference_number column:", addError);
