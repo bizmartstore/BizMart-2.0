@@ -22,10 +22,10 @@ export async function setupPaymentReferencesTable() {
           .insert([
             {
               id: sampleId,
-              reference_number: "sample_ref_1",
+              reference_code: "sample_ref_1",
               organization_id: "00000000-0000-0000-0000-000000000000",
               amount: 0,
-              status: "available",
+              used: false,
             }
           ]);
 

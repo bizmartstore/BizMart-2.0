@@ -50,12 +50,12 @@ export default function JoinOrganizationInstructionDialog({
     setIsConfirming(true);
 
     try {
-      // Verify the payment reference exists and is available
+      // Verify the payment reference exists and is not used
       const { data: refData, error: refError } = await supabase
         .from("payment_references" as any)
         .select("*")
-        .eq("reference_number", referenceNumber)
-        .eq("status", "available")
+        .eq("reference_code", referenceNumber)
+        .eq("used", false)
         .maybeSingle();
 
       if (refError) {
@@ -88,7 +88,7 @@ export default function JoinOrganizationInstructionDialog({
           await supabase
             .from("payment_references" as any)
             .update({
-              status: "used",
+              used: true,
               used_by: user.id,
               used_at: new Date().toISOString(),
             })

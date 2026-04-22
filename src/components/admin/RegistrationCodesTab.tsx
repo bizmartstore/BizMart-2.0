@@ -1514,9 +1514,9 @@ export default function RegistrationCodesTab() {
                       .from("payment_references" as any)
                       .insert({
                         organization_id: sampleOrg.id,
-                        reference_number: refNumber,
+                        reference_code: refNumber,
                         amount: 50.00,
-                        status: "available",
+                        used: false,
                       });
                     
                     if (error) throw error;

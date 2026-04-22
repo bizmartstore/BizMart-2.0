@@ -1452,30 +1452,30 @@ export type Database = {
           created_at: string | null
           id: string
           organization_id: string | null
-          reference_number: string
-          status: string
-          used_at: string | null
+          reference_code: string
+          used: boolean | null
           used_by: string | null
+          used_at: string | null
         }
         Insert: {
           amount: number
           created_at?: string | null
           id?: string
           organization_id?: string | null
-          reference_number: string
-          status?: string
-          used_at?: string | null
+          reference_code: string
+          used?: boolean | null
           used_by?: string | null
+          used_at?: string | null
         }
         Update: {
           amount?: number
           created_at?: string | null
           id?: string
           organization_id?: string | null
-          reference_number?: string
-          status?: string
-          used_at?: string | null
+          reference_code?: string
+          used?: boolean | null
           used_by?: string | null
+          used_at?: string | null
         }
         Relationships: []
       }
