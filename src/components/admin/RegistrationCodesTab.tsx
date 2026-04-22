@@ -517,7 +517,7 @@ export default function RegistrationCodesTab() {
   const rejectJoinRequest = async (requestId: string) => {
     try {
       await (supabase as any)
-        .from("organization_members")
+        .from("organization_event_members")
         .update({
           status: "rejected",
         })
