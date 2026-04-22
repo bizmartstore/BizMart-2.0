@@ -1453,7 +1453,7 @@ export default function RegistrationCodesTab() {
                         amount: 50.00,
                         status: "available",
                       }])
-                      .select() as any;
+                      .select(`*, organizations:organization_id(name)`) as any;
                     
                     if (error) {
                       console.error("Error generating payment reference:", error);
@@ -1466,7 +1466,7 @@ export default function RegistrationCodesTab() {
                       setPaymentReferences(prev => [...prev, newRef[0]]);
                     }
                     
-                    toast.success(`Payment reference generated: ${refNumber}`);
+                    toast.success(`Payment reference generated: ${refNumber} for ${sampleOrg.name}`);
                   }
                 } catch (error) {
                   console.error("Error generating payment reference:", error);
