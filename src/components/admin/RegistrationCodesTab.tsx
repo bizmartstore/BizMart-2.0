@@ -556,11 +556,11 @@ export default function RegistrationCodesTab() {
 
       // Load event member requests
       const { data: requestsData, error: requestsError } = await supabase
-  .from("organization_event_members" as any)  // ✅ Correct table name
-  .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
-  .eq("status", "pending")
-  .in("event_id", (eventsData as any || []).map((e: any) => e.id))
-  .order("created_at", { ascending: false });
+        .from("organization_event_members" as any)
+        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
+        .eq("status", "pending")
+        .in("event_id", eventsData?.map((e: any) => e.id) || [])
+        .order("created_at", { ascending: false });
 
       if (requestsError) throw requestsError;
 
@@ -576,6 +576,7 @@ export default function RegistrationCodesTab() {
       }
     } catch (error) {
       console.error("Error loading organization details:", error);
+      toast.error("Failed to load organization details");
     } finally {
       setIsLoadingOrgDetails(false);
     }
@@ -781,20 +782,20 @@ export default function RegistrationCodesTab() {
           setEventMemberRequests([]);
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selectedOrgForDetails?.name} - Organization Details</DialogTitle>
-            <DialogDescription>
-              View organization information, events, and approve event member requests
-            </DialogDescription>
-          </DialogHeader>
-
-          {isLoadingOrgDetails ? (
-            <div className="flex justify-center items-center py-8">
-              <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-            </div>
-          ) : (
-            <div className="space-y-6">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{selectedOrgForDetails?.name} - Organization Details</DialogTitle>
+              <DialogDescription>
+                View organization information, events, and approve event member requests
+              </DialogDescription>
+            </DialogHeader>
+  
+            {isLoadingOrgDetails ? (
+              <div className="flex justify-center items-center py-8">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : (
+              <div className="space-y-6">
               {/* Organization Info */}
               <Card>
                 <CardHeader>
@@ -916,7 +917,7 @@ export default function RegistrationCodesTab() {
                                 <div className="space-y-1 text-sm">
                                   <p><strong>Event:</strong> {request.events?.name || "N/A"}</p>
                                   <p><strong>Fee:</strong> ₱{request.events?.fee || 0}</p>
-                                  <p><strong>Requested:</strong> {new Date(request.joined_at).toLocaleString()}</p>
+                                  <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}</p>
                                 </div>
                               </div>
                               <div className="flex gap-2 ml-4 flex-shrink-0">
