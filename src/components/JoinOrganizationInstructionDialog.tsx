@@ -52,11 +52,12 @@ export default function JoinOrganizationInstructionDialog({
     try {
       // Verify the payment reference exists and is not used
       const { data: refData, error: refError } = await supabase
-        .from("payment_references")
-        .select("*")
-        .eq("reference_code", referenceNumber)
-        .eq("used", false)
-        .maybeSingle();
+  .from("payment_references")
+  .select("*")
+  .eq("reference_code", referenceNumber)
+  .eq("used", false)
+  .eq("organization_id", organizationId)  // <-- Add this line
+  .maybeSingle();
 
       if (refError) {
         console.error("Error verifying payment reference:", refError);
