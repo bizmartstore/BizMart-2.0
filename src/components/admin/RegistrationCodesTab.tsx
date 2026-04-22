@@ -1438,8 +1438,8 @@ export default function RegistrationCodesTab() {
               className="gap-1"
               onClick={async () => {
                 try {
-                  // Generate a sample payment reference for testing
-                  const refNumber = `ORG-SAMPLE-${Math.floor(1000 + Math.random() * 9000)}`;
+                  // Generate a realistic 6-digit payment reference number
+                  const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
                   
                   // Find a sample organization
                   if (approvedOrgs.length > 0) {
