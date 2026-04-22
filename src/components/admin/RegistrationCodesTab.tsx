@@ -116,24 +116,6 @@ interface OrganizationTransaction {
   };
 }
 
-interface PaymentReference {
-  id: string;
-  organization_id: string;
-  reference_number: string;
-  amount: number;
-  status: 'available' | 'used';
-  created_at: string;
-  used_by?: string;
-  used_at?: string;
-  organizations?: {
-    name: string;
-  };
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-    avatar_url: string | null;
-  };
-}
 
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
@@ -158,12 +140,6 @@ export default function RegistrationCodesTab() {
   const [orgEvents, setOrgEvents] = useState<any[]>([]);
   const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
-  const [paymentReferences, setPaymentReferences] = useState<PaymentReference[]>([]);
-  const [isLoadingReferences, setIsLoadingReferences] = useState(true);
-  const [showGenerateReferenceDialog, setShowGenerateReferenceDialog] = useState(false);
-  const [selectedOrgForReference, setSelectedOrgForReference] = useState<ApprovedOrganization | null>(null);
-  const [referenceAmount, setReferenceAmount] = useState("50.00");
-  const [generatingReference, setGeneratingReference] = useState(false);
   const navigate = useNavigate();
 
   // Load all data
@@ -173,7 +149,6 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadApprovedOrganizations();
     loadTransactions();
-    loadPaymentReferences();
   }, []);
 
   // Load registration codes
@@ -608,27 +583,6 @@ export default function RegistrationCodesTab() {
     }
   };
 
-  // Load payment references
-  const loadPaymentReferences = async () => {
-    try {
-      setIsLoadingReferences(true);
-      const { data, error } = await supabase
-        .from("payment_references")
-        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name, avatar_url)`)
-        .order("created_at", { ascending: false });
-
-      if (error && error.code !== 'PGRST205') {
-        throw error;
-      }
-
-      setPaymentReferences(data || []);
-    } catch (error) {
-      console.error("Error loading payment references:", error);
-      toast.error("Failed to load payment references");
-    } finally {
-      setIsLoadingReferences(false);
-    }
-  };
 
   // Approve event member request
   const approveEventMemberRequest = async (requestId: string) => {
