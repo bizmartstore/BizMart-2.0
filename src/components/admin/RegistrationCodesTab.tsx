@@ -474,8 +474,8 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingRequests(true);
     const { data, error } = await (supabase as any)
-      .from("organization_members")
-      .select(`*, profiles!organization_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_members_organization_id_fkey(name)`)
+      .from("organization_event_members")
+      .select(`*, profiles!organization_event_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_event_members_organization_id_fkey(name)`)
       .eq("status", "pending")
       .order("joined_at", { ascending: false }); // Fix: Use joined_at instead of created_at
 
