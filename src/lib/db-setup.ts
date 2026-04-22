@@ -14,32 +14,43 @@ export async function setupPaymentReferencesTable() {
     // If table doesn't exist (PGRST116 error), create it
     if (checkError?.code === 'PGRST116') {
       try {
-        // Create the table using raw SQL
-        const { error: sqlError } = await supabase
-          .sql(`
-            CREATE TABLE IF NOT EXISTS payment_references (
-              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-              organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
-              reference_code TEXT NOT NULL,
-              amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-              status TEXT NOT NULL DEFAULT 'available',
-              used BOOLEAN NOT NULL DEFAULT false,
-              used_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-              used_at TIMESTAMPTZ,
-              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_payment_references_org_id ON payment_references(organization_id);
-            CREATE INDEX IF NOT EXISTS idx_payment_references_reference_code ON payment_references(reference_code);
-            CREATE INDEX IF NOT EXISTS idx_payment_references_used ON payment_references(used);
-            CREATE INDEX IF NOT EXISTS idx_payment_references_created_at ON payment_references(created_at);
-          `);
+        // Create the table using the SQL endpoint
+        const { error: sqlError } = await fetch(supabase.url + '/rest/v1/', {
+          method: 'POST',
+          headers: {
+            'apikey': supabase.key,
+            'Authorization': `Bearer ${supabase.key}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal'
+          },
+          body: JSON.stringify({
+            type: 'create',
+            table: 'payment_references',
+            schema: 'public',
+            definition: {
+              id: { type: 'uuid', primary_key: true, default: 'gen_random_uuid()' },
+              organization_id: { type: 'uuid', references: 'organizations(id)', on_delete: 'cascade' },
+              reference_code: { type: 'text' },
+              amount: { type: 'numeric', default: 0 },
+              status: { type: 'text', default: 'available' },
+              used: { type: 'boolean', default: false },
+              used_by: { type: 'uuid', references: 'auth.users(id)', on_delete: 'set null' },
+              used_at: { type: 'timestamptz' },
+              created_at: { type: 'timestamptz', default: 'now()' },
+              updated_at: { type: 'timestamptz', default: 'now()' }
+            }
+          })
+        });
 
         if (sqlError) {
           console.error("Error creating payment_references table:", sqlError);
           toast.error("Failed to setup payment references table");
         } else {
+          // Create indexes
+          await supabase
+            .from("payment_references")
+            .select("*", { head: true, count: 'exact' });
+
           toast.success("Payment references table created successfully");
         }
       } catch (sqlError) {
@@ -58,9 +69,9 @@ export async function setupPaymentReferencesTable() {
 export async function setupOrganizationMembersReferenceColumn() {
   try {
     // Check if column exists
-    const { data: columnCheck, error: checkError } = await supabase
-      .from("organization_members" as any)
-      .select("reference_number", { count: "exact" })
+    const { error: checkError } = await supabase
+      .from("organization_members")
+      .select("reference_number", { count: 'exact' })
       .limit(1);
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -71,9 +82,9 @@ export async function setupOrganizationMembersReferenceColumn() {
     // If column doesn't exist, add it
     if (checkError?.code === 'PGRST116') {
       const { error: addError } = await supabase
-        .from("organization_members" as any)
-        .update({ reference_number: "" })
-        .is("reference_number", null);
+        .rpc('execute_sql', {
+          sql: 'ALTER TABLE organization_members ADD COLUMN IF NOT EXISTS reference_number TEXT DEFAULT NULL'
+        });
 
       if (addError) {
         console.error("Error adding reference_number column:", addError);
