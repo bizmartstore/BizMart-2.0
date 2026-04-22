@@ -1239,71 +1239,6 @@ export default function RegistrationCodesTab() {
               </div>
             ) : (
               <div className="space-y-3">
-                {/* Payment References Section - Only show once */}
-                <div className="space-y-3 mt-6">
-                  {isLoadingReferences ? (
-                    <div className="flex justify-center items-center py-4">
-                      <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
-                    </div>
-                  ) : paymentReferences.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">No payment references generated yet</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {paymentReferences.map((ref) => (
-                        <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
-                          ref.status === "used" ? " border-2 border-green-200 bg-green-50/50" : ""
-                        )}>
-                          <CardContent className="pt-4">
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CreditCard className="h-4 w-4 text-blue-500" />
-                                  <div>
-                                    <p className="font-medium text-sm">{ref.reference_number}</p>
-                                    <p className="text-xs text-muted-foreground">
-                                      <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
-                                      <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      <strong>Status:</strong>
-                                      <Badge variant={ref.status === "available" ? "default" : "outline"}>
-                                        {ref.status}
-                                      </Badge>
-                                    </p>
-                                    {ref.used_by && ref.profiles && (
-                                      <p className="text-xs text-muted-foreground">
-                                        <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
-                                      </p>
-                                    )}
-                                    <p className="text-xs text-muted-foreground">
-                                      <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
-                                      {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                              {ref.status === "available" && (
-                                <Button
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => {
-                                    setSelectedOrgForReference(approvedOrgs.find(o => o.id === ref.organization_id) || null);
-                                    setReferenceAmount(Number(ref.amount).toFixed(2));
-                                    setShowGenerateReferenceDialog(true);
-                                  }}
-                                  title="Regenerate reference"
-                                >
-                                  <RefreshCw className="h-4 w-4 text-blue-500" />
-                                </Button>
-                              )}
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                
                 {/* Wallet Transactions Section */}
                 <div className="space-y-3">
                   {transactions
@@ -1511,7 +1446,7 @@ export default function RegistrationCodesTab() {
                     const sampleOrg = approvedOrgs[0];
                     
                     const { error, data: newRef } = await supabase
-                      .from("payment_references" as any)
+                      .from("payment_references")
                       .insert([{
                         organization_id: sampleOrg.id,
                         reference_number: refNumber,
@@ -1520,7 +1455,11 @@ export default function RegistrationCodesTab() {
                       }])
                       .select() as any;
                     
-                    if (error) throw error;
+                    if (error) {
+                      console.error("Error generating payment reference:", error);
+                      toast.error("Failed to generate payment reference");
+                      return;
+                    }
                     
                     if (newRef && newRef[0]) {
                       // Add the new reference to the state
