@@ -1446,6 +1446,39 @@ export type Database = {
           },
         ]
       }
+      payment_references: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          organization_id: string | null
+          reference_number: string
+          status: string
+          used_at: string | null
+          used_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          reference_number: string
+          status?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          organization_id?: string | null
+          reference_number?: string
+          status?: string
+          used_at?: string | null
+          used_by?: string | null
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           adviser_name: string | null
