@@ -201,15 +201,23 @@ export default function RegistrationCodesTab() {
 
       // Get member counts
       const orgsWithCounts = await Promise.all(
-        data?.map(async (org: PendingOrganization) => {
-          const { count, error: countError } = await supabase
-            .from("organization_event_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id);
+        (data || []).map(async (org: any) => {
+          try {
+            const { count, error: countError } = await supabase
+              .from("organization_event_members" as any)
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id);
 
-          if (countError) console.error("Error counting members:", countError);
-          return { ...org, member_count: count || 0 };
-        }) || []
+            if (countError) {
+              console.error("Error counting members:", countError);
+              return { ...org, member_count: 0 };
+            }
+            return { ...org, member_count: count || 0 };
+          } catch (error) {
+            console.error("Error counting members:", error);
+            return { ...org, member_count: 0 };
+          }
+        })
       );
 
       setPendingOrgs(orgsWithCounts);
@@ -240,15 +248,23 @@ export default function RegistrationCodesTab() {
 
       // Get member counts
       const orgsWithCounts = await Promise.all(
-        data?.map(async (org: ApprovedOrganization) => {
-          const { count, error: countError } = await supabase
-            .from("organization_event_members")
-            .select("id", { count: "exact", head: true })
-            .eq("organization_id", org.id);
+        (data || []).map(async (org: any) => {
+          try {
+            const { count, error: countError } = await supabase
+              .from("organization_event_members" as any)
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id);
 
-          if (countError) console.error("Error counting members:", countError);
-          return { ...org, member_count: count || 0 };
-        }) || []
+            if (countError) {
+              console.error("Error counting members:", countError);
+              return { ...org, member_count: 0 };
+            }
+            return { ...org, member_count: count || 0 };
+          } catch (error) {
+            console.error("Error counting members:", error);
+            return { ...org, member_count: 0 };
+          }
+        })
       );
 
       setApprovedOrgs(orgsWithCounts);
@@ -276,7 +292,7 @@ export default function RegistrationCodesTab() {
 
       if (error) throw error;
 
-      setTransactions(data || []);
+      setTransactions((data || []) as any);
     } catch (error) {
       console.error("Error loading transactions:", error);
       toast.error("Failed to load transactions");
@@ -517,7 +533,7 @@ export default function RegistrationCodesTab() {
 
       if (error) throw error;
 
-      setJoinRequests((data as JoinRequest[]) || []);
+      setJoinRequests((data as any) || [] as JoinRequest[]);
     } catch (error) {
       console.error("Error loading join requests:", error);
       toast.error("Failed to load join requests");
@@ -530,7 +546,7 @@ export default function RegistrationCodesTab() {
   const approveJoinRequest = async (requestId: string) => {
     try {
       await supabase
-        .from("organization_event_members")
+        .from("organization_event_members" as any)
         .update({
           status: "active",
         })
@@ -548,7 +564,7 @@ export default function RegistrationCodesTab() {
   const rejectJoinRequest = async (requestId: string) => {
     try {
       await supabase
-        .from("organization_event_members")
+        .from("organization_event_members" as any)
         .update({
           status: "rejected",
         })
@@ -621,7 +637,7 @@ export default function RegistrationCodesTab() {
 
       // Update event member status to approved
       const { error } = await supabase
-        .from("organization_event_members")
+        .from("organization_event_members" as any)
         .update({
           status: "approved",
         })
@@ -669,7 +685,7 @@ export default function RegistrationCodesTab() {
   const rejectEventMemberRequest = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from("organization_event_members")
+        .from("organization_event_members" as any)
         .update({
           status: "rejected",
         })

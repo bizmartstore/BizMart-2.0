@@ -56,8 +56,6 @@ export default function JoinOrganizationInstructionDialog({
         .select("*")
         .eq("reference_number", referenceNumber)
         .eq("status", "available")
-        .eq("reference_number", referenceNumber)
-        .eq("status", "available")
         .maybeSingle();
 
       if (refError) {
@@ -73,7 +71,7 @@ export default function JoinOrganizationInstructionDialog({
 
       // Insert join request
       const { error } = await supabase
-        .from("organization_members")
+        .from("organization_members" as any)
         .insert({
           organization_id: organizationId,
           user_id: user.id,
@@ -85,8 +83,8 @@ export default function JoinOrganizationInstructionDialog({
       if (error) throw error;
 
       // Mark payment reference as used
-      if (refData) {
-        if (refData) {
+      if (refData && refData.id) {
+        try {
           await supabase
             .from("payment_references" as any)
             .update({
@@ -95,6 +93,8 @@ export default function JoinOrganizationInstructionDialog({
               used_at: new Date().toISOString(),
             })
             .eq("id", refData.id);
+        } catch (error) {
+          console.error("Error marking payment reference as used:", error);
         }
       }
 
