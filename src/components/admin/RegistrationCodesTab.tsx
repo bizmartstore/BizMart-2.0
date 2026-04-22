@@ -116,7 +116,6 @@ interface OrganizationTransaction {
   };
 }
 
-
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -140,6 +139,11 @@ export default function RegistrationCodesTab() {
   const [orgEvents, setOrgEvents] = useState<any[]>([]);
   const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
+  const [isLoadingReferences, setIsLoadingReferences] = useState(false);
+  const [paymentReferences, setPaymentReferences] = useState<any[]>([]);
+  const [selectedOrgForReference, setSelectedOrgForReference] = useState<any>(null);
+  const [referenceAmount, setReferenceAmount] = useState("0.00");
+  const [showGenerateReferenceDialog, setShowGenerateReferenceDialog] = useState(false);
   const navigate = useNavigate();
 
   // Load all data
@@ -149,6 +153,7 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadApprovedOrganizations();
     loadTransactions();
+    loadPaymentReferences();
   }, []);
 
   // Load registration codes
@@ -156,12 +161,12 @@ export default function RegistrationCodesTab() {
     try {
       setIsLoading(true);
       
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("registration_codes")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error && error.code === 'PGRST205') {
+      if (error && error.code === 'PGRST116') {
         setCodes([]);
         return;
       }
@@ -181,13 +186,13 @@ export default function RegistrationCodesTab() {
   const loadPendingOrganizations = async () => {
   try {
     setIsLoadingOrgs(true);
-    const { data, error } = await (supabase as any)
-  .from("organizations")
+    const { data, error } = await supabase
+  .from("organizations" as any)
   .select(`*, profiles:creator_id(*)`)
   .eq("status", "pending")
   .order("created_at", { ascending: false });
 
-      if (error && error.code === 'PGRST205') {
+      if (error && error.code === 'PGRST116') {
         setPendingOrgs([]);
         return;
       }
@@ -197,7 +202,7 @@ export default function RegistrationCodesTab() {
       // Get member counts
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: PendingOrganization) => {
-          const { count, error: countError } = await (supabase as any)
+          const { count, error: countError } = await supabase
             .from("organization_event_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
@@ -220,13 +225,13 @@ export default function RegistrationCodesTab() {
   const loadApprovedOrganizations = async () => {
   try {
     setIsLoadingApproved(true);
-    const { data, error } = await (supabase as any)
-  .from("organizations")
+    const { data, error } = await supabase
+  .from("organizations" as any)
   .select(`*, profiles:creator_id(*)`)
   .eq("status", "approved")
   .order("created_at", { ascending: false });
 
-      if (error && error.code === 'PGRST205') {
+      if (error && error.code === 'PGRST116') {
         setApprovedOrgs([]);
         return;
       }
@@ -236,7 +241,7 @@ export default function RegistrationCodesTab() {
       // Get member counts
       const orgsWithCounts = await Promise.all(
         data?.map(async (org: ApprovedOrganization) => {
-          const { count, error: countError } = await (supabase as any)
+          const { count, error: countError } = await supabase
             .from("organization_event_members")
             .select("id", { count: "exact", head: true })
             .eq("organization_id", org.id);
@@ -259,12 +264,12 @@ export default function RegistrationCodesTab() {
   const loadTransactions = async () => {
     try {
       setIsLoadingTransactions(true);
-      const { data, error } = await (supabase as any)
-        .from("organization_transactions")
+      const { data, error } = await supabase
+        .from("organization_transactions" as any)
         .select(`*, profiles:user_id(first_name, last_name, avatar_url), organizations:organization_id(name)`)
         .order("created_at", { ascending: false });
 
-      if (error && error.code === 'PGRST205') {
+      if (error && error.code === 'PGRST116') {
         setTransactions([]);
         return;
       }
@@ -277,6 +282,31 @@ export default function RegistrationCodesTab() {
       toast.error("Failed to load transactions");
     } finally {
       setIsLoadingTransactions(false);
+    }
+  };
+
+  // Load payment references
+  const loadPaymentReferences = async () => {
+    try {
+      setIsLoadingReferences(true);
+      const { data, error } = await supabase
+        .from("payment_references" as any)
+        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST116') {
+        setPaymentReferences([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setPaymentReferences(data || []);
+    } catch (error) {
+      console.error("Error loading payment references:", error);
+      toast.error("Failed to load payment references");
+    } finally {
+      setIsLoadingReferences(false);
     }
   };
 
@@ -295,12 +325,12 @@ export default function RegistrationCodesTab() {
 
       let error = null;
       try {
-        const { error: insertError } = await (supabase as any)
+        const { error: insertError } = await supabase
           .from("registration_codes")
           .insert(newCodes);
         error = insertError;
       } catch (err: any) {
-        if (err.code === 'PGRST205') {
+        if (err.code === 'PGRST116') {
           console.warn("registration_codes table doesn't exist yet");
         } else {
           error = err;
@@ -324,7 +354,7 @@ export default function RegistrationCodesTab() {
     try {
       let walletError = null;
       try {
-        const { error: insertError } = await (supabase as any)
+        const { error: insertError } = await supabase
           .from("organization_wallets")
           .insert({
             organization_id: orgId,
@@ -332,7 +362,7 @@ export default function RegistrationCodesTab() {
           });
         walletError = insertError;
       } catch (err: any) {
-        if (err.code !== 'PGRST205') {
+        if (err.code !== 'PGRST116') {
           walletError = err;
         }
       }
@@ -341,7 +371,7 @@ export default function RegistrationCodesTab() {
 
       let orgError = null;
       try {
-        const { error: updateError } = await (supabase as any)
+        const { error: updateError } = await supabase
           .from("organizations")
           .update({
             status: "approved",
@@ -350,7 +380,7 @@ export default function RegistrationCodesTab() {
           .eq("id", orgId);
         orgError = updateError;
       } catch (err: any) {
-        if (err.code !== 'PGRST205') {
+        if (err.code !== 'PGRST116') {
           orgError = err;
         }
       }
@@ -371,13 +401,13 @@ export default function RegistrationCodesTab() {
     try {
       let error = null;
       try {
-        const { error: deleteError } = await (supabase as any)
+        const { error: deleteError } = await supabase
           .from("organizations")
           .delete()
           .eq("id", orgId);
         error = deleteError;
       } catch (err: any) {
-        if (err.code !== 'PGRST205') {
+        if (err.code !== 'PGRST116') {
           error = err;
         }
       }
@@ -396,7 +426,7 @@ export default function RegistrationCodesTab() {
   // Approve transaction
   const approveTransaction = async (transactionId: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("organization_transactions")
         .update({
           status: "approved",
@@ -410,7 +440,7 @@ export default function RegistrationCodesTab() {
       const transaction = transactions.find(t => t.id === transactionId);
       if (transaction) {
         // Get current balance
-        const { data: walletData, error: walletError } = await (supabase as any)
+        const { data: walletData, error: walletError } = await supabase
           .from("organization_wallets")
           .select("balance")
           .eq("organization_id", transaction.organization_id)
@@ -424,7 +454,7 @@ export default function RegistrationCodesTab() {
           : currentBalance - transaction.amount;
 
         // Update balance
-        const { error: updateError } = await (supabase as any)
+        const { error: updateError } = await supabase
           .from("organization_wallets")
           .update({
             balance: newBalance,
@@ -446,7 +476,7 @@ export default function RegistrationCodesTab() {
   // Reject transaction
   const rejectTransaction = async (transactionId: string) => {
     try {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("organization_transactions")
         .update({
           status: "rejected",
@@ -474,13 +504,13 @@ export default function RegistrationCodesTab() {
   const loadJoinRequests = async () => {
   try {
     setIsLoadingRequests(true);
-    const { data, error } = await (supabase as any)
-      .from("organization_event_members")
+    const { data, error } = await supabase
+      .from("organization_event_members" as any)
       .select(`*, profiles!organization_event_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_event_members_organization_id_fkey(name)`)
       .eq("status", "pending")
-      .order("joined_at", { ascending: false }); // Fix: Use joined_at instead of created_at
+      .order("joined_at", { ascending: false });
 
-      if (error && error.code === 'PGRST205') {
+      if (error && error.code === 'PGRST116') {
         setJoinRequests([]);
         return;
       }
@@ -499,7 +529,7 @@ export default function RegistrationCodesTab() {
   // Approve join request
   const approveJoinRequest = async (requestId: string) => {
     try {
-      await (supabase as any)
+      await supabase
         .from("organization_event_members")
         .update({
           status: "active",
@@ -517,7 +547,7 @@ export default function RegistrationCodesTab() {
   // Reject join request
   const rejectJoinRequest = async (requestId: string) => {
     try {
-      await (supabase as any)
+      await supabase
         .from("organization_event_members")
         .update({
           status: "rejected",
@@ -583,7 +613,6 @@ export default function RegistrationCodesTab() {
     }
   };
 
-
   // Approve event member request
   const approveEventMemberRequest = async (requestId: string) => {
     try {
@@ -592,7 +621,7 @@ export default function RegistrationCodesTab() {
 
       // Update event member status to approved
       const { error } = await supabase
-        .from("organization_event_members" as any)
+        .from("organization_event_members")
         .update({
           status: "approved",
         })
@@ -603,7 +632,7 @@ export default function RegistrationCodesTab() {
       // If event has a fee, add to organization wallet
       if (request.events?.fee && request.events.fee > 0) {
         const { error: walletError } = await supabase
-          .from("organization_wallets" as any)
+          .from("organization_wallets")
           .update({
             balance: ((selectedOrgForDetails as any)?.wallet_balance || 0) + request.events.fee
           })
@@ -613,7 +642,7 @@ export default function RegistrationCodesTab() {
 
         // Add transaction record
         const { error: transactionError } = await supabase
-          .from("organization_transactions" as any)
+          .from("organization_transactions")
           .insert([{
             organization_id: (selectedOrgForDetails as any)?.id,
             user_id: request.user_id,
@@ -640,7 +669,7 @@ export default function RegistrationCodesTab() {
   const rejectEventMemberRequest = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from("organization_event_members" as any)
+        .from("organization_event_members")
         .update({
           status: "rejected",
         })
@@ -1193,9 +1222,7 @@ export default function RegistrationCodesTab() {
                 <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
               </div>
             ) : (
-              <>
-                {/* Payment References Section */}
-              <>
+              <div className="space-y-3">
                 {/* Payment References Section */}
                 <div className="space-y-3 mt-6">
                   {isLoadingReferences ? (
@@ -1222,7 +1249,7 @@ export default function RegistrationCodesTab() {
                                       <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
                                     </p>
                                     <p className="text-xs text-muted-foreground">
-                                      <strong>Status:</strong>
+                                      <strong>Status:"</strong>
                                       <Badge variant={ref.status === "available" ? "default" : "outline"}>
                                         {ref.status}
                                       </Badge>
@@ -1262,102 +1289,103 @@ export default function RegistrationCodesTab() {
                 </div>
                 
                 {/* Wallet Transactions Section */}
-              <div className="space-y-3">
-                {transactions
-                  .filter(t => {
+                <div className="space-y-3">
+                  {transactions
+                    .filter(t => {
+                      if (activeWalletTab === "pending") return t.status === "pending";
+                      if (activeWalletTab === "approved") return t.status === "approved";
+                      if (activeWalletTab === "rejected") return t.status === "rejected";
+                      return true;
+                    })
+                    .map((transaction) => (
+                      <Card key={transaction.id} className={"hover:shadow-md transition-shadow".concat(
+                        transaction.status === "pending" ? " border-2 border-yellow-200" :
+                        transaction.status === "approved" ? " border-2 border-green-200" :
+                        " border-2 border-red-200"
+                      )}>
+                        <CardContent className="pt-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarFallback>
+                                    {transaction.profiles?.first_name?.charAt(0) || "U"}{transaction.profiles?.last_name?.charAt(0) || ""}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-medium text-sm">
+                                    {transaction.type === "deposit" ? "Deposit" : "Withdrawal"}
+                                    <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${transaction.status === "pending" ? "bg-yellow-100 text-yellow-800" : transaction.status === "approved" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                                      {transaction.status}
+                                    </span>
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    <strong>Organization:</strong> {transaction.organizations?.name || "N/A"}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    <strong>Amount:</strong> ₱{transaction.amount.toFixed(2)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    <strong>Purpose:</strong> {transaction.purpose}
+                                  </p>
+                                  {transaction.reference && (
+                                    <p className="text-xs text-muted-foreground">
+                                      <strong>Reference:</strong> {transaction.reference}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-muted-foreground">
+                                    <strong>Requested:</strong> {new Date(transaction.created_at).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex gap-2 ml-4 flex-shrink-0">
+                              {transaction.status === "pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => approveTransaction(transaction.id)}
+                                    title="Approve transaction"
+                                  >
+                                    <Check className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => rejectTransaction(transaction.id)}
+                                    title="Reject transaction"
+                                  >
+                                    <X className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 w-8 p-0"
+                                onClick={() => navigate(`/organizations/${transaction.organization_id}`)}
+                                title="View organization"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  {transactions.filter(t => {
                     if (activeWalletTab === "pending") return t.status === "pending";
                     if (activeWalletTab === "approved") return t.status === "approved";
                     if (activeWalletTab === "rejected") return t.status === "rejected";
                     return true;
-                  })
-                  .map((transaction) => (
-                    <Card key={transaction.id} className={"hover:shadow-md transition-shadow".concat(
-                      transaction.status === "pending" ? " border-2 border-yellow-200" :
-                      transaction.status === "approved" ? " border-2 border-green-200" :
-                      " border-2 border-red-200"
-                    )}>
-                      <CardContent className="pt-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <Avatar className="h-8 w-8">
-                                <AvatarFallback>
-                                  {transaction.profiles?.first_name?.charAt(0) || "U"}{transaction.profiles?.last_name?.charAt(0) || ""}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div>
-                                <p className="font-medium text-sm">
-                                  {transaction.type === "deposit" ? "Deposit" : "Withdrawal"}
-                                  <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${transaction.status === "pending" ? "bg-yellow-100 text-yellow-800" : transaction.status === "approved" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                                    {transaction.status}
-                                  </span>
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Organization:</strong> {transaction.organizations?.name || "N/A"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Amount:</strong> ₱{transaction.amount.toFixed(2)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Purpose:</strong> {transaction.purpose}
-                                </p>
-                                {transaction.reference && (
-                                  <p className="text-xs text-muted-foreground">
-                                    <strong>Reference:</strong> {transaction.reference}
-                                  </p>
-                                )}
-                                <p className="text-xs text-muted-foreground">
-                                  <strong>Requested:</strong> {new Date(transaction.created_at).toLocaleString()}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex gap-2 ml-4 flex-shrink-0">
-                            {transaction.status === "pending" && (
-                              <>
-                                <Button
-                                  size="sm"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => approveTransaction(transaction.id)}
-                                  title="Approve transaction"
-                                >
-                                  <Check className="h-4 w-4 text-green-600" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => rejectTransaction(transaction.id)}
-                                  title="Reject transaction"
-                                >
-                                  <X className="h-4 w-4 text-red-600" />
-                                </Button>
-                              </>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 w-8 p-0"
-                              onClick={() => navigate(`/organizations/${transaction.organization_id}`)}
-                              title="View organization"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                {transactions.filter(t => {
-                  if (activeWalletTab === "pending") return t.status === "pending";
-                  if (activeWalletTab === "approved") return t.status === "approved";
-                  if (activeWalletTab === "rejected") return t.status === "rejected";
-                  return true;
-                }).length === 0 && (
-                  <p className="text-muted-foreground text-center py-8">
-                    No {activeWalletTab} transactions found
-                  </p>
-                )}
+                  }).length === 0 && (
+                    <p className="text-muted-foreground text-center py-8">
+                      No {activeWalletTab} transactions found
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -1448,7 +1476,7 @@ export default function RegistrationCodesTab() {
           )}
         </CardContent>
       </Card>
-      
+
       {/* Payment References Section - Simplified */}
       <Card>
         <CardHeader>
@@ -1467,7 +1495,7 @@ export default function RegistrationCodesTab() {
                     const sampleOrg = approvedOrgs[0];
                     
                     const { error } = await supabase
-                      .from("payment_references")
+                      .from("payment_references" as any)
                       .insert({
                         organization_id: sampleOrg.id,
                         reference_number: refNumber,

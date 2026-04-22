@@ -52,15 +52,18 @@ export default function JoinOrganizationInstructionDialog({
     try {
       // Verify the payment reference exists and is available
       const { data: refData, error: refError } = await supabase
-        .from("payment_references")
+        .from("payment_references" as any)
         .select("*")
+        .eq("reference_number", referenceNumber)
+        .eq("status", "available")
         .eq("reference_number", referenceNumber)
         .eq("status", "available")
         .maybeSingle();
 
       if (refError) {
         console.error("Error verifying payment reference:", refError);
-        throw refError;
+        toast.error("Error verifying payment reference");
+        return;
       }
 
       if (!refData) {
@@ -82,14 +85,18 @@ export default function JoinOrganizationInstructionDialog({
       if (error) throw error;
 
       // Mark payment reference as used
-      await supabase
-        .from("payment_references")
-        .update({
-          status: "used",
-          used_by: user.id,
-          used_at: new Date().toISOString(),
-        })
-        .eq("id", refData.id);
+      if (refData) {
+        if (refData) {
+          await supabase
+            .from("payment_references" as any)
+            .update({
+              status: "used",
+              used_by: user.id,
+              used_at: new Date().toISOString(),
+            })
+            .eq("id", refData.id);
+        }
+      }
 
       toast.success("Your request to join has been submitted! Please wait for admin approval.");
       onSuccess();

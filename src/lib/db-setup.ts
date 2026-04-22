@@ -7,44 +7,28 @@ export async function setupPaymentReferencesTable() {
   try {
     // Check if table exists
     const { data: tableCheck, error: checkError } = await supabase
-      .from("payment_references")
-      .select("id")
+      .from("payment_references" as any)
+      .select("id", { count: "exact" })
       .limit(1);
 
-    if (checkError && checkError.code !== 'PGRST205') {
+    if (checkError && checkError.code !== 'PGRST116') {
       console.error("Error checking payment_references table:", checkError);
       return;
     }
 
     // If table doesn't exist, create it
-    if (checkError?.code === 'PGRST205') {
+    if (checkError?.code === 'PGRST116') {
       const { error: createError } = await supabase
-        .from("payment_references")
-        .create({
-          id: "payment_references",
-          columns: [
-            { name: "id", type: "uuid", isPrimaryKey: true, isRequired: true },
-            { name: "organization_id", type: "uuid", isRequired: true },
-            { name: "reference_number", type: "text", isRequired: true },
-            { name: "amount", type: "numeric", isRequired: true },
-            { name: "status", type: "text", isRequired: true, default: "available" },
-            { name: "created_at", type: "timestamp with time zone", isRequired: true, default: "now()" },
-            { name: "used_by", type: "uuid" },
-            { name: "used_at", type: "timestamp with time zone" },
-          ],
-          foreignKeys: [
-            {
-              name: "payment_references_organization_id_fkey",
-              column: "organization_id",
-              references: "organizations(id)",
-            },
-            {
-              name: "payment_references_used_by_fkey",
-              column: "used_by",
-              references: "profiles(id)",
-            },
-          ],
-        });
+        .from("payment_references" as any)
+        .insert([
+          {
+            id: crypto.randomUUID(),
+            reference_number: "sample_ref_1",
+            organization_id: "00000000-0000-0000-0000-000000000000",
+            amount: 0,
+            status: "available",
+          }
+        ]);
 
       if (createError) {
         console.error("Error creating payment_references table:", createError);
@@ -63,8 +47,8 @@ export async function setupOrganizationMembersReferenceColumn() {
   try {
     // Check if column exists
     const { data: columnCheck, error: checkError } = await supabase
-      .from("organization_members")
-      .select("reference_number")
+      .from("organization_members" as any)
+      .select("reference_number", { count: "exact" })
       .limit(1);
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -75,11 +59,9 @@ export async function setupOrganizationMembersReferenceColumn() {
     // If column doesn't exist, add it
     if (checkError?.code === 'PGRST116') {
       const { error: addError } = await supabase
-        .rpc("add_column_if_not_exists", {
-          table_name: "organization_members",
-          column_name: "reference_number",
-          column_type: "text",
-        });
+        .from("organization_members" as any)
+        .update({ reference_number: "" })
+        .is("reference_number", null);
 
       if (addError) {
         console.error("Error adding reference_number column:", addError);
