@@ -590,7 +590,7 @@ export default function RegistrationCodesTab() {
 
       // Update event member status to approved
       const { error } = await supabase
-        .from("organization_members" as any)
+        .from("organization_event_members" as any)
         .update({
           status: "approved",
         })
