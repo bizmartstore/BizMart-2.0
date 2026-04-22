@@ -13,37 +13,37 @@ export async function setupPaymentReferencesTable() {
 
     // If table doesn't exist (PGRST116 error), create it
     if (checkError?.code === 'PGRST116') {
-      // Try to create the table by inserting a record
-      // This will fail if table doesn't exist, but we'll catch it
       try {
-        const sampleId = crypto.randomUUID();
-        const { error: insertError } = await supabase
-          .from("payment_references")
-          .insert([
-            {
-              id: sampleId,
-              reference_code: "123456",
-              organization_id: "00000000-0000-0000-0000-000000000000",
-              amount: 0,
-              status: "available",
-              used: false,
-            }
-          ]);
+        // Create the table using raw SQL
+        const { error: sqlError } = await supabase
+          .sql(`
+            CREATE TABLE IF NOT EXISTS payment_references (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+              reference_code TEXT NOT NULL,
+              amount NUMERIC(10,2) NOT NULL DEFAULT 0,
+              status TEXT NOT NULL DEFAULT 'available',
+              used BOOLEAN NOT NULL DEFAULT false,
+              used_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+              used_at TIMESTAMPTZ,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
 
-        if (insertError) {
-          console.error("Error creating payment_references table:", insertError);
+            CREATE INDEX IF NOT EXISTS idx_payment_references_org_id ON payment_references(organization_id);
+            CREATE INDEX IF NOT EXISTS idx_payment_references_reference_code ON payment_references(reference_code);
+            CREATE INDEX IF NOT EXISTS idx_payment_references_used ON payment_references(used);
+            CREATE INDEX IF NOT EXISTS idx_payment_references_created_at ON payment_references(created_at);
+          `);
+
+        if (sqlError) {
+          console.error("Error creating payment_references table:", sqlError);
           toast.error("Failed to setup payment references table");
         } else {
-          // Clean up the sample record
-          await supabase
-            .from("payment_references")
-            .delete()
-            .eq("id", sampleId);
-          
           toast.success("Payment references table created successfully");
         }
-      } catch (insertError) {
-        console.error("Error creating payment_references table:", insertError);
+      } catch (sqlError) {
+        console.error("Error creating payment_references table:", sqlError);
         toast.error("Failed to setup payment references table");
       }
     } else if (checkError && checkError.code !== 'PGRST116') {
