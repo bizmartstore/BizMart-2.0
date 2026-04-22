@@ -7,7 +7,7 @@ export async function setupPaymentReferencesTable() {
   try {
     // Try to query the table to see if it exists
     const { error: checkError } = await supabase
-      .from("payment_references" as any)
+      .from("payment_references")
       .select("id", { count: "exact" })
       .limit(1);
 
@@ -18,13 +18,14 @@ export async function setupPaymentReferencesTable() {
       try {
         const sampleId = crypto.randomUUID();
         const { error: insertError } = await supabase
-          .from("payment_references" as any)
+          .from("payment_references")
           .insert([
             {
               id: sampleId,
-              reference_code: "sample_ref_1",
+              reference_code: "123456",
               organization_id: "00000000-0000-0000-0000-000000000000",
               amount: 0,
+              status: "available",
               used: false,
             }
           ]);
@@ -35,7 +36,7 @@ export async function setupPaymentReferencesTable() {
         } else {
           // Clean up the sample record
           await supabase
-            .from("payment_references" as any)
+            .from("payment_references")
             .delete()
             .eq("id", sampleId);
           

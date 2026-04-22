@@ -116,6 +116,25 @@ interface OrganizationTransaction {
   };
 }
 
+interface PaymentReference {
+  id: string;
+  organization_id: string;
+  reference_code: string;
+  amount: number;
+  status: string;
+  used: boolean;
+  used_by?: string | null;
+  used_at?: string | null;
+  created_at: string;
+  organizations?: {
+    name: string;
+  } | null;
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
+}
+
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -140,7 +159,7 @@ export default function RegistrationCodesTab() {
   const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
   const [isLoadingReferences, setIsLoadingReferences] = useState(false);
-  const [paymentReferences, setPaymentReferences] = useState<any[]>([]);
+  const [paymentReferences, setPaymentReferences] = useState<PaymentReference[]>([]);
   const [selectedOrgForReference, setSelectedOrgForReference] = useState<any>(null);
   const [referenceAmount, setReferenceAmount] = useState("0.00");
   const [showGenerateReferenceDialog, setShowGenerateReferenceDialog] = useState(false);
@@ -306,7 +325,7 @@ export default function RegistrationCodesTab() {
     try {
       setIsLoadingReferences(true);
       const { data, error } = await supabase
-        .from("payment_references" as any)
+        .from("payment_references")
         .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
         .order("created_at", { ascending: false });
 
@@ -317,7 +336,7 @@ export default function RegistrationCodesTab() {
 
       if (error) throw error;
 
-      setPaymentReferences(data || []);
+      setPaymentReferences((data || []) as unknown as PaymentReference[]);
     } catch (error) {
       console.error("Error loading payment references:", error);
       toast.error("Failed to load payment references");
@@ -1449,11 +1468,12 @@ export default function RegistrationCodesTab() {
                       .from("payment_references")
                       .insert([{
                         organization_id: sampleOrg.id,
-                        reference_number: refNumber,
+                        reference_code: refNumber,
                         amount: 50.00,
                         status: "available",
+                        used: false,
                       }])
-                      .select(`*, organizations:organization_id(name)`) as any;
+                      .select(`*, organizations:organization_id(name)`);
                     
                     if (error) {
                       console.error("Error generating payment reference:", error);
@@ -1463,7 +1483,7 @@ export default function RegistrationCodesTab() {
                     
                     if (newRef && newRef[0]) {
                       // Add the new reference to the state
-                      setPaymentReferences(prev => [...prev, newRef[0]]);
+                      setPaymentReferences(prev => [...prev, newRef[0] as unknown as PaymentReference]);
                     }
                     
                     toast.success(`Payment reference generated: ${refNumber} for ${sampleOrg.name}`);
@@ -1492,7 +1512,7 @@ export default function RegistrationCodesTab() {
             <div className="space-y-2">
               {paymentReferences.map((ref) => (
                 <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
-                  ref.status === "used" ? " border-2 border-green-200 bg-green-50/50" : ""
+                  ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
                 )}>
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between">
@@ -1500,18 +1520,18 @@ export default function RegistrationCodesTab() {
                         <div className="flex items-center gap-2 mb-2">
                           <CreditCard className="h-4 w-4 text-blue-500" />
                           <div>
-                            <p className="font-medium text-sm">{ref.reference_number}</p>
+                            <p className="font-medium text-sm">{ref.reference_code}</p>
                             <p className="text-xs text-muted-foreground">
                               <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
                               <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
                             </p>
                             <p className="text-xs text-muted-foreground">
                               <strong>Status:</strong>
-                              <Badge variant={ref.status === "available" ? "default" : "outline"}>
-                                {ref.status}
+                              <Badge variant={ref.used ? "outline" : "default"}>
+                                {ref.used ? "Used" : "Available"}
                               </Badge>
                             </p>
-                            {ref.used_by && ref.profiles && (
+                            {ref.used && ref.profiles && (
                               <p className="text-xs text-muted-foreground">
                                 <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
                               </p>

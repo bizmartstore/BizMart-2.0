@@ -52,7 +52,7 @@ export default function JoinOrganizationInstructionDialog({
     try {
       // Verify the payment reference exists and is not used
       const { data: refData, error: refError } = await supabase
-        .from("payment_references" as any)
+        .from("payment_references")
         .select("*")
         .eq("reference_code", referenceNumber)
         .eq("used", false)
@@ -83,16 +83,16 @@ export default function JoinOrganizationInstructionDialog({
       if (error) throw error;
 
       // Mark payment reference as used
-      if (refData && (refData as any).id) {
+      if (refData && refData.id) {
         try {
           await supabase
-            .from("payment_references" as any)
+            .from("payment_references")
             .update({
               used: true,
               used_by: user.id,
               used_at: new Date().toISOString(),
             })
-            .eq("id", (refData as any).id);
+            .eq("id", refData.id);
         } catch (error) {
           console.error("Error marking payment reference as used:", error);
         }
