@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard, Plus } from "lucide-react";
+import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSign, Calendar, Wallet, CreditCard, Plus, RefreshCw, TrendingUp } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -116,6 +116,25 @@ interface OrganizationTransaction {
   };
 }
 
+interface PaymentReference {
+  id: string;
+  organization_id: string;
+  reference_number: string;
+  amount: number;
+  status: 'available' | 'used';
+  created_at: string;
+  used_by?: string;
+  used_at?: string;
+  organizations?: {
+    name: string;
+  };
+  profiles?: {
+    first_name: string | null;
+    last_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
 export default function RegistrationCodesTab() {
@@ -139,6 +158,12 @@ export default function RegistrationCodesTab() {
   const [orgEvents, setOrgEvents] = useState<any[]>([]);
   const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
+  const [paymentReferences, setPaymentReferences] = useState<PaymentReference[]>([]);
+  const [isLoadingReferences, setIsLoadingReferences] = useState(true);
+  const [showGenerateReferenceDialog, setShowGenerateReferenceDialog] = useState(false);
+  const [selectedOrgForReference, setSelectedOrgForReference] = useState<ApprovedOrganization | null>(null);
+  const [referenceAmount, setReferenceAmount] = useState("50.00");
+  const [generatingReference, setGeneratingReference] = useState(false);
   const navigate = useNavigate();
 
   // Load all data
@@ -148,6 +173,7 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadApprovedOrganizations();
     loadTransactions();
+    loadPaymentReferences();
   }, []);
 
   // Load registration codes
@@ -579,6 +605,28 @@ export default function RegistrationCodesTab() {
       toast.error("Failed to load organization details");
     } finally {
       setIsLoadingOrgDetails(false);
+    }
+  };
+
+  // Load payment references
+  const loadPaymentReferences = async () => {
+    try {
+      setIsLoadingReferences(true);
+      const { data, error } = await supabase
+        .from("payment_references")
+        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name, avatar_url)`)
+        .order("created_at", { ascending: false });
+
+      if (error && error.code !== 'PGRST205') {
+        throw error;
+      }
+
+      setPaymentReferences(data || []);
+    } catch (error) {
+      console.error("Error loading payment references:", error);
+      toast.error("Failed to load payment references");
+    } finally {
+      setIsLoadingReferences(false);
     }
   };
 
@@ -1191,6 +1239,75 @@ export default function RegistrationCodesTab() {
                 <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
               </div>
             ) : (
+              <>
+                {/* Payment References Section */}
+              <>
+                {/* Payment References Section */}
+                <div className="space-y-3 mt-6">
+                  {isLoadingReferences ? (
+                    <div className="flex justify-center items-center py-4">
+                      <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+                    </div>
+                  ) : paymentReferences.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No payment references generated yet</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {paymentReferences.map((ref) => (
+                        <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
+                          ref.status === "used" ? " border-2 border-green-200 bg-green-50/50" : ""
+                        )}>
+                          <CardContent className="pt-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <CreditCard className="h-4 w-4 text-blue-500" />
+                                  <div>
+                                    <p className="font-medium text-sm">{ref.reference_number}</p>
+                                    <p className="text-xs text-muted-foreground">
+                                      <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
+                                      <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      <strong>Status:</strong>
+                                      <Badge variant={ref.status === "available" ? "default" : "outline"}>
+                                        {ref.status}
+                                      </Badge>
+                                    </p>
+                                    {ref.used_by && ref.profiles && (
+                                      <p className="text-xs text-muted-foreground">
+                                        <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
+                                      </p>
+                                    )}
+                                    <p className="text-xs text-muted-foreground">
+                                      <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
+                                      {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              {ref.status === "available" && (
+                                <Button
+                                  size="sm"
+                                  className="h-8 w-8 p-0"
+                                  onClick={() => {
+                                    setSelectedOrgForReference(approvedOrgs.find(o => o.id === ref.organization_id) || null);
+                                    setReferenceAmount(Number(ref.amount).toFixed(2));
+                                    setShowGenerateReferenceDialog(true);
+                                  }}
+                                  title="Regenerate reference"
+                                >
+                                  <RefreshCw className="h-4 w-4 text-blue-500" />
+                                </Button>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Wallet Transactions Section */}
               <div className="space-y-3">
                 {transactions
                   .filter(t => {
@@ -1373,6 +1490,101 @@ export default function RegistrationCodesTab() {
                   </Card>
                 ))}
               </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      {/* Payment References Section - Simplified */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Payment References ({paymentReferences.length})</span>
+            <Button
+              size="sm"
+              className="gap-1"
+              onClick={async () => {
+                try {
+                  // Generate a sample payment reference for testing
+                  const refNumber = `ORG-SAMPLE-${Math.floor(1000 + Math.random() * 9000)}`;
+                  
+                  // Find a sample organization
+                  if (approvedOrgs.length > 0) {
+                    const sampleOrg = approvedOrgs[0];
+                    
+                    const { error } = await supabase
+                      .from("payment_references")
+                      .insert({
+                        organization_id: sampleOrg.id,
+                        reference_number: refNumber,
+                        amount: 50.00,
+                        status: "available",
+                      });
+                    
+                    if (error) throw error;
+                    
+                    toast.success(`Payment reference generated: ${refNumber}`);
+                    await loadPaymentReferences();
+                  }
+                } catch (error) {
+                  console.error("Error generating payment reference:", error);
+                  toast.error("Failed to generate payment reference");
+                }
+              }}
+            >
+              <Plus className="h-3 w-3" /> Generate Sample Reference
+            </Button>
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Payment references for organization join requests - track which users have paid
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {isLoadingReferences ? (
+            <div className="flex justify-center items-center py-4">
+              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
+            </div>
+          ) : paymentReferences.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-4">No payment references generated yet</p>
+          ) : (
+            <div className="space-y-2">
+              {paymentReferences.map((ref) => (
+                <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
+                  ref.status === "used" ? " border-2 border-green-200 bg-green-50/50" : ""
+                )}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CreditCard className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <p className="font-medium text-sm">{ref.reference_number}</p>
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
+                              <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Status:</strong>
+                              <Badge variant={ref.status === "available" ? "default" : "outline"}>
+                                {ref.status}
+                              </Badge>
+                            </p>
+                            {ref.used_by && ref.profiles && (
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
+                              {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>
