@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Plus, Copy, RefreshCw, Ticket, Store } from "lucide-react";
+import { Plus, Copy, RefreshCw, Ticket, Store, ShieldCheck } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function CodesTab() {
@@ -53,8 +53,8 @@ export default function CodesTab() {
   return (
     <Tabs defaultValue="club">
       <TabsList className="w-full grid grid-cols-2 mb-4">
-        <TabsTrigger value="club" className="gap-1"><Ticket className="h-3 w-3" /> Club Codes</TabsTrigger>
-        <TabsTrigger value="seller" className="gap-1"><Store className="h-3 w-3" /> Seller Codes</TabsTrigger>
+        <TabsTrigger value="club" className="gap-1"><ShieldCheck className="h-3 w-3 text-blue-500" /> Club Codes</TabsTrigger>
+        <TabsTrigger value="seller" className="gap-1"><Store className="h-3 w-3 text-indigo-500" /> Seller Codes</TabsTrigger>
       </TabsList>
 
       <TabsContent value="club">

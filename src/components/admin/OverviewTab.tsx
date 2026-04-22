@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Package, Users, ShoppingCart, Printer, DollarSign, Clock } from "lucide-react";
+import { Package, Users, ShoppingCart, Printer, DollarSign, Clock, LayoutDashboard, ShieldCheck, Settings2 } from "lucide-react";
 
 export default function OverviewTab() {
   const [stats, setStats] = useState({
@@ -127,7 +127,7 @@ export default function OverviewTab() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
-            <ShoppingCart className="h-5 w-5 text-primary" />
+            <LayoutDashboard className="h-5 w-5 text-blue-500" />
             <span className="text-xs font-bold text-muted-foreground">Product Orders</span>
           </div>
           <p className="text-2xl font-extrabold">{stats.totalOrders}</p>
@@ -143,7 +143,7 @@ export default function OverviewTab() {
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
-            <DollarSign className="h-5 w-5 text-[hsl(var(--success))]" />
+            <DollarSign className="h-5 w-5 text-green-500" />
             <span className="text-xs font-bold text-muted-foreground">Total Revenue</span>
           </div>
           <p className="text-2xl font-extrabold">₱{stats.totalRevenue.toFixed(2)}</p>
@@ -151,7 +151,7 @@ export default function OverviewTab() {
         </div>
         <div className="bg-card rounded-xl p-4 border border-border">
           <div className="flex items-center gap-2 mb-2">
-            <Users className="h-5 w-5 text-secondary" />
+            <Users className="h-5 w-5 text-cyan-500" />
             <span className="text-xs font-bold text-muted-foreground">Users</span>
           </div>
           <p className="text-2xl font-extrabold">{stats.totalUsers}</p>
@@ -203,7 +203,7 @@ export default function OverviewTab() {
       {/* Recent Activity */}
       <div className="bg-card rounded-xl border border-border p-4">
         <h3 className="font-bold text-sm mb-3 flex items-center gap-2">
-          <Clock className="h-4 w-4 text-primary" /> Recent Activity
+          <Clock className="h-4 w-4 text-blue-500" /> Recent Activity
         </h3>
         {recentOrders.length === 0 ? (
           <p className="text-xs text-muted-foreground text-center py-4">No recent activity</p>

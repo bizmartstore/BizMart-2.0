@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Ticket, Award, Store, FolderOpen, Megaphone, Users as UsersIcon } from "lucide-react";
+import { Users, Package, ShoppingCart, Printer, MessageCircle, Crown, Coins, Settings, BarChart3, Bell, Award, Store, FolderOpen, Megaphone, Users as UsersIcon, ShieldCheck, LayoutDashboard, ClipboardList, CreditCard, Settings2, LayoutGrid, MessageSquare, Newspaper, Crown as CrownIcon, DollarSign, ShoppingBag, PackageCheck, UsersRound, LayoutList, ScrollText, UserCog, ShieldCheck as ShieldCheckIcon } from "lucide-react";
 import OverviewTab from "@/components/admin/OverviewTab";
 import OrdersTab from "@/components/admin/OrdersTab";
 import ProductsTab from "@/components/admin/ProductsTab";
@@ -27,26 +27,26 @@ import BannerTab from "@/components/admin/BannerTab";
 import BroadcastTab from "@/components/admin/BroadcastTab";
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   const baseTabs = [
-    { id: "overview", label: "Overview", icon: <BarChart3 className="h-4 w-4" />, badge: null },
-    { id: "orders", label: "Orders", icon: <ShoppingCart className="h-4 w-4" />, badge: pendingCounts.orders > 0 ? pendingCounts.orders : null },
-    { id: "products", label: "Products", icon: <Package className="h-4 w-4" />, badge: null },
-    { id: "broadcast", label: "Broadcast", icon: <Megaphone className="h-4 w-4" />, badge: null },
-    { id: "categories", label: "Categories", icon: <FolderOpen className="h-4 w-4" />, badge: null },
-    { id: "users", label: "Users", icon: <Users className="h-4 w-4" />, badge: null },
-    { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4" />, badge: null },
-    { id: "print", label: "Print", icon: <Printer className="h-4 w-4" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
-    { id: "messages", label: "Messages", icon: <MessageCircle className="h-4 w-4" />, badge: null },
-    { id: "codes", label: "Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
-    { id: "registration-codes", label: "Registration Codes", icon: <Ticket className="h-4 w-4" />, badge: null },
-    { id: "news", label: "News", icon: <Bell className="h-4 w-4" />, badge: null },
-    { id: "banners", label: "Banners", icon: <Award className="h-4 w-4" />, badge: null },
-    { id: "club", label: "Club", icon: <Crown className="h-4 w-4" />, badge: null },
-    { id: "bcoins", label: "BCoins", icon: <Coins className="h-4 w-4" />, badge: pendingCounts.bcoins > 0 ? pendingCounts.bcoins : null },
-    { id: "gcash", label: "GCash", icon: <Bell className="h-4 w-4" />, badge: pendingCounts.gcash > 0 ? pendingCounts.gcash : null },
+    { id: "overview", label: "Overview", icon: <LayoutDashboard className="h-4 w-4 text-blue-500" />, badge: null },
+    { id: "orders", label: "Orders", icon: <ShoppingBag className="h-4 w-4 text-green-500" />, badge: pendingCounts.orders > 0 ? pendingCounts.orders : null },
+    { id: "products", label: "Products", icon: <PackageCheck className="h-4 w-4 text-orange-500" />, badge: null },
+    { id: "broadcast", label: "Broadcast", icon: <Megaphone className="h-4 w-4 text-red-500" />, badge: null },
+    { id: "categories", label: "Categories", icon: <LayoutList className="h-4 w-4 text-purple-500" />, badge: null },
+    { id: "users", label: "Users", icon: <UserCog className="h-4 w-4 text-blue-600" />, badge: null },
+    { id: "sellers", label: "Sellers", icon: <Store className="h-4 w-4 text-indigo-500" />, badge: null },
+    { id: "print", label: "Print", icon: <ScrollText className="h-4 w-4 text-teal-500" />, badge: pendingCounts.print > 0 ? pendingCounts.print : null },
+    { id: "messages", label: "Messages", icon: <MessageSquare className="h-4 w-4 text-pink-500" />, badge: null },
+    { id: "codes", label: "Codes", icon: <ClipboardList className="h-4 w-4 text-amber-500" />, badge: null },
+    { id: "organizations", label: "Organizations", icon: <UsersRound className="h-4 w-4 text-cyan-500" />, badge: null },
+    { id: "news", label: "News", icon: <Newspaper className="h-4 w-4 text-emerald-500" />, badge: null },
+    { id: "banners", label: "Banners", icon: <Award className="h-4 w-4 text-yellow-500" />, badge: null },
+    { id: "club", label: "Club", icon: <CrownIcon className="h-4 w-4 text-purple-600" />, badge: null },
+    { id: "bcoins", label: "BCoins", icon: <Coins className="h-4 w-4 text-lime-500" />, badge: pendingCounts.bcoins > 0 ? pendingCounts.bcoins : null },
+    { id: "gcash", label: "GCash", icon: <CreditCard className="h-4 w-4 text-blue-600" />, badge: pendingCounts.gcash > 0 ? pendingCounts.gcash : null },
   ];
 
   if (isMainAdmin) {
-    baseTabs.push({ id: "settings", label: "Settings", icon: <Settings className="h-4 w-4" />, badge: null });
+    baseTabs.push({ id: "settings", label: "Settings", icon: <Settings2 className="h-4 w-4 text-gray-500" />, badge: null });
   }
 
   return baseTabs;
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
           <TabsContent value="print"><PrintTab /></TabsContent>
           <TabsContent value="messages"><MessagesTab /></TabsContent>
           <TabsContent value="codes"><CodesTab /></TabsContent>
-          <TabsContent value="registration-codes"><RegistrationCodesTab /></TabsContent>
+          <TabsContent value="organizations"><RegistrationCodesTab /></TabsContent>
           <TabsContent value="news"><NewsTab /></TabsContent>
           <TabsContent value="banners"><BannerTab /></TabsContent>
           <TabsContent value="club"><ClubTab /></TabsContent>

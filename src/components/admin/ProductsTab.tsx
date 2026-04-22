@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Plus, Edit2, Trash2, Loader2, Package, Upload, X, Search, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, PackageCheck, Upload, X, Search, RefreshCw, Package } from "lucide-react";
 import { products as fallbackProducts, categories as fallbackCategories } from "@/data/products";
 
 interface Category {
@@ -226,11 +226,11 @@ export default function ProductsTab() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search products..." className="pl-9 text-xs h-9" />
           </div>
-          <Button size="sm" variant="outline" onClick={syncDefaults} className="gap-1"><RefreshCw className="h-3 w-3" /> Sync Defaults</Button>
+          <Button size="sm" variant="outline" onClick={syncDefaults} className="gap-1"><RefreshCw className="h-3 w-3 text-purple-500" /> Sync Defaults</Button>
         </div>
         <Button size="sm" onClick={() => { resetForm(); setEditId(null); setShowForm(!showForm); }} className="gap-1 ml-2">
-          <Plus className="h-3 w-3" />{showForm ? "Cancel" : "Add Product"}
-        </Button>
+        <Plus className="h-3 w-3 text-orange-500" />{showForm ? "Cancel" : "Add Product"}
+      </Button>
       </div>
 
       {showForm && (
@@ -298,6 +298,7 @@ export default function ProductsTab() {
               )}
             </div>
             <p className="text-[9px] text-muted-foreground mt-1">Click to add up to 3 additional images for product carousel</p>
+            <p className="text-[8px] text-muted-foreground">Drag to reorder images in product view</p>
           </div>
 
           <div><Label className="text-[10px]">Description</Label><Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} className="text-xs" rows={2} /></div>
@@ -306,7 +307,7 @@ export default function ProductsTab() {
             <Label className="text-[10px]">Flash Sale Product</Label>
           </div>
           <Button onClick={save} disabled={saving} size="sm" className="w-full gap-1">
-            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Package className="h-3 w-3" />}
+            {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <PackageCheck className="h-3 w-3 text-orange-500" />}
             {editId ? "Update" : "Add"} Product
           </Button>
         </div>

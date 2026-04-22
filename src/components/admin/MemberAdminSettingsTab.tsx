@@ -5,7 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Save, Loader2, Store, LogOut } from "lucide-react";
+import { Save, Loader2, Store, LogOut, ShieldCheck } from "lucide-react";
 import { useAppSettings } from "@/hooks/useAppSettings";
 import { useAuth } from "@/context/AuthContext";
 import { useNavigate } from "react-router-dom";
@@ -54,7 +54,7 @@ export default function MemberAdminSettingsTab() {
     <div className="space-y-4">
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <div className="flex items-center gap-2">
-          <Store className="h-5 w-5 text-primary" />
+          <ShieldCheck className="h-5 w-5 text-blue-500" />
           <h3 className="font-bold text-sm">Store Status</h3>
         </div>
         <div className="flex items-center justify-between">
@@ -73,11 +73,11 @@ export default function MemberAdminSettingsTab() {
       </Button>
 
       <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4">
-        <h3 className="font-bold text-sm text-destructive mb-2">Account</h3>
-        <p className="text-[10px] text-muted-foreground mb-3">Log out of your admin account and return to the login page.</p>
+        <h3 className="font-bold text-sm text-destructive mb-2">🔐 Account Security</h3>
+        <p className="text-[10px] text-muted-foreground mb-3">Securely log out of your admin account.</p>
         <Button onClick={handleLogout} variant="destructive" className="w-full gap-2">
           <LogOut className="h-4 w-4" />
-          Logout
+          Sign Out
         </Button>
       </div>
     </div>

@@ -1069,7 +1069,7 @@ export default function RegistrationCodesTab() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-lg">Approved Organizations ({approvedOrgs.length})</CardTitle>
-              <CardDescription>View all approved organizations</CardDescription>
+              <CardDescription>View all approved organizations - swipe left/right to view more</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -1090,9 +1090,9 @@ export default function RegistrationCodesTab() {
                   className="pl-0"
                 />
               </div>
-              <div className="space-y-3">
+              <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4">
                 {filteredApprovedOrgs.map((org) => (
-                  <Card key={org.id} className="hover:shadow-md transition-shadow">
+                  <Card key={org.id} className="flex-shrink-0 w-80 hover:shadow-md transition-shadow">
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <div>
