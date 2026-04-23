@@ -15,7 +15,7 @@ export async function setupPaymentReferencesTable() {
     if (checkError?.code === 'PGRST116') {
       console.log("payment_references table does not exist. Creating it now...");
       
-      // Create table using insert with throwOnError to create the table
+      // Create the table using insert with throwOnError to create the table
       const { error: createError } = await supabase
         .from("payment_references")
         .insert([{
@@ -72,8 +72,43 @@ export async function setupOrganizationMembersReferenceColumn() {
   }
 }
 
+// Fix existing payment references with NULL organization_id
+export async function fixPaymentReferencesData() {
+  try {
+    // Find payment references with NULL organization_id
+    const { data: nullOrgRefs, error: fetchError } = await supabase
+      .from("payment_references")
+      .select("id")
+      .is("organization_id", null);
+    
+    if (fetchError) {
+      console.error("Error fetching payment references with NULL organization_id:", fetchError);
+      return;
+    }
+    
+    if (nullOrgRefs && nullOrgRefs.length > 0) {
+      console.log(`Found ${nullOrgRefs.length} payment references with NULL organization_id, cleaning up...`);
+      
+      // Delete these orphaned records
+      const { error: deleteError } = await supabase
+        .from("payment_references")
+        .delete()
+        .is("organization_id", null);
+      
+      if (deleteError) {
+        console.error("Error deleting orphaned payment references:", deleteError);
+      } else {
+        console.log("Successfully cleaned up orphaned payment references");
+      }
+    }
+  } catch (error: any) {
+    console.error("Error in fixPaymentReferencesData:", error);
+  }
+}
+
 // Initialize database setup
 export async function initializeDatabase() {
   await setupPaymentReferencesTable();
   await setupOrganizationMembersReferenceColumn();
+  await fixPaymentReferencesData();
 }

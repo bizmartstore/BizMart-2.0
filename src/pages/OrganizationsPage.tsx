@@ -27,6 +27,7 @@ export default function OrganizationsPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
   const [registrationCode, setRegistrationCode] = useState("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -71,7 +72,7 @@ export default function OrganizationsPage() {
           }
         )
         .subscribe();
-      
+        
       // Set up realtime subscription for organization changes
       const orgsChannel = supabase
         .channel('organizations_changes')
@@ -95,7 +96,7 @@ export default function OrganizationsPage() {
     } else {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, refreshTrigger]);
 
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };
@@ -146,7 +147,7 @@ export default function OrganizationsPage() {
     }
   };
 
-  const fetchOrganizations = async () => {
+  const fetchOrganizations = async (forceRefresh = false) => {
     try {
       setIsLoading(true);
       
@@ -187,13 +188,15 @@ export default function OrganizationsPage() {
             // Get available payment references for this organization
             const { data: paymentRefs, error: refError } = await supabase
               .from("payment_references")
-              .select("*")
+              .select(`*, organizations:organization_id(name)`)
               .eq("organization_id", org.id)
               .eq("used", false)
               .order("created_at", { ascending: false });
 
             if (refError) {
-              console.error("Error fetching payment references:", refError);
+              console.error("Error fetching payment references for org", org.id, ":", refError);
+            } else {
+              console.log(`Organization ${org.name} (${org.id}) has ${(paymentRefs || []).length} available payment references`);
             }
 
             // Check if user is member or has pending request for this org
@@ -223,6 +226,12 @@ export default function OrganizationsPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  // Export fetchOrganizations for use in other components
+  const refreshOrganizationsList = () => {
+    setRefreshTrigger(prev => prev + 1);
+    fetchOrganizations(true);
   };
 
   const handleRegisterOrganization = async () => {
@@ -941,7 +950,6 @@ const { error: detailsError } = await supabase
             })
           </div>
         )
-      })}
       </div>
       <BottomNav />
 
