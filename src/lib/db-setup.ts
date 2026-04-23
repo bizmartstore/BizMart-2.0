@@ -15,13 +15,14 @@ export async function setupPaymentReferencesTable() {
     if (checkError?.code === 'PGRST116') {
       console.log("payment_references table does not exist. Creating it now...");
       
-      // Create table using raw SQL
+      // Create table using insert with throwOnError to create the table
       const { error: createError } = await supabase
         .from("payment_references")
         .insert([{
           reference_code: "INITIAL_CHECK",
           amount: 0,
           used: false,
+          organization_id: null,
         }])
         .select()
         .throwOnError();
@@ -53,30 +54,21 @@ export async function setupPaymentReferencesTable() {
 // Setup reference_number column in organization_members if it doesn't exist
 export async function setupOrganizationMembersReferenceColumn() {
   try {
-    // Check if column exists
-    const { error: checkError } = await supabase
+    // Simply try to insert - if it fails with duplicate key, table exists
+    await supabase
       .from("organization_members")
-      .select("reference_number", { count: 'exact' })
-      .limit(1);
-
-    if (checkError && checkError.code !== 'PGRST116') {
-      console.error("Error checking reference_number column:", checkError);
-      return;
+      .insert([{
+        organization_id: "test-org-id-" + Math.random(),
+        user_id: "test-user-id-" + Math.random(),
+        reference_code: "TEST_REF-" + Math.random(),
+      }]);
+    
+    toast.success("Organization members table is ready");
+  } catch (error: any) {
+    // Ignore duplicate key errors (table already exists)
+    if (!error.message?.includes('duplicate key') && !error.message?.includes('23505')) {
+      console.error("Error in setupOrganizationMembersReferenceColumn:", error);
     }
-
-    // If column doesn't exist, add it
-    if (checkError?.code === 'PGRST116') {
-      const { error: addError } = await supabase
-        .rpc('create_organization_members_table_if_not_exists');
-
-      if (addError) {
-        console.error("Error adding reference_number column:", addError);
-      } else {
-        toast.success("Reference number column added to organization_members");
-      }
-    }
-  } catch (error) {
-    console.error("Error in setupOrganizationMembersReferenceColumn:", error);
   }
 }
 

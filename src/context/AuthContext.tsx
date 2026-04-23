@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { initializeDatabase } from "@/lib/db-setup";
 
 export interface Profile {
   id: string;
@@ -101,6 +102,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mountedRef.current = true;
     const init = async () => {
       try {
+        // Initialize database tables on app load
+        await initializeDatabase();
+        
         const { data: { session: s } } = await supabase.auth.getSession();
         if (!mountedRef.current) return;
         setSession(s);
@@ -111,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (s?.user) fetchProfile(s.user);
         else { setLoading(false); setIsAuthReady(true); }
       } catch (err) {
+        console.error("Error during initialization:", err);
         if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
       }
     };

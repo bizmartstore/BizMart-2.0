@@ -68,6 +68,12 @@ export default function JoinOrganizationInstructionDialog({
         toast.error("Invalid or already used payment reference number. Please check and try again.");
         return;
       }
+      
+      // Verify the payment reference belongs to the selected organization
+      if (paymentRef.organization_id !== organizationId) {
+        toast.error("This payment reference is not for the selected organization. Please use the correct reference.");
+        return;
+      }
 
       // Insert join request
       const { error } = await supabase
