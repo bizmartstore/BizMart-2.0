@@ -158,16 +158,24 @@ export default function OrganizationsPage() {
               return { ...org, member_count: 0 };
             }
 
-            // Get all payment references for this organization (both used and available)
-            const { data: paymentRefs, error: refError } = await supabase
-              .from("payment_references")
-              .select("*")
-              .eq("organization_id", org.id)
-              .order("created_at", { ascending: false });
+            // ✅ Get available slots (WORKS for customers)
+const { data: availableSlots, error: slotError } = await supabase
+  .rpc("get_available_slots", { org_id: org.id });
 
-            if (refError) {
-              console.error("Error fetching payment references:", refError);
-            }
+if (slotError) {
+  console.error("Error fetching slots:", slotError);
+}
+
+// ✅ Try to get payment references (ONLY admins will get data)
+const { data: paymentRefs, error: refError } = await supabase
+  .from("payment_references")
+  .select("*")
+  .eq("organization_id", org.id)
+  .order("created_at", { ascending: false });
+
+if (refError) {
+  console.error("Error fetching payment references:", refError);
+}
 
             // Check if user is member or has pending request for this org
             let membershipStatus = { isMember: false, hasPendingRequest: false };
