@@ -61,7 +61,11 @@ export default function OrganizationsPage() {
         .channel('payment_references_changes')
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'payment_references' },
+          {
+            event: '*',
+            schema: 'public',
+            table: 'payment_references'
+          },
           () => {
             fetchOrganizations();
           }
@@ -154,12 +158,12 @@ export default function OrganizationsPage() {
               return { ...org, member_count: 0 };
             }
 
-            // Get available payment references for this organization
+            // Get all payment references for this organization (both used and available)
             const { data: paymentRefs, error: refError } = await supabase
               .from("payment_references")
               .select("*")
               .eq("organization_id", org.id)
-              .eq("used", false);
+              .order("created_at", { ascending: false });
 
             if (refError) {
               console.error("Error fetching payment references:", refError);
@@ -813,20 +817,31 @@ const { error: detailsError } = await supabase
                     </div>
                     {isApproved && !org.isMember && !org.hasPendingRequest && (
                       <div className="mt-3 space-y-2">
-        {org.payment_references && org.payment_references.length > 0 ? (
-          <div className="space-y-1">
-            {org.payment_references.map((ref: any) => (
-              <div key={ref.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
-                <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-            <p className="text-xs font-medium text-yellow-800">No payment references available for this organization</p>
-          </div>
-        )}
+                        {org.payment_references && org.payment_references.length > 0 ? (
+                          <div className="space-y-1">
+                            {org.payment_references.map((ref: any) => (
+                              <div key={ref.id} className={"rounded-lg p-2".concat(
+                                ref.used ? " bg-gray-100 border border-gray-200" : " bg-blue-50 border border-blue-200"
+                              )}>
+                                <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
+                                <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
+                                <p className="text-[10px] text-muted-foreground">
+                                  Status: {ref.used ? "Used" : "Available"} • Created: {new Date(ref.created_at).toLocaleString()}
+                                </p>
+                              </div>
+                            ))}
+                            {/* Show available slots count */}
+                            <div className="bg-green-50 border border-green-200 rounded-lg p-2">
+                              <p className="text-xs font-medium text-green-800">
+                                Available slots: {org.payment_references.filter((ref: any) => !ref.used).length}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+                            <p className="text-xs font-medium text-yellow-800">No payment references available for this organization</p>
+                          </div>
+                        )}
                         <Button
                           size="sm"
                           className="w-full gap-2"
