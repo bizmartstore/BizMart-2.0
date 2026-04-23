@@ -173,22 +173,6 @@ export default function RegistrationCodesTab() {
     loadApprovedOrganizations();
     loadTransactions();
     loadPaymentReferences();
-    
-    // Set up realtime subscription for payment references changes
-    const paymentRefsChannel = supabase
-      .channel('payment_references_updates')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'payment_references' },
-        () => {
-          loadPaymentReferences();
-        }
-      )
-      .subscribe();
-    
-    return () => {
-      supabase.removeChannel(paymentRefsChannel);
-    };
   }, []);
 
   // Load registration codes
@@ -1518,7 +1502,7 @@ export default function RegistrationCodesTab() {
                     
                     if (newRef && newRef[0]) {
                       // Add the new reference to the state
-                      setPaymentReferences(prev => [newRef[0] as unknown as PaymentReference, ...prev]);
+                      setPaymentReferences(prev => [...prev, newRef[0] as unknown as PaymentReference]);
                     }
                     
                     toast.success(`Payment reference generated: ${refNumber} for ${selectedOrgForReference.name}`);
