@@ -51,47 +51,21 @@ export default function JoinOrganizationInstructionDialog({
 
     try {
       // Verify the payment reference exists and is not used
-      // Check both registration_codes and payment_references tables
-      let refData = null;
-      let refError = null;
-      let tableName = "";
+      const { data: refData, error: refError } = await supabase
+  .from("payment_references")
+  .select("*")
+  .eq("reference_code", referenceNumber)
+  .eq("used", false)
+  .eq("organization_id", organizationId)
+  .maybeSingle();
 
-      // First, check payment_references table
-      const { data: paymentRefData, error: paymentRefError } = await supabase
-        .from("payment_references")
-        .select("*")
-        .eq("reference_code", referenceNumber)
-        .eq("used", false)
-        .eq("organization_id", organizationId)
-        .maybeSingle();
-
-      if (paymentRefError) {
-        console.error("Error verifying payment reference in payment_references:", paymentRefError);
+      if (refError) {
+        console.error("Error verifying payment reference:", refError);
+        toast.error("Error verifying payment reference");
+        return;
       }
 
-      if (paymentRefData) {
-        refData = paymentRefData;
-        tableName = "payment_references";
-      } else {
-        // If not found in payment_references, check registration_codes table
-        const { data: regCodeData, error: regCodeError } = await supabase
-          .from("registration_codes")
-          .select("*")
-          .eq("code", referenceNumber)
-          .eq("used", false)
-          .maybeSingle();
-
-        if (regCodeError) {
-          console.error("Error verifying registration code:", regCodeError);
-        }
-
-        if (regCodeData) {
-          refData = regCodeData;
-          tableName = "registration_codes";
-        }
-      }
-
-      if (!paymentRefData && !regCodeData) {
+      if (!refData) {
         toast.error("Invalid or already used payment reference number. Please check and try again.");
         return;
       }
@@ -109,8 +83,8 @@ export default function JoinOrganizationInstructionDialog({
 
       if (error) throw error;
 
-      // Mark the reference as used in the appropriate table
-      if (paymentRefData && paymentRefData.id) {
+      // Mark payment reference as used
+      if (refData && refData.id) {
         try {
           await supabase
             .from("payment_references")
@@ -119,20 +93,9 @@ export default function JoinOrganizationInstructionDialog({
               used_by: user.id,
               used_at: new Date().toISOString(),
             })
-            .eq("id", paymentRefData.id);
+            .eq("id", refData.id);
         } catch (error) {
           console.error("Error marking payment reference as used:", error);
-        }
-      } else if (regCodeData && regCodeData.id) {
-        try {
-          await supabase
-            .from("registration_codes")
-            .update({
-              used: true,
-            })
-            .eq("id", regCodeData.id);
-        } catch (error) {
-          console.error("Error marking registration code as used:", error);
         }
       }
 
