@@ -146,7 +146,7 @@ export default function OrganizationsPage() {
 const orgsWithCountsAndRefs = await Promise.all(
   (orgData || []).map(async (org: any) => {
     try {
-      // 🔹 MEMBER COUNT
+      // ✅ MEMBER COUNT
       const { count, error: countError } = await supabase
         .from("organization_members")
         .select("id", { count: "exact", head: true })
@@ -156,7 +156,7 @@ const orgsWithCountsAndRefs = await Promise.all(
         console.error("Error counting members:", countError);
       }
 
-      // 🔹 AVAILABLE SLOTS (SAFE FOR CUSTOMERS)
+      // ✅ AVAILABLE SLOTS (USE THIS — no RPC needed)
       const { count: availableSlots, error: slotError } = await supabase
         .from("payment_references")
         .select("id", { count: "exact", head: true })
@@ -167,7 +167,7 @@ const orgsWithCountsAndRefs = await Promise.all(
         console.error("Error fetching slots:", slotError);
       }
 
-      // 🔹 PAYMENT REFERENCES (ADMIN ONLY VIA RLS)
+      // ✅ PAYMENT REFERENCES (admins only via RLS)
       const { data: paymentRefs, error: refError } = await supabase
         .from("payment_references")
         .select("*")
@@ -178,7 +178,7 @@ const orgsWithCountsAndRefs = await Promise.all(
         console.error("Error fetching payment references:", refError);
       }
 
-      // 🔹 MEMBERSHIP STATUS
+      // ✅ MEMBERSHIP STATUS
       let membershipStatus = {
         isMember: false,
         hasPendingRequest: false,
@@ -188,7 +188,7 @@ const orgsWithCountsAndRefs = await Promise.all(
         membershipStatus = await checkMembershipStatus(org.id);
       }
 
-      // 🔹 FINAL RETURN
+      // ✅ FINAL RETURN
       return {
         ...org,
         member_count: count || 0,
@@ -211,52 +211,85 @@ const orgsWithCountsAndRefs = await Promise.all(
     }
   })
 );
+            // Get available slots by counting unused payment references
+            const { count: availableSlots, error: slotError } = await supabase
+              .from("payment_references")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id)
+              .eq("used", false);
 
-// ✅ SET STATE (ONLY ONCE — CLEAN)
-setOrganizations(orgsWithCountsAndRefs as Organization[]);
+            if (slotError) {
+              console.error("Error fetching slots:", slotError);
+            }
 
-} catch (error) {
-  console.error("Error fetching organizations:", error);
-  setOrganizations([]);
-  toast.error("Failed to load organizations. Please try again later.");
-} finally {
-  setIsLoading(false);
+            // ✅ Try to get payment references (ONLY admins will get data)
+            const { data: paymentRefs, error: refError } = await supabase
+              .from("payment_references")
+              .select("*")
+  .eq("organization_id", org.id)
+  .order("created_at", { ascending: false });
+
+if (refError) {
+  console.error("Error fetching payment references:", refError);
 }
 
+            // Check if user is member or has pending request for this org
+            let membershipStatus = { isMember: false, hasPendingRequest: false };
+            if (user) {
+              membershipStatus = await checkMembershipStatus(org.id);
+            }
 
-// ================= REGISTER ORGANIZATION =================
+            return {
+              ...org,
+              member_count: count || 0,
+              payment_references: paymentRefs || [],
+              ...membershipStatus
+            };
+          } catch (countError) {
+            console.error("Error in member count query:", countError);
+            return { ...org, member_count: 0 };
+          }
 
-const handleRegisterOrganization = async () => {
-  if (!user || !profile) {
-    toast.error("Please log in to register an organization");
-    return;
-  }
-
-  if (!registrationCode) {
-    toast.error("Registration code is required");
-    return;
-  }
-
-  try {
-    setIsUploadingImage(true);
-
-    // 🔹 VERIFY REGISTRATION CODE
-    const { data: codeData, error: codeError } = await supabase
-      .from("registration_codes")
-      .select("*")
-      .eq("code", registrationCode)
-      .eq("used", false)
-      .maybeSingle();
-
-    if (codeError) {
-      console.error("Code verification error:", codeError);
-      throw codeError;
+      setOrganizations(orgsWithCountsAndRefs || [] as Organization[]);
+    } catch (error) {
+      console.error("Error fetching organizations:", error);
+      setOrganizations([]); // Set to empty array on error
+      toast.error("Failed to load organizations. Please try again later.");
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    if (!codeData) {
-      toast.error("Invalid or already used registration code");
+  const handleRegisterOrganization = async () => {
+    if (!user || !profile) {
+      toast.error("Please log in to register an organization");
       return;
     }
+
+    if (!registrationCode) {
+      toast.error("Registration code is required");
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      
+      // Verify registration code
+      const { data: codeData, error: codeError } = await supabase
+        .from("registration_codes")
+        .select("*")
+        .eq("code", registrationCode)
+        .eq("used", false)
+        .maybeSingle();
+
+      if (codeError) {
+        console.error("Code verification error:", codeError);
+        throw codeError;
+      }
+      if (!codeData) {
+        toast.error("Invalid or already used registration code");
+        return;
+      }
 
       // Create organization
       const orgPayload: any = {
