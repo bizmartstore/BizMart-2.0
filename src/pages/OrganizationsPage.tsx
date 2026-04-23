@@ -176,23 +176,33 @@ const orgsWithCountsAndRefs = await Promise.all(
       }
 
       // ✅ Check membership status
-      let membershipStatus = {
-        isMember: false,
-        hasPendingRequest: false,
-      };
+      // Check if user is member or has pending request for this org
+let membershipStatus = { isMember: false, hasPendingRequest: false };
 
-      if (user) {
-        membershipStatus = await checkMembershipStatus(org.id);
-      }
+if (user) {
+  membershipStatus = await checkMembershipStatus(org.id);
+}
 
-      // ✅ FINAL RETURN (IMPORTANT)
-      return {
-        ...org,
-        member_count: count || 0,
-        payment_references: paymentRefs || [], // admins only
-        available_slots: availableSlots || 0,   // everyone
-        ...membershipStatus,
-      };
+return {
+  ...org,
+  member_count: count || 0,
+  payment_references: paymentRefs || [],
+  available_slots: availableSlots || 0,
+  ...membershipStatus
+};
+
+} catch (error) {
+  console.error("Error in organization processing:", error);
+
+  return {
+    ...org,
+    member_count: 0,
+    payment_references: [],
+    available_slots: 0,
+    isMember: false,
+    hasPendingRequest: false
+  };
+}
 
     } catch (error) {
       console.error("Error processing organization:", error);
