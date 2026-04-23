@@ -45,7 +45,7 @@ interface JoinRequest {
   organization_id: string;
   user_id: string;
   status: 'pending' | 'approved' | 'rejected';
-  reference_code: string | null;
+  reference_number: string | null;
   created_at: string;
   profiles?: {
     first_name: string | null;
@@ -1083,8 +1083,8 @@ export default function RegistrationCodesTab() {
                           </div>
                           <div className="space-y-1 text-sm">
                             <p><strong>Organization:</strong> {request.organizations?.name || "N/A"}</p>
-                            {request.reference_code && (
-                              <p><strong>Reference:</strong> {request.reference_code}</p>
+                            {request.reference_number && (
+                              <p><strong>Reference:</strong> {request.reference_number}</p>
                             )}
                             <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}</p>
                           </div>

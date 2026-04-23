@@ -1316,7 +1316,6 @@ export type Database = {
           id: string
           joined_at: string
           organization_id: string
-          reference_code: string | null
           role: string
           status: string
           user_id: string
@@ -1325,7 +1324,6 @@ export type Database = {
           id?: string
           joined_at?: string
           organization_id: string
-          reference_code?: string
           role?: string
           status?: string
           user_id: string
@@ -1334,7 +1332,6 @@ export type Database = {
           id?: string
           joined_at?: string
           organization_id?: string
-          reference_code?: string
           role?: string
           status?: string
           user_id?: string

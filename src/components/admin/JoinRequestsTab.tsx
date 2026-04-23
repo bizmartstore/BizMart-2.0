@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Check, X, User, Calendar, CreditCard } from "lucide-react";
+import { Users, Check, X, User, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,7 +18,6 @@ interface JoinRequest {
   user_id: string;
   status: "pending" | "approved" | "rejected";
   joined_at: string;
-  reference_code?: string | null;
   profile?: {
     id: string;
     first_name: string;
@@ -233,15 +232,6 @@ export default function JoinRequestsTab() {
                     {new Date(request.joined_at).toLocaleString()}
                   </span>
                 </div>
-                
-                {request.reference_code && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <CreditCard className="h-4 w-4" />
-                    <span>
-                      <strong>Reference:</strong> {request.reference_code}
-                    </span>
-                  </div>
-                )}
 
                 {request.status === "pending" && (
                   <div className="flex gap-2 pt-2">

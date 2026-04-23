@@ -50,32 +50,29 @@ export async function setupPaymentReferencesTable() {
   }
 }
 
-// Setup reference_code column in organization_members if it doesn't exist
+// Setup reference_number column in organization_members if it doesn't exist
 export async function setupOrganizationMembersReferenceColumn() {
   try {
-    // Check if reference_code column exists
+    // Check if column exists
     const { error: checkError } = await supabase
       .from("organization_members")
-      .select("reference_code", { count: 'exact' })
+      .select("reference_number", { count: 'exact' })
       .limit(1);
 
     if (checkError && checkError.code !== 'PGRST116') {
-      console.error("Error checking reference_code column:", checkError);
+      console.error("Error checking reference_number column:", checkError);
       return;
     }
 
-    // If column doesn't exist, we need to add it via raw SQL since the table function doesn't include it
+    // If column doesn't exist, add it
     if (checkError?.code === 'PGRST116') {
-      console.log("Adding reference_code column to organization_members table...");
-      
-      // Use raw SQL to alter the table - use the existing function instead
-      const { error: alterError } = await supabase
+      const { error: addError } = await supabase
         .rpc('create_organization_members_table_if_not_exists');
 
-      if (alterError) {
-        console.error("Error adding reference_code column:", alterError);
+      if (addError) {
+        console.error("Error adding reference_number column:", addError);
       } else {
-        toast.success("Reference code column added to organization_members");
+        toast.success("Reference number column added to organization_members");
       }
     }
   } catch (error) {
