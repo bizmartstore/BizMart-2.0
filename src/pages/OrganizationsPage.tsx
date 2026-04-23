@@ -143,20 +143,72 @@ export default function OrganizationsPage() {
       }
 
       // Get member counts and payment references for each organization
-      const orgsWithCountsAndRefs = await Promise.all(
-        (orgData || []).map(async (org: any) => {
-          try {
-            // Get member count
-            const { count, error: countError } = await supabase
-              .from("organization_members")
-              .select("id", { count: "exact", head: true })
-              .eq("organization_id", org.id)
-              .limit(1);
+const orgsWithCountsAndRefs = await Promise.all(
+  (orgData || []).map(async (org: any) => {
+    try {
+      // ✅ Get member count
+      const { count, error: countError } = await supabase
+        .from("organization_members")
+        .select("id", { count: "exact", head: true })
+        .eq("organization_id", org.id);
 
-            if (countError) {
-              console.error("Error counting members:", countError);
-              return { ...org, member_count: 0 };
-            }
+      if (countError) {
+        console.error("Error counting members:", countError);
+      }
+
+      // ✅ Get available slots (SAFE for customers)
+      const { data: availableSlots, error: slotError } = await (supabase as any)
+        .rpc("get_available_slots", { org_id: org.id });
+
+      if (slotError) {
+        console.error("Error fetching slots:", slotError);
+      }
+
+      // ✅ Get payment references (ONLY admins will actually receive data)
+      const { data: paymentRefs, error: refError } = await supabase
+        .from("payment_references")
+        .select("*")
+        .eq("organization_id", org.id)
+        .order("created_at", { ascending: false });
+
+      if (refError) {
+        console.error("Error fetching payment references:", refError);
+      }
+
+      // ✅ Check membership status
+      let membershipStatus = {
+        isMember: false,
+        hasPendingRequest: false,
+      };
+
+      if (user) {
+        membershipStatus = await checkMembershipStatus(org.id);
+      }
+
+      // ✅ FINAL RETURN (IMPORTANT)
+      return {
+        ...org,
+        member_count: count || 0,
+        payment_references: paymentRefs || [], // admins only
+        available_slots: availableSlots || 0,   // everyone
+        ...membershipStatus,
+      };
+
+    } catch (error) {
+      console.error("Error processing organization:", error);
+
+      // fallback (so UI doesn’t break)
+      return {
+        ...org,
+        member_count: 0,
+        payment_references: [],
+        available_slots: 0,
+        isMember: false,
+        hasPendingRequest: false,
+      };
+    }
+  })
+);
 
             // Get available slots by counting unused payment references
             const { count: availableSlots, error: slotError } = await supabase
