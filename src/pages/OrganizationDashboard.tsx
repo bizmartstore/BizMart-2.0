@@ -187,7 +187,7 @@ if (user && id) {
     console.error("Error fetching member data:", error);
   }
 
-  memberData = data;
+  memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
 
   if (memberData?.role && memberData.status === "active") {
     setIsMember(true);
