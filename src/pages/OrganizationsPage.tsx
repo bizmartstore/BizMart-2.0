@@ -853,8 +853,13 @@ const { error: detailsError } = await supabase
                         <Button
   size="sm"
   className="w-full gap-2"
+  disabled={!org?.id}
   onClick={(e) => {
+    e.preventDefault();
     e.stopPropagation();
+
+    if (!org?.id) return;
+
     setCurrentOrgId(org.id);
     setJoinOrgDialogOpen(true);
   }}
