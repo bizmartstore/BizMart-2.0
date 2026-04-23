@@ -55,6 +55,35 @@ export default function OrganizationsPage() {
   useEffect(() => {
     if (user) {
       fetchOrganizations();
+      
+      // Set up realtime subscription for payment references changes
+      const paymentRefsChannel = supabase
+        .channel('payment_references_changes')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'payment_references' },
+          () => {
+            fetchOrganizations();
+          }
+        )
+        .subscribe();
+      
+      // Set up realtime subscription for organization changes
+      const orgsChannel = supabase
+        .channel('organizations_changes')
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'organizations' },
+          () => {
+            fetchOrganizations();
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(paymentRefsChannel);
+        supabase.removeChannel(orgsChannel);
+      };
     } else {
       setIsLoading(false);
     }
@@ -91,13 +120,12 @@ export default function OrganizationsPage() {
     try {
       setIsLoading(true);
       
-      // First check if the organizations table exists
+      // Fetch all approved organizations
       const { data: orgData, error: orgError } = await supabase
         .from("organizations")
         .select("*")
         .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(1); // Just check if table exists with a small query
+        .order("created_at", { ascending: false });
 
       if (orgError && orgError.code === 'PGRST205') {
         // Table doesn't exist, set empty organizations and return
