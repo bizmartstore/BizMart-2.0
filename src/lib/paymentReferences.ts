@@ -37,6 +37,7 @@ const generatePaymentReference = async (
           amount,
           used: false,
           status: "active",
+          created_at: new Date().toISOString(),
         },
       ])
       .select("*")
@@ -86,7 +87,7 @@ const getPaymentReferencesForOrganization = async (
     const refs = (data ?? []) as any[];
     return refs.map(ref => ({
       ...ref,
-      organizations: ref.organizations ? { name: ref.organizations.name } : null
+      organizations: ref.organizations ? { name: ref.organizations.name } : { name: "N/A" }
     })) as unknown as PaymentReference[];
   } catch (error) {
     console.error("Unexpected fetch error:", error);

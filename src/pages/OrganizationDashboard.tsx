@@ -308,25 +308,16 @@ if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
 
     setAnnouncements(announcementsData || []);
 
-    // 8. Payment References (DEBUG)
-const { data: paymentRefs, error: paymentRefsError } = await supabase
-  .from("payment_references")
-  .select("*")
-  .eq("organization_id", id);
+    // 8. Payment References
+    const { data: paymentRefs, error: paymentRefsError } = await supabase
+      .from("payment_references")
+      .select("*")
+      .eq("organization_id", id)
+      .eq("used", false);
 
-console.log("===== DEBUG PAYMENT REFS =====");
-console.log("CURRENT ORG ID (URL):", id);
-console.log("FETCHED PAYMENT REFS:", paymentRefs);
-
-if (paymentRefs && paymentRefs.length > 0) {
-  paymentRefs.forEach(ref => {
-    console.log("REF ORG ID:", ref.organization_id);
-  });
-}
-
-if (paymentRefsError) {
-  console.error("Error fetching payment references:", paymentRefsError);
-}
+    if (paymentRefsError) {
+      console.error("Error fetching payment references:", paymentRefsError);
+    }
   } catch (error) {
     console.error("Error fetching organization data:", error);
     toast.error("Failed to load organization data");

@@ -1531,42 +1531,42 @@ export default function RegistrationCodesTab() {
           ) : (
             <div className="space-y-2">
               {paymentReferences.map((ref) => (
-                <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
-                  ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
-                )}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CreditCard className="h-4 w-4 text-blue-500" />
-                          <div>
-                            <p className="font-medium text-sm">{ref.reference_code}</p>
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
-                              <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Status:</strong>
-                              <Badge variant={ref.used ? "outline" : "default"}>
-                                {ref.used ? "Used" : "Available"}
-                              </Badge>
-                            </p>
-                            {ref.used && ref.profiles && (
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
-                              {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
-                            </p>
-                          </div>
-                        </div>
+            <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
+              ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
+            )}>
+              <CardContent className="pt-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className="h-4 w-4 text-blue-500" />
+                      <div>
+                        <p className="font-medium text-sm">{ref.reference_code}</p>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
+                          <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Status:</strong>
+                          <Badge variant={ref.used ? "outline" : "default"}>
+                            {ref.used ? "Used" : "Available"}
+                          </Badge>
+                        </p>
+                        {ref.used && ref.used_by && (
+                          <p className="text-xs text-muted-foreground">
+                            <strong>Used by:</strong> {ref.used_by}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
+                          {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
+                        </p>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
             </div>
           )}
         </CardContent>

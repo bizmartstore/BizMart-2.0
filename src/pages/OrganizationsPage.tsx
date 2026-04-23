@@ -182,11 +182,11 @@ paymentRefsChannels.current = organizations.map((org) => {
             }
 
             // Get available payment references for this organization
-                  const paymentRefs = await getPaymentReferencesForOrganization(org.id);
-      
-                  if (!paymentRefs) {
-                    console.error("Error fetching payment references for organization", org.id);
-                  }
+            const paymentRefs = await getPaymentReferencesForOrganization(org.id);
+            
+            if (!paymentRefs) {
+              console.error("Error fetching payment references for organization", org.id);
+            }
 
             // Check if user is member or has pending request for this org
             let membershipStatus = { isMember: false, hasPendingRequest: false };
@@ -838,7 +838,9 @@ const { error: detailsError } = await supabase
                       <div className="mt-3 space-y-2">
         {org.payment_references && org.payment_references.length > 0 ? (
           <div className="space-y-1">
-            {org.payment_references.map((ref: any) => (
+            {org.payment_references
+              .filter((ref: any) => !ref.used) // Only show available references
+              .map((ref: any) => (
               <div key={ref.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                 <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
                 <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
