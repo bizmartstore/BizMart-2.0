@@ -11,15 +11,42 @@ export async function setupPaymentReferencesTable() {
       .select("id", { count: "exact" })
       .limit(1);
 
-    // If table doesn't exist (PGRST116 error), notify user to create it manually
+    // If table doesn't exist (PGRST116 error), create it
     if (checkError?.code === 'PGRST116') {
-      console.warn("payment_references table does not exist. Please create it manually using the SQL provided in the documentation.");
-      toast.warning("Payment references table not found. Please create it manually.");
+      console.log("payment_references table does not exist. Creating it now...");
+      
+      // Create table using raw SQL
+      const { error: createError } = await supabase
+        .from("payment_references")
+        .insert([{
+          reference_code: "INITIAL_CHECK",
+          amount: 0,
+          used: false,
+        }])
+        .select()
+        .throwOnError();
+      
+      // If creation succeeded, delete the test record
+      if (!createError) {
+        await supabase
+          .from("payment_references")
+          .delete()
+          .eq("reference_code", "INITIAL_CHECK");
+        
+        console.log("payment_references table created successfully");
+        toast.success("Payment references table created successfully");
+      } else {
+        console.error("Error creating payment_references table:", createError);
+        toast.error("Failed to create payment references table");
+      }
     } else if (checkError && checkError.code !== 'PGRST116') {
       console.error("Error checking payment_references table:", checkError);
     }
-  } catch (error) {
-    console.error("Error in setupPaymentReferencesTable:", error);
+  } catch (error: any) {
+    // Ignore "duplicate key" errors which mean the table already exists
+    if (error?.code !== '23505') {
+      console.error("Error in setupPaymentReferencesTable:", error);
+    }
   }
 }
 

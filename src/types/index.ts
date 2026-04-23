@@ -20,8 +20,8 @@ export interface Organization {
   };
   isMember?: boolean;
   hasPendingRequest?: boolean;
-  payment_reference?: string | null;
-  payment_amount?: number | null;
+  reference_code?: string | null;
+  amount?: number | null;
 }
 
 // Member types

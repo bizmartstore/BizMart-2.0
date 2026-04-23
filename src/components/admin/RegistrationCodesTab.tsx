@@ -1470,7 +1470,6 @@ export default function RegistrationCodesTab() {
                         organization_id: sampleOrg.id,
                         reference_code: refNumber,
                         amount: 50.00,
-                        status: "available",
                         used: false,
                       }])
                       .select(`*, organizations:organization_id(name)`);
