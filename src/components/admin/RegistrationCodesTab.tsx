@@ -1452,22 +1452,42 @@ export default function RegistrationCodesTab() {
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
             <span>Payment References ({paymentReferences.length})</span>
-            <Button
-              size="sm"
-              className="gap-1"
-              onClick={async () => {
-                try {
-                  // Generate a realistic 6-digit payment reference number
-                  const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
+            <div className="flex gap-2">
+              <Select
+                value={selectedOrgForReference?.id || ""}
+                onValueChange={(value) => {
+                  const org = approvedOrgs.find(o => o.id === value);
+                  setSelectedOrgForReference(org || null);
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Select organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  {approvedOrgs.map((org) => (
+                    <SelectItem key={org.id} value={org.id}>
+                      {org.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                className="gap-1"
+                onClick={async () => {
+                  if (!selectedOrgForReference) {
+                    toast.error("Please select an organization first");
+                    return;
+                  }
                   
-                  // Find a sample organization
-                  if (approvedOrgs.length > 0) {
-                    const sampleOrg = approvedOrgs[0];
+                  try {
+                    // Generate a realistic 6-digit payment reference number
+                    const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
                     
                     const { error, data: newRef } = await supabase
                       .from("payment_references")
                       .insert([{
-                        organization_id: sampleOrg.id,
+                        organization_id: selectedOrgForReference.id,
                         reference_code: refNumber,
                         amount: 50.00,
                         used: false,
@@ -1485,16 +1505,17 @@ export default function RegistrationCodesTab() {
                       setPaymentReferences(prev => [...prev, newRef[0] as unknown as PaymentReference]);
                     }
                     
-                    toast.success(`Payment reference generated: ${refNumber} for ${sampleOrg.name}`);
+                    toast.success(`Payment reference generated: ${refNumber} for ${selectedOrgForReference.name}`);
+                  } catch (error) {
+                    console.error("Error generating payment reference:", error);
+                    toast.error("Failed to generate payment reference");
                   }
-                } catch (error) {
-                  console.error("Error generating payment reference:", error);
-                  toast.error("Failed to generate payment reference");
-                }
-              }}
-            >
-              <Plus className="h-3 w-3" /> Generate Sample Reference
-            </Button>
+                }}
+                disabled={!selectedOrgForReference}
+              >
+                <Plus className="h-3 w-3" /> Generate Reference
+              </Button>
+            </div>
           </CardTitle>
           <CardDescription className="text-xs">
             Payment references for organization join requests - track which users have paid
