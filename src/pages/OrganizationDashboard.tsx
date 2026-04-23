@@ -304,30 +304,6 @@ if (paymentRefs && paymentRefs.length > 0) {
 if (paymentRefsError) {
   console.error("Error fetching payment references:", paymentRefsError);
 }
-
-    // 8. Membership check
-    if (user && id) {
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select("role, status")
-        .eq("organization_id", id)
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error fetching member data:", error);
-      }
-
-      const memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
-
-      if (memberData?.role && memberData.status === "active") {
-        setIsMember(true);
-        setUserRole(memberData.role);
-      } else {
-        setIsMember(false);
-        setUserRole(null);
-      }
-    }
   } catch (error) {
     console.error("Error fetching organization data:", error);
     toast.error("Failed to load organization data");
