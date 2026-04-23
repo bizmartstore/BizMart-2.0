@@ -241,32 +241,35 @@ if (!walletData) {
 })) as Member[]);
 
     // 5. Events
-    const { data: eventsData } = await supabase
-      .from("organization_events")
-      .select("*")
-      .eq("organization_id", id)
-      .order("created_at", { ascending: false });
+const { data: eventsData } = await supabase
+  .from("organization_events")
+  .select("*")
+  .eq("organization_id", id)
+  .order("created_at", { ascending: false });
 
-    setEvents((eventsData || []).map(e => ({
-  ...e,
-  status: e.status as "upcoming" | "ongoing" | "completed"
-})) as Event[]);
+setEvents(
+  (eventsData || []).map(e => ({
+    ...e,
+    status: normalizeEventStatus(e.status)
+  })) as Event[]
+);
 
-    const role = memberData?.role;
+const role = memberData?.role;
 
 if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
   const { data: eventMembersData } = await supabase
-    .from("event_members" as any)
-    .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
+    .from("event_members")
+    .select(
+      `*, profile:user_id(first_name, last_name, email, avatar_url)`
+    )
     .in("event_id", eventsData.map(e => e.id))
     .eq("status", "approved")
     .order("joined_at", { ascending: true });
 
   if (eventMembersData) {
-    setEventMembers((eventMembersData as any) || []);
+    setEventMembers(eventMembersData);
   }
 }
-
     // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
       .from("organization_transactions")
