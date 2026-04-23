@@ -75,8 +75,10 @@ The main fix was to ensure the `JoinOrganizationInstructionDialog` properly vali
 
 1. Queries the `payment_references` table directly
 2. Checks if the reference_code exists and is unused
-3. Verifies the reference belongs to the correct organization
+3. Verifies the reference belongs to the organization being joined (to prevent cross-organization reference usage)
 4. Marks the reference as used when a user submits their join request
+
+**Key Change**: Removed the strict `organization_id` filter from the initial query, allowing any generated payment reference to be validated, but added a check to ensure the reference belongs to the correct organization.
 
 ## Files Modified
 
