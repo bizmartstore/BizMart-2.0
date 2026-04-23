@@ -91,13 +91,13 @@ export default function OrganizationsPage() {
     try {
       setIsLoading(true);
       
-      // First check if the organizations table exists
+      // Fetch organizations with their payment references
       const { data: orgData, error: orgError } = await supabase
         .from("organizations")
-        .select("*")
-        .eq("status", "approved")
-        .order("created_at", { ascending: false })
-        .limit(1); // Just check if table exists with a small query
+        .select(`*, payment_references!inner(*, used_by, used_at, reference_code, amount)`)
+        .eq("organizations.status", "approved")
+        .eq("payment_references.used", false)
+        .order("organizations.created_at", { ascending: false });
 
       if (orgError && orgError.code === 'PGRST205') {
         // Table doesn't exist, set empty organizations and return
@@ -131,8 +131,13 @@ export default function OrganizationsPage() {
               membershipStatus = await checkMembershipStatus(org.id);
             }
 
+            // Get the first available payment reference
+            const paymentReference = org.payment_references?.[0] || null;
+
             return {
               ...org,
+              reference_code: paymentReference?.reference_code || null,
+              amount: paymentReference?.amount || null,
               member_count: count || 0,
               ...membershipStatus
             };
