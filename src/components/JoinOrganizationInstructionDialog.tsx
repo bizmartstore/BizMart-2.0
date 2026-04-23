@@ -72,7 +72,7 @@ export default function JoinOrganizationInstructionDialog({
 
       // Insert join request
       const { error } = await supabase
-        .from("organization_members" as any)
+        .from("organization_members")
         .insert({
           organization_id: organizationId,
           user_id: user.id,
