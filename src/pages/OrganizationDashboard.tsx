@@ -173,7 +173,7 @@ export default function OrganizationDashboard() {
     });
 
     // ✅ STEP 1.5: GET USER ROLE EARLY (MOVE HERE)
-let memberData: { role?: "creator" | "officer" | "member"; status?: string } | null = null;
+let memberData: { role?: string; status?: string } | null = null;
 
 if (user && id) {
   const { data, error } = await supabase
@@ -187,11 +187,14 @@ if (user && id) {
     console.error("Error fetching member data:", error);
   }
 
-  memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
+  memberData = data;
 
-  if (memberData?.role && memberData.status === "active") {
+  const role = memberData?.role;
+  const status = memberData?.status;
+
+  if (role && status === "active") {
     setIsMember(true);
-    setUserRole(memberData.role);
+    setUserRole(normalizeRole(role));
   } else {
     setIsMember(false);
     setUserRole(null);
