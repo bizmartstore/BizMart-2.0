@@ -248,8 +248,6 @@ if (refError) {
             console.error("Error in member count query:", countError);
             return { ...org, member_count: 0 };
           }
-        })
-      );
 
       setOrganizations(orgsWithCountsAndRefs || [] as Organization[]);
     } catch (error) {
