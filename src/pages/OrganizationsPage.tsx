@@ -36,21 +36,21 @@ export default function OrganizationsPage() {
     secondary_color: "#1e40af",
   });
   const [orgBackgroundImage, setOrgBackgroundImage] = useState<File | null>(null);
-    const [orgLogoImage, setOrgLogoImage] = useState<File | null>(null);
-    const [isUploadingImage, setIsUploadingImage] = useState(false);
-    const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
-    const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
-    const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
-    const [editFormData, setEditFormData] = useState({
-      name: "",
-      description: "",
-      adviser_name: "",
-      club_type: "Academic",
-      primary_color: "#3b82f6",
-      secondary_color: "#1e40af",
-    });
-    const [editLogoImage, setEditLogoImage] = useState<File | null>(null);
-    const [isEditing, setIsEditing] = useState(false);
+  const [orgLogoImage, setOrgLogoImage] = useState<File | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
+  const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
+  const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    name: "",
+    description: "",
+    adviser_name: "",
+    club_type: "Academic",
+    primary_color: "#3b82f6",
+    secondary_color: "#1e40af",
+  });
+  const [editLogoImage, setEditLogoImage] = useState<File | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -59,6 +59,27 @@ export default function OrganizationsPage() {
       setIsLoading(false);
     }
   }, [user]);
+
+  const fetchPaymentReferences = async (orgId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("payment_references")
+        .select("*")
+        .eq("organization_id", orgId)
+        .eq("used", false)
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching payment reference:", error);
+        return null;
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error fetching payment reference:", error);
+      return null;
+    }
+  };
 
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };
@@ -143,7 +164,19 @@ export default function OrganizationsPage() {
         })
       );
 
-      setOrganizations(orgsWithCounts || [] as Organization[]);
+      // Fetch payment references for each organization
+      const orgsWithPaymentRefs = await Promise.all(
+        orgsWithCounts.map(async (org) => {
+          const paymentRef = await fetchPaymentReferences(org.id);
+          return {
+            ...org,
+            reference_code: paymentRef?.reference_code || null,
+            amount: paymentRef?.amount || null,
+          };
+        })
+      );
+
+      setOrganizations(orgsWithPaymentRefs || [] as Organization[]);
     } catch (error) {
       console.error("Error fetching organizations:", error);
       setOrganizations([]); // Set to empty array on error
@@ -202,12 +235,12 @@ export default function OrganizationsPage() {
         const fileName = `${user.id}-org-bg-${Date.now()}.${fileExt}`;
         const filePath = `organization-backgrounds/${fileName}`;
         
-      // Upload to Supabase storage
-const { error: uploadError } = await supabase
-  .storage
-  .from('organization-backgrounds' as any)
-  .upload(filePath, orgBackgroundImage)
-  .catch(() => ({ error: { message: 'Storage bucket not configured' } }));
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase
+          .storage
+          .from('organization-backgrounds' as any)
+          .upload(filePath, orgBackgroundImage)
+          .catch(() => ({ error: { message: 'Storage bucket not configured' } }));
         
         if (uploadError) {
           console.error("Error uploading background image:", uploadError);
@@ -361,17 +394,16 @@ const { error: uploadError } = await supabase
       
       // Update organization details if no logo was uploaded or after logo upload
       if (!editLogoImage) {
-        // In handleUpdateOrganization, change the update payload to:
-const { error: detailsError } = await supabase
-  .from("organizations")
-  .update({
-    name: editFormData.name,
-    description: editFormData.description,
-    adviser_name: editFormData.adviser_name,
-    club_type: editFormData.club_type,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("id", editingOrgId);
+        const { error: detailsError } = await supabase
+          .from("organizations")
+          .update({
+            name: editFormData.name,
+            description: editFormData.description,
+            adviser_name: editFormData.adviser_name,
+            club_type: editFormData.club_type,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingOrgId);
 
         if (detailsError) {
           console.error("Organization update error:", detailsError);
@@ -770,14 +802,12 @@ const { error: detailsError } = await supabase
                         </div>
                       )}
                     </div>
-                    {isApproved && !org.isMember && !org.hasPendingRequest && (
+                    {isApproved && !org.isMember && !org.hasPendingRequest && org.reference_code && (
                       <div className="mt-3 space-y-2">
-        {org.reference_code && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-            <p className="text-xs font-medium text-blue-800">Payment Reference: {org.reference_code}</p>
-            <p className="text-[10px] text-blue-700">Pay ₱{Number(org.amount || 0).toFixed(2)} to join</p>
-          </div>
-        )}
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                          <p className="text-xs font-medium text-blue-800">Payment Reference: {org.reference_code}</p>
+                          <p className="text-[10px] text-blue-700">Pay ₱{Number(org.amount || 0).toFixed(2)} to join</p>
+                        </div>
                         <Button
                           size="sm"
                           className="w-full gap-2"
