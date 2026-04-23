@@ -56,7 +56,7 @@ export default function JoinOrganizationInstructionDialog({
   .select("*")
   .eq("reference_code", referenceNumber)
   .eq("used", false)
-  .eq("organization_id", organizationId)  // <-- Add this line
+  .eq("organization_id", organizationId)
   .maybeSingle();
 
       if (refError) {
