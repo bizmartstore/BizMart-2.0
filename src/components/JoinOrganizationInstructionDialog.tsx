@@ -51,7 +51,7 @@ export default function JoinOrganizationInstructionDialog({
 
     try {
       // Verify the payment reference exists and is not used
-      const { data: paymentRef, error: refError } = await supabase
+      const { data: refData, error: refError } = await supabase
         .from("payment_references")
         .select("*")
         .eq("reference_code", referenceNumber)
@@ -64,26 +64,26 @@ export default function JoinOrganizationInstructionDialog({
         return;
       }
 
-      if (!paymentRef) {
+      if (!refData) {
         toast.error("Invalid or already used payment reference number. Please check and try again.");
         return;
       }
 
       // Insert join request
       const { error } = await supabase
-        .from("organization_members")
+        .from("organization_members" as any)
         .insert({
           organization_id: organizationId,
           user_id: user.id,
           role: "member",
           status: "pending",
-          reference_code: referenceNumber,
+          reference_number: referenceNumber,
         });
 
       if (error) throw error;
 
       // Mark payment reference as used
-      if (paymentRef && paymentRef.id) {
+      if (refData && refData.id) {
         try {
           await supabase
             .from("payment_references")
@@ -92,7 +92,7 @@ export default function JoinOrganizationInstructionDialog({
               used_by: user.id,
               used_at: new Date().toISOString(),
             })
-            .eq("id", paymentRef.id);
+            .eq("id", refData.id);
         } catch (error) {
           console.error("Error marking payment reference as used:", error);
         }

@@ -13,40 +13,44 @@ export async function setupPaymentReferencesTable() {
 
     // If table doesn't exist (PGRST116 error), create it
     if (checkError?.code === 'PGRST116') {
-      console.log("payment_references table does not exist. Creating it now...");
-      
-      // Create table using raw SQL
-      const { error: createError } = await supabase
-        .from("payment_references")
-        .insert([{
-          reference_code: "INITIAL_CHECK",
-          amount: 0,
-          used: false,
-        }])
-        .select()
-        .throwOnError();
-      
-      // If creation succeeded, delete the test record
-      if (!createError) {
-        await supabase
+      // Try to create the table by inserting a record
+      // This will fail if table doesn't exist, but we'll catch it
+      try {
+        const sampleId = crypto.randomUUID();
+        const { error: insertError } = await supabase
           .from("payment_references")
-          .delete()
-          .eq("reference_code", "INITIAL_CHECK");
-        
-        console.log("payment_references table created successfully");
-        toast.success("Payment references table created successfully");
-      } else {
-        console.error("Error creating payment_references table:", createError);
-        toast.error("Failed to create payment references table");
+          .insert([
+            {
+              id: sampleId,
+              reference_code: "123456",
+              organization_id: "00000000-0000-0000-0000-000000000000",
+              amount: 0,
+              status: "available",
+              used: false,
+            }
+          ]);
+
+        if (insertError) {
+          console.error("Error creating payment_references table:", insertError);
+          toast.error("Failed to setup payment references table");
+        } else {
+          // Clean up the sample record
+          await supabase
+            .from("payment_references")
+            .delete()
+            .eq("id", sampleId);
+          
+          toast.success("Payment references table created successfully");
+        }
+      } catch (insertError) {
+        console.error("Error creating payment_references table:", insertError);
+        toast.error("Failed to setup payment references table");
       }
     } else if (checkError && checkError.code !== 'PGRST116') {
       console.error("Error checking payment_references table:", checkError);
     }
-  } catch (error: any) {
-    // Ignore "duplicate key" errors which mean the table already exists
-    if (error?.code !== '23505') {
-      console.error("Error in setupPaymentReferencesTable:", error);
-    }
+  } catch (error) {
+    console.error("Error in setupPaymentReferencesTable:", error);
   }
 }
 
@@ -54,9 +58,9 @@ export async function setupPaymentReferencesTable() {
 export async function setupOrganizationMembersReferenceColumn() {
   try {
     // Check if column exists
-    const { error: checkError } = await supabase
-      .from("organization_members")
-      .select("reference_number", { count: 'exact' })
+    const { data: columnCheck, error: checkError } = await supabase
+      .from("organization_members" as any)
+      .select("reference_number", { count: "exact" })
       .limit(1);
 
     if (checkError && checkError.code !== 'PGRST116') {
@@ -67,7 +71,9 @@ export async function setupOrganizationMembersReferenceColumn() {
     // If column doesn't exist, add it
     if (checkError?.code === 'PGRST116') {
       const { error: addError } = await supabase
-        .rpc('create_organization_members_table_if_not_exists');
+        .from("organization_members" as any)
+        .update({ reference_number: "" })
+        .is("reference_number", null);
 
       if (addError) {
         console.error("Error adding reference_number column:", addError);

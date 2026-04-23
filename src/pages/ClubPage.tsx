@@ -308,36 +308,22 @@ export default function ClubPage() {
                   </ul>
                 </div>
 
-                {membership ? (
-                  <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Shield className="h-5 w-5 text-primary" />
-                      <span className="font-bold text-sm">Enter Your Club Code</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-4">Pay at the ABM store in school to get your exclusive code.</p>
-                    <Input
-                      placeholder="ENTER CODE HERE"
-                      value={code}
-                      onChange={(e) => setCode(e.target.value.toUpperCase())}
-                      className="mb-3 text-center font-black tracking-widest h-12"
-                    />
-                    <Button onClick={handleRedeemCode} disabled={loading || !code.trim()} className="w-full h-12 font-bold">
-                      {loading ? "Verifying..." : "Activate Membership"}
-                    </Button>
+                <div className="bg-card rounded-2xl p-5 border border-border shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Shield className="h-5 w-5 text-primary" />
+                    <span className="font-bold text-sm">Enter Your Club Code</span>
                   </div>
-                ) : (
-                  <div className="bg-gradient-to-r from-primary/10 to-accent rounded-2xl p-5 border border-primary/20">
-                    <h3 className="font-bold text-sm mb-3 flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Club Membership</h3>
-                    <p className="text-xs text-muted-foreground mb-4">
-                      Join the BizMart Club to unlock exclusive benefits like discounts, BCoins rewards, and more!
-                    </p>
-                    <div className="bg-muted/50 rounded-xl p-4 border border-border">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Available Slots</p>
-                      <p className="text-2xl font-black text-primary mt-1">{maxSellers - sellerCount} slots left</p>
-                      <p className="text-xs text-muted-foreground mt-1">Pay at the ABM store in school to get your exclusive code.</p>
-                    </div>
-                  </div>
-                )}
+                  <p className="text-xs text-muted-foreground mb-4">Pay at the ABM store in school to get your exclusive code.</p>
+                  <Input
+                    placeholder="ENTER CODE HERE"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    className="mb-3 text-center font-black tracking-widest h-12"
+                  />
+                  <Button onClick={handleRedeemCode} disabled={loading || !code.trim()} className="w-full h-12 font-bold">
+                    {loading ? "Verifying..." : "Activate Membership"}
+                  </Button>
+                </div>
               </div>
             ) : membership && (
               <div className="flex flex-col items-center space-y-8">
@@ -571,41 +557,24 @@ export default function ClubPage() {
                     <span className="text-[10px] font-black px-3 py-1 rounded-full bg-warning/20 text-warning uppercase">{application.status}</span>
                   </div>
                 )}
-                {membership ? (
-                  <div className="bg-muted/30 rounded-2xl p-5 border border-border border-dashed">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sparkles className="h-5 w-5 text-warning" />
-                      <span className="font-black text-sm uppercase tracking-tight">Have a Seller Code?</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mb-4 font-medium uppercase tracking-wider">Approved sellers enter code below</p>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="XXXX-XXXX"
-                        value={sellerCode}
-                        onChange={(e) => setSellerCode(e.target.value.toUpperCase())}
-                        className="flex-1 text-center font-black tracking-[0.2em] h-12 rounded-xl"
-                      />
-                      <Button onClick={handleActivateSeller} disabled={activatingSeller || !sellerCode.trim()} className="h-12 w-12 p-0 rounded-xl">
-                        {activatingSeller ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-5 w-5" />}
-                      </Button>
-                    </div>
+                <div className="bg-muted/30 rounded-2xl p-5 border border-border border-dashed">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Sparkles className="h-5 w-5 text-warning" />
+                    <span className="font-black text-sm uppercase tracking-tight">Have a Seller Code?</span>
                   </div>
-                ) : (
-                  <div className="bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-2xl p-5 border border-yellow-400/30">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sparkles className="h-5 w-5 text-warning" />
-                      <span className="font-black text-sm uppercase tracking-tight">Seller Code</span>
-                    </div>
-                    <p className="text-[10px] text-muted-foreground mb-4 font-medium uppercase tracking-wider">
-                      Join the BizMart Club as a premium member to unlock seller features and enter your seller code.
-                    </p>
-                    <div className="bg-muted/50 rounded-xl p-4 border border-border">
-                      <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Available Slots</p>
-                      <p className="text-2xl font-black text-yellow-600 mt-1">{maxSellers - sellerCount} slots left</p>
-                      <p className="text-xs text-muted-foreground mt-1">Upgrade your membership to become a seller.</p>
-                    </div>
+                  <p className="text-[10px] text-muted-foreground mb-4 font-medium uppercase tracking-wider">Approved sellers enter code below</p>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="XXXX-XXXX"
+                      value={sellerCode}
+                      onChange={(e) => setSellerCode(e.target.value.toUpperCase())}
+                      className="flex-1 text-center font-black tracking-[0.2em] h-12 rounded-xl"
+                    />
+                    <Button onClick={handleActivateSeller} disabled={activatingSeller || !sellerCode.trim()} className="h-12 w-12 p-0 rounded-xl">
+                      {activatingSeller ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-5 w-5" />}
+                    </Button>
                   </div>
-                )}
+                </div>
               </div>
             )}
           </div>
