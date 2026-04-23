@@ -59,6 +59,13 @@ interface AnnouncementInsert {
   created_by: string;
 }
 
+// 👇 ADD IT HERE (outside component)
+const normalizeRole = (role: string): "creator" | "officer" | "member" => {
+  if (role === "creator" || role === "officer" || role === "member") {
+    return role;
+  }
+  return "member";
+};
 
 export default function OrganizationDashboard() {
   const { id } = useParams<{ id: string }>();
