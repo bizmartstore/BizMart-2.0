@@ -64,19 +64,33 @@ export default function OrganizationsPage() {
     if (user) {
       fetchOrganizations();
       
-      // Set up realtime subscription for payment references changes (filtered by organization)
-      paymentRefsChannels.current = organizations.map(org =>
-        setupPaymentReferencesRealtime(org.id, (newRef) => {
-          // Only update the specific organization's payment references
-          setOrganizations(prevOrgs =>
-            prevOrgs.map(o =>
-              o.id === org.id
-                ? { ...o, payment_references: [newRef, ...(o.payment_references || [])] }
-                : o
-            )
-          );
-        })
-      );
+     // Clear existing channels first (prevents duplicates)
+paymentRefsChannels.current.forEach(channel =>
+  supabase.removeChannel(channel)
+);
+paymentRefsChannels.current = [];
+
+if (!organizations.length) return;
+
+// Create fresh realtime subscriptions per organization
+paymentRefsChannels.current = organizations.map((org) => {
+  const channel = setupPaymentReferencesRealtime(org.id, (newRef) => {
+    setOrganizations((prevOrgs) =>
+      prevOrgs.map((o) => {
+        if (o.id !== org.id) return o;
+
+        const existingRefs = o.payment_references || [];
+
+        return {
+          ...o,
+          payment_references: [newRef, ...existingRefs],
+        };
+      })
+    );
+  });
+
+  return channel;
+});
       
       // Set up realtime subscription for organization changes
       orgsChannel.current = supabase
