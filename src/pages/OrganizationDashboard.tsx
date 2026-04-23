@@ -172,6 +172,32 @@ export default function OrganizationDashboard() {
       member_count: count || 0,
     });
 
+    // ✅ STEP 1.5: GET USER ROLE EARLY (MOVE HERE)
+let memberData: { role?: "creator" | "officer" | "member"; status?: string } | null = null;
+
+if (user && id) {
+  const { data, error } = await supabase
+    .from("organization_members")
+    .select("role, status")
+    .eq("organization_id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("Error fetching member data:", error);
+  }
+
+  memberData = data;
+
+  if (memberData?.role && memberData.status === "active") {
+    setIsMember(true);
+    setUserRole(memberData.role);
+  } else {
+    setIsMember(false);
+    setUserRole(null);
+  }
+}
+
     // 3. Wallet
 const { data: walletData, error: walletError } = await supabase
   .from("organization_wallets")
