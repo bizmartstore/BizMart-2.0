@@ -57,18 +57,12 @@ export default function OrganizationsPage() {
       fetchOrganizations();
       
       // Set up realtime subscription for payment references changes
-      // Listen for INSERT events on payment_references table
       const paymentRefsChannel = supabase
-        .channel('payment_references_inserts')
+        .channel('payment_references_changes')
         .on(
           'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'payment_references'
-          },
-          (payload) => {
-            // Fetch organizations to update payment references display
+          { event: 'INSERT', schema: 'public', table: 'payment_references' },
+          () => {
             fetchOrganizations();
           }
         )
@@ -161,16 +155,15 @@ export default function OrganizationsPage() {
             }
 
             // Get available payment references for this organization
-                    const { data: paymentRefs, error: refError } = await supabase
-                      .from("payment_references")
-                      .select("*")
-                      .eq("organization_id", org.id)
-                      .eq("used", false)
-                      .order("created_at", { ascending: false });
-        
-                    if (refError) {
-                      console.error("Error fetching payment references:", refError);
-                    }
+            const { data: paymentRefs, error: refError } = await supabase
+              .from("payment_references")
+              .select("*")
+              .eq("organization_id", org.id)
+              .eq("used", false);
+
+            if (refError) {
+              console.error("Error fetching payment references:", refError);
+            }
 
             // Check if user is member or has pending request for this org
             let membershipStatus = { isMember: false, hasPendingRequest: false };
