@@ -851,14 +851,14 @@ const { error: detailsError } = await supabase
           </div>
         )}
                         <Button
-                          size="sm"
-                          className="w-full gap-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCurrentOrgId(org.id);
-                            setJoinOrgDialogOpen(true);
-                          }}
-                        >
+  size="sm"
+  className="w-full gap-2"
+  onClick={(e) => {
+    e.stopPropagation();
+    setCurrentOrgId(org.id);
+    setJoinOrgDialogOpen(true);
+  }}
+>
                           <UserPlus className="h-4 w-4" /> Join Organization
                         </Button>
                       </div>
