@@ -237,7 +237,7 @@ if (!walletData) {
 
     setMembers((membersData || []).map(m => ({
   ...m,
-  role: m.role as "member" | "creator" | "officer"
+  role: normalizeRole(m.role)
 })) as Member[]);
 
     // 5. Events
