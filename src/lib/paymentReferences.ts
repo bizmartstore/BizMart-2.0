@@ -20,6 +20,11 @@ const generatePaymentReference = async (
   organizationId: string,
   amount: number = 50.0
 ): Promise<PaymentReference | null> => {
+  if (!organizationId) {
+    toast.error("Invalid organization ID");
+    return null;
+  }
+
   try {
     const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -39,13 +44,13 @@ const generatePaymentReference = async (
 
     if (error) {
       console.error("Generate reference error:", error);
-      toast.error("Failed to generate payment reference");
+      toast.error(error.message || "Failed to generate payment reference");
       return null;
     }
 
     return data as PaymentReference;
   } catch (error) {
-    console.error(error);
+    console.error("Unexpected error:", error);
     toast.error("Failed to generate payment reference");
     return null;
   }
@@ -65,6 +70,9 @@ const getPaymentReferencesForOrganization = async (
 
     if (organizationId?.trim()) {
       query = query.eq("organization_id", organizationId);
+    } else {
+      console.warn("No organizationId provided to fetch payment references");
+      return [];
     }
 
     const { data, error } = await query;
@@ -74,9 +82,9 @@ const getPaymentReferencesForOrganization = async (
       return [];
     }
 
-    return (data || []) as PaymentReference[];
+    return (data ?? []) as PaymentReference[];
   } catch (error) {
-    console.error(error);
+    console.error("Unexpected fetch error:", error);
     return [];
   }
 };
@@ -87,6 +95,8 @@ const getPaymentReferencesForOrganization = async (
 const verifyPaymentReference = async (
   referenceCode: string
 ): Promise<PaymentReference | null> => {
+  if (!referenceCode?.trim()) return null;
+
   try {
     const { data, error } = await supabase
       .from("payment_references")
@@ -102,7 +112,7 @@ const verifyPaymentReference = async (
 
     return data as PaymentReference;
   } catch (error) {
-    console.error(error);
+    console.error("Unexpected verify error:", error);
     return null;
   }
 };
@@ -114,6 +124,8 @@ const markPaymentReferenceAsUsed = async (
   referenceId: string,
   userId: string
 ): Promise<boolean> => {
+  if (!referenceId || !userId) return false;
+
   try {
     const { error } = await supabase
       .from("payment_references")
@@ -125,26 +137,31 @@ const markPaymentReferenceAsUsed = async (
       .eq("id", referenceId);
 
     if (error) {
-      console.error(error);
-      toast.error("Failed to update reference");
+      console.error("Mark used error:", error);
+      toast.error(error.message || "Failed to update reference");
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error(error);
+    console.error("Unexpected update error:", error);
     return false;
   }
 };
 
 // ==========================
-// REALTIME
+// REALTIME (FIXED)
 // ==========================
 const setupPaymentReferencesRealtime = (
   organizationId: string,
   callback: (ref: PaymentReference) => void
 ) => {
-  return supabase
+  if (!organizationId) {
+    console.warn("No organizationId provided for realtime");
+    return null;
+  }
+
+  const channel = supabase
     .channel(`payment_references_${organizationId}`)
     .on(
       "postgres_changes",
@@ -155,10 +172,14 @@ const setupPaymentReferencesRealtime = (
         filter: `organization_id=eq.${organizationId}`,
       },
       (payload) => {
-        callback(payload.new as PaymentReference);
+        if (payload?.new) {
+          callback(payload.new as PaymentReference);
+        }
       }
     )
     .subscribe();
+
+  return channel;
 };
 
 export {
