@@ -242,19 +242,20 @@ if (!walletData) {
   status: e.status as "upcoming" | "ongoing" | "completed"
 })) as Event[]);
 
-    // 5.1 Load event members for creator/officer
-    if (canManageEvents && eventsData) {
-      const { data: membersData } = await supabase
-        .from("event_members" as any)
-        .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
-        .in("event_id", eventsData.map(e => e.id))
-        .eq("status", "approved")
-        .order("joined_at", { ascending: true });
+    const role = memberData?.role;
 
-      if (membersData) {
-        setEventMembers((membersData as any) || []);
-      }
-    }
+if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
+  const { data: eventMembersData } = await supabase
+    .from("event_members" as any)
+    .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
+    .in("event_id", eventsData.map(e => e.id))
+    .eq("status", "approved")
+    .order("joined_at", { ascending: true });
+
+  if (eventMembersData) {
+    setEventMembers((eventMembersData as any) || []);
+  }
+}
 
     // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
