@@ -259,6 +259,26 @@ if (!walletData) {
 
     setAnnouncements(announcementsData || []);
 
+    // 8. Payment References (DEBUG)
+const { data: paymentRefs, error: paymentRefsError } = await supabase
+  .from("payment_references")
+  .select("*")
+  .eq("organization_id", id);
+
+console.log("===== DEBUG PAYMENT REFS =====");
+console.log("CURRENT ORG ID (URL):", id);
+console.log("FETCHED PAYMENT REFS:", paymentRefs);
+
+if (paymentRefs && paymentRefs.length > 0) {
+  paymentRefs.forEach(ref => {
+    console.log("REF ORG ID:", ref.organization_id);
+  });
+}
+
+if (paymentRefsError) {
+  console.error("Error fetching payment references:", paymentRefsError);
+}
+
     // 8. Membership check
     if (user && id) {
       const { data, error } = await supabase
