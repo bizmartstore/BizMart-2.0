@@ -78,7 +78,7 @@ export default function JoinOrganizationInstructionDialog({
           user_id: user.id,
           role: "member",
           status: "pending",
-          reference_number: referenceNumber,
+          reference_code: referenceNumber,
         });
 
       if (error) throw error;
