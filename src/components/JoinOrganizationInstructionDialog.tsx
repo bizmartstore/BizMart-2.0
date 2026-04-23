@@ -53,7 +53,7 @@ export default function JoinOrganizationInstructionDialog({
       // Verify the payment reference exists and is not used
       const { data: paymentRef, error: refError } = await supabase
         .from("payment_references")
-        .select("*")
+        .select(`*, organizations:organization_id(name)`)
         .eq("reference_code", referenceNumber)
         .eq("used", false)
         .maybeSingle();
@@ -66,6 +66,11 @@ export default function JoinOrganizationInstructionDialog({
 
       if (!paymentRef) {
         toast.error("Invalid or already used payment reference number. Please check and try again.");
+        return;
+      }
+      
+      if (!paymentRef.organizations) {
+        toast.error("Payment reference is not associated with any organization.");
         return;
       }
 
@@ -95,6 +100,7 @@ export default function JoinOrganizationInstructionDialog({
             .eq("id", paymentRef.id);
         } catch (error) {
           console.error("Error marking payment reference as used:", error);
+          toast.error("Failed to mark payment reference as used");
         }
       }
 
