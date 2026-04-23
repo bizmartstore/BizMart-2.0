@@ -15,14 +15,13 @@ export async function setupPaymentReferencesTable() {
     if (checkError?.code === 'PGRST116') {
       console.log("payment_references table does not exist. Creating it now...");
       
-      // Create the table using insert with throwOnError to create the table
+      // Create table using raw SQL
       const { error: createError } = await supabase
         .from("payment_references")
         .insert([{
           reference_code: "INITIAL_CHECK",
           amount: 0,
           used: false,
-          organization_id: null,
         }])
         .select()
         .throwOnError();
@@ -54,55 +53,30 @@ export async function setupPaymentReferencesTable() {
 // Setup reference_number column in organization_members if it doesn't exist
 export async function setupOrganizationMembersReferenceColumn() {
   try {
-    // Simply try to insert - if it fails with duplicate key, table exists
-    await supabase
+    // Check if column exists
+    const { error: checkError } = await supabase
       .from("organization_members")
-      .insert([{
-        organization_id: "test-org-id-" + Math.random(),
-        user_id: "test-user-id-" + Math.random(),
-        reference_code: "TEST_REF-" + Math.random(),
-      }]);
-    
-    toast.success("Organization members table is ready");
-  } catch (error: any) {
-    // Ignore duplicate key errors (table already exists)
-    if (!error.message?.includes('duplicate key') && !error.message?.includes('23505')) {
-      console.error("Error in setupOrganizationMembersReferenceColumn:", error);
-    }
-  }
-}
+      .select("reference_number", { count: 'exact' })
+      .limit(1);
 
-// Fix existing payment references with NULL organization_id
-export async function fixPaymentReferencesData() {
-  try {
-    // Find payment references with NULL organization_id
-    const { data: nullOrgRefs, error: fetchError } = await supabase
-      .from("payment_references")
-      .select("id")
-      .is("organization_id", null);
-    
-    if (fetchError) {
-      console.error("Error fetching payment references with NULL organization_id:", fetchError);
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error("Error checking reference_number column:", checkError);
       return;
     }
-    
-    if (nullOrgRefs && nullOrgRefs.length > 0) {
-      console.log(`Found ${nullOrgRefs.length} payment references with NULL organization_id, cleaning up...`);
-      
-      // Delete these orphaned records
-      const { error: deleteError } = await supabase
-        .from("payment_references")
-        .delete()
-        .is("organization_id", null);
-      
-      if (deleteError) {
-        console.error("Error deleting orphaned payment references:", deleteError);
+
+    // If column doesn't exist, add it
+    if (checkError?.code === 'PGRST116') {
+      const { error: addError } = await supabase
+        .rpc('create_organization_members_table_if_not_exists');
+
+      if (addError) {
+        console.error("Error adding reference_number column:", addError);
       } else {
-        console.log("Successfully cleaned up orphaned payment references");
+        toast.success("Reference number column added to organization_members");
       }
     }
-  } catch (error: any) {
-    console.error("Error in fixPaymentReferencesData:", error);
+  } catch (error) {
+    console.error("Error in setupOrganizationMembersReferenceColumn:", error);
   }
 }
 
@@ -110,5 +84,4 @@ export async function fixPaymentReferencesData() {
 export async function initializeDatabase() {
   await setupPaymentReferencesTable();
   await setupOrganizationMembersReferenceColumn();
-  await fixPaymentReferencesData();
 }

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, X, CreditCard } from "lucide-react";
+import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -27,7 +27,6 @@ export default function OrganizationsPage() {
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
   const [registrationCode, setRegistrationCode] = useState("");
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -62,41 +61,33 @@ export default function OrganizationsPage() {
         .channel('payment_references_changes')
         .on(
           'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'payment_references'
-          },
+          { event: 'INSERT', schema: 'public', table: 'payment_references' },
           () => {
             fetchOrganizations();
           }
         )
         .subscribe();
-        
+      
       // Set up realtime subscription for organization changes
       const orgsChannel = supabase
         .channel('organizations_changes')
         .on(
           'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'organizations'
-          },
+          { event: 'UPDATE', schema: 'public', table: 'organizations' },
           () => {
             fetchOrganizations();
           }
         )
-        .subscribe()
+        .subscribe();
       
       return () => {
-        supabase.removeChannel(orgsChannel);
         supabase.removeChannel(paymentRefsChannel);
+        supabase.removeChannel(orgsChannel);
       };
     } else {
       setIsLoading(false);
     }
-  }, [user, refreshTrigger]);
+  }, [user]);
 
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };
@@ -124,30 +115,8 @@ export default function OrganizationsPage() {
       return { isMember: false, hasPendingRequest: false };
     }
   };
-  
-  // Add a function to check if user has already joined this organization
-  const checkUserMembership = async (orgId: string) => {
-    if (!user) return false;
-    
-    try {
-      const { data, error } = await supabase
-        .from("organization_members")
-        .select("id")
-        .eq("organization_id", orgId)
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .maybeSingle();
 
-      if (error) throw error;
-      
-      return !!data;
-    } catch (error) {
-      console.error("Error checking user membership:", error);
-      return false;
-    }
-  };
-
-  const fetchOrganizations = async (forceRefresh = false) => {
+  const fetchOrganizations = async () => {
     try {
       setIsLoading(true);
       
@@ -188,15 +157,12 @@ export default function OrganizationsPage() {
             // Get available payment references for this organization
             const { data: paymentRefs, error: refError } = await supabase
               .from("payment_references")
-              .select(`*, organizations:organization_id(name)`)
+              .select("*")
               .eq("organization_id", org.id)
-              .eq("used", false)
-              .order("created_at", { ascending: false });
+              .eq("used", false);
 
             if (refError) {
-              console.error("Error fetching payment references for org", org.id, ":", refError);
-            } else {
-              console.log(`Organization ${org.name} (${org.id}) has ${(paymentRefs || []).length} available payment references`);
+              console.error("Error fetching payment references:", refError);
             }
 
             // Check if user is member or has pending request for this org
@@ -226,12 +192,6 @@ export default function OrganizationsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-  
-  // Export fetchOrganizations for use in other components
-  const refreshOrganizationsList = () => {
-    setRefreshTrigger(prev => prev + 1);
-    fetchOrganizations(true);
   };
 
   const handleRegisterOrganization = async () => {
@@ -840,66 +800,46 @@ const { error: detailsError } = await supabase
                   <CardContent>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{org.description}</p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground mb-3">
-                                <div className="flex items-center gap-1">
-                                  <Users className="h-3 w-3" />
-                                  <span>{org.member_count || 0} members</span>
-                                </div>
-                                {org.adviser_name && (
-                                  <div className="flex items-center gap-1">
-                                    <UserPlus className="h-3 w-3" />
-                                    <span>{org.adviser_name}</span>
-                                  </div>
-                                )}
-                                {org.payment_references && org.payment_references.length > 0 && (
-                                  <div className="flex items-center gap-1">
-                                    <CreditCard className="h-3 w-3 text-blue-500" />
-                                    <span>{org.payment_references.length} available slots</span>
-                                  </div>
-                                )}
-                              </div>
-                    {isApproved && !org.isMember && !org.hasPendingRequest && org.payment_references && org.payment_references.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        <div className="space-y-1">
-                          {org.payment_references.map((ref: any) => (
-                            <div key={ref.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                              <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
-                              <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
-                            </div>
-                          ))}
-                          <Button
-                            size="sm"
-                            className="w-full gap-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCurrentOrgId(org.id);
-                              setJoinOrgDialogOpen(true);
-                            }}
-                          >
-                            <UserPlus className="h-4 w-4" /> Join Organization
-                          </Button>
-                        </div>
+                      <div className="flex items-center gap-1">
+                        <Users className="h-3 w-3" />
+                        <span>{org.member_count || 0} members</span>
                       </div>
-                    )
-                    {isApproved && !org.isMember && !org.hasPendingRequest && (!org.payment_references || org.payment_references.length === 0) && (
-                      <div className="mt-3 space-y-2">
-                        <div className="space-y-2">
-                          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
-                            <p className="text-xs font-medium text-yellow-800">No payment references available for this organization</p>
-                          </div>
-                          <Button
-                            size="sm"
-                            className="w-full gap-2"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setCurrentOrgId(org.id);
-                              setJoinOrgDialogOpen(true);
-                            }}
-                          >
-                            <UserPlus className="h-4 w-4" /> Join Organization
-                          </Button>
+                      {org.adviser_name && (
+                        <div className="flex items-center gap-1">
+                          <UserPlus className="h-3 w-3" />
+                          <span>{org.adviser_name}</span>
                         </div>
+                      )}
+                    </div>
+                    {isApproved && !org.isMember && !org.hasPendingRequest && (
+                      <div className="mt-3 space-y-2">
+        {org.payment_references && org.payment_references.length > 0 ? (
+          <div className="space-y-1">
+            {org.payment_references.map((ref: any) => (
+              <div key={ref.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
+                <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+            <p className="text-xs font-medium text-yellow-800">No payment references available for this organization</p>
+          </div>
+        )}
+                        <Button
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentOrgId(org.id);
+                            setJoinOrgDialogOpen(true);
+                          }}
+                        >
+                          <UserPlus className="h-4 w-4" /> Join Organization
+                        </Button>
                       </div>
-                    )
+                    )}
                     {isApproved && org.isMember && (
                       <div className="mt-3">
                         <Button
@@ -947,9 +887,9 @@ const { error: detailsError } = await supabase
                   </CardContent>
                 </Card>
               );
-            })
+            })}
           </div>
-        )
+        )}
       </div>
       <BottomNav />
 

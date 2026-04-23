@@ -1506,12 +1506,6 @@ export default function RegistrationCodesTab() {
                     }
                     
                     toast.success(`Payment reference generated: ${refNumber} for ${selectedOrgForReference.name}`);
-                    
-                    // Refresh the organizations list to show the new reference
-                    await loadPaymentReferences();
-                    
-                    // The realtime subscription in OrganizationsPage should pick this up automatically
-                    // If not, the user can manually refresh the page
                   } catch (error) {
                     console.error("Error generating payment reference:", error);
                     toast.error("Failed to generate payment reference");
