@@ -66,9 +66,15 @@ export default function OrganizationsPage() {
       
       // Set up realtime subscription for payment references changes (filtered by organization)
       paymentRefsChannels.current = organizations.map(org =>
-        setupPaymentReferencesRealtime(org.id, () => {
-          // Only refresh the specific organization's data
-          fetchOrganizations();
+        setupPaymentReferencesRealtime(org.id, (newRef) => {
+          // Only update the specific organization's payment references
+          setOrganizations(prevOrgs =>
+            prevOrgs.map(o =>
+              o.id === org.id
+                ? { ...o, payment_references: [newRef, ...(o.payment_references || [])] }
+                : o
+            )
+          );
         })
       );
       
@@ -94,7 +100,7 @@ export default function OrganizationsPage() {
     } else {
       setIsLoading(false);
     }
-  }, [user, organizations]);
+  }, [user]);
 
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };

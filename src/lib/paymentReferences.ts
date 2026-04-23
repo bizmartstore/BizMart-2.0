@@ -59,14 +59,15 @@ const getPaymentReferencesForOrganization = async (organizationId: string): Prom
       .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
       .order("created_at", { ascending: false });
 
-    // If organizationId is provided, filter by it
-    if (organizationId) {
+    // If organizationId is provided and not empty, filter by it
+    if (organizationId && organizationId.trim() !== '') {
       query = query.eq("organization_id", organizationId);
     }
 
     const { data, error } = await query;
 
     if (error && error.code === 'PGRST116') {
+      // Table doesn't exist
       return [];
     }
 
@@ -147,7 +148,10 @@ const setupPaymentReferencesRealtime = (
       },
       (payload) => {
         const newRef = payload.new as PaymentReference;
-        callback(newRef);
+        // Ensure the new reference has the correct organization_id
+        if (newRef.organization_id === organizationId) {
+          callback(newRef);
+        }
       }
     )
     .subscribe();

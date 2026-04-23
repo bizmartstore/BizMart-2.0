@@ -345,6 +345,24 @@ export default function RegistrationCodesTab() {
     }
   };
 
+  // Setup realtime subscription for payment references
+  useEffect(() => {
+    if (selectedOrgForReference) {
+      const channel = setupPaymentReferencesRealtime(selectedOrgForReference.id, (newRef) => {
+        setPaymentReferences(prev => [newRef, ...prev]);
+      });
+      paymentRefsChannels.current.push(channel);
+      
+      return () => {
+        const index = paymentRefsChannels.current.indexOf(channel);
+        if (index > -1) {
+          supabase.removeChannel(channel);
+          paymentRefsChannels.current.splice(index, 1);
+        }
+      };
+    }
+  }, [selectedOrgForReference]);
+
   // Generate registration codes
   const generateCodes = async () => {
     try {
