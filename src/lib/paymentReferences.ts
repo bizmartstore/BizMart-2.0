@@ -65,7 +65,7 @@ const getPaymentReferencesForOrganization = async (
   try {
     let query = supabase
       .from("payment_references")
-      .select("*")
+      .select(`*, organizations:organization_id(name)`)
       .order("created_at", { ascending: false });
 
     if (organizationId?.trim()) {
@@ -82,7 +82,12 @@ const getPaymentReferencesForOrganization = async (
       return [];
     }
 
-    return (data ?? []) as PaymentReference[];
+    // Handle the case where organizations relation might not exist
+    const refs = (data ?? []) as any[];
+    return refs.map(ref => ({
+      ...ref,
+      organizations: ref.organizations ? { name: ref.organizations.name } : null
+    })) as unknown as PaymentReference[];
   } catch (error) {
     console.error("Unexpected fetch error:", error);
     return [];
