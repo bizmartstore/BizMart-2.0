@@ -1,9 +1,7 @@
-// Payment References Service - Handles all payment reference operations with proper organization filtering
-
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface PaymentReference {
+export interface PaymentReference {
   id: string;
   organization_id: string;
   reference_code: string;
@@ -13,35 +11,19 @@ interface PaymentReference {
   used_by?: string | null;
   used_at?: string | null;
   created_at: string;
-  organizations?: {
-    name: string;
-  } | null;
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
 }
 
-/**
- * Generate a truly safer unique reference code
- */
-const generateUniqueCode = (): string => {
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 9000 + 1000);
-  return `${timestamp}${random}`;
-};
-
-/**
- * Generate a payment reference for a specific organization
- */
+// ==========================
+// GENERATE PAYMENT REFERENCE
+// ==========================
 const generatePaymentReference = async (
   organizationId: string,
   amount: number = 50.0
 ): Promise<PaymentReference | null> => {
   try {
-    const refNumber = generateUniqueCode();
+    const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
 
-    const { data: newRef, error } = await supabase
+    const { data, error } = await supabase
       .from("payment_references")
       .insert([
         {
@@ -49,35 +31,36 @@ const generatePaymentReference = async (
           reference_code: refNumber,
           amount,
           used: false,
+          status: "active",
         },
       ])
-      .select(`*, organizations:organization_id(name)`)
+      .select("*")
       .single();
 
     if (error) {
-      console.error("Error generating payment reference:", error);
+      console.error("Generate reference error:", error);
       toast.error("Failed to generate payment reference");
       return null;
     }
 
-    return newRef as PaymentReference;
+    return data as PaymentReference;
   } catch (error) {
-    console.error("Error generating payment reference:", error);
+    console.error(error);
     toast.error("Failed to generate payment reference");
     return null;
   }
 };
 
-/**
- * Get payment references for a specific organization
- */
+// ==========================
+// GET REFERENCES
+// ==========================
 const getPaymentReferencesForOrganization = async (
   organizationId: string
 ): Promise<PaymentReference[]> => {
   try {
     let query = supabase
       .from("payment_references")
-      .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
+      .select("*")
       .order("created_at", { ascending: false });
 
     if (organizationId?.trim()) {
@@ -87,20 +70,46 @@ const getPaymentReferencesForOrganization = async (
     const { data, error } = await query;
 
     if (error) {
-      console.error("Error fetching payment references:", error);
+      console.error("Fetch references error:", error);
       return [];
     }
 
     return (data || []) as PaymentReference[];
   } catch (error) {
-    console.error("Error fetching payment references:", error);
+    console.error(error);
     return [];
   }
 };
 
-/**
- * Mark payment reference as used
- */
+// ==========================
+// VERIFY REFERENCE
+// ==========================
+const verifyPaymentReference = async (
+  referenceCode: string
+): Promise<PaymentReference | null> => {
+  try {
+    const { data, error } = await supabase
+      .from("payment_references")
+      .select("*")
+      .eq("reference_code", referenceCode)
+      .eq("used", false)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Verify error:", error);
+      return null;
+    }
+
+    return data as PaymentReference;
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+};
+
+// ==========================
+// MARK AS USED
+// ==========================
 const markPaymentReferenceAsUsed = async (
   referenceId: string,
   userId: string
@@ -116,57 +125,26 @@ const markPaymentReferenceAsUsed = async (
       .eq("id", referenceId);
 
     if (error) {
-      console.error("Error marking payment reference as used:", error);
-      toast.error("Failed to mark payment reference as used");
+      console.error(error);
+      toast.error("Failed to update reference");
       return false;
     }
 
     return true;
   } catch (error) {
-    console.error("Error marking payment reference as used:", error);
-    toast.error("Failed to mark payment reference as used");
+    console.error(error);
     return false;
   }
 };
 
-/**
- * Verify payment reference (FIXED CRITICAL BUG HERE)
- */
-const verifyPaymentReference = async (
-  referenceCode: string,
-  organizationId: string
-): Promise<PaymentReference | null> => {
-  try {
-    const cleanCode = referenceCode.trim().toUpperCase();
-
-    const { data, error } = await supabase
-      .from("payment_references")
-      .select(`*, organizations:organization_id(name)`)
-      .eq("reference_code", cleanCode)
-      .eq("organization_id", organizationId)
-      .eq("used", false)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error verifying payment reference:", error);
-      return null;
-    }
-
-    return data as PaymentReference | null;
-  } catch (error) {
-    console.error("Error verifying payment reference:", error);
-    return null;
-  }
-};
-
-/**
- * Realtime subscription (fixed safety check)
- */
+// ==========================
+// REALTIME
+// ==========================
 const setupPaymentReferencesRealtime = (
   organizationId: string,
-  callback: (newRef: PaymentReference) => void
+  callback: (ref: PaymentReference) => void
 ) => {
-  const channel = supabase
+  return supabase
     .channel(`payment_references_${organizationId}`)
     .on(
       "postgres_changes",
@@ -177,24 +155,16 @@ const setupPaymentReferencesRealtime = (
         filter: `organization_id=eq.${organizationId}`,
       },
       (payload) => {
-        const newRef = payload.new as PaymentReference;
-
-        if (newRef?.organization_id === organizationId) {
-          callback(newRef);
-        }
+        callback(payload.new as PaymentReference);
       }
     )
     .subscribe();
-
-  return channel;
 };
 
 export {
   generatePaymentReference,
   getPaymentReferencesForOrganization,
-  markPaymentReferenceAsUsed,
   verifyPaymentReference,
+  markPaymentReferenceAsUsed,
   setupPaymentReferencesRealtime,
 };
-
-export type { PaymentReference };
