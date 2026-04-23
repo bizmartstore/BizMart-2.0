@@ -110,19 +110,34 @@ export default function OrganizationsPage() {
         throw orgError;
       }
 
-      // Get member counts for each organization with timeout
-      const orgsWithCounts = await Promise.all(
+      // Get member counts and payment references for each organization
+      const orgsWithData = await Promise.all(
         (orgData || []).map(async (org: any) => {
           try {
+            // Get member count
             const { count, error: countError } = await supabase
               .from("organization_members")
               .select("id", { count: "exact", head: true })
               .eq("organization_id", org.id)
-              .limit(1); // Limit to 1 for faster count
+              .limit(1);
 
             if (countError) {
               console.error("Error counting members:", countError);
               return { ...org, member_count: 0 };
+            }
+
+            // Get available payment reference for this organization
+            const { data: paymentRef, error: refError } = await supabase
+              .from("payment_references")
+              .select("*")
+              .eq("organization_id", org.id)
+              .eq("used", false)
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle();
+
+            if (refError) {
+              console.error("Error fetching payment reference:", refError);
             }
 
             // Check if user is member or has pending request for this org
@@ -134,6 +149,8 @@ export default function OrganizationsPage() {
             return {
               ...org,
               member_count: count || 0,
+              reference_code: paymentRef?.reference_code || null,
+              amount: paymentRef?.amount || null,
               ...membershipStatus
             };
           } catch (countError) {
@@ -143,7 +160,7 @@ export default function OrganizationsPage() {
         })
       );
 
-      setOrganizations(orgsWithCounts || [] as Organization[]);
+      setOrganizations(orgsWithData || [] as Organization[]);
     } catch (error) {
       console.error("Error fetching organizations:", error);
       setOrganizations([]); // Set to empty array on error
