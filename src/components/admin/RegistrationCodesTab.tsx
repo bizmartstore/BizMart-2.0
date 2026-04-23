@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,6 +15,11 @@ import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSi
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import {
+  generatePaymentReference,
+  getPaymentReferencesForOrganization,
+  setupPaymentReferencesRealtime
+} from "@/lib/paymentReferences";
 
 interface RegistrationCode {
   id: string;
@@ -320,23 +325,18 @@ export default function RegistrationCodesTab() {
     }
   };
 
+  // Store realtime channels
+  const paymentRefsChannels = useRef<any[]>([]);
+
   // Load payment references
   const loadPaymentReferences = async () => {
     try {
       setIsLoadingReferences(true);
-      const { data, error } = await supabase
-        .from("payment_references")
-        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
-        .order("created_at", { ascending: false });
-
-      if (error && error.code === 'PGRST116') {
-        setPaymentReferences([]);
-        return;
-      }
-
-      if (error) throw error;
-
-      setPaymentReferences((data || []) as unknown as PaymentReference[]);
+      
+      // Load all payment references with organization data
+      const allRefs = await getPaymentReferencesForOrganization(''); // Empty string gets all
+      
+      setPaymentReferences(allRefs as unknown as PaymentReference[]);
     } catch (error) {
       console.error("Error loading payment references:", error);
       toast.error("Failed to load payment references");
@@ -1472,49 +1472,31 @@ export default function RegistrationCodesTab() {
                 </SelectContent>
               </Select>
               <Button
-                size="sm"
-                className="gap-1"
-                onClick={async () => {
-                  if (!selectedOrgForReference) {
-                    toast.error("Please select an organization first");
-                    return;
-                  }
-                  
-                  try {
-                    // Generate a realistic 6-digit payment reference number
-                    const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
-                    
-                    const { error, data: newRef } = await supabase
-                      .from("payment_references")
-                      .insert([{
-                        organization_id: selectedOrgForReference.id,
-                        reference_code: refNumber,
-                        amount: 50.00,
-                        used: false,
-                      }])
-                      .select(`*, organizations:organization_id(name)`);
-                    
-                    if (error) {
-                      console.error("Error generating payment reference:", error);
-                      toast.error("Failed to generate payment reference");
-                      return;
-                    }
-                    
-                    if (newRef && newRef[0]) {
-                      // Add the new reference to the state
-                      setPaymentReferences(prev => [...prev, newRef[0] as unknown as PaymentReference]);
-                    }
-                    
-                    toast.success(`Payment reference generated: ${refNumber} for ${selectedOrgForReference.name}`);
-                  } catch (error) {
-                    console.error("Error generating payment reference:", error);
-                    toast.error("Failed to generate payment reference");
-                  }
-                }}
-                disabled={!selectedOrgForReference}
-              >
-                <Plus className="h-3 w-3" /> Generate Reference
-              </Button>
+                    size="sm"
+                    className="gap-1"
+                    onClick={async () => {
+                      if (!selectedOrgForReference) {
+                        toast.error("Please select an organization first");
+                        return;
+                      }
+                      
+                      try {
+                        const newRef = await generatePaymentReference(selectedOrgForReference.id, 50.00);
+                        
+                        if (newRef) {
+                          // Add the new reference to the state
+                          setPaymentReferences(prev => [...prev, newRef]);
+                          toast.success(`Payment reference generated: ${newRef.reference_code} for ${selectedOrgForReference.name}`);
+                        }
+                      } catch (error) {
+                        console.error("Error generating payment reference:", error);
+                        toast.error("Failed to generate payment reference");
+                      }
+                    }}
+                    disabled={!selectedOrgForReference}
+                  >
+                    <Plus className="h-3 w-3" /> Generate Reference
+                  </Button>
             </div>
           </CardTitle>
           <CardDescription className="text-xs">

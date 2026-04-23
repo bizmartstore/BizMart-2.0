@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,10 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
 import { Organization } from "@/types";
+import {
+  getPaymentReferencesForOrganization,
+  setupPaymentReferencesRealtime
+} from "@/lib/paymentReferences";
 
 export default function OrganizationsPage() {
   const { user, profile } = useAuth();
@@ -52,24 +56,24 @@ export default function OrganizationsPage() {
     const [editLogoImage, setEditLogoImage] = useState<File | null>(null);
     const [isEditing, setIsEditing] = useState(false);
 
+  // Store realtime channels to clean them up
+  const paymentRefsChannels = useRef<any[]>([]);
+  const orgsChannel = useRef<any>(null);
+
   useEffect(() => {
     if (user) {
       fetchOrganizations();
       
-      // Set up realtime subscription for payment references changes
-      const paymentRefsChannel = supabase
-        .channel('payment_references_changes')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'payment_references' },
-          () => {
-            fetchOrganizations();
-          }
-        )
-        .subscribe();
+      // Set up realtime subscription for payment references changes (filtered by organization)
+      paymentRefsChannels.current = organizations.map(org =>
+        setupPaymentReferencesRealtime(org.id, () => {
+          // Only refresh the specific organization's data
+          fetchOrganizations();
+        })
+      );
       
       // Set up realtime subscription for organization changes
-      const orgsChannel = supabase
+      orgsChannel.current = supabase
         .channel('organizations_changes')
         .on(
           'postgres_changes',
@@ -81,13 +85,16 @@ export default function OrganizationsPage() {
         .subscribe();
       
       return () => {
-        supabase.removeChannel(paymentRefsChannel);
-        supabase.removeChannel(orgsChannel);
+        // Clean up all realtime channels
+        paymentRefsChannels.current.forEach(channel => supabase.removeChannel(channel));
+        if (orgsChannel.current) {
+          supabase.removeChannel(orgsChannel.current);
+        }
       };
     } else {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, organizations]);
 
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };
@@ -155,15 +162,11 @@ export default function OrganizationsPage() {
             }
 
             // Get available payment references for this organization
-            const { data: paymentRefs, error: refError } = await supabase
-              .from("payment_references")
-              .select("*")
-              .eq("organization_id", org.id)
-              .eq("used", false);
-
-            if (refError) {
-              console.error("Error fetching payment references:", refError);
-            }
+                  const paymentRefs = await getPaymentReferencesForOrganization(org.id);
+      
+                  if (!paymentRefs) {
+                    console.error("Error fetching payment references for organization", org.id);
+                  }
 
             // Check if user is member or has pending request for this org
             let membershipStatus = { isMember: false, hasPendingRequest: false };
