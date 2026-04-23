@@ -158,18 +158,21 @@ export default function OrganizationsPage() {
               return { ...org, member_count: 0 };
             }
 
-            // ✅ Get available slots (WORKS for customers)
-const { data: availableSlots, error: slotError } = await supabase
-  .rpc("get_available_slots", { org_id: org.id });
+            // Get available slots by counting unused payment references
+            const { count: availableSlots, error: slotError } = await supabase
+              .from("payment_references")
+              .select("id", { count: "exact", head: true })
+              .eq("organization_id", org.id)
+              .eq("used", false);
 
-if (slotError) {
-  console.error("Error fetching slots:", slotError);
-}
+            if (slotError) {
+              console.error("Error fetching slots:", slotError);
+            }
 
-// ✅ Try to get payment references (ONLY admins will get data)
-const { data: paymentRefs, error: refError } = await supabase
-  .from("payment_references")
-  .select("*")
+            // ✅ Try to get payment references (ONLY admins will get data)
+            const { data: paymentRefs, error: refError } = await supabase
+              .from("payment_references")
+              .select("*")
   .eq("organization_id", org.id)
   .order("created_at", { ascending: false });
 
