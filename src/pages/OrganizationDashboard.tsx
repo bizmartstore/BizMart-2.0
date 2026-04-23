@@ -276,7 +276,7 @@ if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
     .order("joined_at", { ascending: true });
 
   if (eventMembersData) {
-    setEventMembers(eventMembersData);
+    setEventMembers((eventMembersData || []) as unknown as EventMember[]);
   }
 }
     // 6. Wallet transactions
