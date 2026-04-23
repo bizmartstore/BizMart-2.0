@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,11 +15,6 @@ import { Check, Copy, X, AlertCircle, Users, CheckCircle, XCircle, Eye, DollarSi
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import {
-  generatePaymentReference,
-  getPaymentReferencesForOrganization,
-  setupPaymentReferencesRealtime
-} from "@/lib/paymentReferences";
 
 interface RegistrationCode {
   id: string;
@@ -178,6 +173,22 @@ export default function RegistrationCodesTab() {
     loadApprovedOrganizations();
     loadTransactions();
     loadPaymentReferences();
+    
+    // Set up realtime subscription for payment references changes
+    const paymentRefsChannel = supabase
+      .channel('payment_references_updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'payment_references' },
+        () => {
+          loadPaymentReferences();
+        }
+      )
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(paymentRefsChannel);
+    };
   }, []);
 
   // Load registration codes
@@ -325,18 +336,23 @@ export default function RegistrationCodesTab() {
     }
   };
 
-  // Store realtime channels
-  const paymentRefsChannels = useRef<any[]>([]);
-
   // Load payment references
   const loadPaymentReferences = async () => {
     try {
       setIsLoadingReferences(true);
-      
-      // Load all payment references with organization data
-      const allRefs = await getPaymentReferencesForOrganization(''); // Empty string gets all
-      
-      setPaymentReferences(allRefs as unknown as PaymentReference[]);
+      const { data, error } = await supabase
+        .from("payment_references")
+        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST116') {
+        setPaymentReferences([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setPaymentReferences((data || []) as unknown as PaymentReference[]);
     } catch (error) {
       console.error("Error loading payment references:", error);
       toast.error("Failed to load payment references");
@@ -344,24 +360,6 @@ export default function RegistrationCodesTab() {
       setIsLoadingReferences(false);
     }
   };
-
-  // Setup realtime subscription for payment references
-  useEffect(() => {
-    if (selectedOrgForReference) {
-      const channel = setupPaymentReferencesRealtime(selectedOrgForReference.id, (newRef) => {
-        setPaymentReferences(prev => [newRef, ...prev]);
-      });
-      paymentRefsChannels.current.push(channel);
-      
-      return () => {
-        const index = paymentRefsChannels.current.indexOf(channel);
-        if (index > -1) {
-          supabase.removeChannel(channel);
-          paymentRefsChannels.current.splice(index, 1);
-        }
-      };
-    }
-  }, [selectedOrgForReference]);
 
   // Generate registration codes
   const generateCodes = async () => {
@@ -1490,31 +1488,49 @@ export default function RegistrationCodesTab() {
                 </SelectContent>
               </Select>
               <Button
-                    size="sm"
-                    className="gap-1"
-                    onClick={async () => {
-                      if (!selectedOrgForReference) {
-                        toast.error("Please select an organization first");
-                        return;
-                      }
-                      
-                      try {
-                        const newRef = await generatePaymentReference(selectedOrgForReference.id, 50.00);
-                        
-                        if (newRef) {
-                          // Add the new reference to the state
-                          setPaymentReferences(prev => [...prev, newRef]);
-                          toast.success(`Payment reference generated: ${newRef.reference_code} for ${selectedOrgForReference.name}`);
-                        }
-                      } catch (error) {
-                        console.error("Error generating payment reference:", error);
-                        toast.error("Failed to generate payment reference");
-                      }
-                    }}
-                    disabled={!selectedOrgForReference}
-                  >
-                    <Plus className="h-3 w-3" /> Generate Reference
-                  </Button>
+                size="sm"
+                className="gap-1"
+                onClick={async () => {
+                  if (!selectedOrgForReference) {
+                    toast.error("Please select an organization first");
+                    return;
+                  }
+                  
+                  try {
+                    // Generate a realistic 6-digit payment reference number
+                    const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
+                    
+                    const { error, data: newRef } = await supabase
+                      .from("payment_references")
+                      .insert([{
+                        organization_id: selectedOrgForReference.id,
+                        reference_code: refNumber,
+                        amount: 50.00,
+                        used: false,
+                      }])
+                      .select(`*, organizations:organization_id(name)`);
+                    
+                    if (error) {
+                      console.error("Error generating payment reference:", error);
+                      toast.error("Failed to generate payment reference");
+                      return;
+                    }
+                    
+                    if (newRef && newRef[0]) {
+                      // Add the new reference to the state
+                      setPaymentReferences(prev => [newRef[0] as unknown as PaymentReference, ...prev]);
+                    }
+                    
+                    toast.success(`Payment reference generated: ${refNumber} for ${selectedOrgForReference.name}`);
+                  } catch (error) {
+                    console.error("Error generating payment reference:", error);
+                    toast.error("Failed to generate payment reference");
+                  }
+                }}
+                disabled={!selectedOrgForReference}
+              >
+                <Plus className="h-3 w-3" /> Generate Reference
+              </Button>
             </div>
           </CardTitle>
           <CardDescription className="text-xs">
@@ -1531,42 +1547,42 @@ export default function RegistrationCodesTab() {
           ) : (
             <div className="space-y-2">
               {paymentReferences.map((ref) => (
-            <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
-              ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
-            )}>
-              <CardContent className="pt-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CreditCard className="h-4 w-4 text-blue-500" />
-                      <div>
-                        <p className="font-medium text-sm">{ref.reference_code}</p>
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
-                          <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Status:</strong>
-                          <Badge variant={ref.used ? "outline" : "default"}>
-                            {ref.used ? "Used" : "Available"}
-                          </Badge>
-                        </p>
-                        {ref.used && ref.used_by && (
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Used by:</strong> {ref.used_by}
-                          </p>
-                        )}
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
-                          {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
-                        </p>
+                <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
+                  ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
+                )}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <CreditCard className="h-4 w-4 text-blue-500" />
+                          <div>
+                            <p className="font-medium text-sm">{ref.reference_code}</p>
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
+                              <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Status:</strong>
+                              <Badge variant={ref.used ? "outline" : "default"}>
+                                {ref.used ? "Used" : "Available"}
+                              </Badge>
+                            </p>
+                            {ref.used && ref.profiles && (
+                              <p className="text-xs text-muted-foreground">
+                                <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
+                              {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
         </CardContent>

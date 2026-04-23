@@ -22,20 +22,7 @@ export interface Organization {
   hasPendingRequest?: boolean;
   reference_code?: string | null;
   amount?: number | null;
-  payment_references?: {
-    id: string;
-    organization_id: string;
-    reference_code: string;
-    amount: number;
-    status: string;
-    used: boolean;
-    used_by?: string | null;
-    used_at?: string | null;
-    created_at: string;
-    organizations?: {
-      name: string;
-    } | null;
-  }[];
+  payment_references?: any[];
 }
 
 // Member types

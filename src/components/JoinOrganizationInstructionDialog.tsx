@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2, CreditCard } from "lucide-react";
-import { verifyPaymentReference, markPaymentReferenceAsUsed } from "@/lib/paymentReferences";
 
 interface JoinOrganizationInstructionDialogProps {
   organizationId: string;
@@ -52,10 +51,26 @@ export default function JoinOrganizationInstructionDialog({
 
     try {
       // Verify the payment reference exists and is not used
-      const paymentRef = await verifyPaymentReference(referenceNumber);
+      const { data: paymentRef, error: refError } = await supabase
+        .from("payment_references")
+        .select(`*, organizations:organization_id(name)`)
+        .eq("reference_code", referenceNumber)
+        .eq("used", false)
+        .maybeSingle();
+
+      if (refError) {
+        console.error("Error verifying payment reference:", refError);
+        toast.error("Error verifying payment reference");
+        return;
+      }
 
       if (!paymentRef) {
         toast.error("Invalid or already used payment reference number. Please check and try again.");
+        return;
+      }
+      
+      if (!paymentRef.organizations) {
+        toast.error("Payment reference is not associated with any organization.");
         return;
       }
 
@@ -74,10 +89,18 @@ export default function JoinOrganizationInstructionDialog({
 
       // Mark payment reference as used
       if (paymentRef && paymentRef.id) {
-        const success = await markPaymentReferenceAsUsed(paymentRef.id, user.id);
-        if (!success) {
+        try {
+          await supabase
+            .from("payment_references")
+            .update({
+              used: true,
+              used_by: user.id,
+              used_at: new Date().toISOString(),
+            })
+            .eq("id", paymentRef.id);
+        } catch (error) {
+          console.error("Error marking payment reference as used:", error);
           toast.error("Failed to mark payment reference as used");
-          return;
         }
       }
 

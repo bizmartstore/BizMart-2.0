@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,10 +17,6 @@ import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
 import { Organization } from "@/types";
-import {
-  getPaymentReferencesForOrganization,
-  setupPaymentReferencesRealtime
-} from "@/lib/paymentReferences";
 
 export default function OrganizationsPage() {
   const { user, profile } = useAuth();
@@ -56,44 +52,30 @@ export default function OrganizationsPage() {
     const [editLogoImage, setEditLogoImage] = useState<File | null>(null);
     const [isEditing, setIsEditing] = useState(false);
 
-  // Store realtime channels to clean them up
-  const paymentRefsChannels = useRef<any[]>([]);
-  const orgsChannel = useRef<any>(null);
-
   useEffect(() => {
     if (user) {
       fetchOrganizations();
       
-     // Clear existing channels first (prevents duplicates)
-paymentRefsChannels.current.forEach(channel =>
-  supabase.removeChannel(channel)
-);
-paymentRefsChannels.current = [];
-
-if (!organizations.length) return;
-
-// Create fresh realtime subscriptions per organization
-paymentRefsChannels.current = organizations.map((org) => {
-  const channel = setupPaymentReferencesRealtime(org.id, (newRef) => {
-    setOrganizations((prevOrgs) =>
-      prevOrgs.map((o) => {
-        if (o.id !== org.id) return o;
-
-        const existingRefs = o.payment_references || [];
-
-        return {
-          ...o,
-          payment_references: [newRef, ...existingRefs],
-        };
-      })
-    );
-  });
-
-  return channel;
-});
+      // Set up realtime subscription for payment references changes
+      // Listen for INSERT events on payment_references table
+      const paymentRefsChannel = supabase
+        .channel('payment_references_inserts')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'payment_references'
+          },
+          (payload) => {
+            // Fetch organizations to update payment references display
+            fetchOrganizations();
+          }
+        )
+        .subscribe();
       
       // Set up realtime subscription for organization changes
-      orgsChannel.current = supabase
+      const orgsChannel = supabase
         .channel('organizations_changes')
         .on(
           'postgres_changes',
@@ -105,11 +87,8 @@ paymentRefsChannels.current = organizations.map((org) => {
         .subscribe();
       
       return () => {
-        // Clean up all realtime channels
-        paymentRefsChannels.current.forEach(channel => supabase.removeChannel(channel));
-        if (orgsChannel.current) {
-          supabase.removeChannel(orgsChannel.current);
-        }
+        supabase.removeChannel(paymentRefsChannel);
+        supabase.removeChannel(orgsChannel);
       };
     } else {
       setIsLoading(false);
@@ -182,11 +161,16 @@ paymentRefsChannels.current = organizations.map((org) => {
             }
 
             // Get available payment references for this organization
-            const paymentRefs = await getPaymentReferencesForOrganization(org.id);
-            
-            if (!paymentRefs) {
-              console.error("Error fetching payment references for organization", org.id);
-            }
+                    const { data: paymentRefs, error: refError } = await supabase
+                      .from("payment_references")
+                      .select("*")
+                      .eq("organization_id", org.id)
+                      .eq("used", false)
+                      .order("created_at", { ascending: false });
+        
+                    if (refError) {
+                      console.error("Error fetching payment references:", refError);
+                    }
 
             // Check if user is member or has pending request for this org
             let membershipStatus = { isMember: false, hasPendingRequest: false };
@@ -838,9 +822,7 @@ const { error: detailsError } = await supabase
                       <div className="mt-3 space-y-2">
         {org.payment_references && org.payment_references.length > 0 ? (
           <div className="space-y-1">
-            {org.payment_references
-              .filter((ref: any) => !ref.used) // Only show available references
-              .map((ref: any) => (
+            {org.payment_references.map((ref: any) => (
               <div key={ref.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2">
                 <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
                 <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
@@ -853,19 +835,14 @@ const { error: detailsError } = await supabase
           </div>
         )}
                         <Button
-  size="sm"
-  className="w-full gap-2"
-  disabled={!org?.id}
-  onClick={(e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (!org?.id) return;
-
-    setCurrentOrgId(org.id);
-    setJoinOrgDialogOpen(true);
-  }}
->
+                          size="sm"
+                          className="w-full gap-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCurrentOrgId(org.id);
+                            setJoinOrgDialogOpen(true);
+                          }}
+                        >
                           <UserPlus className="h-4 w-4" /> Join Organization
                         </Button>
                       </div>

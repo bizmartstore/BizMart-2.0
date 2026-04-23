@@ -398,34 +398,6 @@ export type Database = {
           used?: boolean;
         };
       };
-      payment_references: {
-        Row: {
-          id: string;
-          organization_id: string;
-          reference_code: string;
-          amount: number;
-          used: boolean;
-          used_by: string | null;
-          used_at: string | null;
-          created_at: string;
-        };
-        Insert: {
-          organization_id: string;
-          reference_code: string;
-          amount?: number;
-          used?: boolean;
-          used_by?: string | null;
-          used_at?: string | null;
-        };
-        Update: {
-          organization_id?: string;
-          reference_code?: string;
-          amount?: number;
-          used?: boolean;
-          used_by?: string | null;
-          used_at?: string | null;
-        };
-      };
     fcm_tokens: {
         Row: {
           id: string;

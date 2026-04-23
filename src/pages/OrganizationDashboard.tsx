@@ -59,22 +59,6 @@ interface AnnouncementInsert {
   created_by: string;
 }
 
-// 👇 ADD IT HERE (outside component)
-const normalizeRole = (role: string): "creator" | "officer" | "member" => {
-  if (role === "creator" || role === "officer" || role === "member") {
-    return role;
-  }
-  return "member";
-};
-
-const normalizeEventStatus = (
-  status: string
-): "upcoming" | "ongoing" | "completed" => {
-  if (status === "upcoming" || status === "ongoing" || status === "completed") {
-    return status;
-  }
-  return "upcoming"; // fallback safety
-};
 
 export default function OrganizationDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -188,35 +172,6 @@ export default function OrganizationDashboard() {
       member_count: count || 0,
     });
 
-    // ✅ STEP 1.5: GET USER ROLE EARLY (MOVE HERE)
-let memberData: { role?: string; status?: string } | null = null;
-
-if (user && id) {
-  const { data, error } = await supabase
-    .from("organization_members")
-    .select("role, status")
-    .eq("organization_id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    console.error("Error fetching member data:", error);
-  }
-
-  memberData = data;
-
-  const role = memberData?.role;
-  const status = memberData?.status;
-
-  if (role && status === "active") {
-    setIsMember(true);
-    setUserRole(normalizeRole(role));
-  } else {
-    setIsMember(false);
-    setUserRole(null);
-  }
-}
-
     // 3. Wallet
 const { data: walletData, error: walletError } = await supabase
   .from("organization_wallets")
@@ -246,39 +201,35 @@ if (!walletData) {
 
     setMembers((membersData || []).map(m => ({
   ...m,
-  role: normalizeRole(m.role)
+  role: m.role as "member" | "creator" | "officer"
 })) as Member[]);
 
     // 5. Events
-const { data: eventsData } = await supabase
-  .from("organization_events")
-  .select("*")
-  .eq("organization_id", id)
-  .order("created_at", { ascending: false });
+    const { data: eventsData } = await supabase
+      .from("organization_events")
+      .select("*")
+      .eq("organization_id", id)
+      .order("created_at", { ascending: false });
 
-setEvents(
-  (eventsData || []).map(e => ({
-    ...e,
-    status: normalizeEventStatus(e.status)
-  })) as Event[]
-);
+    setEvents((eventsData || []).map(e => ({
+  ...e,
+  status: e.status as "upcoming" | "ongoing" | "completed"
+})) as Event[]);
 
-const role = memberData?.role;
+    // 5.1 Load event members for creator/officer
+    if (canManageEvents && eventsData) {
+      const { data: membersData } = await supabase
+        .from("event_members" as any)
+        .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
+        .in("event_id", eventsData.map(e => e.id))
+        .eq("status", "approved")
+        .order("joined_at", { ascending: true });
 
-if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
-  const { data: eventMembersData } = await supabase
-    .from("event_members" as any)
-    .select(
-      `*, profile:user_id(first_name, last_name, email, avatar_url)`
-    )
-    .in("event_id", eventsData.map(e => e.id))
-    .eq("status", "approved")
-    .order("joined_at", { ascending: true });
+      if (membersData) {
+        setEventMembers((membersData as any) || []);
+      }
+    }
 
-  if (eventMembersData) {
-    setEventMembers((eventMembersData || []) as unknown as EventMember[]);
-  }
-}
     // 6. Wallet transactions
     const { data: walletTransactionsData, error: walletTransactionsError } = await supabase
       .from("organization_transactions")
@@ -308,15 +259,28 @@ if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
 
     setAnnouncements(announcementsData || []);
 
-    // 8. Payment References
-    const { data: paymentRefs, error: paymentRefsError } = await supabase
-      .from("payment_references")
-      .select("*")
-      .eq("organization_id", id)
-      .eq("used", false);
+    // 8. Membership check
+    if (user && id) {
+      const { data, error } = await supabase
+        .from("organization_members")
+        .select("role, status")
+        .eq("organization_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-    if (paymentRefsError) {
-      console.error("Error fetching payment references:", paymentRefsError);
+      if (error) {
+        console.error("Error fetching member data:", error);
+      }
+
+      const memberData = data as { role?: "creator" | "officer" | "member"; status?: string } | null;
+
+      if (memberData?.role && memberData.status === "active") {
+        setIsMember(true);
+        setUserRole(memberData.role);
+      } else {
+        setIsMember(false);
+        setUserRole(null);
+      }
     }
   } catch (error) {
     console.error("Error fetching organization data:", error);
