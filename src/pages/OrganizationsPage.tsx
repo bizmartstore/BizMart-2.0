@@ -110,19 +110,31 @@ export default function OrganizationsPage() {
         throw orgError;
       }
 
-      // Get member counts for each organization with timeout
-      const orgsWithCounts = await Promise.all(
+      // Get member counts and payment references for each organization
+      const orgsWithCountsAndRefs = await Promise.all(
         (orgData || []).map(async (org: any) => {
           try {
+            // Get member count
             const { count, error: countError } = await supabase
               .from("organization_members")
               .select("id", { count: "exact", head: true })
               .eq("organization_id", org.id)
-              .limit(1); // Limit to 1 for faster count
+              .limit(1);
 
             if (countError) {
               console.error("Error counting members:", countError);
               return { ...org, member_count: 0 };
+            }
+
+            // Get available payment references for this organization
+            const { data: paymentRefs, error: refError } = await supabase
+              .from("payment_references")
+              .select("*")
+              .eq("organization_id", org.id)
+              .eq("used", false);
+
+            if (refError) {
+              console.error("Error fetching payment references:", refError);
             }
 
             // Check if user is member or has pending request for this org
@@ -134,6 +146,7 @@ export default function OrganizationsPage() {
             return {
               ...org,
               member_count: count || 0,
+              payment_references: paymentRefs || [],
               ...membershipStatus
             };
           } catch (countError) {
@@ -143,7 +156,7 @@ export default function OrganizationsPage() {
         })
       );
 
-      setOrganizations(orgsWithCounts || [] as Organization[]);
+      setOrganizations(orgsWithCountsAndRefs || [] as Organization[]);
     } catch (error) {
       console.error("Error fetching organizations:", error);
       setOrganizations([]); // Set to empty array on error
@@ -772,10 +785,18 @@ const { error: detailsError } = await supabase
                     </div>
                     {isApproved && !org.isMember && !org.hasPendingRequest && (
                       <div className="mt-3 space-y-2">
-        {org.reference_code && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-            <p className="text-xs font-medium text-blue-800">Payment Reference: {org.reference_code}</p>
-            <p className="text-[10px] text-blue-700">Pay ₱{Number(org.amount || 0).toFixed(2)} to join</p>
+        {org.payment_references && org.payment_references.length > 0 ? (
+          <div className="space-y-1">
+            {org.payment_references.map((ref: any) => (
+              <div key={ref.id} className="bg-blue-50 border border-blue-200 rounded-lg p-2">
+                <p className="text-xs font-medium text-blue-800">Payment Reference: {ref.reference_code}</p>
+                <p className="text-[10px] text-blue-700">Pay ₱{Number(ref.amount || 0).toFixed(2)} to join</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-2">
+            <p className="text-xs font-medium text-yellow-800">No payment references available for this organization</p>
           </div>
         )}
                         <Button
