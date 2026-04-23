@@ -267,7 +267,7 @@ const role = memberData?.role;
 
 if ((role === "creator" || role === "officer") && eventsData?.length > 0) {
   const { data: eventMembersData } = await supabase
-    .from("event_members")
+    .from("event_members" as any)
     .select(
       `*, profile:user_id(first_name, last_name, email, avatar_url)`
     )
