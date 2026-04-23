@@ -67,6 +67,15 @@ const normalizeRole = (role: string): "creator" | "officer" | "member" => {
   return "member";
 };
 
+const normalizeEventStatus = (
+  status: string
+): "upcoming" | "ongoing" | "completed" => {
+  if (status === "upcoming" || status === "ongoing" || status === "completed") {
+    return status;
+  }
+  return "upcoming"; // fallback safety
+};
+
 export default function OrganizationDashboard() {
   const { id } = useParams<{ id: string }>();
   const { user, profile } = useAuth();
