@@ -69,8 +69,9 @@ export default function RegistrationCodesTab() {
   const [transactions, setTransactions] = useState<OrganizationTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
   const [pendingOrgs, setPendingOrgs] = useState<any[]>([]);
+  const [approvedOrgs, setApprovedOrgs] = useState<any[]>([]);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
-  const [activeTab, setActiveTab] = useState<'organizations' | 'join' | 'transactions' | 'codes'>('organizations');
+  const [activeTab, setActiveTab] = useState<'organizations' | 'approved' | 'join' | 'transactions' | 'codes'>('organizations');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadTransactions();
     loadPendingOrganizations();
+    loadApprovedOrganizations();
   }, []);
 
   const loadCodes = async () => {
@@ -319,6 +321,31 @@ export default function RegistrationCodesTab() {
     }
   };
 
+  const loadApprovedOrganizations = async () => {
+    try {
+      setIsLoadingOrgs(true);
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`*, profiles:creator_id(*)`)
+        .eq("status", "approved")
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST116') {
+        setApprovedOrgs([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setApprovedOrgs(data || []);
+    } catch (error) {
+      console.error("Error loading approved organizations:", error);
+      toast.error("Failed to load approved organizations");
+    } finally {
+      setIsLoadingOrgs(false);
+    }
+  };
+
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success("Code copied to clipboard!");
@@ -332,7 +359,14 @@ export default function RegistrationCodesTab() {
           className="flex-1 gap-2"
           onClick={() => setActiveTab('organizations')}
         >
-          <UsersIcon className="h-4 w-4" /> Organizations
+          <UsersIcon className="h-4 w-4" /> Pending Organizations
+        </Button>
+        <Button
+          variant={activeTab === 'approved' ? 'default' : 'outline'}
+          className="flex-1 gap-2"
+          onClick={() => setActiveTab('approved')}
+        >
+          <CheckCircle2 className="h-4 w-4" /> Approved Organizations
         </Button>
         <Button
           variant={activeTab === 'join' ? 'default' : 'outline'}
@@ -562,6 +596,58 @@ export default function RegistrationCodesTab() {
                             onClick={() => rejectOrganization(org.id)}
                           >
                             <X className="h-4 w-4 text-red-600" /> Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'approved' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Approved Organizations</CardTitle>
+            <CardDescription>View, modify, and manage approved organizations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingOrgs ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : approvedOrgs.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No approved organizations found</p>
+            ) : (
+              <div className="space-y-3">
+                {approvedOrgs.map((org) => (
+                  <Card key={org.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="mb-2">
+                            <h3 className="font-medium">{org.name}</h3>
+                            <Badge variant="default" className="text-xs mt-1">{org.club_type}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{org.description}</p>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p><strong>Adviser:</strong> {org.adviser_name || 'N/A'}</p>
+                            <p><strong>Creator:</strong> {org.profiles?.first_name} {org.profiles?.last_name} ({org.profiles?.email})</p>
+                            <p><strong>Created:</strong> {new Date(org.created_at).toLocaleDateString()}</p>
+                            <p><strong>Status:</strong> <Badge variant="outline">{org.status}</Badge></p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => navigate(`/organizations/${org.id}`)}
+                            title="View organization details"
+                          >
+                            <Eye className="h-4 w-4" />
                           </Button>
                         </div>
                       </div>

@@ -23,8 +23,10 @@ export default function OrganizationsPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [approvedOrgs, setApprovedOrgs] = useState<Organization[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingApproved, setIsLoadingApproved] = useState(true);
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [pendingJoinRequest, setPendingJoinRequest] = useState(false);
   const [registrationCode, setRegistrationCode] = useState("");
@@ -139,13 +141,12 @@ export default function OrganizationsPage() {
     try {
       setIsLoading(true);
       
-      // First check if the organizations table exists
+      // Fetch all approved organizations
       const { data: orgData, error: orgError } = await supabase
         .from("organizations")
         .select("*")
         .eq("status", "approved")
         .order("created_at", { ascending: false })
-        .limit(1); // Just check if table exists with a small query
 
       if (orgError && orgError.code === 'PGRST205') {
         // Table doesn't exist, set empty organizations and return
