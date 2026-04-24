@@ -182,7 +182,7 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingOrgs(true);
     const { data, error } = await supabase
-  .from("organizations" as any)
+  .from("organizations")
   .select(`*, profiles:creator_id(*)`)
   .eq("status", "pending")
   .order("created_at", { ascending: false });
@@ -199,7 +199,7 @@ export default function RegistrationCodesTab() {
         (data || []).map(async (org: any) => {
           try {
             const { count, error: countError } = await supabase
-              .from("organization_event_members" as any)
+              .from("organization_event_members")
               .select("id", { count: "exact", head: true })
               .eq("organization_id", org.id);
 
@@ -229,7 +229,7 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingApproved(true);
     const { data, error } = await supabase
-  .from("organizations" as any)
+  .from("organizations")
   .select(`*, profiles:creator_id(*)`)
   .eq("status", "approved")
   .order("created_at", { ascending: false });
@@ -246,7 +246,7 @@ export default function RegistrationCodesTab() {
         (data || []).map(async (org: any) => {
           try {
             const { count, error: countError } = await supabase
-              .from("organization_event_members" as any)
+              .from("organization_event_members")
               .select("id", { count: "exact", head: true })
               .eq("organization_id", org.id);
 
@@ -276,7 +276,7 @@ export default function RegistrationCodesTab() {
     try {
       setIsLoadingTransactions(true);
       const { data, error } = await supabase
-        .from("organization_transactions" as any)
+        .from("organization_transactions")
         .select(`*, profiles:user_id(first_name, last_name, avatar_url), organizations:organization_id(name)`)
         .order("created_at", { ascending: false });
 
@@ -361,8 +361,7 @@ export default function RegistrationCodesTab() {
         const { error: updateError } = await supabase
           .from("organizations")
           .update({
-            status: "approved",
-            updated_at: new Date().toISOString()
+            status: "approved"
           })
           .eq("id", orgId);
         orgError = updateError;
@@ -416,8 +415,7 @@ export default function RegistrationCodesTab() {
       const { error } = await supabase
         .from("organization_transactions")
         .update({
-          status: "approved",
-          updated_at: new Date().toISOString()
+          status: "approved"
         })
         .eq("id", transactionId);
 
@@ -444,8 +442,7 @@ export default function RegistrationCodesTab() {
         const { error: updateError } = await supabase
           .from("organization_wallets")
           .update({
-            balance: newBalance,
-            updated_at: new Date().toISOString()
+            balance: newBalance
           })
           .eq("organization_id", transaction.organization_id);
 
@@ -466,8 +463,7 @@ export default function RegistrationCodesTab() {
       const { error } = await supabase
         .from("organization_transactions")
         .update({
-          status: "rejected",
-          updated_at: new Date().toISOString()
+          status: "rejected"
         })
         .eq("id", transactionId);
 
@@ -492,7 +488,7 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingRequests(true);
     const { data, error } = await supabase
-      .from("organization_members" as any)
+      .from("organization_members")
       .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), organizations:organization_id(name)`)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
@@ -520,7 +516,7 @@ export default function RegistrationCodesTab() {
       if (!request) return;
 
       await supabase
-        .from("organization_members" as any)
+        .from("organization_members")
         .update({
           status: "active",
         })
@@ -559,7 +555,6 @@ export default function RegistrationCodesTab() {
             .from("organization_wallets")
             .update({
               balance: newBalance,
-              updated_at: new Date().toISOString(),
             })
             .eq("organization_id", request.organizations.id);
 
@@ -595,7 +590,7 @@ export default function RegistrationCodesTab() {
   const rejectJoinRequest = async (requestId: string) => {
     try {
       await supabase
-        .from("organization_members" as any)
+        .from("organization_members")
         .update({
           status: "rejected",
         })
@@ -616,7 +611,7 @@ export default function RegistrationCodesTab() {
       
       // Load organization wallet
       const { data: walletData, error: walletError } = await supabase
-        .from("organization_wallets" as any)
+        .from("organization_wallets")
         .select("balance")
         .eq("organization_id", orgId)
         .maybeSingle();
@@ -625,7 +620,7 @@ export default function RegistrationCodesTab() {
 
       // Load organization events
       const { data: eventsData, error: eventsError } = await supabase
-        .from("organization_events" as any)
+        .from("organization_events")
         .select("*")
         .eq("organization_id", orgId)
         .order("created_at", { ascending: false });
@@ -634,7 +629,7 @@ export default function RegistrationCodesTab() {
 
       // Load event member requests
       const { data: requestsData, error: requestsError } = await supabase
-        .from("organization_event_members" as any)
+        .from("organization_event_members")
         .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), events:event_id(name, fee)`)
         .eq("status", "pending")
         .in("event_id", eventsData?.map((e: any) => e.id) || [])
@@ -668,7 +663,7 @@ export default function RegistrationCodesTab() {
 
       // Update event member status to approved
       const { error } = await supabase
-        .from("organization_event_members" as any)
+        .from("organization_event_members")
         .update({
           status: "approved",
         })
@@ -716,7 +711,7 @@ export default function RegistrationCodesTab() {
   const rejectEventMemberRequest = async (requestId: string) => {
     try {
       const { error } = await supabase
-        .from("organization_event_members" as any)
+        .from("organization_event_members")
         .update({
           status: "rejected",
         })
@@ -867,7 +862,7 @@ export default function RegistrationCodesTab() {
                 View organization information, events, and approve event member requests
               </DialogDescription>
             </DialogHeader>
-  
+ 
             {isLoadingOrgDetails ? (
               <div className="flex justify-center items-center py-8">
                 <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
@@ -1118,7 +1113,7 @@ export default function RegistrationCodesTab() {
                                 <XCircle className="h-4 w-4 text-red-600" />
                               </Button>
                             </>
-                          )}
+                          )
                           <Button
                             size="sm"
                             variant="outline"
@@ -1339,7 +1334,7 @@ export default function RegistrationCodesTab() {
                                     <X className="h-4 w-4 text-red-600" />
                                   </Button>
                                 </>
-                              )}
+                              )
                               <Button
                                 size="sm"
                                 variant="outline"

@@ -352,7 +352,6 @@ export default function OrganizationsPage() {
         club_type: editFormData.club_type,
         primary_color: editFormData.primary_color,
         secondary_color: editFormData.secondary_color,
-        updated_at: new Date().toISOString(),
       };
 
       // Upload logo image if provided
@@ -383,7 +382,6 @@ export default function OrganizationsPage() {
               .from("organizations")
               .update({
                 logo_image: urlData.publicUrl,
-                updated_at: new Date().toISOString(),
               })
               .eq("id", editingOrgId)
               .select();
@@ -412,7 +410,6 @@ export default function OrganizationsPage() {
       adviser_name: editFormData.adviser_name,
       club_type: editFormData.club_type,
       join_fee: editFormData.join_fee,
-      updated_at: new Date().toISOString(),
     })
     .eq("id", editingOrgId);
 
@@ -432,7 +429,6 @@ export default function OrganizationsPage() {
             club_type: editFormData.club_type,
             primary_color: editFormData.primary_color,
             secondary_color: editFormData.secondary_color,
-            updated_at: new Date().toISOString(),
           })
           .eq("id", editingOrgId);
 

@@ -55,7 +55,7 @@ export default function SettingsTab() {
       for (const { key, value } of updates) {
         const { data: existing } = await (supabase as any).from("app_settings").select("id").eq("key", key).maybeSingle();
         if (existing) {
-          await (supabase as any).from("app_settings").update({ value, updated_at: new Date().toISOString() }).eq("key", key);
+          await (supabase as any).from("app_settings").update({ value }).eq("key", key);
         } else {
           await (supabase as any).from("app_settings").insert({ key, value });
         }

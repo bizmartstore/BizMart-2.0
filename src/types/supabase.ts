@@ -1487,7 +1487,11 @@ export type Database = {
           creator_id: string
           description: string | null
           id: string
+          join_fee: number | null
+          logo_image: string | null
           name: string
+          primary_color: string | null
+          secondary_color: string | null
           status: string
           updated_at: string
         }
@@ -1498,7 +1502,11 @@ export type Database = {
           creator_id: string
           description?: string | null
           id?: string
+          join_fee?: number | null
+          logo_image?: string | null
           name: string
+          primary_color?: string | null
+          secondary_color?: string | null
           status?: string
           updated_at?: string
         }
@@ -1509,7 +1517,11 @@ export type Database = {
           creator_id?: string
           description?: string | null
           id?: string
+          join_fee?: number | null
+          logo_image?: string | null
           name?: string
+          primary_color?: string | null
+          secondary_color?: string | null
           status?: string
           updated_at?: string
         }

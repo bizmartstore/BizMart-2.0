@@ -56,7 +56,7 @@ function StoreSettingsTab({ user }: { user: any }) {
       const { error } = await (supabase as any).from("seller_profiles").update({
         store_name: form.store_name.trim(), store_description: form.store_description.trim(),
         store_image: form.store_image.trim(), store_saying: form.store_saying.trim(),
-        location: form.location.trim(), updated_at: new Date().toISOString(),
+        location: form.location.trim()
       }).eq("user_id", user.id);
       if (error) throw error;
       toast.success("Store updated! 🎉");
