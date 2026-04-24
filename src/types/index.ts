@@ -13,7 +13,6 @@ export interface Organization {
   logo_image?: string | null;
   primary_color?: string | null;
   secondary_color?: string | null;
-  fee?: number;
   creator?: {
     first_name: string | null;
     last_name: string | null;
@@ -21,6 +20,8 @@ export interface Organization {
   };
   isMember?: boolean;
   hasPendingRequest?: boolean;
+  payment_reference?: string | null;
+  payment_amount?: number | null;
 }
 
 // Member types

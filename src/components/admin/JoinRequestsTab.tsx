@@ -102,83 +102,14 @@ export default function JoinRequestsTab() {
 
   const handleApprove = async (requestId: string) => {
     try {
-      // First, get the request details to find the organization_id and user_id
-      const { data: requestData, error: fetchError } = await supabase
+      const { error } = await supabase
         .from("organization_members")
-        .select("organization_id, user_id")
-        .eq("id", requestId)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-      if (!requestData) {
-        throw new Error("Request not found");
-      }
-
-      const { organization_id, user_id } = requestData as { organization_id: string; user_id: string };
-
-      // Get the organization to find the fee
-      const { data: orgData, error: orgError } = await supabase
-        .from("organizations")
-        .select("fee")
-        .eq("id", organization_id)
-        .maybeSingle();
-
-      if (orgError) throw orgError;
-      if (!orgData) {
-        throw new Error("Organization not found");
-      }
-
-      const fee = (orgData as { fee: number }).fee || 0;
-
-      // Update the member status to active
-      const { error: updateError } = await (supabase
-        .from("organization_members") as any)
         .update({ status: "active" })
         .eq("id", requestId);
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      // If there's a fee, add it to the organization's wallet
-      if (fee > 0) {
-        // Get or create wallet for the organization
-        const { data: walletData, error: walletError } = await supabase
-          .from("organization_wallets")
-          .select("*")
-          .eq("organization_id", organization_id)
-          .maybeSingle();
-
-        if (walletError) throw walletError;
-
-        if (!walletData) {
-          // Create wallet if it doesn't exist
-          await (supabase
-            .from("organization_wallets") as any)
-            .insert([{ organization_id, balance: fee }]);
-        } else {
-          // Update existing wallet balance
-          await (supabase
-            .from("organization_wallets") as any)
-            .update({ balance: (walletData as any).balance + fee })
-            .eq("id", (walletData as any).id);
-        }
-
-        // Record the transaction
-        await (supabase
-          .from("organization_transactions") as any)
-          .insert([{
-            organization_id,
-            user_id,
-            type: "deposit",
-            amount: fee,
-            status: "completed",
-            purpose: "Membership fee",
-            reference: `Auto-added upon approval of ${user_id}`,
-            gcash_fee: 0,
-            created_at: new Date().toISOString(),
-          }]);
-      }
-
-      toast.success("Join request approved!" + (fee > 0 ? ` ₱${fee.toFixed(2)} added to organization wallet.` : ""));
+      toast.success("Join request approved!");
       fetchJoinRequests();
     } catch (error) {
       console.error("Error approving join request:", error);
@@ -188,8 +119,8 @@ export default function JoinRequestsTab() {
 
   const handleReject = async (requestId: string) => {
     try {
-      const { error } = await (supabase
-        .from("organization_members") as any)
+      const { error } = await supabase
+        .from("organization_members")
         .update({ status: "rejected" })
         .eq("id", requestId);
 

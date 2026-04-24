@@ -199,10 +199,10 @@ if (!walletData) {
       .order("role", { ascending: false })
       .order("joined_at", { ascending: false });
 
-    setMembers((membersData || []).map((m: any) => ({
-      ...m,
-      role: m.role as "member" | "creator" | "officer"
-    })) as Member[]);
+    setMembers((membersData || []).map(m => ({
+  ...m,
+  role: m.role as "member" | "creator" | "officer"
+})) as Member[]);
 
     // 5. Events
     const { data: eventsData } = await supabase
@@ -211,17 +211,17 @@ if (!walletData) {
       .eq("organization_id", id)
       .order("created_at", { ascending: false });
 
-    setEvents((eventsData || []).map((e: any) => ({
-      ...e,
-      status: e.status as "upcoming" | "ongoing" | "completed"
-    })) as Event[]);
+    setEvents((eventsData || []).map(e => ({
+  ...e,
+  status: e.status as "upcoming" | "ongoing" | "completed"
+})) as Event[]);
 
     // 5.1 Load event members for creator/officer
     if (canManageEvents && eventsData) {
       const { data: membersData } = await supabase
         .from("event_members" as any)
         .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
-        .in("event_id", eventsData.map((e: any) => e.id))
+        .in("event_id", eventsData.map(e => e.id))
         .eq("status", "approved")
         .order("joined_at", { ascending: true });
 
@@ -241,10 +241,10 @@ if (!walletData) {
       console.error("Error fetching wallet transactions:", walletTransactionsError);
     }
 
-    setTransactions((walletTransactionsData || []).map((t: any) => ({
-      ...t,
-      type: t.type as "deposit" | "withdrawal"
-    })) as Transaction[]);
+    setTransactions((walletTransactionsData || []).map(t => ({
+  ...t,
+  type: t.type as "deposit" | "withdrawal"
+})) as Transaction[]);
 
     // 7. Announcements
     const { data: announcementsData, error: announcementsError } = await supabase
@@ -301,12 +301,12 @@ if (!walletData) {
         organization_id: organization.id,
         user_id: user.id,
         role: "member",
-        status: "pending",
+        status: "active",
       }]);
 
     if (error) throw error;
 
-    toast.success(`Your request to join ${organization.name} has been submitted! Please wait for admin approval.`);
+    toast.success(`Successfully joined ${organization.name}!`);
     setIsMember(true);
     setUserRole("member");
     fetchOrganizationData();
@@ -1252,7 +1252,6 @@ if (!walletData) {
       <JoinOrganizationInstructionDialog
         organizationId={organization.id}
         organizationName={organization.name}
-        fee={organization.fee || 0}
         isOpen={isJoinDialogOpen}
         onOpenChange={setIsJoinDialogOpen}
         onSuccess={() => {

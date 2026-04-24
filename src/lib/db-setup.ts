@@ -2,11 +2,56 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Remove payment references table as it's no longer needed
-// This function is kept for backward compatibility but does nothing now
+// Setup payment references table for organization join requests
 export async function setupPaymentReferencesTable() {
-  // Payment references table is no longer used, so we don't need to set it up
-  return;
+  try {
+    // Try to query the table to see if it exists
+    const { error: checkError } = await supabase
+      .from("payment_references")
+      .select("id", { count: "exact" })
+      .limit(1);
+
+    // If table doesn't exist (PGRST116 error), create it
+    if (checkError?.code === 'PGRST116') {
+      // Try to create the table by inserting a record
+      // This will fail if table doesn't exist, but we'll catch it
+      try {
+        const sampleId = crypto.randomUUID();
+        const { error: insertError } = await supabase
+          .from("payment_references")
+          .insert([
+            {
+              id: sampleId,
+              reference_code: "123456",
+              organization_id: "00000000-0000-0000-0000-000000000000",
+              amount: 0,
+              status: "available",
+              used: false,
+            }
+          ]);
+
+        if (insertError) {
+          console.error("Error creating payment_references table:", insertError);
+          toast.error("Failed to setup payment references table");
+        } else {
+          // Clean up the sample record
+          await supabase
+            .from("payment_references")
+            .delete()
+            .eq("id", sampleId);
+          
+          toast.success("Payment references table created successfully");
+        }
+      } catch (insertError) {
+        console.error("Error creating payment_references table:", insertError);
+        toast.error("Failed to setup payment references table");
+      }
+    } else if (checkError && checkError.code !== 'PGRST116') {
+      console.error("Error checking payment_references table:", checkError);
+    }
+  } catch (error) {
+    console.error("Error in setupPaymentReferencesTable:", error);
+  }
 }
 
 // Setup reference_number column in organization_members if it doesn't exist
