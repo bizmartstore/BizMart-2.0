@@ -12,7 +12,6 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Copy, X, Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, Trash2, Calendar, Users as UsersIcon, DollarSign, Wallet } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 interface RegistrationCode {
@@ -69,13 +68,16 @@ export default function RegistrationCodesTab() {
   const [isLoadingRequests, setIsLoadingRequests] = useState(true);
   const [transactions, setTransactions] = useState<OrganizationTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(true);
-  const [activeTab, setActiveTab] = useState<'codes' | 'join' | 'transactions'>('join');
+  const [pendingOrgs, setPendingOrgs] = useState<any[]>([]);
+  const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
+  const [activeTab, setActiveTab] = useState<'organizations' | 'join' | 'transactions' | 'codes'>('organizations');
   const navigate = useNavigate();
 
   useEffect(() => {
     loadCodes();
     loadJoinRequests();
     loadTransactions();
+    loadPendingOrganizations();
   }, []);
 
   const loadCodes = async () => {
@@ -246,6 +248,77 @@ export default function RegistrationCodesTab() {
     }
   };
 
+  const loadPendingOrganizations = async () => {
+    try {
+      setIsLoadingOrgs(true);
+      const { data, error } = await supabase
+        .from("organizations")
+        .select(`*, profiles:creator_id(*)`)
+        .eq("status", "pending")
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST116') {
+        setPendingOrgs([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setPendingOrgs(data || []);
+    } catch (error) {
+      console.error("Error loading pending organizations:", error);
+      toast.error("Failed to load pending organizations");
+    } finally {
+      setIsLoadingOrgs(false);
+    }
+  };
+
+  const approveOrganization = async (orgId: string) => {
+    try {
+      // Create wallet for organization
+      const { error: walletError } = await supabase
+        .from("organization_wallets")
+        .insert({
+          organization_id: orgId,
+          balance: 0
+        });
+
+      if (walletError) throw walletError;
+
+      // Approve organization
+      const { error: orgError } = await supabase
+        .from("organizations")
+        .update({ status: "approved" })
+        .eq("id", orgId);
+
+      if (orgError) throw orgError;
+
+      toast.success("Organization approved successfully!");
+      await loadPendingOrganizations();
+    } catch (error) {
+      console.error("Error approving organization:", error);
+      toast.error("Failed to approve organization");
+    }
+  };
+
+  const rejectOrganization = async (orgId: string) => {
+    try {
+      // Delete organization
+      const { error } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", orgId);
+
+      if (error) throw error;
+
+      toast.success("Organization rejected successfully!");
+      await loadPendingOrganizations();
+    } catch (error) {
+      console.error("Error rejecting organization:", error);
+      toast.error("Failed to reject organization");
+    }
+  };
+
   const copyToClipboard = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success("Code copied to clipboard!");
@@ -254,6 +327,13 @@ export default function RegistrationCodesTab() {
   return (
     <div className="space-y-6">
       <div className="flex gap-2 mb-6">
+        <Button
+          variant={activeTab === 'organizations' ? 'default' : 'outline'}
+          className="flex-1 gap-2"
+          onClick={() => setActiveTab('organizations')}
+        >
+          <UsersIcon className="h-4 w-4" /> Organizations
+        </Button>
         <Button
           variant={activeTab === 'join' ? 'default' : 'outline'}
           className="flex-1 gap-2"
@@ -431,6 +511,63 @@ export default function RegistrationCodesTab() {
                       </CardContent>
                     </Card>
                   ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {activeTab === 'organizations' && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Pending Organizations</CardTitle>
+            <CardDescription>Review and approve new organization registrations</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoadingOrgs ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+              </div>
+            ) : pendingOrgs.length === 0 ? (
+              <p className="text-muted-foreground text-center py-8">No pending organizations to review</p>
+            ) : (
+              <div className="space-y-3">
+                {pendingOrgs.map((org) => (
+                  <Card key={org.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="pt-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="mb-2">
+                            <h3 className="font-medium">{org.name}</h3>
+                            <Badge variant="secondary" className="text-xs mt-1">{org.club_type}</Badge>
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">{org.description}</p>
+                          <div className="text-xs text-muted-foreground space-y-1">
+                            <p><strong>Adviser:</strong> {org.adviser_name || 'N/A'}</p>
+                            <p><strong>Creator:</strong> {org.profiles?.first_name} {org.profiles?.last_name} ({org.profiles?.email})</p>
+                            <p><strong>Created:</strong> {new Date(org.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 ml-4 flex-shrink-0">
+                          <Button
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => approveOrganization(org.id)}
+                          >
+                            <CheckCircle2 className="h-4 w-4" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => rejectOrganization(org.id)}
+                          >
+                            <X className="h-4 w-4 text-red-600" /> Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             )}
           </CardContent>

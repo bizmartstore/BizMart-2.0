@@ -166,7 +166,6 @@ export default function OrganizationsPage() {
               .from("organization_members")
               .select("id", { count: "exact", head: true })
               .eq("organization_id", org.id)
-              .limit(1); // Limit to 1 for faster count
 
             if (countError) {
               console.error("Error counting members:", countError);
