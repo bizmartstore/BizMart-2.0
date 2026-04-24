@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, X } from "lucide-react";
+import { Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, X, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import TopBar from "@/components/TopBar";
 import BottomNav from "@/components/BottomNav";
 import JoinOrganizationInstructionDialog from "@/components/JoinOrganizationInstructionDialog";
@@ -42,6 +43,7 @@ export default function OrganizationsPage() {
     const [joinOrgDialogOpen, setJoinOrgDialogOpen] = useState(false);
     const [currentOrgId, setCurrentOrgId] = useState<string | null>(null);
     const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
+    const [orgToDelete, setOrgToDelete] = useState<string | null>(null);
     const [editFormData, setEditFormData] = useState({
       name: "",
       description: "",
@@ -61,6 +63,50 @@ export default function OrganizationsPage() {
       setIsLoading(false);
     }
   }, [user]);
+
+  const isAdmin = () => {
+    return profile?.role === 'main_admin' || profile?.role === 'member_admin';
+  };
+
+  const handleDeleteOrganization = async (orgId: string) => {
+    if (!isAdmin()) {
+      toast.error("You don't have permission to delete organizations");
+      return;
+    }
+
+    try {
+      // Delete organization members first
+      const { error: membersError } = await supabase
+        .from("organization_members")
+        .delete()
+        .eq("organization_id", orgId);
+
+      if (membersError) throw membersError;
+
+      // Delete organization wallet
+      const { error: walletError } = await supabase
+        .from("organization_wallets")
+        .delete()
+        .eq("organization_id", orgId);
+
+      if (walletError) throw walletError;
+
+      // Delete organization
+      const { error: orgError } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", orgId);
+
+      if (orgError) throw orgError;
+
+      toast.success("Organization deleted successfully!");
+      fetchOrganizations();
+      setOrgToDelete(null);
+    } catch (error) {
+      console.error("Error deleting organization:", error);
+      toast.error("Failed to delete organization");
+    }
+  };
 
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };
@@ -775,6 +821,20 @@ const { error: uploadError } = await supabase
                       <Badge variant={isApproved ? "default" : "secondary"}>
                         {org.club_type}
                       </Badge>
+                      {isAdmin() && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOrgToDelete(org.id);
+                          }}
+                          title="Delete organization"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -858,6 +918,28 @@ const { error: uploadError } = await supabase
           </div>
         )}
       </div>
+      
+      {/* Delete Organization Confirmation Dialog */}
+      <AlertDialog open={!!orgToDelete} onOpenChange={() => setOrgToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Organization</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this organization? This action cannot be undone and will remove all members, events, and wallet data associated with this organization.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => orgToDelete && handleDeleteOrganization(orgToDelete)}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              Delete Organization
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      
       <BottomNav />
 
       {/* Join Organization Instruction Dialog */}
