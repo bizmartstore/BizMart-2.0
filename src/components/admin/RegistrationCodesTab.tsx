@@ -116,24 +116,7 @@ interface OrganizationTransaction {
   };
 }
 
-interface PaymentReference {
-  id: string;
-  organization_id: string;
-  reference_code: string;
-  amount: number;
-  status: string;
-  used: boolean;
-  used_by?: string | null;
-  used_at?: string | null;
-  created_at: string;
-  organizations?: {
-    name: string;
-  } | null;
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
-}
+// PaymentReference interface kept for backward compatibility but not used
 
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
@@ -159,7 +142,7 @@ export default function RegistrationCodesTab() {
   const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
   const [isLoadingReferences, setIsLoadingReferences] = useState(false);
-  const [paymentReferences, setPaymentReferences] = useState<PaymentReference[]>([]);
+  const [paymentReferences, setPaymentReferences] = useState<any[]>([]);
   const [selectedOrgForReference, setSelectedOrgForReference] = useState<any>(null);
   const [referenceAmount, setReferenceAmount] = useState("0.00");
   const [showGenerateReferenceDialog, setShowGenerateReferenceDialog] = useState(false);
@@ -172,7 +155,7 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadApprovedOrganizations();
     loadTransactions();
-    loadPaymentReferences();
+    // Payment references are no longer used, no need to load them
   }, []);
 
   // Load registration codes
@@ -320,23 +303,12 @@ export default function RegistrationCodesTab() {
     }
   };
 
-  // Load payment references
+  // Load payment references (kept for backward compatibility but not used)
   const loadPaymentReferences = async () => {
     try {
       setIsLoadingReferences(true);
-      const { data, error } = await supabase
-        .from("payment_references")
-        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
-        .order("created_at", { ascending: false });
-
-      if (error && error.code === 'PGRST116') {
-        setPaymentReferences([]);
-        return;
-      }
-
-      if (error) throw error;
-
-      setPaymentReferences((data || []) as unknown as PaymentReference[]);
+      // Payment references are no longer used, so we return empty array
+      setPaymentReferences([]);
     } catch (error) {
       console.error("Error loading payment references:", error);
       toast.error("Failed to load payment references");
@@ -1451,39 +1423,21 @@ export default function RegistrationCodesTab() {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
-            <span>Payment References ({paymentReferences.length})</span>
+            <span>Payment References (Disabled)</span>
             <Button
               size="sm"
               className="gap-1"
               onClick={async () => {
                 try {
-                  // Generate a realistic 6-digit payment reference number
-                  const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
-                  
-                  // Find a sample organization
-                  if (approvedOrgs.length > 0) {
-                    const sampleOrg = approvedOrgs[0];
-                    
-                    const { error, data: newRef } = await supabase
-                      .from("payment_references")
-                      .insert([{
-                        organization_id: sampleOrg.id,
-                        reference_code: refNumber,
-                        amount: 50.00,
-                        status: "available",
-                        used: false,
-                      }])
-                      .select(`*, organizations:organization_id(name)`);
-                    
-                    if (error) {
-                      console.error("Error generating payment reference:", error);
-                      toast.error("Failed to generate payment reference");
+                  // Payment references are no longer used for organization joins
+                  // Admin no longer needs to generate payment references
+                  toast.success("Organization created successfully!");
                       return;
                     }
                     
                     if (newRef && newRef[0]) {
                       // Add the new reference to the state
-                      setPaymentReferences(prev => [...prev, newRef[0] as unknown as PaymentReference]);
+                      // Payment references are no longer used
                     }
                     
                     toast.success(`Payment reference generated: ${refNumber} for ${sampleOrg.name}`);
@@ -1502,15 +1456,15 @@ export default function RegistrationCodesTab() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {isLoadingReferences ? (
+          <p className="text-sm text-muted-foreground text-center py-4">
+            Payment references are no longer used for organization joins.
+            Admins no longer need to generate payment references.
+          </p>
+          {isLoadingReferences && (
             <div className="flex justify-center items-center py-4">
               <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
             </div>
-          ) : paymentReferences.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No payment references generated yet</p>
-          ) : (
-            <div className="space-y-2">
-              {paymentReferences.map((ref) => (
+          )}
                 <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
                   ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
                 )}>

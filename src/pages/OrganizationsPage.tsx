@@ -271,8 +271,8 @@ const { error: uploadError } = await supabase
         .eq("id", (codeData as any).id);
 
       // Add creator as member with creator role
-      await supabase
-        .from("organization_members")
+      await (supabase
+        .from("organization_members") as any)
         .insert([{
           organization_id: orgData.id,
           user_id: user.id,
@@ -337,14 +337,13 @@ const { error: uploadError } = await supabase
               .getPublicUrl(filePath);
             
             // Update organization with logo URL (only update logo, skip color fields)
-            const { error: orgError } = await supabase
-              .from("organizations")
+            const { error: orgError } = await (supabase
+              .from("organizations") as any)
               .update({
                 logo_image: urlData.publicUrl,
                 updated_at: new Date().toISOString(),
               })
-              .eq("id", editingOrgId)
-              .select();
+              .eq("id", editingOrgId);
             
             if (orgError) {
               console.error("Organization update error:", orgError);
@@ -360,38 +359,37 @@ const { error: uploadError } = await supabase
       }
       
       // Update organization details if no logo was uploaded or after logo upload
-      if (!editLogoImage) {
-        // In handleUpdateOrganization, change the update payload to:
-const { error: detailsError } = await supabase
-  .from("organizations")
-  .update({
-    name: editFormData.name,
-    description: editFormData.description,
-    adviser_name: editFormData.adviser_name,
-    club_type: editFormData.club_type,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("id", editingOrgId);
-
-        if (detailsError) {
-          console.error("Organization update error:", detailsError);
-          toast.error("Failed to update organization: " + detailsError.message);
-          throw detailsError;
-        }
-      } else {
-        // If logo was uploaded, update the other fields separately
-        const { error: detailsError } = await supabase
-          .from("organizations")
-          .update({
-            name: editFormData.name,
-            description: editFormData.description,
-            adviser_name: editFormData.adviser_name,
-            club_type: editFormData.club_type,
-            primary_color: editFormData.primary_color,
-            secondary_color: editFormData.secondary_color,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", editingOrgId);
+            if (!editLogoImage) {
+              const { error: detailsError } = await (supabase
+                .from("organizations") as any)
+                .update({
+                  name: editFormData.name,
+                  description: editFormData.description,
+                  adviser_name: editFormData.adviser_name,
+                  club_type: editFormData.club_type,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", editingOrgId);
+      
+              if (detailsError) {
+                console.error("Organization update error:", detailsError);
+                toast.error("Failed to update organization: " + detailsError.message);
+                throw detailsError;
+              }
+            } else {
+              // If logo was uploaded, update the other fields separately
+              const { error: detailsError } = await (supabase
+                .from("organizations") as any)
+                .update({
+                  name: editFormData.name,
+                  description: editFormData.description,
+                  adviser_name: editFormData.adviser_name,
+                  club_type: editFormData.club_type,
+                  primary_color: editFormData.primary_color,
+                  secondary_color: editFormData.secondary_color,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", editingOrgId);
 
         if (detailsError) {
           console.error("Organization update error:", detailsError);
@@ -771,13 +769,7 @@ const { error: detailsError } = await supabase
                       )}
                     </div>
                     {isApproved && !org.isMember && !org.hasPendingRequest && (
-                      <div className="mt-3 space-y-2">
-                        {org.payment_reference && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                            <p className="text-xs font-medium text-blue-800">Payment Reference: {org.payment_reference}</p>
-                            <p className="text-[10px] text-blue-700">Pay ₱{org.payment_amount?.toFixed(2)} to join</p>
-                          </div>
-                        )}
+                      <div className="mt-3">
                         <Button
                           size="sm"
                           className="w-full gap-2"
@@ -849,6 +841,7 @@ const { error: detailsError } = await supabase
         <JoinOrganizationInstructionDialog
           organizationId={currentOrgId}
           organizationName={organizations.find((o) => o.id === currentOrgId)?.name || "Organization"}
+          fee={organizations.find((o) => o.id === currentOrgId)?.fee || 0}
           isOpen={joinOrgDialogOpen}
           onOpenChange={setJoinOrgDialogOpen}
           onSuccess={() => {

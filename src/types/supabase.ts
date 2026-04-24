@@ -1446,18 +1446,6 @@ export type Database = {
           },
         ]
       }
-      payment_references: {
-        Row: {
-          amount: number
-          created_at: string | null
-          id: string
-          organization_id: string | null
-          reference_code: string
-          used: boolean | null
-          used_by: string | null
-          used_at: string | null
-        }
-        Insert: {
           amount: number
           created_at?: string | null
           id?: string
