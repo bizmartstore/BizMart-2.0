@@ -45,7 +45,7 @@ export default function EventDetailModal({
 
     try {
       const { data, error } = await supabase
-        .from("event_members" as any)
+        .from("organization_event_members" as any)
         .select("*")
         .eq("event_id", event.id)
         .eq("user_id", user.id)
@@ -67,7 +67,7 @@ export default function EventDetailModal({
 
     try {
       const { data, error } = await supabase
-        .from("event_members" as any)
+        .from("organization_event_members" as any)
         .select(`*, profile:user_id(first_name, last_name, email, avatar_url)`)
         .eq("event_id", event.id)
         .eq("status", "approved")
@@ -91,7 +91,7 @@ export default function EventDetailModal({
       if (event.fee === 0) {
         // Auto-join for free events
         const { error } = await supabase
-          .from("event_members" as any)
+          .from("organization_event_members" as any)
           .insert([{
             event_id: event.id,
             user_id: user.id,
@@ -109,7 +109,7 @@ export default function EventDetailModal({
 
       // For paid events, create a pending request
       const { error } = await supabase
-        .from("event_members" as any)
+        .from("organization_event_members" as any)
         .insert([{
           event_id: event.id,
           user_id: user.id,

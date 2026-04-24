@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Check, Copy, X, Users, Search, Plus, UserPlus, CheckCircle2, AlertCircle, Eye, Trash2, Calendar, Users as UsersIcon, DollarSign, Wallet } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface RegistrationCode {
   id: string;
@@ -193,7 +193,67 @@ export default function RegistrationCodesTab() {
         .update({ status: "active" })
         .eq("id", requestId);
 
-      toast.success("Join request approved successfully!");
+      // Add fee to organization wallet using the organization's declared join_fee
+      if (request.organizations?.id) {
+        // Get the organization's join fee
+        const { data: orgData, error: orgError } = await supabase
+          .from("organizations")
+          .select("join_fee")
+          .eq("id", request.organizations.id)
+          .maybeSingle();
+
+        if (orgError) {
+          console.error("Error fetching organization join fee:", orgError);
+        } else {
+          const joinFee = (orgData as { join_fee?: number })?.join_fee || 0;
+
+          if (joinFee > 0) {
+            // Get current wallet balance
+            const { data: walletData, error: walletError } = await supabase
+              .from("organization_wallets")
+              .select("balance")
+              .eq("organization_id", request.organizations.id)
+              .maybeSingle();
+
+            if (walletError) {
+              console.error("Error fetching wallet:", walletError);
+            } else {
+              const currentBalance = walletData?.balance || 0;
+              const newBalance = currentBalance + joinFee;
+
+              // Update wallet balance
+              const { error: updateError } = await supabase
+                .from("organization_wallets")
+                .update({ balance: newBalance })
+                .eq("organization_id", request.organizations.id);
+
+              if (updateError) {
+                console.error("Error updating wallet:", updateError);
+              } else {
+                // Add transaction record
+                const { error: transactionError } = await supabase
+                  .from("organization_transactions")
+                  .insert([{
+                    organization_id: request.organizations.id,
+                    user_id: request.user_id,
+                    type: "deposit",
+                    amount: joinFee,
+                    status: "approved",
+                    purpose: `Organization join fee: ${request.organizations.name}`,
+                    reference: `Join fee: ${request.organizations.name}`,
+                    gcash_fee: 0,
+                  }]);
+
+                if (transactionError) {
+                  console.error("Error creating transaction:", transactionError);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      toast.success("Join request approved successfully! Organization wallet has been updated.");
       await loadJoinRequests();
     } catch (error) {
       console.error("Error approving join request:", error);
@@ -649,6 +709,61 @@ export default function RegistrationCodesTab() {
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-destructive hover:text-destructive"
+                                title="Remove organization"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remove Organization</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to remove this organization? This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={async () => {
+                                    try {
+                                      // Delete organization members first
+                                      await supabase
+                                        .from("organization_members")
+                                        .delete()
+                                        .eq("organization_id", org.id);
+                                      
+                                      // Delete wallet
+                                      await supabase
+                                        .from("organization_wallets")
+                                        .delete()
+                                        .eq("organization_id", org.id);
+                                      
+                                      // Delete organization
+                                      await supabase
+                                        .from("organizations")
+                                        .delete()
+                                        .eq("id", org.id);
+                                      
+                                      toast.success("Organization removed successfully!");
+                                      await loadApprovedOrganizations();
+                                    } catch (error) {
+                                      console.error("Error removing organization:", error);
+                                      toast.error("Failed to remove organization");
+                                    }
+                                  }}
+                                  className="bg-destructive hover:bg-destructive/90"
+                                >
+                                  Remove Organization
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     </CardContent>
