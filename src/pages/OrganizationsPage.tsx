@@ -245,31 +245,24 @@ export default function OrganizationsPage() {
         secondary_color: formData.secondary_color || "#1e40af",
       };
 
-      // Upload background image if provided
+      // Upload background image if provided (stored in storage only, not in database)
       if (orgBackgroundImage) {
         const fileExt = orgBackgroundImage.name.split('.').pop();
         const fileName = `${user.id}-org-bg-${Date.now()}.${fileExt}`;
         const filePath = `organization-backgrounds/${fileName}`;
         
-      // Upload to Supabase storage
-const { error: uploadError } = await supabase
-  .storage
-  .from('organization-backgrounds' as any)
-  .upload(filePath, orgBackgroundImage)
-  .catch(() => ({ error: { message: 'Storage bucket not configured' } }));
+        // Upload to Supabase storage
+        const { error: uploadError } = await supabase
+          .storage
+          .from('organization-backgrounds' as any)
+          .upload(filePath, orgBackgroundImage)
+          .catch(() => ({ error: { message: 'Storage bucket not configured' } }));
         
         if (uploadError) {
           console.error("Error uploading background image:", uploadError);
           toast.warning("Background image upload failed, but organization will still be created");
-        } else {
-          // Get public URL
-          const { data: urlData } = supabase
-            .storage
-            .from('organization-backgrounds' as any)
-            .getPublicUrl(filePath);
-          
-          orgPayload.background_image = urlData.publicUrl;
         }
+        // Background image is stored in storage only, not in database
       }
 
       // Upload logo image if provided

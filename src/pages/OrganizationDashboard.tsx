@@ -1120,11 +1120,7 @@ if (!walletData) {
                                 if (!organization) return;
                                 try {
                                   setIsUploadingImage(true);
-                                  const { error } = await (supabase
-                                    .from("organizations") as any)
-                                    .update({ background_image: null })
-                                    .eq("id", organization.id);
-                                  if (error) throw error;
+                                  // Background image is stored in storage only, not in database
                                   setOrgBackgroundImage(null);
                                   toast.success("Background image removed!");
                                 } catch (error) {
@@ -1183,14 +1179,7 @@ if (!walletData) {
                                     .from('organization-backgrounds')
                                     .getPublicUrl(filePath);
                                   
-                                  // Update organization record
-                                  const { error: updateError } = await (supabase
-                                    .from("organizations") as any)
-                                    .update({ background_image: urlData.publicUrl })
-                                    .eq("id", organization.id);
-                                  
-                                  if (updateError) throw updateError;
-                                  
+                                  // Background image is stored in storage only, not in database
                                   setOrgBackgroundImage(urlData.publicUrl);
                                   toast.success("Background image uploaded successfully!");
                                 } catch (error) {
