@@ -1311,8 +1311,51 @@ export type Database = {
           },
         ]
       }
+      organization_event_members: {
+        Row: {
+          created_at: string | null
+          event_id: string
+          id: string
+          joined_at: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_id: string
+          id?: string
+          joined_at?: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_id?: string
+          id?: string
+          joined_at?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_event_members_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "organization_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_event_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organization_members: {
         Row: {
+          created_at: string | null
           id: string
           joined_at: string
           organization_id: string
@@ -1321,6 +1364,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          created_at?: string | null
           id?: string
           joined_at?: string
           organization_id: string
@@ -1329,6 +1373,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          created_at?: string | null
           id?: string
           joined_at?: string
           organization_id?: string

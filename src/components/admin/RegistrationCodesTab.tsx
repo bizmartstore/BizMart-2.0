@@ -386,6 +386,21 @@ export default function RegistrationCodesTab() {
   const rejectOrganization = async (orgId: string) => {
     try {
       let error = null;
+      
+      // First delete related organization members
+      try {
+        const { error: membersError } = await supabase
+          .from("organization_members")
+          .delete()
+          .eq("organization_id", orgId);
+        if (membersError) throw membersError;
+      } catch (err: any) {
+        if (err.code !== 'PGRST116') {
+          console.error("Error deleting organization members:", err);
+        }
+      }
+      
+      // Then delete the organization
       try {
         const { error: deleteError } = await supabase
           .from("organizations")
@@ -491,7 +506,7 @@ export default function RegistrationCodesTab() {
       .from("organization_members")
       .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), organizations:organization_id(name)`)
       .eq("status", "pending")
-      .order("created_at", { ascending: false });
+      .order("joined_at", { ascending: false });
 
       if (error && error.code === 'PGRST116') {
         setJoinRequests([]);
