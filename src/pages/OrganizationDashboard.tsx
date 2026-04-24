@@ -168,9 +168,10 @@ export default function OrganizationDashboard() {
       .eq("organization_id", id);
 
     setOrganization({
-      ...(orgData as Organization),
+      ...(orgData as Partial<Organization>),
+      join_fee: (orgData as any).join_fee || 0,
       member_count: count || 0,
-    });
+    } as Organization);
 
     // 3. Wallet
 const { data: walletData, error: walletError } = await supabase
@@ -600,6 +601,10 @@ if (!walletData) {
                     <div className="flex justify-between">
                       <span>Type:</span>
                       <Badge variant="outline">{organization.club_type}</Badge>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Join Fee:</span>
+                      <span>₱{organization.join_fee.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Status:</span>

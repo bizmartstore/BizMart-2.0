@@ -32,6 +32,7 @@ export default function OrganizationsPage() {
     description: "",
     adviser_name: "",
     club_type: "Academic",
+    join_fee: 0,
     primary_color: "#3b82f6",
     secondary_color: "#1e40af",
   });
@@ -46,6 +47,7 @@ export default function OrganizationsPage() {
       description: "",
       adviser_name: "",
       club_type: "Academic",
+      join_fee: 0,
       primary_color: "#3b82f6",
       secondary_color: "#1e40af",
     });
@@ -190,6 +192,7 @@ export default function OrganizationsPage() {
         description: formData.description,
         adviser_name: formData.adviser_name,
         club_type: formData.club_type,
+        join_fee: formData.join_fee,
         status: "pending",
         creator_id: user.id,
         primary_color: formData.primary_color || "#3b82f6",
@@ -362,16 +365,17 @@ const { error: uploadError } = await supabase
       // Update organization details if no logo was uploaded or after logo upload
       if (!editLogoImage) {
         // In handleUpdateOrganization, change the update payload to:
-const { error: detailsError } = await supabase
-  .from("organizations")
-  .update({
-    name: editFormData.name,
-    description: editFormData.description,
-    adviser_name: editFormData.adviser_name,
-    club_type: editFormData.club_type,
-    updated_at: new Date().toISOString(),
-  })
-  .eq("id", editingOrgId);
+  const { error: detailsError } = await supabase
+    .from("organizations")
+    .update({
+      name: editFormData.name,
+      description: editFormData.description,
+      adviser_name: editFormData.adviser_name,
+      club_type: editFormData.club_type,
+      join_fee: editFormData.join_fee,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", editingOrgId);
 
         if (detailsError) {
           console.error("Organization update error:", detailsError);
@@ -418,6 +422,7 @@ const { error: detailsError } = await supabase
       description: "",
       adviser_name: "",
       club_type: "Academic",
+      join_fee: 0,
       primary_color: "#3b82f6",
       secondary_color: "#1e40af",
     });
@@ -500,6 +505,22 @@ const { error: detailsError } = await supabase
                     onChange={(e) => setFormData({ ...formData, adviser_name: e.target.value })}
                     placeholder="e.g., Mr. Smith"
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="org-join-fee">Organization Join Fee (₱)</Label>
+                  <Input
+                    id="org-join-fee"
+                    type="number"
+                    value={formData.join_fee}
+                    onChange={(e) => setFormData({ ...formData, join_fee: parseFloat(e.target.value) || 0 })}
+                    placeholder="e.g., 50.00"
+                    min="0"
+                    step="0.01"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Set the fee that new members will pay when joining your organization
+                  </p>
                 </div>
 
                 <div className="space-y-2">
@@ -820,6 +841,7 @@ const { error: detailsError } = await supabase
                               description: org.description,
                               adviser_name: org.adviser_name || "",
                               club_type: org.club_type,
+                              join_fee: org.join_fee || 0,
                               primary_color: org.primary_color || "#3b82f6",
                               secondary_color: org.secondary_color || "#1e40af",
                             });
@@ -895,6 +917,22 @@ const { error: detailsError } = await supabase
                   onChange={(e) => setEditFormData({ ...editFormData, adviser_name: e.target.value })}
                   placeholder="e.g., Mr. Smith"
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="edit-org-join-fee">Organization Join Fee (₱)</Label>
+                <Input
+                  id="edit-org-join-fee"
+                  type="number"
+                  value={editFormData.join_fee}
+                  onChange={(e) => setEditFormData({ ...editFormData, join_fee: parseFloat(e.target.value) || 0 })}
+                  placeholder="e.g., 50.00"
+                  min="0"
+                  step="0.01"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Set the fee that new members will pay when joining your organization
+                </p>
               </div>
 
               <div className="space-y-2">

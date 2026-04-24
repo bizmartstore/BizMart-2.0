@@ -5,6 +5,7 @@ export interface Organization {
   description: string;
   adviser_name: string | null;
   club_type: string;
+  join_fee: number;
   status: 'pending' | 'approved' | 'rejected' | 'archived';
   creator_id: string;
   member_count?: number;
@@ -20,8 +21,6 @@ export interface Organization {
   };
   isMember?: boolean;
   hasPendingRequest?: boolean;
-  payment_reference?: string | null;
-  payment_amount?: number | null;
 }
 
 // Member types

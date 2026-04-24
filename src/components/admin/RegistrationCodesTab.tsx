@@ -526,46 +526,61 @@ export default function RegistrationCodesTab() {
         })
         .eq("id", requestId);
 
-      // Add fee to organization wallet if organization has a fee
+      // Add fee to organization wallet using the organization's declared join_fee
       if (request.organizations?.id) {
-        const { data: walletData, error: walletError } = await supabase
-          .from("organization_wallets")
-          .select("balance")
-          .eq("organization_id", request.organizations.id)
-          .maybeSingle();
+        // First get the organization's join fee
+          const { data: orgData, error: orgError } = await supabase
+            .from("organizations")
+            .select("id, name, join_fee")
+            .eq("id", request.organizations.id)
+            .maybeSingle();
+  
+          if (orgError) {
+            console.error("Error fetching organization join fee:", orgError);
+            throw orgError;
+          }
+  
+          const joinFee = (orgData as { join_fee?: number })?.join_fee || 0;
+        
+        if (joinFee > 0) {
+          const { data: walletData, error: walletError } = await supabase
+            .from("organization_wallets")
+            .select("balance")
+            .eq("organization_id", request.organizations.id)
+            .maybeSingle();
 
-        if (walletError) throw walletError;
+          if (walletError) throw walletError;
 
-        const currentBalance = walletData?.balance || 0;
-        const fee = 50.00; // Default fee for organization join
-        const newBalance = currentBalance + fee;
+          const currentBalance = walletData?.balance || 0;
+          const newBalance = currentBalance + joinFee;
 
-        // Update wallet balance
-        const { error: updateError } = await supabase
-          .from("organization_wallets")
-          .update({
-            balance: newBalance,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("organization_id", request.organizations.id);
+          // Update wallet balance
+          const { error: updateError } = await supabase
+            .from("organization_wallets")
+            .update({
+              balance: newBalance,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("organization_id", request.organizations.id);
 
-        if (updateError) throw updateError;
+          if (updateError) throw updateError;
 
-        // Add transaction record
-        const { error: transactionError } = await supabase
-          .from("organization_transactions")
-          .insert([{
-            organization_id: request.organizations.id,
-            user_id: request.user_id,
-            type: "deposit",
-            amount: fee,
-            status: "approved",
-            purpose: `Organization join fee: ${request.organizations.name}`,
-            reference: `Join fee: ${request.organizations.name}`,
-            gcash_fee: 0,
-          }]);
+          // Add transaction record
+          const { error: transactionError } = await supabase
+            .from("organization_transactions")
+            .insert([{
+              organization_id: request.organizations.id,
+              user_id: request.user_id,
+              type: "deposit",
+              amount: joinFee,
+              status: "approved",
+              purpose: `Organization join fee: ${request.organizations.name}`,
+              reference: `Join fee: ${request.organizations.name}`,
+              gcash_fee: 0,
+            }]);
 
-        if (transactionError) throw transactionError;
+          if (transactionError) throw transactionError;
+        }
       }
 
       toast.success("Join request approved successfully! Organization wallet has been updated.");
