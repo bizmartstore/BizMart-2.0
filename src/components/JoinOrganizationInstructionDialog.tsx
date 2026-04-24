@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, CreditCard } from "lucide-react";
+import { AlertCircle, CheckCircle2, Users } from "lucide-react";
 
 interface JoinOrganizationInstructionDialogProps {
   organizationId: string;
@@ -28,8 +28,7 @@ export default function JoinOrganizationInstructionDialog({
 }: JoinOrganizationInstructionDialogProps) {
   const { user } = useAuth();
   const [isConfirming, setIsConfirming] = useState(false);
-  const [hasPaid, setHasPaid] = useState(false);
-  const [referenceNumber, setReferenceNumber] = useState("");
+  const [isChecked, setIsChecked] = useState(false);
 
   const handleSubmitRequest = async () => {
     if (!user) {
@@ -37,38 +36,14 @@ export default function JoinOrganizationInstructionDialog({
       return;
     }
 
-    if (!hasPaid) {
-      toast.error("Please confirm that you have paid the organization fee");
-      return;
-    }
-
-    if (!referenceNumber) {
-      toast.error("Please enter your payment reference number");
+    if (!isChecked) {
+      toast.error("Please confirm that you want to join the organization");
       return;
     }
 
     setIsConfirming(true);
 
     try {
-      // Verify the payment reference exists and is not used
-      const { data: refData, error: refError } = await supabase
-        .from("payment_references")
-        .select("*")
-        .eq("reference_code", referenceNumber)
-        .eq("used", false)
-        .maybeSingle();
-
-      if (refError) {
-        console.error("Error verifying payment reference:", refError);
-        toast.error("Error verifying payment reference");
-        return;
-      }
-
-      if (!refData) {
-        toast.error("Invalid or already used payment reference number. Please check and try again.");
-        return;
-      }
-
       // Insert join request
       const { error } = await supabase
         .from("organization_members" as any)
@@ -77,26 +52,9 @@ export default function JoinOrganizationInstructionDialog({
           user_id: user.id,
           role: "member",
           status: "pending",
-          reference_number: referenceNumber,
         });
 
       if (error) throw error;
-
-      // Mark payment reference as used
-      if (refData && refData.id) {
-        try {
-          await supabase
-            .from("payment_references")
-            .update({
-              used: true,
-              used_by: user.id,
-              used_at: new Date().toISOString(),
-            })
-            .eq("id", refData.id);
-        } catch (error) {
-          console.error("Error marking payment reference as used:", error);
-        }
-      }
 
       toast.success("Your request to join has been submitted! Please wait for admin approval.");
       onSuccess();
@@ -115,19 +73,17 @@ export default function JoinOrganizationInstructionDialog({
         <DialogHeader>
           <DialogTitle>Join {organizationName}</DialogTitle>
           <DialogDescription>
-            Follow these steps to join the organization.
+            Follow the steps below to join the organization.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <Alert variant="default">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Step 1: Pay the Organization Fee</AlertTitle>
+            <AlertTitle>Step 1: Review Organization Details</AlertTitle>
             <AlertDescription>
               <p className="text-sm">
-                Go to the <strong>BizMart Store</strong> and pay the organization fee.
-                <br />
-                Save your payment reference number for verification.
+                Make sure this is the organization you want to join.
               </p>
             </AlertDescription>
           </Alert>
@@ -137,47 +93,31 @@ export default function JoinOrganizationInstructionDialog({
             <AlertTitle>Step 2: Submit Your Join Request</AlertTitle>
             <AlertDescription>
               <p className="text-sm">
-                After paying, submit this form to request joining the organization.
-                <br />
-                The organization admin will review your payment and approve your request.
+                The organization admin will review your request and approve it.
               </p>
             </AlertDescription>
           </Alert>
 
-          <div className="space-y-2">
-            <Label htmlFor="reference-number">Payment Reference Number</Label>
-            <Input
-              id="reference-number"
-              value={referenceNumber}
-              onChange={(e) => setReferenceNumber(e.target.value)}
-              placeholder="Enter your payment reference number from BizMart Store"
-              required
-            />
-            <p className="text-xs text-muted-foreground">
-              This will help the admin verify your payment.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 p-3 border rounded-lg bg-green-50">
-            <CheckCircle2 className="h-5 w-5 text-green-600" />
-            <Label htmlFor="paid-confirmation" className="font-normal cursor-pointer">
-              I have paid the organization fee and have the reference number
+          <div className="flex items-center gap-2 p-3 border rounded-lg bg-blue-50">
+            <CheckCircle2 className="h-5 w-5 text-blue-600" />
+            <Label htmlFor="join-confirmation" className="font-normal cursor-pointer">
+              I understand that my request needs admin approval to join this organization
             </Label>
             <Input
-              id="paid-confirmation"
+              id="join-confirmation"
               type="checkbox"
-              checked={hasPaid}
-              onChange={(e) => setHasPaid(e.target.checked)}
+              checked={isChecked}
+              onChange={(e) => setIsChecked(e.target.checked)}
               className="ml-auto"
             />
           </div>
 
           <Button
             onClick={handleSubmitRequest}
-            disabled={!hasPaid || !referenceNumber || isConfirming}
+            disabled={!isChecked || isConfirming}
             className="w-full gap-2"
           >
-            <CreditCard className="h-4 w-4" />
+            <Users className="h-4 w-4" />
             {isConfirming ? "Submitting Request..." : "Submit Join Request"}
           </Button>
         </div>

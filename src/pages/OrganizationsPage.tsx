@@ -771,13 +771,7 @@ const { error: detailsError } = await supabase
                       )}
                     </div>
                     {isApproved && !org.isMember && !org.hasPendingRequest && (
-                      <div className="mt-3 space-y-2">
-                        {org.payment_reference && (
-                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                            <p className="text-xs font-medium text-blue-800">Payment Reference: {org.payment_reference}</p>
-                            <p className="text-[10px] text-blue-700">Pay ₱{org.payment_amount?.toFixed(2)} to join</p>
-                          </div>
-                        )}
+                      <div className="mt-3">
                         <Button
                           size="sm"
                           className="w-full gap-2"

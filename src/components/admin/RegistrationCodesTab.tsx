@@ -45,7 +45,6 @@ interface JoinRequest {
   organization_id: string;
   user_id: string;
   status: 'pending' | 'approved' | 'rejected';
-  reference_number: string | null;
   created_at: string;
   profiles?: {
     first_name: string | null;
@@ -54,6 +53,7 @@ interface JoinRequest {
     avatar_url: string | null;
   };
   organizations?: {
+    id: string;
     name: string;
   };
 }
@@ -116,24 +116,6 @@ interface OrganizationTransaction {
   };
 }
 
-interface PaymentReference {
-  id: string;
-  organization_id: string;
-  reference_code: string;
-  amount: number;
-  status: string;
-  used: boolean;
-  used_by?: string | null;
-  used_at?: string | null;
-  created_at: string;
-  organizations?: {
-    name: string;
-  } | null;
-  profiles?: {
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
-}
 
 const CLUB_TYPES = ["Academic", "Sports", "Arts", "Other"];
 
@@ -158,11 +140,6 @@ export default function RegistrationCodesTab() {
   const [orgEvents, setOrgEvents] = useState<any[]>([]);
   const [eventMemberRequests, setEventMemberRequests] = useState<any[]>([]);
   const [isLoadingOrgDetails, setIsLoadingOrgDetails] = useState(false);
-  const [isLoadingReferences, setIsLoadingReferences] = useState(false);
-  const [paymentReferences, setPaymentReferences] = useState<PaymentReference[]>([]);
-  const [selectedOrgForReference, setSelectedOrgForReference] = useState<any>(null);
-  const [referenceAmount, setReferenceAmount] = useState("0.00");
-  const [showGenerateReferenceDialog, setShowGenerateReferenceDialog] = useState(false);
   const navigate = useNavigate();
 
   // Load all data
@@ -172,8 +149,7 @@ export default function RegistrationCodesTab() {
     loadJoinRequests();
     loadApprovedOrganizations();
     loadTransactions();
-    loadPaymentReferences();
-  }, []);
+}, []);
 
   // Load registration codes
   const loadCodes = async () => {
@@ -320,30 +296,6 @@ export default function RegistrationCodesTab() {
     }
   };
 
-  // Load payment references
-  const loadPaymentReferences = async () => {
-    try {
-      setIsLoadingReferences(true);
-      const { data, error } = await supabase
-        .from("payment_references")
-        .select(`*, organizations:organization_id(name), profiles:used_by(first_name, last_name)`)
-        .order("created_at", { ascending: false });
-
-      if (error && error.code === 'PGRST116') {
-        setPaymentReferences([]);
-        return;
-      }
-
-      if (error) throw error;
-
-      setPaymentReferences((data || []) as unknown as PaymentReference[]);
-    } catch (error) {
-      console.error("Error loading payment references:", error);
-      toast.error("Failed to load payment references");
-    } finally {
-      setIsLoadingReferences(false);
-    }
-  };
 
   // Generate registration codes
   const generateCodes = async () => {
@@ -540,10 +492,10 @@ export default function RegistrationCodesTab() {
   try {
     setIsLoadingRequests(true);
     const { data, error } = await supabase
-      .from("organization_event_members" as any)
-      .select(`*, profiles!organization_event_members_user_id_fkey(first_name, last_name, email, avatar_url), organizations!organization_event_members_organization_id_fkey(name)`)
+      .from("organization_members" as any)
+      .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), organizations:organization_id(name)`)
       .eq("status", "pending")
-      .order("joined_at", { ascending: false });
+      .order("created_at", { ascending: false });
 
       if (error && error.code === 'PGRST116') {
         setJoinRequests([]);
@@ -564,14 +516,59 @@ export default function RegistrationCodesTab() {
   // Approve join request
   const approveJoinRequest = async (requestId: string) => {
     try {
+      const request = joinRequests.find((r: any) => r.id === requestId);
+      if (!request) return;
+
       await supabase
-        .from("organization_event_members" as any)
+        .from("organization_members" as any)
         .update({
           status: "active",
         })
         .eq("id", requestId);
 
-      toast.success("Join request approved successfully!");
+      // Add fee to organization wallet if organization has a fee
+      if (request.organizations?.id) {
+        const { data: walletData, error: walletError } = await supabase
+          .from("organization_wallets")
+          .select("balance")
+          .eq("organization_id", request.organizations.id)
+          .maybeSingle();
+
+        if (walletError) throw walletError;
+
+        const currentBalance = walletData?.balance || 0;
+        const fee = 50.00; // Default fee for organization join
+        const newBalance = currentBalance + fee;
+
+        // Update wallet balance
+        const { error: updateError } = await supabase
+          .from("organization_wallets")
+          .update({
+            balance: newBalance,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("organization_id", request.organizations.id);
+
+        if (updateError) throw updateError;
+
+        // Add transaction record
+        const { error: transactionError } = await supabase
+          .from("organization_transactions")
+          .insert([{
+            organization_id: request.organizations.id,
+            user_id: request.user_id,
+            type: "deposit",
+            amount: fee,
+            status: "approved",
+            purpose: `Organization join fee: ${request.organizations.name}`,
+            reference: `Join fee: ${request.organizations.name}`,
+            gcash_fee: 0,
+          }]);
+
+        if (transactionError) throw transactionError;
+      }
+
+      toast.success("Join request approved successfully! Organization wallet has been updated.");
       await loadJoinRequests();
     } catch (error) {
       console.error("Error approving join request:", error);
@@ -583,7 +580,7 @@ export default function RegistrationCodesTab() {
   const rejectJoinRequest = async (requestId: string) => {
     try {
       await supabase
-        .from("organization_event_members" as any)
+        .from("organization_members" as any)
         .update({
           status: "rejected",
         })
@@ -1083,9 +1080,6 @@ export default function RegistrationCodesTab() {
                           </div>
                           <div className="space-y-1 text-sm">
                             <p><strong>Organization:</strong> {request.organizations?.name || "N/A"}</p>
-                            {request.reference_number && (
-                              <p><strong>Reference:</strong> {request.reference_number}</p>
-                            )}
                             <p><strong>Requested:</strong> {new Date(request.created_at).toLocaleString()}</p>
                           </div>
                         </div>
@@ -1447,110 +1441,6 @@ export default function RegistrationCodesTab() {
         </CardContent>
       </Card>
 
-      {/* Payment References Section - Simplified */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg flex items-center justify-between">
-            <span>Payment References ({paymentReferences.length})</span>
-            <Button
-              size="sm"
-              className="gap-1"
-              onClick={async () => {
-                try {
-                  // Generate a realistic 6-digit payment reference number
-                  const refNumber = Math.floor(100000 + Math.random() * 900000).toString();
-                  
-                  // Find a sample organization
-                  if (approvedOrgs.length > 0) {
-                    const sampleOrg = approvedOrgs[0];
-                    
-                    const { error, data: newRef } = await supabase
-                      .from("payment_references")
-                      .insert([{
-                        organization_id: sampleOrg.id,
-                        reference_code: refNumber,
-                        amount: 50.00,
-                        status: "available",
-                        used: false,
-                      }])
-                      .select(`*, organizations:organization_id(name)`);
-                    
-                    if (error) {
-                      console.error("Error generating payment reference:", error);
-                      toast.error("Failed to generate payment reference");
-                      return;
-                    }
-                    
-                    if (newRef && newRef[0]) {
-                      // Add the new reference to the state
-                      setPaymentReferences(prev => [...prev, newRef[0] as unknown as PaymentReference]);
-                    }
-                    
-                    toast.success(`Payment reference generated: ${refNumber} for ${sampleOrg.name}`);
-                  }
-                } catch (error) {
-                  console.error("Error generating payment reference:", error);
-                  toast.error("Failed to generate payment reference");
-                }
-              }}
-            >
-              <Plus className="h-3 w-3" /> Generate Sample Reference
-            </Button>
-          </CardTitle>
-          <CardDescription className="text-xs">
-            Payment references for organization join requests - track which users have paid
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoadingReferences ? (
-            <div className="flex justify-center items-center py-4">
-              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full" />
-            </div>
-          ) : paymentReferences.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">No payment references generated yet</p>
-          ) : (
-            <div className="space-y-2">
-              {paymentReferences.map((ref) => (
-                <Card key={ref.id} className={"hover:shadow-md transition-shadow".concat(
-                  ref.used ? " border-2 border-green-200 bg-green-50/50" : ""
-                )}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CreditCard className="h-4 w-4 text-blue-500" />
-                          <div>
-                            <p className="font-medium text-sm">{ref.reference_code}</p>
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Organization:</strong> {ref.organizations?.name || "N/A"} •
-                              <strong>Amount:</strong> ₱{Number(ref.amount).toFixed(2)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Status:</strong>
-                              <Badge variant={ref.used ? "outline" : "default"}>
-                                {ref.used ? "Used" : "Available"}
-                              </Badge>
-                            </p>
-                            {ref.used && ref.profiles && (
-                              <p className="text-xs text-muted-foreground">
-                                <strong>Used by:</strong> {ref.profiles.first_name} {ref.profiles.last_name}
-                              </p>
-                            )}
-                            <p className="text-xs text-muted-foreground">
-                              <strong>Created:</strong> {new Date(ref.created_at).toLocaleString()}
-                              {ref.used_at && <span> • <strong>Used:</strong> {new Date(ref.used_at).toLocaleString()}</span>}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
     </div>
   );
 }

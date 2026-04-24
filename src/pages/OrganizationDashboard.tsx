@@ -301,12 +301,12 @@ if (!walletData) {
         organization_id: organization.id,
         user_id: user.id,
         role: "member",
-        status: "active",
+        status: "pending",
       }]);
 
     if (error) throw error;
 
-    toast.success(`Successfully joined ${organization.name}!`);
+    toast.success("Your request to join has been submitted! Please wait for admin approval.");
     setIsMember(true);
     setUserRole("member");
     fetchOrganizationData();
