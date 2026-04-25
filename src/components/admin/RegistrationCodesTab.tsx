@@ -197,7 +197,7 @@ export default function RegistrationCodesTab() {
         .eq("id", requestId);
 
       // Add fee to organization wallet using the organization's declared join_fee
-      if (request.organizations?.id) {
+      if (request.organization_id) {
         // Get the organization's join fee
         const { data: orgData, error: orgError } = await supabase
           .from("organizations")
