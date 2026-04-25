@@ -296,16 +296,40 @@ if (!walletData) {
   if (!user || !organization) return;
 
   try {
-    const { error } = await (supabase
-      .from("organization_members") as any)
-      .insert([{
-        organization_id: organization.id,
-        user_id: user.id,
-        role: "member",
-        status: "pending",
-      }]);
+    // First, check if the user already has a membership record (even if left/removed)
+    const { data: existingMember, error: fetchError } = await supabase
+      .from("organization_members")
+      .select("*")
+      .eq("organization_id", organization.id)
+      .eq("user_id", user.id)
+      .maybeSingle();
 
-    if (error) throw error;
+    if (fetchError) throw fetchError;
+
+    if (existingMember) {
+      // If user already has a record, update it to pending status instead of creating a new one
+      const { error: updateError } = await supabase
+        .from("organization_members")
+        .update({
+          status: "pending",
+          role: "member",
+        })
+        .eq("id", existingMember.id);
+
+      if (updateError) throw updateError;
+    } else {
+      // If no existing record, create a new one
+      const { error: insertError } = await supabase
+        .from("organization_members")
+        .insert([{
+          organization_id: organization.id,
+          user_id: user.id,
+          role: "member",
+          status: "pending",
+        }]);
+
+      if (insertError) throw insertError;
+    }
 
     toast.success("Your request to join has been submitted! Please wait for admin approval.");
     setIsMember(true);
