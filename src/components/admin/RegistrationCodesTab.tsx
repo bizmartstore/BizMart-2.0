@@ -190,6 +190,7 @@ export default function RegistrationCodesTab() {
       const request = joinRequests.find((r: any) => r.id === requestId);
       if (!request) return;
 
+      // First, update the member status to active
       await supabase
         .from("organization_members")
         .update({ status: "active" })
@@ -206,6 +207,7 @@ export default function RegistrationCodesTab() {
 
         if (orgError) {
           console.error("Error fetching organization join fee:", orgError);
+          toast.error("Failed to fetch join fee");
         } else {
           const joinFee = (orgData as { join_fee?: number })?.join_fee || 0;
 
@@ -229,32 +231,45 @@ export default function RegistrationCodesTab() {
                 .update({ balance: newBalance })
                 .eq("organization_id", request.organizations.id);
   
-              if (updateError) throw updateError;
+              if (updateError) {
+                console.error("Error updating wallet balance:", updateError);
+                toast.error("Failed to update wallet balance");
+              } else {
+                // Add transaction record with approved status
+                const { error: transactionError } = await supabase
+                  .from("organization_transactions")
+                  .insert([{
+                    organization_id: request.organizations.id,
+                    user_id: request.user_id,
+                    type: "deposit",
+                    amount: joinFee,
+                    status: "approved",
+                    purpose: `Organization join fee: ${request.organizations.name}`,
+                    reference: `Join fee payment by ${request.profiles?.first_name || ''} ${request.profiles?.last_name || ''}`,
+                    gcash_fee: 0,
+                  }]);
   
-              // Add transaction record with approved status
-              const { error: transactionError } = await supabase
-                .from("organization_transactions")
-                .insert([{
-                  organization_id: request.organizations.id,
-                  user_id: request.user_id,
-                  type: "deposit",
-                  amount: joinFee,
-                  status: "approved",
-                  purpose: `Organization join fee: ${request.organizations.name}`,
-                  reference: `Join fee payment by user`,
-                  gcash_fee: 0,
-                }]);
-  
-              if (transactionError) throw transactionError;
+                if (transactionError) {
+                  console.error("Error creating transaction record:", transactionError);
+                  toast.error("Failed to create transaction record");
+                } else {
+                  toast.success("Join request approved successfully! Organization wallet has been updated.");
+                }
+              }
             } catch (error) {
               console.error("Error processing join fee payment:", error);
-              // Don't throw - continue with join request approval even if fee processing fails
+              toast.error("Failed to process join fee payment");
+              // Continue with join request approval even if fee processing fails
+              toast.success("Join request approved successfully!");
             }
+          } else {
+            toast.success("Join request approved successfully!");
           }
         }
+      } else {
+        toast.success("Join request approved successfully!");
       }
 
-      toast.success("Join request approved successfully! Organization wallet has been updated.");
       await loadJoinRequests();
     } catch (error) {
       console.error("Error approving join request:", error);
