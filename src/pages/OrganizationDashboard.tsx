@@ -485,9 +485,10 @@ if (!walletData) {
   if (!memberToRemove || !organization) return;
 
   try {
+    // Delete the membership record entirely so user can rejoin
     const { error } = await (supabase
       .from("organization_members") as any)
-      .update({ status: "left" })
+      .delete()
       .eq("id", memberToRemove);
 
     if (error) throw error;

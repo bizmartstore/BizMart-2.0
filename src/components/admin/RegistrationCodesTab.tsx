@@ -71,7 +71,9 @@ export default function RegistrationCodesTab() {
   const [pendingOrgs, setPendingOrgs] = useState<any[]>([]);
   const [approvedOrgs, setApprovedOrgs] = useState<any[]>([]);
   const [isLoadingOrgs, setIsLoadingOrgs] = useState(true);
-  const [activeTab, setActiveTab] = useState<'organizations' | 'approved' | 'join' | 'transactions' | 'codes'>('organizations');
+  const [allOrgs, setAllOrgs] = useState<any[]>([]);
+  const [orgSearchTerm, setOrgSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState<'organizations' | 'approved' | 'join' | 'transactions' | 'codes' | 'manage-orgs'>('organizations');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -273,6 +275,30 @@ export default function RegistrationCodesTab() {
     } catch (error) {
       console.error("Error rejecting join request:", error);
       toast.error("Failed to reject join request");
+    }
+  };
+
+  const loadAllOrganizations = async () => {
+    try {
+      setIsLoadingOrgs(true);
+      const { data, error } = await supabase
+        .from("organizations")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error && error.code === 'PGRST116') {
+        setAllOrgs([]);
+        return;
+      }
+
+      if (error) throw error;
+
+      setAllOrgs(data || []);
+    } catch (error) {
+      console.error("Error loading all organizations:", error);
+      toast.error("Failed to load organizations");
+    } finally {
+      setIsLoadingOrgs(false);
     }
   };
 
@@ -506,6 +532,16 @@ export default function RegistrationCodesTab() {
           onClick={() => setActiveTab('codes')}
         >
           <Copy className="h-4 w-4" /> Codes
+        </Button>
+        <Button
+          variant={activeTab === 'manage-orgs' ? 'default' : 'outline'}
+          className="flex-1 gap-2"
+          onClick={() => {
+            setActiveTab('manage-orgs');
+            loadAllOrganizations();
+          }}
+        >
+          <Trash2 className="h-4 w-4" /> Manage Orgs
         </Button>
       </div>
 
