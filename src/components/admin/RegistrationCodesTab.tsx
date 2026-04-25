@@ -210,46 +210,45 @@ export default function RegistrationCodesTab() {
           const joinFee = (orgData as { join_fee?: number })?.join_fee || 0;
 
           if (joinFee > 0) {
-            // Get current wallet balance
-            const { data: walletData, error: walletError } = await supabase
-              .from("organization_wallets")
-              .select("balance")
-              .eq("organization_id", request.organizations.id)
-              .maybeSingle();
-
-            if (walletError) {
-              console.error("Error fetching wallet:", walletError);
-            } else {
+            try {
+              // Get current wallet balance
+              const { data: walletData, error: walletError } = await supabase
+                .from("organization_wallets")
+                .select("balance")
+                .eq("organization_id", request.organizations.id)
+                .maybeSingle();
+  
+              if (walletError) throw walletError;
+  
               const currentBalance = walletData?.balance || 0;
               const newBalance = currentBalance + joinFee;
-
+  
               // Update wallet balance
               const { error: updateError } = await supabase
                 .from("organization_wallets")
                 .update({ balance: newBalance })
                 .eq("organization_id", request.organizations.id);
-
-              if (updateError) {
-                console.error("Error updating wallet:", updateError);
-              } else {
-                // Add transaction record
-                const { error: transactionError } = await supabase
-                  .from("organization_transactions")
-                  .insert([{
-                    organization_id: request.organizations.id,
-                    user_id: request.user_id,
-                    type: "deposit",
-                    amount: joinFee,
-                    status: "approved",
-                    purpose: `Organization join fee: ${request.organizations.name}`,
-                    reference: `Join fee: ${request.organizations.name}`,
-                    gcash_fee: 0,
-                  }]);
-
-                if (transactionError) {
-                  console.error("Error creating transaction:", transactionError);
-                }
-              }
+  
+              if (updateError) throw updateError;
+  
+              // Add transaction record with approved status
+              const { error: transactionError } = await supabase
+                .from("organization_transactions")
+                .insert([{
+                  organization_id: request.organizations.id,
+                  user_id: request.user_id,
+                  type: "deposit",
+                  amount: joinFee,
+                  status: "approved",
+                  purpose: `Organization join fee: ${request.organizations.name}`,
+                  reference: `Join fee payment by user`,
+                  gcash_fee: 0,
+                }]);
+  
+              if (transactionError) throw transactionError;
+            } catch (error) {
+              console.error("Error processing join fee payment:", error);
+              // Don't throw - continue with join request approval even if fee processing fails
             }
           }
         }
