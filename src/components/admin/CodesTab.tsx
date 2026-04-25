@@ -35,10 +35,26 @@ export default function CodesTab() {
         });
       }
       const table = type === "club" ? "club_codes" : "seller_codes";
-      const { error } = await (supabase as any).from(table).insert(codes);
+
+      // Insert codes and fetch the inserted records
+      const { data: insertedCodes, error } = await (supabase as any)
+        .from(table)
+        .insert(codes)
+        .select(); // This ensures we get the inserted records with their IDs
+
       if (error) throw error;
-      toast.success(`Generated ${codeCount} ${type} codes!`);
-      await loadCodes();
+
+      if (insertedCodes && insertedCodes.length > 0) {
+        // Update the state with the newly inserted codes
+        if (type === "club") {
+          setClubCodes(prev => [...prev, ...insertedCodes]);
+        } else {
+          setSellerCodes(prev => [...prev, ...insertedCodes]);
+        }
+        toast.success(`Generated ${codeCount} ${type} codes!`);
+      } else {
+        toast.error("Failed to fetch generated codes.");
+      }
     } catch (e: any) {
       toast.error(e.message || "Failed to generate codes");
     }
