@@ -278,12 +278,70 @@ export default function RegistrationCodesTab() {
 
   const approveTransaction = async (transactionId: string) => {
     try {
-      const { error } = await supabase
+      // Get the transaction first
+      const { data: transactionData, error: fetchError } = await supabase
+        .from("organization_transactions")
+        .select("*")
+        .eq("id", transactionId)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!transactionData) throw new Error("Transaction not found");
+
+      const transaction = transactionData as any;
+
+      // Update transaction status to approved
+      const { error: updateError } = await supabase
         .from("organization_transactions")
         .update({ status: "approved" })
         .eq("id", transactionId);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
+
+      // Update wallet balance based on transaction type
+      if (transaction.type === "deposit") {
+        // For deposits, add to wallet balance
+        // Get current wallet balance
+        const { data: walletData, error: walletError } = await supabase
+          .from("organization_wallets")
+          .select("balance")
+          .eq("organization_id", transaction.organization_id)
+          .maybeSingle();
+
+        if (walletError) throw walletError;
+
+        const currentBalance = walletData?.balance || 0;
+        const newBalance = currentBalance + transaction.amount;
+
+        // Update wallet balance
+        const { error: walletUpdateError } = await supabase
+          .from("organization_wallets")
+          .update({ balance: newBalance })
+          .eq("organization_id", transaction.organization_id);
+
+        if (walletUpdateError) throw walletUpdateError;
+      } else if (transaction.type === "withdrawal") {
+        // For withdrawals, subtract from wallet balance
+        // Get current wallet balance
+        const { data: walletData, error: walletError } = await supabase
+          .from("organization_wallets")
+          .select("balance")
+          .eq("organization_id", transaction.organization_id)
+          .maybeSingle();
+
+        if (walletError) throw walletError;
+
+        const currentBalance = walletData?.balance || 0;
+        const newBalance = currentBalance - transaction.amount;
+
+        // Update wallet balance
+        const { error: walletUpdateError } = await supabase
+          .from("organization_wallets")
+          .update({ balance: newBalance })
+          .eq("organization_id", transaction.organization_id);
+
+        if (walletUpdateError) throw walletUpdateError;
+      }
 
       toast.success("Transaction approved successfully!");
       await loadTransactions();
