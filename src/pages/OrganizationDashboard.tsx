@@ -133,6 +133,41 @@ export default function OrganizationDashboard() {
     if (user && id) {
       fetchOrganizationData();
       checkPendingJoinRequest();
+      
+      // Set up real-time subscription for wallet updates
+      const walletChannel = supabase
+        .channel(`organization-wallet-${id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'organization_wallets',
+            filter: `organization_id=eq.${id}`
+          },
+          () => {
+            console.log('Wallet balance updated, refreshing...');
+            fetchOrganizationData();
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'organization_wallets',
+            filter: `organization_id=eq.${id}`
+          },
+          () => {
+            console.log('Wallet created, refreshing...');
+            fetchOrganizationData();
+          }
+        )
+        .subscribe();
+      
+      return () => {
+        supabase.removeChannel(walletChannel);
+      };
     }
   }, [user, id, checkPendingJoinRequest]);
 

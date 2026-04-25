@@ -259,6 +259,7 @@ export default function RegistrationCodesTab() {
               }
  
               if (walletUpdated) {
+
                 // Add transaction record with approved status
                 const { error: transactionError } = await supabase
                   .from("organization_transactions")
@@ -272,13 +273,14 @@ export default function RegistrationCodesTab() {
                     reference: `Join fee payment by ${request.profiles?.first_name || ''} ${request.profiles?.last_name || ''}`,
                     gcash_fee: 0,
                   }]);
- 
+
                 if (transactionError) {
                   console.error("Error creating transaction record:", transactionError);
                   toast.error("Failed to create transaction record");
                 } else {
                   toast.success("Join request approved successfully! Organization wallet has been updated.");
                 }
+                
               }
             } catch (error) {
               console.error("Error processing join fee payment:", error);
