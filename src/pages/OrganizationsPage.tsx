@@ -110,6 +110,61 @@ export default function OrganizationsPage() {
     }
   };
 
+  // Function to delete ABM CLUB organization by name
+  const deleteABMClubOrganization = async () => {
+    if (!isAdmin()) {
+      toast.error("You don't have permission to delete organizations");
+      return;
+    }
+
+    try {
+      // First, find the ABM CLUB organization by name
+      const { data: orgData, error: fetchError } = await supabase
+        .from("organizations")
+        .select("id")
+        .ilike("name", "%ABM CLUB%")
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+      if (!orgData) {
+        toast.info("ABM CLUB organization not found");
+        return;
+      }
+
+      const orgId = orgData.id;
+
+      // Delete organization members first
+      const { error: membersError } = await supabase
+        .from("organization_members")
+        .delete()
+        .eq("organization_id", orgId);
+
+      if (membersError) throw membersError;
+
+      // Delete organization wallet
+      const { error: walletError } = await supabase
+        .from("organization_wallets")
+        .delete()
+        .eq("organization_id", orgId);
+
+      if (walletError) throw walletError;
+
+      // Delete organization
+      const { error: orgError } = await supabase
+        .from("organizations")
+        .delete()
+        .eq("id", orgId);
+
+      if (orgError) throw orgError;
+
+      toast.success("ABM CLUB organization deleted successfully!");
+      fetchOrganizations();
+    } catch (error) {
+      console.error("Error deleting ABM CLUB organization:", error);
+      toast.error("Failed to delete ABM CLUB organization");
+    }
+  };
+
   const checkMembershipStatus = async (orgId: string) => {
     if (!user) return { isMember: false, hasPendingRequest: false };
 
@@ -811,18 +866,34 @@ export default function OrganizationsPage() {
                         {org.club_type}
                       </Badge>
                       {isAdmin() && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOrgToDelete(org.id);
-                          }}
-                          title="Delete organization"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOrgToDelete(org.id);
+                            }}
+                            title="Delete organization"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          {org.name.toLowerCase().includes("abm club") && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              className="h-8 px-2 ml-2 text-xs"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await deleteABMClubOrganization();
+                              }}
+                              title="Force delete ABM CLUB"
+                            >
+                              Delete ABM CLUB
+                            </Button>
+                          )}
+                        </>
                       )}
                     </div>
                   </CardHeader>
