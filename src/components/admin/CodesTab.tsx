@@ -27,11 +27,14 @@ export default function CodesTab() {
     setGenerating(true);
     try {
       const codes = [];
+      const now = new Date().toISOString();
       for (let i = 0; i < codeCount; i++) {
         const random = Math.random().toString(36).substring(2, 8).toUpperCase();
         codes.push({
           code: `${prefix}-${random}`,
           is_used: false,
+          created_at: now,
+          used_by: null,
         });
       }
       const table = type === "club" ? "club_codes" : "seller_codes";
