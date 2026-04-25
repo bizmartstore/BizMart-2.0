@@ -21,6 +21,7 @@ import { useNavigate } from "react-router-dom";
 import BCoinsFeatures from "@/components/BCoinsFeatures";
 import AtmCardLinkForm from "@/components/AtmCardLinkForm";
 import AtmCardList from "@/components/AtmCardList";
+import { useAtmCards } from "@/hooks/useAtmCards";
 
 export default function ClubPage() {
   const { user, profile } = useAuth();
@@ -42,6 +43,9 @@ export default function ClubPage() {
   const [maxSellers, setMaxSellers] = useState(5);
   const [showLinkForm, setShowLinkForm] = useState(false);
   const idRef = useRef<HTMLDivElement>(null);
+
+  // Fetch active ATM cards
+  const { cards: activeAtmCards, loading: atmCardsLoading } = useAtmCards();
 
   // BCoins related state
   const [wallet, setWallet] = useState<any>(null);
@@ -373,7 +377,7 @@ export default function ClubPage() {
                       <span className="text-[8px] font-black text-yellow-400 uppercase tracking-widest">PREMIUM</span>
                     </div>
                   )}
-                  {membership && (wallet?.balance !== undefined || profile?.bcoins !== undefined) && (
+                  {membership && activeAtmCards.length > 0 && (wallet?.balance !== undefined || profile?.bcoins !== undefined) && (
                     <div className="absolute top-4 left-6 px-2 py-0.5 bg-blue-500/20 border border-blue-500/40 rounded flex items-center gap-1">
                       <Coins className="h-2.5 w-2.5 text-blue-400" />
                       <span className="text-[8px] font-bold text-blue-300 uppercase tracking-wider">BCOINS LINKED</span>
