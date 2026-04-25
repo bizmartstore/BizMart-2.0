@@ -219,22 +219,46 @@ export default function RegistrationCodesTab() {
                 .select("balance")
                 .eq("organization_id", request.organizations.id)
                 .maybeSingle();
-  
+ 
               if (walletError) throw walletError;
-  
-              const currentBalance = walletData?.balance || 0;
+ 
+              let currentBalance = walletData?.balance || 0;
               const newBalance = currentBalance + joinFee;
-  
-              // Update wallet balance
-              const { error: updateError } = await supabase
-                .from("organization_wallets")
-                .update({ balance: newBalance })
-                .eq("organization_id", request.organizations.id);
-  
-              if (updateError) {
-                console.error("Error updating wallet balance:", updateError);
-                toast.error("Failed to update wallet balance");
+ 
+              let walletUpdated = false;
+              
+              if (walletData) {
+                // Wallet exists, update it
+                const { error: updateError } = await supabase
+                  .from("organization_wallets")
+                  .update({ balance: newBalance })
+                  .eq("organization_id", request.organizations.id);
+ 
+                if (updateError) {
+                  console.error("Error updating wallet balance:", updateError);
+                  toast.error("Failed to update wallet balance");
+                } else {
+                  walletUpdated = true;
+                }
               } else {
+                // Wallet doesn't exist, create it
+                const { error: createError } = await supabase
+                  .from("organization_wallets")
+                  .insert({
+                    organization_id: request.organizations.id,
+                    balance: joinFee,
+                  });
+ 
+                if (createError) {
+                  console.error("Error creating wallet:", createError);
+                  toast.error("Failed to create organization wallet");
+                } else {
+                  walletUpdated = true;
+                  currentBalance = joinFee; // Update current balance for transaction
+                }
+              }
+ 
+              if (walletUpdated) {
                 // Add transaction record with approved status
                 const { error: transactionError } = await supabase
                   .from("organization_transactions")
@@ -248,7 +272,7 @@ export default function RegistrationCodesTab() {
                     reference: `Join fee payment by ${request.profiles?.first_name || ''} ${request.profiles?.last_name || ''}`,
                     gcash_fee: 0,
                   }]);
-  
+ 
                 if (transactionError) {
                   console.error("Error creating transaction record:", transactionError);
                   toast.error("Failed to create transaction record");
@@ -350,16 +374,32 @@ export default function RegistrationCodesTab() {
 
         if (walletError) throw walletError;
 
-        const currentBalance = walletData?.balance || 0;
+        let currentBalance = walletData?.balance || 0;
         const newBalance = currentBalance + transaction.amount;
+        
+        let walletUpdated = false;
+        
+        if (walletData) {
+          // Wallet exists, update it
+          const { error: walletUpdateError } = await supabase
+            .from("organization_wallets")
+            .update({ balance: newBalance })
+            .eq("organization_id", transaction.organization_id);
 
-        // Update wallet balance
-        const { error: walletUpdateError } = await supabase
-          .from("organization_wallets")
-          .update({ balance: newBalance })
-          .eq("organization_id", transaction.organization_id);
+          if (walletUpdateError) throw walletUpdateError;
+          walletUpdated = true;
+        } else {
+          // Wallet doesn't exist, create it with the deposit amount
+          const { error: walletCreateError } = await supabase
+            .from("organization_wallets")
+            .insert({
+              organization_id: transaction.organization_id,
+              balance: transaction.amount,
+            });
 
-        if (walletUpdateError) throw walletUpdateError;
+          if (walletCreateError) throw walletCreateError;
+          walletUpdated = true;
+        }
       } else if (transaction.type === "withdrawal") {
         // For withdrawals, subtract from wallet balance
         // Get current wallet balance
@@ -371,7 +411,11 @@ export default function RegistrationCodesTab() {
 
         if (walletError) throw walletError;
 
-        const currentBalance = walletData?.balance || 0;
+        if (!walletData) {
+          throw new Error("Wallet not found for withdrawal transaction");
+        }
+
+        const currentBalance = walletData.balance;
         const newBalance = currentBalance - transaction.amount;
 
         // Update wallet balance
