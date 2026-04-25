@@ -113,7 +113,7 @@ export default function RegistrationCodesTab() {
       setIsLoadingRequests(true);
       const { data, error } = await supabase
         .from("organization_members")
-        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), organizations:organization_id(name)`)
+        .select(`*, profiles:user_id(first_name, last_name, email, avatar_url), organizations:organization_id(id, name)`)
         .eq("status", "pending")
         .order("joined_at", { ascending: false });
 
