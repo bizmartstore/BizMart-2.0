@@ -35,10 +35,7 @@ export default function CodesTab() {
         });
       }
       const table = type === "club" ? "club_codes" : "seller_codes";
-      const { error, data } = await (supabase as any)
-        .from(table)
-        .insert(codes)
-        .select();
+      const { error } = await (supabase as any).from(table).insert(codes);
       if (error) throw error;
       toast.success(`Generated ${codeCount} ${type} codes!`);
       await loadCodes();
