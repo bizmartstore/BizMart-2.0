@@ -186,136 +186,90 @@ export default function RegistrationCodesTab() {
   };
 
   const approveJoinRequest = async (requestId: string) => {
-    try {
-      const request = joinRequests.find((r: any) => r.id === requestId);
-      if (!request) return;
+  try {
+    const request = joinRequests.find((r: any) => r.id === requestId);
+    if (!request) return;
 
-      // First, update the member status to active
-      await supabase
-        .from("organization_members")
-        .update({ status: "active" })
-        .eq("id", requestId);
+    const orgId = request.organization_id;
 
-      // Add fee to organization wallet using the organization's declared join_fee
-      if (request.organization_id) {
-        // Get the organization's join fee
-        const { data: orgData, error: orgError } = await supabase
-          .from("organizations")
-          .select("join_fee")
-          .eq("id", request.organizations.id)
-          .maybeSingle();
+    // 1. Approve member
+    const { error: memberError } = await supabase
+      .from("organization_members")
+      .update({ status: "active" })
+      .eq("id", requestId);
 
-        if (orgError) {
-          console.error("Error fetching organization join fee:", orgError);
-          toast.error("Failed to fetch join fee");
-        } else {
-          const joinFee = (orgData as { join_fee?: number })?.join_fee || 0;
+    if (memberError) throw memberError;
 
-          if (joinFee > 0) {
-            try {
-              // Create a pending transaction first (just like the deposit flow)
-              const { error: transactionError } = await supabase
-                .from("organization_transactions")
-                .insert([{
-                  organization_id: request.organizations.id,
-                  user_id: request.user_id,
-                  type: "deposit",
-                  amount: joinFee,
-                  status: "pending",
-                  purpose: `Organization join fee: ${request.organizations.name}`,
-                  reference: `Join fee payment by ${request.profiles?.first_name || ''} ${request.profiles?.last_name || ''}`,
-                  gcash_fee: 0,
-                }]);
+    // 2. Get join fee
+    const { data: orgData, error: orgError } = await supabase
+      .from("organizations")
+      .select("join_fee")
+      .eq("id", orgId)
+      .single();
 
-              if (transactionError) {
-                console.error("Error creating pending transaction:", transactionError);
-                toast.error("Failed to create transaction record");
-              } else {
-                toast.success("Join request approved! A deposit transaction has been created and is pending admin approval.");
-                
-                // Now approve the transaction automatically (since this is admin-initiated)
-                const { data: transactionData } = await supabase
-                  .from("organization_transactions")
-                  .select("*")
-                  .eq("organization_id", request.organizations.id)
-                  .eq("user_id", request.user_id)
-                  .eq("status", "pending")
-                  .order("created_at", { ascending: false })
-                  .limit(1)
-                  .maybeSingle();
+    if (orgError) throw orgError;
 
-                if (transactionData) {
-                  // Approve the transaction
-                  await supabase
-                    .from("organization_transactions")
-                    .update({ status: "approved" })
-                    .eq("id", transactionData.id);
+    const joinFee = orgData?.join_fee || 0;
 
-                  // Update wallet balance
-                  const { data: walletData, error: walletError } = await supabase
-                    .from("organization_wallets")
-                    .select("balance")
-                    .eq("organization_id", request.organizations.id)
-                    .maybeSingle();
+    if (joinFee > 0) {
+      // 3. Insert APPROVED transaction directly
+      const { error: transactionError } = await supabase
+        .from("organization_transactions")
+        .insert({
+          organization_id: orgId,
+          user_id: request.user_id,
+          type: "deposit",
+          amount: joinFee,
+          status: "approved",
+          purpose: `Join fee - ${request.organizations?.name || ""}`,
+          reference: `Member joined: ${request.profiles?.first_name || ""} ${request.profiles?.last_name || ""}`,
+          gcash_fee: 0,
+        });
 
-                  if (walletError) throw walletError;
+      if (transactionError) throw transactionError;
 
-                  let currentBalance = walletData?.balance || 0;
-                  const newBalance = currentBalance + joinFee;
+      // 4. Get current wallet
+      const { data: walletData, error: walletError } = await supabase
+        .from("organization_wallets")
+        .select("balance")
+        .eq("organization_id", orgId)
+        .maybeSingle();
 
-                  let walletUpdated = false;
+      if (walletError) throw walletError;
 
-                  if (walletData) {
-                    // Wallet exists, update it
-                    const { error: updateError } = await supabase
-                      .from("organization_wallets")
-                      .update({ balance: newBalance })
-                      .eq("organization_id", request.organizations.id);
+      if (walletData) {
+        // 5. Update existing wallet
+        const { error: updateError } = await supabase
+          .from("organization_wallets")
+          .update({
+            balance: walletData.balance + joinFee,
+          })
+          .eq("organization_id", orgId);
 
-                    if (updateError) {
-                      console.error("Error updating wallet balance:", updateError);
-                    } else {
-                      walletUpdated = true;
-                    }
-                  } else {
-                    // Wallet doesn't exist, create it
-                    const { error: createError } = await supabase
-                      .from("organization_wallets")
-                      .insert({
-                        organization_id: request.organizations.id,
-                        balance: joinFee,
-                      });
-
-                    if (createError) {
-                      console.error("Error creating wallet:", createError);
-                    } else {
-                      walletUpdated = true;
-                    }
-                  }
-
-                  if (walletUpdated) {
-                    toast.success("Transaction approved! Organization wallet has been updated with the join fee.");
-                  }
-                }
-              }
-            } catch (error) {
-              console.error("Error processing join fee payment:", error);
-              toast.error("Failed to process join fee payment");
-            }
-          } else {
-            toast.success("Join request approved successfully!");
-          }
-        }
+        if (updateError) throw updateError;
       } else {
-        toast.success("Join request approved successfully!");
+        // 6. Create wallet if not exists
+        const { error: createError } = await supabase
+          .from("organization_wallets")
+          .insert({
+            organization_id: orgId,
+            balance: joinFee,
+          });
+
+        if (createError) throw createError;
       }
 
-      await loadJoinRequests();
-    } catch (error) {
-      console.error("Error approving join request:", error);
-      toast.error("Failed to approve join request");
+      toast.success("Join approved and wallet updated!");
+    } else {
+      toast.success("Join approved (no fee).");
     }
-  };
+
+    await loadJoinRequests();
+  } catch (error) {
+    console.error("Error approving join request:", error);
+    toast.error("Failed to approve join request");
+  }
+};
 
   const rejectJoinRequest = async (requestId: string) => {
     try {
