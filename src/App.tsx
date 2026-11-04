@@ -89,7 +89,7 @@ function AppContent() {
       <Toaster />
       <Sonner />
       <TooltipProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <AdminAutoRedirect />
           <Routes>
             <Route path="/" element={<Index />} />
