@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/BizMart-2.0/sw.js', { scope: '/BizMart-2.0/' })})}
