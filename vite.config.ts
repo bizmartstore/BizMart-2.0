@@ -34,7 +34,29 @@ export default defineConfig(() => ({
         clientsClaim: true,
         cleanupOutdatedCaches: true,
         navigateFallback: null,
-        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        globPatterns: ["**/*.{js,css,html,ico,png,jpg,jpeg,webp,svg,woff2}"],
+        // Serve images (including Supabase storage ones) from cache after the
+        // first load so carousels and news feed render instantly.
+        runtimeCaching: [
+          {
+            urlPattern: /\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "bizmart-images",
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            urlPattern: /\/storage\/v1\/object\/public\//i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "bizmart-supabase-storage",
+              expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       manifest: {
         name: "BizMart Store",
@@ -49,12 +71,14 @@ export default defineConfig(() => ({
         scope: ".",
         icons: [
           {
-            src: "/pwa-192x192.png",
+            // Relative to the manifest location — resolves correctly under
+            // the GitHub Pages subfolder and at a custom domain root.
+            src: "pwa-192x192.png",
             sizes: "192x192",
             type: "image/png",
           },
           {
-            src: "/pwa-512x512.png",
+            src: "pwa-512x512.png",
             sizes: "512x512",
             type: "image/png",
           },

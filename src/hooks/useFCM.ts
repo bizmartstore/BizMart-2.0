@@ -32,7 +32,7 @@ export function useFCM() {
 
       // ✅ FIX: Get correct SW
       const registration = await navigator.serviceWorker.getRegistration(
-        "/firebase-messaging-sw.js"
+        import.meta.env.BASE_URL
       );
 
       if (!registration) {

@@ -29,6 +29,11 @@ export default function BannerCarousel() {
               src={banner}
               alt={`Banner ${i + 1}`}
               className="w-full h-full object-cover rounded-xl"
+              // First banner paints immediately; the rest stay unloaded
+              // until they slide into view.
+              loading={i === 0 ? "eager" : "lazy"}
+              decoding="async"
+              fetchpriority={i === 0 ? "high" : undefined}
             />
           </div>
         ))}

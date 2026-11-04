@@ -36,7 +36,14 @@ function ImageCarousel({ images, className = "", autoPlay = true }: { images: st
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {images.map((url, i) => (
-          <img key={i} src={url} alt="" className="w-full h-full object-cover flex-shrink-0" />
+          <img
+            key={i}
+            src={url}
+            alt=""
+            className="w-full h-full object-cover flex-shrink-0"
+            loading={i === 0 ? "eager" : "lazy"}
+            decoding="async"
+          />
         ))}
       </div>
       {images.length > 1 && (
@@ -84,7 +91,14 @@ function NewsDetail({ item, onClose }: { item: NewsItem; onClose: () => void }) 
                 style={{ transform: `translateX(-${imgIdx * 100}%)` }}
               >
                 {allImages.map((url, i) => (
-                  <img key={i} src={url} alt={item.title} className="w-full h-56 object-cover flex-shrink-0" />
+                  <img
+                    key={i}
+                    src={url}
+                    alt={item.title}
+                    className="w-full h-56 object-cover flex-shrink-0"
+                    loading={i === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
                 ))}
               </div>
             </div>
