@@ -67,6 +67,17 @@ const PET_EMOJIS = ["🐉", "🦊", "🐱", "🐶", "🦁", "🐼", "🐨", "�
 
 export default function BizMonArena({ onBack }: { onBack: () => void }) {
   const { user, profile, refreshProfile } = useAuth();
+
+  const getCurrentWalletBalance = async (): Promise<number> => {
+    if (!user) return 0;
+    const { data: w } = await (supabase as any)
+      .from("bcoins_wallets")
+      .select("balance")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    return Number(w?.balance || 0);
+  };
+
   const [view, setView] = useState<GameView>("map");
   const [pet, setPet] = useState<BizMonPet | null>(null);
   const [dailyLimits, setDailyLimits] = useState<DailyLimits>({ battles_played: 0, training_sessions: 0, bcoins_earned: 0 });
@@ -250,9 +261,10 @@ export default function BizMonArena({ onBack }: { onBack: () => void }) {
         }));
 
         if (bcoinsGained > 0) {
+          const currentBalance = await getCurrentWalletBalance();
           await (supabase as any)
             .from("bcoins_wallets")
-            .update({ balance: (Number(profile?.bcoins || 0) + bcoinsGained) })
+            .update({ balance: (currentBalance + bcoinsGained) })
             .eq("user_id", user?.id);
           refreshProfile();
         }
@@ -378,9 +390,10 @@ export default function BizMonArena({ onBack }: { onBack: () => void }) {
         }
 
         if (bcoinsGained > 0) {
+          const currentBalance = await getCurrentWalletBalance();
           await (supabase as any)
             .from("bcoins_wallets")
-            .update({ balance: (Number(profile?.bcoins || 0) + bcoinsGained) })
+            .update({ balance: (currentBalance + bcoinsGained) })
             .eq("user_id", user?.id);
           refreshProfile();
         }
@@ -408,7 +421,8 @@ export default function BizMonArena({ onBack }: { onBack: () => void }) {
   // Shop
   const buyItem = async (item: typeof SHOP_ITEMS[0]) => {
     if (!pet || !profile) return;
-    if (Number(profile.bcoins) < item.cost) {
+    const currentBalance = await getCurrentWalletBalance();
+    if (currentBalance < item.cost) {
       toast({ title: "Insufficient BCoins", description: `You need ${item.cost} BCoins!`, variant: "destructive" });
       return;
     }
@@ -426,7 +440,7 @@ export default function BizMonArena({ onBack }: { onBack: () => void }) {
 
       await (supabase as any)
         .from("bcoins_wallets")
-        .update({ balance: Number(profile.bcoins) - item.cost })
+        .update({ balance: currentBalance - item.cost })
         .eq("user_id", user?.id);
 
       setPet({ ...pet, ...updates });

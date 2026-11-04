@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureUserRecords, getSiteUrl } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,13 +34,29 @@ export default function SignUpPage() {
           grade_level: form.gradeLevel,
           school: form.school,
         },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${getSiteUrl()}/login`,
       },
     });
 
     if (error) {
-      toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
-    } else if (data.user) {
+      if (error.message.toLowerCase().includes("already registered")) {
+        toast({ title: "Account already exists", description: "Try logging in instead, or use the 'Forgot password' flow.", variant: "destructive" });
+      } else {
+        toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+      }
+      setLoading(false);
+      return;
+    }
+
+    // Auto-confirmed signup (mailer_autoconfirm enabled) -> session is returned
+    if (data.session?.user) {
+      try { await ensureUserRecords(data.session.user); } catch (err) { console.warn(err); }
+      toast({ title: "Welcome to BizMart! 🎉" });
+      navigate("/");
+      return;
+    }
+
+    if (data.user) {
       setIsSubmitted(true);
       toast({ title: "Account created! 🎉", description: "Check your Gmail to verify your account." });
     }

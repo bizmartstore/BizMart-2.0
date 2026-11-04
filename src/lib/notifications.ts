@@ -170,11 +170,11 @@ export const notifyCustomerOrder = async (userId: string, orderId: string, statu
   try {
     const { data: fcmToken } = await (supabase as any)
       .from("fcm_tokens")
-      .select("fcm_token")
+      .select("token")
       .eq("user_id", userId)
       .maybeSingle();
 
-    if (fcmToken?.fcm_token) {
+    if (fcmToken?.token) {
       console.log("FCM token found, push notification should be sent via edge function");
     }
   } catch (error) {

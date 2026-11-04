@@ -81,7 +81,6 @@ export default function BCoinsRedeemPage() {
           gcash_amount: option.gcash,
           gcash_number: gcashNumber,
           status: "pending",
-          atm_card_id: activeCard.id,
         } as never);
 
       if (error) throw error;

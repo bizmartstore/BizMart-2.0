@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { getSiteUrl } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -66,8 +67,20 @@ export default function LoginPage() {
           .select("role")
           .eq("user_id", data.user.id)
           .maybeSingle();
-          
+
         if (roleRecord?.role === 'main_admin' || roleRecord?.role === 'member_admin') {
+          navigate("/admin");
+          return;
+        }
+
+        // Fall back to profiles.role for users without a user_roles row
+        const { data: profData } = await (supabase as any)
+          .from("profiles")
+          .select("role")
+          .or(`user_id.eq.${data.user.id},id.eq.${data.user.id}`)
+          .maybeSingle();
+
+        if (profData?.role === 'main_admin' || profData?.role === 'member_admin') {
           navigate("/admin");
           return;
         }
@@ -86,7 +99,7 @@ export default function LoginPage() {
       type: 'signup',
       email: email,
       options: {
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: `${getSiteUrl()}/login`,
       }
     });
     setResending(false);

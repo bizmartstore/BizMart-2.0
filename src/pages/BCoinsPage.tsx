@@ -119,7 +119,7 @@ export default function BCoinsPage() {
       const currentBalance = Number(wallet?.balance || 0);
       const newBalance = currentBalance + reward;
 
-      await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
+      await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance }, { onConflict: "user_id" });
       await (supabase as any).from("bcoins_transactions").insert({
         user_id: user.id,
         amount: reward,
@@ -174,7 +174,7 @@ export default function BCoinsPage() {
         const currentBalance = Number(wallet?.balance || 0);
         const newBalance = currentBalance + reward;
 
-        await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance });
+        await (supabase as any).from("bcoins_wallets").upsert({ user_id: user.id, balance: newBalance }, { onConflict: "user_id" });
         await (supabase as any).from("bcoins_transactions").insert({
           user_id: user.id,
           amount: reward,

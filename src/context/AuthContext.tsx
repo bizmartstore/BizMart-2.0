@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { ensureUserRecords } from "@/lib/auth";
 
 export interface Profile {
   id: string;
@@ -41,7 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
   const mountedRef = useRef(true);
-  const initTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const fetchProfile = useCallback(async (currentUser: User): Promise<void> => {
     if (fetchProfileRef.current) return fetchProfileRef.current;
@@ -49,13 +49,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     const fetchPromise = (async () => {
       try {
-        // 1. Fetch Profile
-        const { data: profData } = await (supabase as any).from("profiles").select("*").eq("id", currentUser.id).maybeSingle();
-        
+        // 0. Ensure the user has a profile + wallet in the database
+        await ensureUserRecords(currentUser);
+
+        // 1. Fetch Profile (match on user_id; fall back to id for legacy rows)
+        const { data: profData } = await (supabase as any).from("profiles").select("*")
+          .or(`user_id.eq.${currentUser.id},id.eq.${currentUser.id}`)
+          .maybeSingle();
+
         // 2. Fetch Role (prioritize user_roles, fall back to profiles.role for legacy users)
         const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle();
-        const role = roleData?.role || 'customer';
-        
+        const role = roleData?.role || profData?.role || 'customer';
+
         // 3. Fetch Wallet
         const { data: wallet } = await (supabase as any).from("bcoins_wallets").select("balance").eq("user_id", currentUser.id).maybeSingle();
 
@@ -64,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (currentRequestId !== requestIdRef.current || !mountedRef.current) return;
 
-        if (roleData?.role) localStorage.setItem(`user_role_${currentUser.id}`, role);
+        if (roleData?.role || profData?.role) localStorage.setItem(`user_role_${currentUser.id}`, role);
 
         setMembership(memData);
         setProfile({
@@ -99,19 +104,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     mountedRef.current = true;
+    let isMounted = true;
     const init = async () => {
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
-        if (!mountedRef.current) return;
+        if (!isMounted) return;
         setSession(s);
         setUser(s?.user ?? null);
-        initTimeoutRef.current = setTimeout(() => {
-          if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
-        }, 5000);
+        setLoading(false);
+        setIsAuthReady(true);
         if (s?.user) fetchProfile(s.user);
-        else { setLoading(false); setIsAuthReady(true); }
       } catch (err) {
-        if (mountedRef.current) { setLoading(false); setIsAuthReady(true); }
+        console.warn("[AuthContext] init error:", err);
+        if (isMounted) { setLoading(false); setIsAuthReady(true); }
       }
     };
     init();
@@ -132,8 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     return () => {
+      isMounted = false;
       mountedRef.current = false;
-      if (initTimeoutRef.current) clearTimeout(initTimeoutRef.current);
       subscription?.unsubscribe();
     };
   }, [fetchProfile]);

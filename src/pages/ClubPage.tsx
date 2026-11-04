@@ -172,7 +172,7 @@ export default function ClubPage() {
         setMembership({ ...membership, membership_type: "premium" });
       }
       const { data: sp } = await (supabase as any).from("seller_profiles").insert({
-        user_id: user.id, store_name: `${profile?.first_name || "My"}'s Store`,
+        user_id: user.id, store_name: `${profile?.first_name || "My"}'s Store`, is_active: true,
       }).select().single();
       setSellerProfile(sp);
       toast({ title: "Welcome, Seller! 🎉", description: "You are now a premium member & seller." });

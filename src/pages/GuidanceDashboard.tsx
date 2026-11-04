@@ -111,14 +111,13 @@ const GuidanceDashboard = () => {
       // Send push notification if FCM token exists
       const { data: fcmToken } = await (supabase as any)
         .from("fcm_tokens")
-        .select("fcm_token")
+        .select("token")
         .eq("user_id", report.user_id)
-        .eq("role", "customer")
         .maybeSingle();
 
-      if (fcmToken?.fcm_token) {
+      if (fcmToken?.token) {
         // In a real app, you would call an edge function here to send the push notification
-        console.log("Push notification would be sent to:", fcmToken.fcm_token);
+        console.log("Push notification would be sent to:", fcmToken.token);
       }
 
       toast.success("Reporter notified successfully!");

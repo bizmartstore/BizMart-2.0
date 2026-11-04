@@ -19,6 +19,18 @@ export default function ProductDetail() {
   const [showCarousel, setShowCarousel] = useState(false);
   const [carouselIndex, setCarouselIndex] = useState(0);
 
+  const allImages = product
+    ? [product.image, ...(product.images || [])].filter(Boolean)
+    : [];
+
+  useEffect(() => {
+    if (allImages.length <= 1) return;
+    const timer = setInterval(() => {
+      setCarouselIndex(prev => (prev + 1) % allImages.length);
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [allImages.length]);
+
   if (!product) return <div className="p-8 text-center">Product not found</div>;
 
   // ✅ ONLY FLASH SALE CONTROLS DISCOUNT
@@ -34,16 +46,6 @@ export default function ProductDetail() {
 
   const stock = Number(product.stock) || 0;
   const isOutOfStock = product.stock !== undefined && stock <= 0;
-
-  const allImages = [product.image, ...(product.images || [])].filter(Boolean);
-
-  useEffect(() => {
-    if (allImages.length <= 1) return;
-    const timer = setInterval(() => {
-      setCarouselIndex(prev => (prev + 1) % allImages.length);
-    }, 2000);
-    return () => clearInterval(timer);
-  }, [allImages.length]);
 
   const handleAddToCart = () => {
     if (!storeOpen) {

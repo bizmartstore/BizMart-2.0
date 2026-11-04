@@ -27,7 +27,7 @@ export default function NotificationBell() {
       if (!isAdmin) {
         query = query.eq("user_id", user.id);
       } else {
-        query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+        query = query.or(`user_id.eq.${user.id},target_role.in.(main_admin,member_admin)`);
       }
 
       const { data, error } = await query;
@@ -110,7 +110,7 @@ export default function NotificationBell() {
         .eq("is_read", false);
 
       if (isAdmin) {
-        query = query.or(`user_id.eq.${user.id},target_role.eq.admin`);
+        query = query.or(`user_id.eq.${user.id},target_role.in.(main_admin,member_admin)`);
       } else {
         query = query.eq("user_id", user.id);
       }
@@ -140,7 +140,7 @@ export default function NotificationBell() {
         await (supabase as any)
           .from("notification_logs")
           .delete()
-          .or(`user_id.eq.${user.id},target_role.eq.admin`);
+          .or(`user_id.eq.${user.id},target_role.in.(main_admin,member_admin)`);
       } else {
         await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
       }
