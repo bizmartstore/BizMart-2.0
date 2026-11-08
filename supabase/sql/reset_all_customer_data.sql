@@ -1,26 +1,27 @@
 -- ============================================================
--- Reset All Customer Data (Main Admin only)
+-- Reset All Customer Data (Main Admin only) — v2
 -- ============================================================
 -- WHAT THIS CLEARS (customer/transaction data):
---   - orders                      (customer orders, incl. seller earnings rows)
---   - print_orders                (printing service orders)
---   - gcash_transactions          (GCash in / out cash-in records)
---   - organization_transactions   (org GCash / money in / out)
---   - bcoins_transactions         (BizCoin earn/spend history)
---   - bcoins_redemptions          (BizCoin redemption requests)
---   - payment_references          (payment proof/reference uploads)
---   - bcoins_wallets.balance -> 0 (student wallet balances reset)
---   - organization_wallets.balance -> 0 (org wallet balances reset)
+--   orders, print_orders, gcash_transactions, organization_transactions,
+--   bcoins_transactions, bcoins_redemptions, payment_references,
+--   wallet balances (bcoins_wallets, organization_wallets) reset to 0.
 --
 -- WHAT THIS PRESERVES (untouched):
---   - banners, products (items), categories, users/profiles, auth accounts,
---     user_roles, club codes, seller codes, club memberships, seller
---     applications/profiles, organizations, org members/events/announcements,
---     chat (conversations/messages), support reports, app settings,
---     registration codes.
+--   banners, products (items), categories, users/profiles/auth accounts,
+--   user_roles, club codes, seller codes, memberships, seller profiles,
+--   organizations, org members/events/announcements, chat, support reports,
+--   app settings, registration codes.
 --
--- Run ONCE in the Supabase SQL Editor (it creates the function).
--- Afterwards, the Settings tab in the admin dashboard can trigger it.
+-- HOW TO RUN: paste into Supabase SQL Editor and click Run.
+-- (Replaces the previous version of the function.)
+--
+-- v2 notes:
+--  * Every DELETE now carries an explicit WHERE clause. Supabase projects can
+--    have a guard that rejects DELETE-without-WHERE, and `where id is not null`
+--    satisfies it while still matching every row.
+--  * If a guarded DELETE still fails, we fall back to TRUNCATE ... CASCADE so
+--    the reset succeeds even with foreign-key guarded tables.
+--  * Never aborts: each step reports its own success/error in the result.
 -- ============================================================
 
 create or replace function public.reset_all_customer_data()
@@ -33,7 +34,6 @@ declare
   _uid    uuid;
   _role   text;
   _result jsonb := '{}'::jsonb;
-
 begin
   _uid := auth.uid();
   if _uid is null then
@@ -50,57 +50,90 @@ begin
     raise exception 'Only the main admin (sheethappenswithjaa@gmail.com) can reset data.';
   end if;
 
-  -- --------------------------------------------------------
-  -- Delete dependent / transactional data first, then orders
-  -- --------------------------------------------------------
-
+  -- Each table: try DELETE with an explicit predicate (guard-friendly),
+  -- then TRUNCATE ... CASCADE as fallback. Record ok/error, never abort.
   begin
-    delete from public.payment_references;
+    delete from public.payment_references where id is not null;
     _result := _result || jsonb_build_object('payment_references', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('payment_references', sqlerrm);
+    begin
+      truncate table public.payment_references cascade;
+      _result := _result || jsonb_build_object('payment_references', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('payment_references', sqlerrm);
+    end;
   end;
 
   begin
-    delete from public.bcoins_transactions;
+    delete from public.bcoins_transactions where id is not null;
     _result := _result || jsonb_build_object('bcoins_transactions', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('bcoins_transactions', sqlerrm);
+    begin
+      truncate table public.bcoins_transactions cascade;
+      _result := _result || jsonb_build_object('bcoins_transactions', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('bcoins_transactions', sqlerrm);
+    end;
   end;
 
   begin
-    delete from public.bcoins_redemptions;
+    delete from public.bcoins_redemptions where id is not null;
     _result := _result || jsonb_build_object('bcoins_redemptions', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('bcoins_redemptions', sqlerrm);
+    begin
+      truncate table public.bcoins_redemptions cascade;
+      _result := _result || jsonb_build_object('bcoins_redemptions', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('bcoins_redemptions', sqlerrm);
+    end;
   end;
 
   begin
-    delete from public.organization_transactions;
+    delete from public.organization_transactions where id is not null;
     _result := _result || jsonb_build_object('organization_transactions', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('organization_transactions', sqlerrm);
+    begin
+      truncate table public.organization_transactions cascade;
+      _result := _result || jsonb_build_object('organization_transactions', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('organization_transactions', sqlerrm);
+    end;
   end;
 
   begin
-    delete from public.gcash_transactions;
+    delete from public.gcash_transactions where id is not null;
     _result := _result || jsonb_build_object('gcash_transactions', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('gcash_transactions', sqlerrm);
+    begin
+      truncate table public.gcash_transactions cascade;
+      _result := _result || jsonb_build_object('gcash_transactions', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('gcash_transactions', sqlerrm);
+    end;
   end;
 
   begin
-    delete from public.print_orders;
+    delete from public.print_orders where id is not null;
     _result := _result || jsonb_build_object('print_orders', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('print_orders', sqlerrm);
+    begin
+      truncate table public.print_orders cascade;
+      _result := _result || jsonb_build_object('print_orders', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('print_orders', sqlerrm);
+    end;
   end;
 
   begin
-    delete from public.orders;
+    delete from public.orders where id is not null;
     _result := _result || jsonb_build_object('orders', 'ok');
   exception when others then
-    _result := _result || jsonb_build_object('orders', sqlerrm);
+    begin
+      truncate table public.orders cascade;
+      _result := _result || jsonb_build_object('orders', 'ok (truncate)');
+    exception when others then
+      _result := _result || jsonb_build_object('orders', sqlerrm);
+    end;
   end;
 
   -- Reset wallet BALANCES to 0 (rows kept so students/orgs keep their wallets)

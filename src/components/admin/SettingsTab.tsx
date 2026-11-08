@@ -144,14 +144,21 @@ export default function SettingsTab() {
 
       if (!rpcError) {
         const lines: string[] = [];
+        let allOk = true;
         for (const [table, status] of Object.entries(data || {})) {
-          lines.push(status === "ok" ? `✅ ${table.replace(/_/g, " ")} cleared` : `⚠️ ${table.replace(/_/g, " ")}: ${status}`);
+          const ok = status === "ok" || (typeof status === "string" && status.startsWith("ok"));
+          if (!ok) allOk = false;
+          lines.push(ok ? `✅ ${table.replace(/_/g, " ")} cleared` : `⚠️ ${table.replace(/_/g, " ")}: ${status}`);
         }
         setResetSummary(lines);
-        toast.success("All customer data has been reset. Refreshing dashboard...");
-        // Reload so every tab and stat (Overview, Orders, GCash, Print)
-        // immediately reflects the cleared data.
-        setTimeout(() => window.location.reload(), 2000);
+        if (allOk) {
+          toast.success("All customer data has been reset. Refreshing dashboard...");
+          // Reload so every tab and stat (Overview, Orders, GCash, Print)
+          // immediately reflects the cleared data.
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          toast.error("Reset finished, but some steps failed — see the report below.");
+        }
         return;
       }
 
@@ -186,9 +193,7 @@ export default function SettingsTab() {
 
       setResetSummary(lines);
       if (failed) {
-        toast.warning("Some tables could not be cleared.", {
-          description: "Run supabase/sql/reset_all_customer_data.sql in the Supabase SQL Editor to enable the secure reset.",
-        });
+        toast.error("Reset finished, but some steps failed — see the report below.");
       } else {
         toast.success("All customer data has been reset. Refreshing dashboard...");
         // Reload so every tab and stat immediately reflects the cleared data.
@@ -294,6 +299,13 @@ export default function SettingsTab() {
                 {line}
               </p>
             ))}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-2 w-full text-[10px] font-bold text-primary hover:underline"
+            >
+              Reload dashboard now
+            </button>
           </div>
         )}
       </div>
