@@ -75,11 +75,38 @@ export async function ensureUserRecords(user: User): Promise<void> {
   const email = user.email || "";
   const google = deriveGoogleIdentity(meta);
 
-  const { data: existingProfile } = await supabase
+  let { data: existingProfile } = await supabase
     .from("profiles")
     .select("id, user_id, first_name, last_name, avatar_url, school, grade_level, section")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  // Adoption: if the current auth user has no profile row yet, but an older
+  // row exists for the SAME EMAIL (created under a legacy email/password
+  // sign-in or before the Google-only switch), adopt it instead of creating
+  // a fresh "customer" row. This preserves the manual role (e.g.
+  // member_admin) and any data the user already had.
+  if (!existingProfile && email) {
+    try {
+      const { data: legacyByEmail } = await supabase
+        .from("profiles")
+        .select("id, user_id")
+        .eq("email", email)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (legacyByEmail) {
+        await supabase
+          .from("profiles")
+          .update({ id: user.id, user_id: user.id } as any)
+          .eq("id", legacyByEmail.id);
+        existingProfile = legacyByEmail as any;
+      }
+    } catch (err) {
+      console.warn("[auth] profile adoption lookup skipped:", err);
+    }
+  }
 
   const adminRole = ADMIN_EMAIL_ROLES[email.toLowerCase()];
 

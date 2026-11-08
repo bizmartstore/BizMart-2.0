@@ -60,9 +60,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await ensureUserRecords(currentUser);
 
         // 1. Fetch Profile (match on user_id; fall back to id for legacy rows)
-        const { data: profData } = await (supabase as any).from("profiles").select("*")
+        let profData = await (supabase as any).from("profiles").select("*")
           .or(`user_id.eq.${currentUser.id},id.eq.${currentUser.id}`)
           .maybeSingle();
+
+        // 1b. Adoption: fall back to a legacy profile row keyed to the same
+        // email (e.g. created before the Google-only switch or under an old
+        // email/password account) so manual roles like member_admin survive.
+        if (!profData && currentUser.email) {
+          try {
+            const { data: legacyByEmail } = await (supabase as any).from("profiles")
+              .select("*")
+              .eq("email", currentUser.email)
+              .order("created_at", { ascending: true })
+              .limit(1)
+              .maybeSingle();
+            if (legacyByEmail) {
+              await (supabase as any).from("profiles")
+                .update({ id: currentUser.id, user_id: currentUser.id })
+                .eq("id", legacyByEmail.id);
+              profData = legacyByEmail;
+            }
+          } catch (err) {
+            console.warn("[AuthContext] legacy profile lookup skipped:", err);
+          }
+        }
 
         // 2. Fetch Role (prioritize user_roles, fall back to profiles.role for legacy users)
         const { data: roleData } = await (supabase as any).from("user_roles").select("role").eq("user_id", currentUser.id).maybeSingle();
