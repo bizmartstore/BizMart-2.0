@@ -27,7 +27,9 @@ export default function UsersTab() {
       
       const enriched = (profiles || []).map((p: any) => ({
         ...p,
-        role: roleMap[p.user_id] || "customer",
+        // Effective role: user_roles entry wins; fall back to profiles.role
+        // (the source of truth for roles granted directly in Supabase).
+        role: roleMap[p.user_id] || (p as any).role || "customer",
       }));
       setUsers(enriched);
     } catch (e: any) {
