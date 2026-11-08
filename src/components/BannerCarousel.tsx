@@ -33,7 +33,7 @@ export default function BannerCarousel() {
               // until they slide into view.
               loading={i === 0 ? "eager" : "lazy"}
               decoding="async"
-              fetchpriority={i === 0 ? "high" : undefined}
+              fetchPriority={i === 0 ? "high" : undefined}
             />
           </div>
         ))}
