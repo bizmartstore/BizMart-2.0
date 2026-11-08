@@ -2,20 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { CartProvider } from "@/context/CartContext";
 import AdminAutoRedirect from "@/components/AdminAutoRedirect";
+import ProfileSetupGuard from "@/components/ProfileSetupGuard";
 import SplashScreen from "@/components/SplashScreen";
 import { useFCM } from "@/hooks/useFCM";
 
 // Pages (unchanged)
 import Index from "@/pages/Index";
 import LoginPage from "@/pages/LoginPage";
-import SignUpPage from "@/pages/SignUpPage";
+import SetupProfilePage from "@/pages/SetupProfilePage";
 import SearchPage from "@/pages/SearchPage";
 import CategoriesPage from "@/pages/CategoriesPage";
 import MarketplacePage from "@/pages/MarketplacePage";
@@ -91,10 +92,12 @@ function AppContent() {
       <TooltipProvider>
         <BrowserRouter basename={import.meta.env.BASE_URL}>
           <AdminAutoRedirect />
+          <ProfileSetupGuard />
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/signup" element={<Navigate to="/login" replace />} />
+            <Route path="/setup-profile" element={<SetupProfilePage />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/marketplace" element={<MarketplacePage />} />

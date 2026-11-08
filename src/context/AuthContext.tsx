@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { ensureUserRecords } from "@/lib/auth";
+import { ensureUserRecords, isProfileComplete } from "@/lib/auth";
 
 export interface Profile {
   id: string;
@@ -25,6 +25,10 @@ interface AuthContextType {
   membership: any | null;
   loading: boolean;
   isAuthReady: boolean;
+  /** True once the profile row (if any) has finished loading for the current user. */
+  profileLoading: boolean;
+  /** True when the student has filled in all one-time setup fields. */
+  profileComplete: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -38,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [membership, setMembership] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthReady, setIsAuthReady] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileComplete, setProfileComplete] = useState(false);
   
   const fetchProfileRef = useRef<Promise<void> | null>(null);
   const requestIdRef = useRef(0);
@@ -48,6 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentRequestId = ++requestIdRef.current;
     
     const fetchPromise = (async () => {
+      setProfileLoading(true);
       try {
         // 0. Ensure the user has a profile + wallet in the database
         await ensureUserRecords(currentUser);
@@ -72,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (roleData?.role || profData?.role) localStorage.setItem(`user_role_${currentUser.id}`, role);
 
         setMembership(memData);
+        setProfileComplete(isProfileComplete(profData));
         setProfile({
           id: currentUser.id,
           first_name: profData?.first_name || currentUser.user_metadata?.first_name || 'Student',
@@ -87,6 +95,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.warn("[AuthContext] Fetch issue:", err);
       } finally {
+        if (mountedRef.current && currentRequestId === requestIdRef.current) {
+          setProfileLoading(false);
+        }
         if (fetchProfileRef.current === fetchPromise) fetchProfileRef.current = null;
       }
     })();
@@ -113,10 +124,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(s?.user ?? null);
         setLoading(false);
         setIsAuthReady(true);
-        if (s?.user) fetchProfile(s.user);
+        if (s?.user) {
+          fetchProfile(s.user);
+        } else {
+          setProfileLoading(false);
+          setProfileComplete(false);
+        }
       } catch (err) {
         console.warn("[AuthContext] init error:", err);
-        if (isMounted) { setLoading(false); setIsAuthReady(true); }
+        if (isMounted) {
+          setLoading(false);
+          setIsAuthReady(true);
+          setProfileLoading(false);
+          setProfileComplete(false);
+        }
       }
     };
     init();
@@ -130,9 +151,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         fetchProfile(s.user);
       } else if (event === 'SIGNED_OUT') {
         setProfile(null); setMembership(null); setLoading(false); setIsAuthReady(true);
+        setProfileComplete(false); setProfileLoading(false);
         requestIdRef.current++; fetchProfileRef.current = null;
       } else {
         setLoading(false); setIsAuthReady(prev => prev || true);
+        if (!s?.user) {
+          setProfileComplete(false);
+          setProfileLoading(false);
+        }
       }
     });
 
@@ -155,11 +181,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null); setSession(null); setProfile(null); setMembership(null); setIsAuthReady(true);
+    setProfileComplete(false); setProfileLoading(false);
     if (user) localStorage.removeItem(`user_role_${user.id}`);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, membership, loading, isAuthReady, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, membership, loading, isAuthReady, profileLoading, profileComplete, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

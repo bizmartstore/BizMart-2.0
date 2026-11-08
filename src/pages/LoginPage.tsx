@@ -1,115 +1,96 @@
-import { useState, useEffect } from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { getSiteUrl } from "@/lib/auth";
+import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { toast } from "@/hooks/use-toast";
-import { Eye, EyeOff, RefreshCw, AlertCircle } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const LOGO_URL = "https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/bizmart-7an2vg/assets/wg7i8epdpxf3/BIZMART.png";
 
+function GoogleIcon() {
+  return (
+    <svg className="h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.3 9.14 5.38 12 5.38z"
+      />
+    </svg>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
+  const { user, profile, profileComplete, profileLoading, isAuthReady } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [unconfirmed, setUnconfirmed] = useState(false);
-  const [resending, setResending] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  // Detect errors from the URL hash (e.g. after clicking an expired link)
+  // Surface OAuth callback errors (they can arrive in the query string or hash).
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes("error_code=otp_expired") || hash.includes("error=access_denied")) {
-      setUnconfirmed(true);
-      setErrorMsg("The verification link has expired or was already used. Please request a new one below.");
-      toast({ 
-        title: "Link Expired", 
-        description: "Please request a new verification link.", 
-        variant: "destructive" 
-      });
-      // Clean up the hash
+    const search = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const description = search.get("error_description") || hash.get("error_description");
+    const code = search.get("error") || hash.get("error");
+
+    if (description || code) {
+      setErrorMsg((description || code || "Google sign-in failed.").replace(/\+/g, " "));
       window.history.replaceState(null, "", window.location.pathname);
     }
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setUnconfirmed(false);
-    setErrorMsg(null);
-    
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    
-    if (error) {
-      if (error.message.toLowerCase().includes("email not confirmed")) {
-        setUnconfirmed(true);
-        setErrorMsg("You need to confirm your email before you can log in.");
-        toast({ 
-          title: "Email not verified", 
-          description: "Please check your Gmail to confirm your account.", 
-          variant: "destructive" 
-        });
-      } else {
-        toast({ title: "Login failed", description: error.message, variant: "destructive" });
-      }
+  // Once the session + profile are resolved (including the return trip from
+  // Google), send the user to the right place.
+  useEffect(() => {
+    if (!isAuthReady || !user || profileLoading) return;
+
+    const role = profile?.role;
+    if (role === "main_admin" || role === "member_admin") {
+      navigate("/admin", { replace: true });
+    } else if (role === "guidance") {
+      navigate("/guidance", { replace: true });
+    } else if (!profileComplete) {
+      navigate("/setup-profile", { replace: true });
     } else {
-      toast({ title: "Welcome back! 🎉" });
-      if (data.user) {
-        // Check user role from database (no hardcoded email checks)
-        const { data: roleRecord } = await (supabase as any)
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", data.user.id)
-          .maybeSingle();
-
-        if (roleRecord?.role === 'main_admin' || roleRecord?.role === 'member_admin') {
-          navigate("/admin");
-          return;
-        }
-
-        // Fall back to profiles.role for users without a user_roles row
-        const { data: profData } = await (supabase as any)
-          .from("profiles")
-          .select("role")
-          .or(`user_id.eq.${data.user.id},id.eq.${data.user.id}`)
-          .maybeSingle();
-
-        if (profData?.role === 'main_admin' || profData?.role === 'member_admin') {
-          navigate("/admin");
-          return;
-        }
-      }
-      navigate("/");
+      navigate("/", { replace: true });
     }
-  };
+  }, [isAuthReady, user, profile?.role, profileLoading, profileComplete, navigate]);
 
-  const handleResend = async () => {
-    if (!email) {
-      toast({ title: "Email required", description: "Please enter your email address first.", variant: "destructive" });
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${getSiteUrl()}/login`,
+        queryParams: { prompt: "select_account" },
+      },
+    });
+
+    if (error) {
+      setLoading(false);
+      setErrorMsg(error.message);
+      toast.error("Google sign-in failed", { description: error.message });
       return;
     }
-    setResending(true);
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: email,
-      options: {
-        emailRedirectTo: `${getSiteUrl()}/login`,
-      }
-    });
-    setResending(false);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Link sent! 📧", description: "Check your Gmail inbox for the new verification link." });
-      setErrorMsg("A new link has been sent to your email. Please check your inbox.");
-    }
+
+    // Success -> the browser is redirected to Google, so keep the spinner on.
   };
+
+  const signingIn = loading || (!!user && profileLoading);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -118,76 +99,53 @@ export default function LoginPage() {
         <p className="text-secondary-foreground/70 text-sm">Your campus store, anytime!</p>
       </div>
 
-      <div className="flex-1 px-5 pt-8">
-        <h2 className="text-xl font-extrabold text-foreground mb-1">Welcome Back!</h2>
-        <p className="text-sm text-muted-foreground mb-6">Log in to continue shopping</p>
+      <div className="flex-1 px-5 pt-10 pb-8 flex flex-col">
+        <div className="text-center mb-8">
+          <h2 className="text-xl font-extrabold text-foreground mb-1">Welcome to BizMart!</h2>
+          <p className="text-sm text-muted-foreground">
+            Sign in with your Google account to continue.
+          </p>
+        </div>
 
-        {unconfirmed && (
-          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center gap-2 mb-2">
+        {errorMsg && (
+          <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-2xl">
+            <div className="flex items-center gap-2 mb-1">
               <AlertCircle className="h-4 w-4 text-destructive" />
-              <span className="text-xs font-bold text-destructive">Verification Required</span>
+              <span className="text-xs font-bold text-destructive">Sign-in failed</span>
             </div>
-            <p className="text-[11px] text-destructive/80 mb-3 leading-relaxed">
-              {errorMsg || "You need to confirm your email before you can log in. Check your Gmail inbox for the verification link."}
-            </p>
-            <Button 
-              onClick={handleResend} 
-              disabled={resending}
-              variant="outline" 
-              size="sm" 
-              className="w-full h-9 text-[10px] font-bold border-destructive/30 text-destructive hover:bg-destructive/5"
-            >
-              {resending ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <RefreshCw className="h-3 w-3 mr-1.5" />}
-              Resend Verification Link
-            </Button>
+            <p className="text-[11px] text-destructive/80 leading-relaxed">{errorMsg}</p>
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-xs font-bold">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="student@school.edu"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-          </div>
+        <Button
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={signingIn}
+          className="w-full h-12 text-sm font-bold rounded-xl gap-3 bg-white text-foreground border border-input hover:bg-muted/60 disabled:opacity-70 shadow-sm"
+        >
+          {signingIn ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Signing in...
+            </>
+          ) : (
+            <>
+              <GoogleIcon />
+              Continue with Google
+            </>
+          )}
+        </Button>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-xs font-bold">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-              >
-                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-          </div>
+        <p className="text-center text-[11px] text-muted-foreground mt-4 leading-relaxed">
+          Use your school or personal Google account.
+          <br />
+          No password needed — BizMart never sees it.
+        </p>
 
-          <Button type="submit" className="w-full h-12 text-sm font-bold rounded-xl" disabled={loading}>
-            {loading ? "Logging in..." : "Log In"}
-          </Button>
-        </form>
+        <div className="flex-1" />
 
-        <p className="text-center text-sm text-muted-foreground mt-6">
-          Don't have an account?{" "}
-          <Link to="/signup" className="text-primary font-bold">
-            Sign Up
-          </Link>
+        <p className="text-center text-[10px] text-muted-foreground">
+          By continuing, you agree to BizMart's terms and privacy policy.
         </p>
       </div>
     </div>
