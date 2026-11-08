@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { playCustomerNotificationSound, playAdminNotificationSound } from "@/lib/notificationSound";
+import { toast } from "sonner";
 import { Bell, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -13,55 +14,81 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const lastNotificationId = useRef<string | null>(null);
 
-  const loadNotifications = useCallback(async () => {
-    if (!user) return;
-    try {
-      let query = (supabase as any)
-        .from("notification_logs")
-        .select("*")
-        .order("created_at", { ascending: false });
+  // Sound engine state:
+  // - mountTime: notifications made BEFORE this moment are "old news" and must
+  //   never ring, even if still unread. This is what stops the ring replaying
+  //   every time the user leaves a tab and comes back.
+  // - seenIds: notifications already surfaced this session. Only an id that is
+  //   fresh (created after mount) and not yet seen will play the sound.
+  const mountTimeRef = useRef<number>(Date.now());
+  const seenIdsRef = useRef<Set<string> | null>(null);
 
-      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
-      if (!isAdmin) {
-        query = query.eq("user_id", user.id);
-      } else {
-        query = query.or(`user_id.eq.${user.id},target_role.in.(main_admin,member_admin)`);
-      }
+  const isAdminView =
+    profile?.role === "main_admin" || profile?.role === "member_admin";
 
-      const { data, error } = await query;
+  const visibilityFilter = useCallback(() => {
+    if (!user) return null;
+    // 'admin' kept for older rows that used the shorter role name.
+    if (isAdminView) {
+      return `user_id.eq.${user.id},target_role.in.(main_admin,member_admin,admin)`;
+    }
+    return `user_id.eq.${user.id},target_role.eq.customer`;
+  }, [user, isAdminView]);
 
-      if (error) {
-        console.error("Failed to load notifications:", error);
-        return;
-      }
+  const loadNotifications = useCallback(
+    async (opts?: { playSoundForNew?: boolean }) => {
+      if (!user) return;
+      try {
+        const filter = visibilityFilter();
+        let query = (supabase as any)
+          .from("notification_logs")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-      const notifs = data || [];
-      setNotifications(notifs);
+        if (filter) query = query.or(filter);
 
-      const newUnread = notifs.filter((n: any) => !n.is_read).length;
-      setUnreadCount(newUnread);
+        const { data, error } = await query;
+        if (error) {
+          console.error("Failed to load notifications:", error);
+          return;
+        }
 
-      if (newUnread > 0 && notifs.length > 0) {
-        const latest = notifs[0];
-        if (latest.id !== lastNotificationId.current) {
-          lastNotificationId.current = latest.id;
-          const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
-          if (isAdmin) {
-            playAdminNotificationSound();
-          } else {
-            playCustomerNotificationSound();
+        const notifs = (data || []) as any[];
+        setNotifications(notifs);
+        setUnreadCount(notifs.filter((n) => !n.is_read).length);
+
+        // Record what we've seen; decide whether to ring.
+        const previous = seenIdsRef.current;
+        const freshUnreadIds = notifs
+          .filter((n) => !n.is_read && new Date(n.created_at).getTime() > mountTimeRef.current - 5000)
+          .map((n) => n.id);
+
+        if (previous === null) {
+          // First load: baseline only, never ring.
+          seenIdsRef.current = new Set(notifs.map((n) => n.id));
+        } else if (opts?.playSoundForNew !== false) {
+          const brandNew = freshUnreadIds.filter((id) => !previous.has(id));
+          if (brandNew.length > 0) {
+            brandNew.forEach((id) => previous.add(id));
+            if (isAdminView) {
+              playAdminNotificationSound();
+            } else {
+              playCustomerNotificationSound();
+            }
           }
         }
+        // Keep the seen-set current for read ones too.
+        notifs.forEach((n) => seenIdsRef.current?.add(n.id));
+      } catch (error) {
+        console.error("Failed to load notifications:", error);
       }
-    } catch (error) {
-      console.error("Failed to load notifications:", error);
-    }
-  }, [user, profile]);
+    },
+    [user, visibilityFilter, isAdminView]
+  );
 
   useEffect(() => {
-    loadNotifications();
+    loadNotifications({ playSoundForNew: false });
 
     if (!user) return;
     const channel = supabase
@@ -69,7 +96,7 @@ export default function NotificationBell() {
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "notification_logs" },
-        () => { loadNotifications(); }
+        () => loadNotifications()
       )
       .on(
         "postgres_changes",
@@ -83,71 +110,124 @@ export default function NotificationBell() {
             }
             return updated;
           });
+          setUnreadCount((prev) => {
+            if (payload.new.is_read) return Math.max(0, prev - 1);
+            return prev + 1;
+          });
         }
       )
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   const markAsRead = async (id: string) => {
     if (!id) return;
     try {
-      await (supabase as any).from("notification_logs").update({ is_read: true }).eq("id", id);
-      await loadNotifications();
-    } catch (error) {
+      const { error } = await (supabase as any)
+        .from("notification_logs")
+        .update({ is_read: true })
+        .eq("id", id);
+      if (error) throw error;
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error: any) {
       console.error("Failed to mark notification as read:", error);
+      toast.error("Could not mark as read", { description: error?.message });
     }
   };
 
   const markAllAsRead = async () => {
     if (!user) return;
     try {
-      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
       let query = (supabase as any)
         .from("notification_logs")
         .update({ is_read: true })
         .eq("is_read", false);
 
-      if (isAdmin) {
-        query = query.or(`user_id.eq.${user.id},target_role.in.(main_admin,member_admin)`);
-      } else {
-        query = query.eq("user_id", user.id);
-      }
+      const filter = visibilityFilter();
+      if (filter) query = query.or(filter);
 
       const { error } = await query;
       if (error) throw error;
-      await loadNotifications();
-    } catch (error) {
-      console.error("Failed to mark all notifications as read:", error);
+
+      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      setUnreadCount(0);
+
+      // Confirm nothing was blocked (e.g. missing DB permission).
+      const { data: unreadLeft, error: checkError } = await (supabase as any)
+        .from("notification_logs")
+        .select("id")
+        .eq("is_read", false)
+        .or(filter!);
+
+      if (!checkError && unreadLeft && unreadLeft.length > 0) {
+        toast.error("Some notifications could not be marked as read", {
+          description: "The database blocked it. Run supabase/sql/fix_notification_logs_rls.sql in the Supabase SQL Editor to enable it.",
+        });
+      }
+
+      await loadNotifications({ playSoundForNew: false });
+    } catch (error: any) {
+      console.error("Failed to mark all as read:", error);
+      toast.error("Could not mark all as read", { description: error?.message });
     }
   };
 
   const deleteNotification = async (id: string) => {
     try {
-      await (supabase as any).from("notification_logs").delete().eq("id", id);
-      await loadNotifications();
-    } catch (error) {
+      const { error } = await (supabase as any)
+        .from("notification_logs")
+        .delete()
+        .eq("id", id);
+      if (error) throw error;
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      setUnreadCount((prev) => {
+        const wasUnread = notifications.find((n) => n.id === id && !n.is_read);
+        return wasUnread ? Math.max(0, prev - 1) : prev;
+      });
+    } catch (error: any) {
       console.error("Failed to delete notification:", error);
+      toast.error("Could not delete notification", { description: error?.message });
     }
   };
 
   const clearAll = async () => {
+    if (!user) return;
     try {
-      const isAdmin = profile?.role === "main_admin" || profile?.role === "member_admin";
-      if (isAdmin) {
-        // Admins clear all notifications visible to them (targeted to admin or their user_id)
-        await (supabase as any)
-          .from("notification_logs")
-          .delete()
-          .or(`user_id.eq.${user.id},target_role.in.(main_admin,member_admin)`);
-      } else {
-        await (supabase as any).from("notification_logs").delete().eq("user_id", user.id);
-      }
+      let query = (supabase as any)
+        .from("notification_logs")
+        .delete();
+
+      const filter = visibilityFilter();
+      if (filter) query = query.or(filter);
+
+      const { error } = await query;
+      if (error) throw error;
+
       setNotifications([]);
       setUnreadCount(0);
-    } catch (error) {
+
+      // Confirm from the database — if rows survive (blocked write), warn.
+      const { data: stillThere, error: checkError } = await (supabase as any)
+        .from("notification_logs")
+        .select("id")
+        .or(filter!);
+      if (!checkError && stillThere && stillThere.length > 0) {
+        toast.error("Some notifications could not be deleted", {
+          description: "The database blocked it. Run supabase/sql/fix_notification_logs_rls.sql in the Supabase SQL Editor to enable clearing.",
+        });
+      }
+    } catch (error: any) {
       console.error("Failed to clear notifications:", error);
+      toast.error("Could not clear notifications", { description: error?.message });
+    } finally {
+      await loadNotifications({ playSoundForNew: false });
     }
   };
 
