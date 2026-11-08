@@ -22,7 +22,6 @@ import BCoinsTab from "@/components/admin/BCoinsTab";
 import GCashTab from "@/components/admin/GCashTab";
 import SellersTab from "@/components/admin/SellersTab";
 import SettingsTab from "@/components/admin/SettingsTab";
-import MemberAdminSettingsTab from "@/components/admin/MemberAdminSettingsTab";
 import BannerTab from "@/components/admin/BannerTab";
 import BroadcastTab from "@/components/admin/BroadcastTab";
 const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
@@ -46,17 +45,34 @@ const getAvailableTabs = (isMainAdmin: boolean, pendingCounts: any) => {
   ];
 
   if (isMainAdmin) {
+    // The main admin sees everything, including Settings (with the Reset All control).
     baseTabs.push({ id: "settings", label: "Settings", icon: <Settings2 className="h-4 w-4 text-gray-500" />, badge: null });
+    return baseTabs;
   }
 
-  return baseTabs;
+  // Member admin: restricted access — view orders, products, edit categories,
+  // print orders, chat, club codes, pending organizations, news/updates and
+  // GCash in/out. Everything else (overview, users, sellers, banners, club,
+  // bcoins, broadcast, settings...) is hidden.
+  const memberAllowed = new Set([
+    "orders",
+    "products",
+    "categories",
+    "print",
+    "messages",
+    "codes",
+    "organizations",
+    "news",
+    "gcash",
+  ]);
+  return baseTabs.filter((tab) => memberAllowed.has(tab.id));
 };
 
 export default function AdminDashboard() {
   const { user, profile, isAuthReady } = useAuth();
   const { isAdmin, isMainAdmin } = useAdmin();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState(isMainAdmin ? "overview" : "orders");
   const [pendingCounts, setPendingCounts] = useState({
     orders: 0,
     print: 0,
@@ -115,6 +131,14 @@ export default function AdminDashboard() {
   }, [isAuthReady, isAdmin, loadPendingCounts]);
 
   const availableTabs = getAvailableTabs(isMainAdmin, pendingCounts);
+
+  // If the active tab is not available for this role (e.g. a member admin
+  // landing on Overview, or role resolving after mount), fall to the first tab.
+  useEffect(() => {
+    if (availableTabs.length > 0 && !availableTabs.some((t) => t.id === activeTab)) {
+      setActiveTab(availableTabs[0].id);
+    }
+  }, [availableTabs, activeTab]);
 
   if (!isAuthReady) {
     return (
@@ -177,11 +201,7 @@ export default function AdminDashboard() {
           <TabsContent value="club"><ClubTab /></TabsContent>
           <TabsContent value="bcoins"><BCoinsTab /></TabsContent>
           <TabsContent value="gcash"><GCashTab /></TabsContent>
-          {isMainAdmin ? (
-            <TabsContent value="settings"><SettingsTab /></TabsContent>
-          ) : (
-            <TabsContent value="settings"><MemberAdminSettingsTab /></TabsContent>
-          )}
+          <TabsContent value="settings"><SettingsTab /></TabsContent>
         </Tabs>
       </div>
       <BottomNav />
