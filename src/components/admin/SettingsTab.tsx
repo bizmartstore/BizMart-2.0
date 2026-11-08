@@ -148,7 +148,10 @@ export default function SettingsTab() {
           lines.push(status === "ok" ? `✅ ${table.replace(/_/g, " ")} cleared` : `⚠️ ${table.replace(/_/g, " ")}: ${status}`);
         }
         setResetSummary(lines);
-        toast.success("All customer data has been reset.");
+        toast.success("All customer data has been reset. Refreshing dashboard...");
+        // Reload so every tab and stat (Overview, Orders, GCash, Print)
+        // immediately reflects the cleared data.
+        setTimeout(() => window.location.reload(), 2000);
         return;
       }
 
@@ -187,7 +190,9 @@ export default function SettingsTab() {
           description: "Run supabase/sql/reset_all_customer_data.sql in the Supabase SQL Editor to enable the secure reset.",
         });
       } else {
-        toast.success("All customer data has been reset.");
+        toast.success("All customer data has been reset. Refreshing dashboard...");
+        // Reload so every tab and stat immediately reflects the cleared data.
+        setTimeout(() => window.location.reload(), 2000);
       }
     } catch (e: any) {
       toast.error(e.message || "Reset failed");
