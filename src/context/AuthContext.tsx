@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await ensureUserRecords(currentUser);
 
         // 1. Fetch Profile (match on user_id; fall back to id for legacy rows)
-        let profData = await (supabase as any).from("profiles").select("*")
+        let { data: profData } = await (supabase as any).from("profiles").select("*")
           .or(`user_id.eq.${currentUser.id},id.eq.${currentUser.id}`)
           .maybeSingle();
 
